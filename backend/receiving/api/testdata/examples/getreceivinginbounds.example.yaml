@@ -1,0 +1,25 @@
+---
+operation: GetReceivingInbounds
+name: "Get Receiving Inbounds"
+description: >
+  Lists receiving inbounds with pagination and ordering.
+vars:
+  first: 10
+  orderBy:
+    direction: DESC
+    field: CREATED_AT
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Connection structure is valid"
+    assertions:
+      - ref: res.body.data.receivingInbounds
+        nil: false
+      - ref: res.body.data.receivingInbounds.totalCount
+        nil: false

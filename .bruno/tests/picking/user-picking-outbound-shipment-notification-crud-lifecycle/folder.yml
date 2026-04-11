@@ -1,0 +1,11 @@
+info:
+  name: User - Picking Outbound Shipment Notification CRUD Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Full CRUD lifecycle for outbound shipment notifications. Creates a parent order, then creates/reads/deletes a notification with field verification and filter queries.
+
+
+request:
+  auth: inherit

@@ -1,0 +1,27 @@
+---
+operation: UpdateInventoryItem
+name: "Update Inventory Item"
+description: >
+  Updates an existing inventory item. Supply any fields to change (sku, data, dataTypeID, dataTypeSlug);
+  omitted fields are left unchanged.
+vars:
+  id: {$placeholder: "inventory item ID"}
+  input:
+    sku: "WIDGET-UPDATED"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Inventory item updated"
+    assertions:
+      - ref: res.body.data.updateInventoryItem.inventoryItem
+        nil: false
+      - ref: res.body.data.updateInventoryItem.inventoryItem.id
+        nil: false
+      - ref: res.body.data.updateInventoryItem.inventoryItem.sku
+        equal: "WIDGET-UPDATED"

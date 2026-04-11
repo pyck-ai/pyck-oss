@@ -1,0 +1,10 @@
+info:
+  name: User - Retrieve File Service Info
+  type: folder
+  seq: 1
+
+docs: |-
+  Verifies that the file service info endpoint returns a version and date.
+
+request:
+  auth: inherit

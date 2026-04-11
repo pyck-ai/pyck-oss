@@ -1,0 +1,140 @@
+---
+name: "User - Group CRUD Lifecycle"
+description: >
+  Creates a group, verifies it appears in list and single-item queries,
+  updates it, and deletes it. Skipped when the token lacks admin role.
+steps:
+  - id: checkRole
+    name: "Check role"
+    operation: management.getMe
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+
+  - id: create
+    name: "Create group"
+    operation: management.createGroup
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      input:
+        name: "Warehouse Operators"
+        description: "Group for warehouse floor operators"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Group created"
+        assertions:
+          - ref: res.body.data.createGroup.id
+            nil: false
+      - msg: "Name persisted"
+        assertions:
+          - ref: res.body.data.createGroup.name
+            equal: "Warehouse Operators"
+
+  - name: "Query group by ID (list)"
+    operation: management.getGroups
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createGroup.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one group"
+        assertions:
+          - ref: res.body.data.groups.totalCount
+            equal: 1
+
+  - name: "Get group by ID (single)"
+    operation: management.getGroup
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      id: {$ref: "res[create].body.data.createGroup.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Group returned"
+        assertions:
+          - ref: res.body.data.group.id
+            equal: {$ref: "res[create].body.data.createGroup.id"}
+
+  - name: "Update group"
+    operation: management.updateGroup
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      id: {$ref: "res[create].body.data.createGroup.id"}
+      input:
+        name: "Warehouse Operators Updated"
+        description: "Updated group description"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Name updated"
+        assertions:
+          - ref: res.body.data.updateGroup.name
+            equal: "Warehouse Operators Updated"
+
+  - name: "Delete group"
+    operation: management.deleteGroup
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      id: {$ref: "res[create].body.data.createGroup.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteGroup
+            equal: {$ref: "res[create].body.data.createGroup.id"}

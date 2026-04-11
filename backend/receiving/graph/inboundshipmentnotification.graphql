@@ -1,0 +1,6 @@
+extend input ReceivingInboundShipmentNotificationWhereInput {
+    Data: [String!]
+    DataHasKey: String
+    DataIn: [String!]
+    DataContains: [String!]
+}

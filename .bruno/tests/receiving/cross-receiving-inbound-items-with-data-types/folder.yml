@@ -1,0 +1,11 @@
+info:
+  name: Cross - Receiving Inbound Items With Data Types
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates separate data types for inbounds and items, then creates an inbound with inline items that each have their own data type. Verifies data types and data are persisted on both levels.
+
+
+request:
+  auth: inherit

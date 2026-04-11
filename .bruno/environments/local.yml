@@ -1,0 +1,41 @@
+name: local
+variables:
+  - secret: true
+    name: env_pyck_token
+  - name: env_pyck_tenant_id
+    value: all
+    disabled: true
+  - name: env_baseurl
+    value: http://localhost
+  - name: env_baseurl_gateway
+    value: "{{env_baseurl}}:4000"
+  - name: env_baseurl_gateway_query
+    value: "{{env_baseurl_gateway}}"
+  - name: env_baseurl_file
+    value: "{{env_baseurl}}:8088"
+  - name: env_baseurl_file_query
+    value: "{{env_baseurl_file}}/query"
+  - name: env_baseurl_inventory
+    value: "{{env_baseurl}}:8084"
+  - name: env_baseurl_inventory_query
+    value: "{{env_baseurl_inventory}}/query"
+  - name: env_baseurl_maindata
+    value: "{{env_baseurl}}:8081"
+  - name: env_baseurl_maindata_query
+    value: "{{env_baseurl_maindata}}/query"
+  - name: env_baseurl_management
+    value: "{{env_baseurl}}:8082"
+  - name: env_baseurl_management_query
+    value: "{{env_baseurl_management}}/query"
+  - name: env_baseurl_picking
+    value: "{{env_baseurl}}:8086"
+  - name: env_baseurl_picking_query
+    value: "{{env_baseurl_picking}}/query"
+  - name: env_baseurl_receiving
+    value: "{{env_baseurl}}:8087"
+  - name: env_baseurl_receiving_query
+    value: "{{env_baseurl_receiving}}/query"
+  - name: env_baseurl_workflow
+    value: "{{env_baseurl}}:8089"
+  - name: env_baseurl_workflow_query
+    value: "{{env_baseurl_workflow}}/query"

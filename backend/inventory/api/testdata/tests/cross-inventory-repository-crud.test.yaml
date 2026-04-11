@@ -1,0 +1,210 @@
+---
+name: "Cross - Inventory Repository CRUD Lifecycle"
+description: >
+  Full CRUD lifecycle for repositories. Creates static repos,
+  queries by name and type, updates layout and data, deletes,
+  and verifies soft-delete behavior.
+steps:
+  - id: createDT
+    name: "Create data type for repositories"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Repo Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "repository"
+        jsonSchema: '{"type":"object","properties":{"zone":{"type":"string"},"temperature":{"type":"string","enum":["ambient","cold","frozen"]}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: create
+    name: "Create static repository"
+    operation: inventory.createInventoryRepository
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        name: {$fake: "{{uuid}}"}
+        type: static
+        layout: "grid-4x4"
+        data:
+          zone: "A"
+          temperature: "ambient"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Repository created"
+        assertions:
+          - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+            nil: false
+          - ref: res.body.data.createInventoryRepository.inventoryRepository.type
+            equal: "static"
+          - ref: res.body.data.createInventoryRepository.inventoryRepository.virtualRepo
+            equal: false
+      - msg: "DataTypeID persisted"
+        assertions:
+          - ref: res.body.data.createInventoryRepository.inventoryRepository.dataTypeID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}
+
+  - name: "Query repository by ID and verify all fields"
+    operation: inventory.getRepositories
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createInventoryRepository.inventoryRepository.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Repository found"
+        assertions:
+          - ref: res.body.data.repositories.totalCount
+            equal: 1
+      - msg: "Name persisted"
+        assertions:
+          - ref: res.body.data.repositories.edges[].node.name
+            equal: {$ref: "res[create].body.data.createInventoryRepository.inventoryRepository.name"}
+      - msg: "Type and layout persisted"
+        assertions:
+          - ref: res.body.data.repositories.edges[].node.type
+            equal: "static"
+          - ref: res.body.data.repositories.edges[].node.layout
+            equal: "grid-4x4"
+      - msg: "Data fields persisted"
+        assertions:
+          - ref: res.body.data.repositories.edges[].node.data.zone
+            equal: "A"
+          - ref: res.body.data.repositories.edges[].node.data.temperature
+            equal: "ambient"
+      - msg: "DataTypeID persisted on query"
+        assertions:
+          - ref: res.body.data.repositories.edges[].node.dataTypeID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}
+
+  - name: "Update repository layout and data"
+    operation: inventory.updateInventoryRepository
+    vars:
+      id: {$ref: "res[create].body.data.createInventoryRepository.inventoryRepository.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        layout: "grid-6x6"
+        data:
+          zone: "B"
+          temperature: "cold"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Layout updated"
+        assertions:
+          - ref: res.body.data.updateInventoryRepository.inventoryRepository.layout
+            equal: "grid-6x6"
+      - msg: "Data updated"
+        assertions:
+          - ref: res.body.data.updateInventoryRepository.inventoryRepository.data.zone
+            equal: "B"
+          - ref: res.body.data.updateInventoryRepository.inventoryRepository.data.temperature
+            equal: "cold"
+
+  - name: "Verify update persisted"
+    operation: inventory.getRepositories
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createInventoryRepository.inventoryRepository.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Updated layout persisted"
+        assertions:
+          - ref: res.body.data.repositories.edges[].node.layout
+            equal: "grid-6x6"
+      - msg: "Updated data persisted"
+        assertions:
+          - ref: res.body.data.repositories.edges[].node.data.zone
+            equal: "B"
+
+  - name: "Delete repository"
+    operation: inventory.deleteInventoryRepository
+    vars:
+      id: {$ref: "res[create].body.data.createInventoryRepository.inventoryRepository.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteInventoryRepository.deletedID
+            equal: {$ref: "res[create].body.data.createInventoryRepository.inventoryRepository.id"}
+
+  - name: "Verify repository deleted"
+    operation: inventory.getRepositories
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createInventoryRepository.inventoryRepository.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Repository soft-deleted"
+        assertions:
+          - ref: res.body.data.repositories.totalCount
+            equal: 0
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteDataType.deletedID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}

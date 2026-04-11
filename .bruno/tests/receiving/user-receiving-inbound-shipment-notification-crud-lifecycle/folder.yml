@@ -1,0 +1,11 @@
+info:
+  name: User - Receiving Inbound Shipment Notification CRUD Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Full CRUD lifecycle for inbound shipment notifications. Creates a parent inbound, then creates/reads/deletes a notification with field verification and filter queries.
+
+
+request:
+  auth: inherit

@@ -1,0 +1,20 @@
+---
+operation: GetTenants
+name: "Get Tenants"
+description: >
+  Lists tenants with pagination. Requires admin privileges.
+vars:
+  first: 10
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Result set returned"
+    assertions:
+      - ref: res.body.data.tenants.totalCount
+        nil: false

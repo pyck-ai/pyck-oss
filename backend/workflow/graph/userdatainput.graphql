@@ -1,0 +1,43 @@
+scalar UInt64
+
+extend type Query {
+  currentUserDataInput(
+    input: UserDataInputQueryInput!
+  ): CurrentUserDataInput
+}
+
+input UserDataInputQueryInput {
+  workflowID: String!
+  workflowExecutionID: String!
+}
+
+
+type CurrentUserDataInput {
+  activityIndex: UInt64!
+  activityCount: UInt64
+  type: WorkflowUpdateType
+  data: Any
+  errors: [String!]
+}
+
+type WorkflowUpdateType {
+  id: String!
+  schema: Any
+}
+
+extend type Mutation {
+  submitUserDataInput(input: SubmitUserDataInputInput!): SubmitUserDataInputResponse!
+}
+
+input SubmitUserDataInputInput {
+  id: String
+  name: String!
+  data: Any!
+  workflowID: String!
+  workflowRunID: String!
+}
+
+type SubmitUserDataInputResponse {
+  workflow: TemporalWorkflow
+  result: Map
+}

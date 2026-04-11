@@ -1,0 +1,11 @@
+info:
+  name: User - Repository Movement Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a source parent repository and a child repository under it, plus a destination parent repository. Creates a repository movement to re-parent the child from the source parent to the destination parent, reads it back, updates it, and executes it. Cleans up all repositories at the end.
+
+
+request:
+  auth: inherit

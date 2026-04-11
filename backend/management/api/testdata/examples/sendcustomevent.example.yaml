@@ -1,0 +1,22 @@
+---
+operation: SendCustomEvent
+name: "Send Custom Event"
+description: >
+  Sends a custom event to a registered event topic.
+vars:
+  input:
+    topic: { $placeholder: "event topic name" }
+    data: '{"key":"value"}'
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Event sent"
+    assertions:
+      - ref: res.body.data.sendCustomEvent.success
+        equal: true

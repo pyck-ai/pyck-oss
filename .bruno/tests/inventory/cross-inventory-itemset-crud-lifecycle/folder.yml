@@ -1,0 +1,11 @@
+info:
+  name: Cross - Inventory ItemSet CRUD Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates an item set with associated items, queries to verify the association, updates the set, and cleans up.
+
+
+request:
+  auth: inherit

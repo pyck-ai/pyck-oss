@@ -1,0 +1,24 @@
+---
+operation: CreateRole
+name: "Create Role"
+description: >
+  Creates a role that can be assigned policies and attached to groups.
+vars:
+  input:
+    name: "InventoryViewer"
+    description: "Read-only access to inventory data"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Role created"
+    assertions:
+      - ref: res.body.data.createRole.id
+        nil: false
+      - ref: res.body.data.createRole.name
+        equal: "InventoryViewer"

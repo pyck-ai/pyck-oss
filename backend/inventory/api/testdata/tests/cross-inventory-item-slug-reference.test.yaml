@@ -1,0 +1,129 @@
+---
+name: "Cross - Inventory Item Slug Reference"
+description: >
+  Creates a data type with a slug and references it by slug when
+  creating inventory items. Verifies dataTypeID and dataTypeSlug
+  are persisted correctly.
+steps:
+  - id: createDT
+    name: "Create data type with slug for items"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Slug Item Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "inventoryitem"
+        jsonSchema: '{"type":"object","properties":{"color":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created with slug"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.slug
+            nil: false
+
+  - id: create
+    name: "Create item via slug"
+    operation: inventory.createInventoryItem
+    vars:
+      input:
+        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        sku: {$fake: "{{uuid}}"}
+        data:
+          color: "red"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+      - msg: "DataTypeID persisted from slug"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.dataTypeID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}
+      - msg: "DataTypeSlug persisted"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.dataTypeSlug
+            equal: {$ref: "res[createDT].body.data.createDataType.slug"}
+
+  - name: "Verify persistence on query"
+    operation: inventory.getInventoryItems
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item found"
+        assertions:
+          - ref: res.body.data.inventoryItems.totalCount
+            equal: 1
+      - msg: "DataTypeID persisted on query"
+        assertions:
+          - ref: res.body.data.inventoryItems.edges[].node.dataTypeID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}
+      - msg: "DataTypeSlug persisted on query"
+        assertions:
+          - ref: res.body.data.inventoryItems.edges[].node.dataTypeSlug
+            equal: {$ref: "res[createDT].body.data.createDataType.slug"}
+      - msg: "Data persisted"
+        assertions:
+          - ref: res.body.data.inventoryItems.edges[].node.data.color
+            equal: "red"
+
+  - name: "Cleanup - delete item"
+    operation: inventory.deleteInventoryItem
+    vars:
+      id: {$ref: "res[create].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteInventoryItem.deletedID
+            equal: {$ref: "res[create].body.data.createInventoryItem.inventoryItem.id"}
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteDataType.deletedID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}

@@ -1,0 +1,11 @@
+info:
+  name: User - Receiving Inbound Item Validation
+  type: folder
+  seq: 1
+
+docs: |-
+  Tests validation rules for inbound items: empty SKU, negative quantity, and zero quantity (valid).
+
+
+request:
+  auth: inherit

@@ -1,0 +1,20 @@
+---
+operation: GetPolicy
+name: "Get Policy"
+description: >
+  Retrieves a single access policy by ID.
+vars:
+  id: { $placeholder: "policy ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Policy returned"
+    assertions:
+      - ref: res.body.data.policy.id
+        nil: false

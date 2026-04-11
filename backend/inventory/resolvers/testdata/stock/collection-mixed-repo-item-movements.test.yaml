@@ -1,0 +1,134 @@
+# Collection Mixed Repository and Item Movements
+# Tests that a single collection can contain BOTH:
+# 1. Repository movements (changing parent-child relationships)
+# 2. Item movements (moving inventory between repositories)
+#
+# This validates the realistic scenario where warehouse restructuring
+# happens simultaneously with inventory transfers.
+name: collection-mixed-repo-item-movements
+itemSKU: mixed-movement-item
+
+# ========================================================================
+# REPOSITORY STRUCTURE OVERVIEW
+# ========================================================================
+#
+# Initial Structure:
+#  warehouse (root)
+#  ├─ zone-a
+#  ├─ zone-b
+#  └─ shelf1
+#
+# ========================================================================
+
+repositories:
+  # Virtual repository for initial stock additions
+  - name: virtual
+    parent: ""
+    type: static
+    virtual: true
+
+  # Main warehouse container
+  - name: warehouse
+    parent: ""
+    type: static
+    virtual: false
+
+  # Zone A - will become shelf1's new parent via repository movement
+  - name: zone-a
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Zone B - will receive inventory via item movement
+  - name: zone-b
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Shelf1 - initially under warehouse, will be moved to zone-a
+  # This shelf also contains inventory that will be partially moved
+  - name: shelf1
+    parent: warehouse
+    type: static
+    virtual: false
+
+steps:
+  # =========================================================================
+  #  virtual                             warehouse
+  #    └─[50 items]─────────────────────► └─ shelf1
+  # =========================================================================
+  - name: setup_initial_stock
+    action: create
+    moveType: item
+    from: virtual
+    to: shelf1
+    qty: 50
+    expectedStocks:
+      virtual:   { qty:  0, ownQty:  0, in:  0, ownIn:  0, out: 50, ownOut: 50 }
+      warehouse: { qty:  0, ownQty:  0, in: 50, ownIn:  0, out:  0, ownOut:  0 }
+      zone-a:    { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      zone-b:    { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      shelf1:    { qty:  0, ownQty:  0, in: 50, ownIn: 50, out:  0, ownOut:  0 }
+
+  - name: setup_execute
+    action: execute
+    movement: setup_initial_stock
+    expectedStocks:
+      virtual:   { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      warehouse: { qty: 50, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      zone-a:    { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      zone-b:    { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      shelf1:    { qty: 50, ownQty: 50, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+
+  - name: create_mixed_collection
+    action: create
+    moveType: collection
+    collection:
+      # =========================================================================
+      #  warehouse
+      #  ├─ zone-a
+      #  │  └─ ▒▒▒▒▒▒▒▒ ◄───╮
+      #  ├─ zone-b          │
+      #  └─ shelf1 ───[repo]╯
+      # =========================================================================
+      - from: shelf1
+        to: zone-a
+        moveType: repository
+
+      # =========================================================================
+      #  warehouse
+      #  ├─ zone-a
+      #  │  └─ shelf1 ──[20 items]─╮
+      #  └─ zone-b  ◄──────────────╯
+      # =========================================================================
+      - from: shelf1
+        to: zone-b
+        qty: 20
+        moveType: item
+
+    expectedStocks:
+      virtual:   { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      warehouse: { qty: 50, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      zone-a:    { qty:  0, ownQty:  0, in: 50, ownIn:  0, out:  0, ownOut:  0 }
+      zone-b:    { qty:  0, ownQty:  0, in: 20, ownIn: 20, out:  0, ownOut:  0 }
+      shelf1:    { qty: 50, ownQty: 50, in:  0, ownIn:  0, out: 20, ownOut: 20 }
+
+  - name: execute_repo_movement
+    action: execute
+    movement: create_mixed_collection[0]
+    expectedStocks:
+      virtual:   { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      warehouse: { qty: 50, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      zone-a:    { qty: 50, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      zone-b:    { qty:  0, ownQty:  0, in: 20, ownIn: 20, out:  0, ownOut:  0 }
+      shelf1:    { qty: 50, ownQty: 50, in:  0, ownIn:  0, out: 20, ownOut: 20 }
+
+  - name: execute_item_movement
+    action: execute
+    movement: create_mixed_collection[1]
+    expectedStocks:
+      virtual:   { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      warehouse: { qty: 50, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      zone-a:    { qty: 30, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      zone-b:    { qty: 20, ownQty: 20, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      shelf1:    { qty: 30, ownQty: 30, in:  0, ownIn:  0, out:  0, ownOut:  0 }

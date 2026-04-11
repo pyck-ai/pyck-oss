@@ -1,0 +1,118 @@
+---
+name: "Cross - Replenishment Order with Items"
+description: >
+  Creates a replenishment order with inline items, queries to verify
+  order and item data, and cleans up.
+steps:
+  - id: orderDT
+    name: "Create data type for replenishment orders"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Replenishment Order Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "replenishmentorder"
+        jsonSchema: '{"type":"object","properties":{"priority":{"type":"string"},"expectedDate":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: create
+    name: "Create replenishment order with 2 items"
+    operation: inventory.createReplenishmentOrder
+    vars:
+      input:
+        dataTypeID: {$ref: "res[orderDT].body.data.createDataType.id"}
+        supplierID: {$fake: uuid}
+        data:
+          priority: "high"
+          expectedDate: "2026-04-01"
+        items:
+          - sku: "RAW-STEEL-001"
+            quantity: 500
+          - sku: "RAW-COPPER-001"
+            quantity: 200
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Order created"
+        assertions:
+          - ref: res.body.data.createReplenishmentOrder.replenishmentOrder.id
+            nil: false
+      - msg: "SupplierID persisted"
+        assertions:
+          - ref: res.body.data.createReplenishmentOrder.replenishmentOrder.supplierID
+            equal: {$ref: req.body.variables.input.supplierID}
+      - msg: "Two items created"
+        assertions:
+          - ref: res.body.data.createReplenishmentOrder.replenishmentOrder.replenishmentOrderItems.totalCount
+            equal: 2
+      - msg: "DataTypeID persisted"
+        assertions:
+          - ref: res.body.data.createReplenishmentOrder.replenishmentOrder.dataTypeID
+            equal: {$ref: "res[orderDT].body.data.createDataType.id"}
+
+  - name: "Query order and verify data"
+    operation: inventory.getReplenishmentOrders
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createReplenishmentOrder.replenishmentOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Order found"
+        assertions:
+          - ref: res.body.data.replenishmentOrders.totalCount
+            equal: 1
+      - msg: "Data persisted"
+        assertions:
+          - ref: res.body.data.replenishmentOrders.edges[].node.data.priority
+            equal: "high"
+          - ref: res.body.data.replenishmentOrders.edges[].node.data.expectedDate
+            equal: "2026-04-01"
+      - msg: "Items persisted"
+        assertions:
+          - ref: res.body.data.replenishmentOrders.edges[].node.replenishmentOrderItems.totalCount
+            equal: 2
+
+  - name: "Cleanup - delete replenishment order"
+    operation: inventory.deleteReplenishmentOrder
+    vars:
+      id: {$ref: "res[create].body.data.createReplenishmentOrder.replenishmentOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[orderDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200

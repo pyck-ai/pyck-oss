@@ -1,0 +1,22 @@
+---
+operation: DeleteInventoryCollection
+name: "Delete Inventory Collection"
+description: >
+  Deletes an inventory collection. Only possible if the collection has no
+  movements. Delete all item and repository movements first before deleting
+  the collection.
+vars:
+  id: {$placeholder: "collection ID"}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Collection deleted"
+    assertions:
+      - ref: res.body.data.deleteInventoryCollection.deletedID
+        equal: {$ref: req.body.variables.id}

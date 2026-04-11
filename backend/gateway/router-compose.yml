@@ -1,0 +1,44 @@
+# sandbox:
+#   enabled: false
+# homepage:
+#   enabled: false
+supergraph:
+  listen: 0.0.0.0:4000
+  introspection: true
+  # query_planning:
+  #   cache:
+  #     in_memory:
+  #       limit: 256
+override_subgraph_url:
+  maindata: http://main-data:8081/query
+  management: http://management:8082/query
+  inventory: http://inventory:8084/query
+  picking: http://picking:8086/query
+  receiving: http://receiving:8087/query
+  file: http://file:8088/query
+  workflow: http://workflow:8089/query
+include_subgraph_errors:
+  all: true
+headers:
+  all:
+    request:
+      - propagate:
+          named: "Authorization"
+      - propagate:
+          named: "X-Pyck-Tenant-Id"
+      - propagate:
+          named: "X-Pyck-Feature"
+health_check:
+  enabled: true
+  path: /health
+# limits:
+#   max_depth: 30
+#   max_height: 200
+#   max_aliases: 30
+#   max_root_fields: 20
+telemetry:
+  exporters:
+    logging:
+      stdout:
+        enabled: true
+        format: json

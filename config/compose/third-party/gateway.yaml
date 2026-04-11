@@ -1,0 +1,29 @@
+services:
+  gateway:
+    pull_policy: always
+    container_name: gateway
+    build:
+      context: ../../../
+      dockerfile: ./backend/gateway/Dockerfile
+      args:
+        - SERVICE_NAME=gateway
+      network: host
+    restart: always
+    ports:
+      - "4000:4000"
+    networks:
+      pyck:
+        ipv4_address: 172.30.0.101
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8088/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    environment:
+      - APOLLO_ROUTER_LOG=warn
+      - RUST_LOG=warn
+    deploy:
+      resources:
+        limits:
+          memory: 64M

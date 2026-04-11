@@ -1,0 +1,25 @@
+---
+operation: CreatePickingOrderItem
+name: "Create Picking Order Item"
+description: >
+  Adds a single line item to an existing picking order.
+vars:
+  input:
+    orderID: { $placeholder: "picking order ID" }
+    sku: "EXAMPLE-SKU-001"
+    quantity: 1
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Item created"
+    assertions:
+      - ref: res.body.data.createPickingOrderItem.pickingOrderItem.id
+        nil: false
+      - ref: res.body.data.createPickingOrderItem.pickingOrderItem.sku
+        equal: "EXAMPLE-SKU-001"

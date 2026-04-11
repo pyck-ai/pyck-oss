@@ -1,0 +1,212 @@
+---
+name: "Cross - Inventory Item CRUD Lifecycle"
+description: >
+  Full CRUD lifecycle for inventory items. Creates a data type,
+  creates an item with data, queries to verify all fields persisted,
+  updates SKU and data, verifies update, deletes, and verifies deletion.
+steps:
+  - id: createDT
+    name: "Create data type for inventory items"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Inv Item Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "inventoryitem"
+        jsonSchema: '{"type":"object","properties":{"weight":{"type":"number"},"fragile":{"type":"boolean"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: create
+    name: "Create inventory item"
+    operation: inventory.createInventoryItem
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        sku: {$fake: "{{uuid}}"}
+        data:
+          weight: 2.5
+          fragile: true
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created with SKU"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+          - ref: res.body.data.createInventoryItem.inventoryItem.sku
+            equal: {$ref: req.body.variables.input.sku}
+      - msg: "DataTypeID persisted"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.dataTypeID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}
+
+  - name: "Query item by ID and verify all fields"
+    operation: inventory.getInventoryItems
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item found"
+        assertions:
+          - ref: res.body.data.inventoryItems.totalCount
+            equal: 1
+      - msg: "SKU persisted"
+        assertions:
+          - ref: res.body.data.inventoryItems.edges[].node.sku
+            equal: {$ref: "res[create].body.data.createInventoryItem.inventoryItem.sku"}
+      - msg: "DataTypeID persisted on query"
+        assertions:
+          - ref: res.body.data.inventoryItems.edges[].node.dataTypeID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}
+      - msg: "Data fields persisted"
+        assertions:
+          - ref: res.body.data.inventoryItems.edges[].node.data.weight
+            equal: 2.5
+          - ref: res.body.data.inventoryItems.edges[].node.data.fragile
+            equal: true
+
+  - name: "Query item by dataTypeID filter"
+    operation: inventory.getInventoryItems
+    vars:
+      where:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item found by dataTypeID"
+        assertions:
+          - ref: res.body.data.inventoryItems.totalCount
+            equal: 1
+
+  - name: "Update item data"
+    operation: inventory.updateInventoryItem
+    vars:
+      id: {$ref: "res[create].body.data.createInventoryItem.inventoryItem.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          weight: 3.0
+          fragile: false
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data updated"
+        assertions:
+          - ref: res.body.data.updateInventoryItem.inventoryItem.data.weight
+            equal: 3.0
+          - ref: res.body.data.updateInventoryItem.inventoryItem.data.fragile
+            equal: false
+
+  - name: "Verify update persisted"
+    operation: inventory.getInventoryItems
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Updated data persisted"
+        assertions:
+          - ref: res.body.data.inventoryItems.edges[].node.data.weight
+            equal: 3.0
+          - ref: res.body.data.inventoryItems.edges[].node.data.fragile
+            equal: false
+
+  - name: "Delete inventory item"
+    operation: inventory.deleteInventoryItem
+    vars:
+      id: {$ref: "res[create].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteInventoryItem.deletedID
+            equal: {$ref: "res[create].body.data.createInventoryItem.inventoryItem.id"}
+
+  - name: "Verify item deleted"
+    operation: inventory.getInventoryItems
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item soft-deleted"
+        assertions:
+          - ref: res.body.data.inventoryItems.totalCount
+            equal: 0
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteDataType.deletedID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}

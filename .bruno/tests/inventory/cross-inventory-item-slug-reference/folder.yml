@@ -1,0 +1,11 @@
+info:
+  name: Cross - Inventory Item Slug Reference
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a data type with a slug and references it by slug when creating inventory items. Verifies dataTypeID and dataTypeSlug are persisted correctly.
+
+
+request:
+  auth: inherit

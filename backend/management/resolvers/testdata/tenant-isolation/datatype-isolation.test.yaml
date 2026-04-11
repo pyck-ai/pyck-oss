@@ -1,0 +1,52 @@
+name: datatype-isolation
+description: Verify data types are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  dataTypes:
+    - name: dt-alpha
+      tenant: alpha
+    - name: dt-beta
+      tenant: beta
+
+checks:
+  - type: query
+    entity: dataType
+    tenant: alpha
+    description: "alpha sees only own data types"
+    expectCount: 1
+
+  - type: query
+    entity: dataType
+    tenant: beta
+    description: "beta sees only own data types"
+    expectCount: 1
+
+  - type: cross-update
+    entity: dataType
+    tenant: alpha
+    target: beta/dt-beta
+    description: "alpha cannot update beta's data type"
+    expectError: "not found"
+
+  - type: query
+    entity: dataType
+    tenant: beta
+    description: "beta still has 1 data type after failed cross-update"
+    expectCount: 1
+
+  - type: cross-delete
+    entity: dataType
+    tenant: alpha
+    target: beta/dt-beta
+    description: "alpha cannot delete beta's data type"
+    expectError: "not found"
+
+  - type: query
+    entity: dataType
+    tenant: beta
+    description: "beta still has 1 data type after failed cross-delete"
+    expectCount: 1

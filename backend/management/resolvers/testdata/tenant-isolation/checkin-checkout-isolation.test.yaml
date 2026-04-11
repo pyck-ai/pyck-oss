@@ -1,0 +1,65 @@
+name: checkin-checkout-isolation
+description: Verify device check-in/check-out is isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  devices:
+    - name: dev-alpha
+      tenant: alpha
+    - name: dev-beta
+      tenant: beta
+
+  locations:
+    - name: loc-alpha
+      tenant: alpha
+    - name: loc-beta
+      tenant: beta
+
+  # Device must have a location for check-in to work
+  deviceLocations:
+    - name: dl-alpha
+      tenant: alpha
+      device: dev-alpha
+      location: loc-alpha
+    - name: dl-beta
+      tenant: beta
+      device: dev-beta
+      location: loc-beta
+
+  # User records needed — CheckIn uses req.User().ID which must match the DB row.
+  # "asAuthUser: true" means the User DB record ID = the authn fixture user ID.
+  users:
+    - name: user-alpha
+      tenant: alpha
+      asAuthUser: true
+    - name: user-beta
+      tenant: beta
+      asAuthUser: true
+
+checks:
+  # --- Cross-tenant check-in: alpha tries to check into beta's device ---
+  - type: cross-checkin
+    tenant: alpha
+    description: "alpha cannot check into beta's device"
+    args:
+      device: beta/dev-beta
+    expectError: "not found"
+
+  # Verify no orphaned DeviceUser was created
+  - type: query
+    entity: deviceUser
+    tenant: alpha
+    description: "alpha has no device-user records after failed cross-checkin"
+    expectCount: 0
+
+  - type: query
+    entity: deviceUser
+    tenant: beta
+    description: "beta has no device-user records after failed cross-checkin"
+    expectCount: 0
+
+  # CheckOut is safe: it queries by (device_id, user_id=caller) so cross-tenant
+  # checkout is a no-op (returns empty list, no error). Not a bug.

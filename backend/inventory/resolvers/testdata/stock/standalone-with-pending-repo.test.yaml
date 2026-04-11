@@ -1,0 +1,142 @@
+# Standalone Item Movement from Repository with Pending Repository Movement
+# Tests that creating a standalone item movement FROM a repository that has a pending
+# repo movement works correctly. The stock check uses Quantity + IncomingStock - OutgoingStock
+# and the repo movement's outgoing is tracked on the parent (storage), not on the moving repo (shelf).
+name: standalone-with-pending-repo
+itemSKU: standalone-pending-test-item
+
+# ========================================================================
+# REPOSITORY STRUCTURE OVERVIEW
+# ========================================================================
+#
+#  warehouse (root)
+#  ├─ storage
+#  │  └─ shelf
+#  └─ outbound
+#
+# ========================================================================
+
+repositories:
+  # Virtual repository for initial stock additions
+  - name: virtual
+    parent: ""
+    type: static
+    virtual: true
+
+  # Main warehouse container
+  - name: warehouse
+    parent: ""
+    type: static
+    virtual: false
+
+  # Storage area - parent of shelf
+  - name: storage
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Shelf - holds initial stock, source for movements
+  - name: shelf
+    parent: storage
+    type: static
+    virtual: false
+
+  # Outbound - destination for item and repo movements
+  - name: outbound
+    parent: warehouse
+    type: static
+    virtual: false
+
+steps:
+  # =========================================================================
+  #  virtual                             warehouse
+  #  │                                   └─ storage
+  #  └─[100 items]────────────────────────► └─ shelf
+  # =========================================================================
+  - name: create_item_virtual_to_shelf
+    action: create
+    moveType: item
+    from: virtual
+    to: shelf
+    qty: 100
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut: 100 }
+      warehouse: { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      storage:   { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty:   0, ownQty:   0, in: 100, ownIn: 100, out:   0, ownOut:   0 }
+      outbound:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: execute_item_virtual_to_shelf
+    action: execute
+    movement: create_item_virtual_to_shelf
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      storage:   { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ storage
+  #  │  └─ shelf ────[repo]─╮
+  #  └─ outbound            │
+  #     └─ ▒▒▒▒▒▒▒▒ ◄───────╯
+  # =========================================================================
+  - name: create_repo_shelf_to_outbound
+    action: create
+    moveType: repository
+    from: shelf
+    to: outbound
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      storage:   { qty: 100, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut:   0 }
+      shelf:     { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:  { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ storage
+  #  │  └─ shelf ──[20 items]─╮
+  #  └─ outbound ◄────────────╯
+  # =========================================================================
+  - name: create_standalone_shelf_to_outbound
+    action: create
+    moveType: item
+    from: shelf
+    to: outbound
+    qty: 20
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      storage:   { qty: 100, ownQty:   0, in:   0, ownIn:   0, out: 120, ownOut:   0 }
+      shelf:     { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:  20, ownOut:  20 }
+      outbound:  { qty:   0, ownQty:   0, in: 120, ownIn:  20, out:   0, ownOut:   0 }
+
+  - name: execute_standalone_shelf_to_outbound
+    action: execute
+    movement: create_standalone_shelf_to_outbound
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      storage:   { qty:  80, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut:   0 }
+      shelf:     { qty:  80, ownQty:  80, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:  { qty:  20, ownQty:  20, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ storage
+  #  │  └─ shelf ────[repo]─╮
+  #  └─ outbound            ╳ (delete movement)
+  #     └─ ▒▒▒▒▒▒▒▒ ◄───────╯
+  # =========================================================================
+  - name: delete_repo_shelf_to_outbound
+    action: delete
+    movement: create_repo_shelf_to_outbound
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      storage:   { qty:  80, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty:  80, ownQty:  80, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:  { qty:  20, ownQty:  20, in:   0, ownIn:   0, out:   0, ownOut:   0 }

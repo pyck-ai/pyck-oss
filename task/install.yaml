@@ -1,0 +1,9 @@
+version: "3.45"
+
+tasks:
+  install:
+    desc: Install all module commands
+    env:
+      CGO_ENABLED: 0
+    cmds:
+      - go install -v ./cmd/...

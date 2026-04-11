@@ -1,0 +1,52 @@
+type Mutation {
+  createReceivingInbound(input: CreateReceivingInboundWithItemsInput!): ReceivingInboundOutput
+  updateReceivingInbound(id: ID!, input: UpdateReceivingInboundInput!): ReceivingInboundOutput
+  deleteReceivingInbound(id: ID!): ReceivingInboundDeletePayload!
+
+  createReceivingInboundItem(input: CreateReceivingInboundItemInput!): ReceivingInboundItemOutput
+  updateReceivingInboundItem(id: ID!, input: UpdateReceivingInboundItemInput!): ReceivingInboundItemOutput
+  deleteReceivingInboundItem(id: ID!): ReceivingInboundItemDeletePayload!
+
+  createReceivingInboundShipmentNotification(input: CreateReceivingInboundShipmentNotificationInput!): ReceivingInboundShipmentNotificationOutput
+  updateReceivingInboundShipmentNotification(id: ID!, input: UpdateReceivingInboundShipmentNotificationInput!): ReceivingInboundShipmentNotificationOutput
+  deleteReceivingInboundShipmentNotification(id: ID!): ReceivingInboundShipmentNotificationDeletePayload!
+}
+
+scalar UUID
+
+input CreateReceivingInboundItemsInput {
+  dataTypeID: UUID
+  dataTypeSlug: String
+  data: Map
+  sku: String!
+  quantity: Int!
+}
+
+input CreateReceivingInboundWithItemsInput {
+  dataTypeID: UUID
+  dataTypeSlug: String
+  data: Map
+  supplierID: UUID
+  orderID: String
+  inboundItems: [CreateReceivingInboundItemsInput]
+}
+
+type ReceivingInboundDeletePayload {
+  deletedID: ID
+  workflows: [TemporalWorkflow]
+}
+
+type ReceivingInboundItemDeletePayload {
+  deletedID: ID
+  workflows: [TemporalWorkflow]
+}
+
+type ReceivingInboundShipmentNotificationOutput {
+  receivingInboundShipmentNotification: ReceivingInboundShipmentNotification
+  workflows: [TemporalWorkflow]
+}
+
+type ReceivingInboundShipmentNotificationDeletePayload {
+  deletedID: ID
+  workflows: [TemporalWorkflow]
+}

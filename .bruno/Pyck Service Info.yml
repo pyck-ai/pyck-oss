@@ -1,0 +1,80 @@
+info:
+  name: Pyck Service Info
+  type: graphql
+  seq: 1
+
+graphql:
+  method: POST
+  url: "{{env_baseurl_gateway_query}}"
+  body:
+    query: |
+      query GetServiceInfo {
+        fileServiceInfo {
+          date
+          version
+        }
+        inventoryServiceInfo {
+          date
+          version
+        }
+        mainDataServiceInfo {
+          date
+          version
+        }
+        managementServiceInfo {
+          date
+          version
+        }
+        pickingServiceInfo {
+          date
+          version
+        }
+        receivingServiceInfo {
+          date
+          version
+        }
+        workflowServiceInfo {
+          date
+          version
+        }
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const body = res.getBody();
+        const data = body?.data || {};
+
+        const services = {
+          "file": data.fileServiceInfo,
+          "inventory": data.inventoryServiceInfo,
+          "maindata": data.mainDataServiceInfo,
+          "management": data.managementServiceInfo,
+          "picking": data.pickingServiceInfo,
+          "receiving": data.receivingServiceInfo,
+          "workflow": data.workflowServiceInfo,
+        };
+
+        const reference = services.management;
+
+        test("All services should have matching dates and versions", function() {
+          // Ensure our reference point actually exists first
+          expect(reference, "Management service (reference) is missing from response").to.be.an('object');
+          
+          // Use Object.entries to loop through the keys and values
+          Object.entries(services).forEach(([name, info]) => {
+            // Optional: Skip the check if the service info is missing entirely to avoid 'undefined' errors
+            expect(info, `Service info for ${name} is missing`).to.be.an('object');
+
+            expect(info.date).to.equal(reference.date, `Date mismatch in service: ${name}`);
+            expect(info.version).to.equal(reference.version, `Version mismatch in service: ${name}`);
+          });
+        });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

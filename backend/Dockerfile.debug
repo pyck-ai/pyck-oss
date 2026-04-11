@@ -1,0 +1,31 @@
+FROM ghcr.io/pyck-ai/baseimages/alpine:latest
+
+ARG SERVICE_NAME
+ENV SERVICE_NAME=${SERVICE_NAME}
+
+ARG DELVE_PORT=7000
+ENV DELVE_PORT=${DELVE_PORT}
+
+# We need CGO_ENABLED=1 to run the tests
+ENV CGO_ENABLED=1
+
+# Install helper scripts
+WORKDIR /usr/local/bin/
+COPY ./scripts/watchexec.sh watchexec-wrapper
+COPY ./scripts/dlv.sh dlv-wrapper
+
+# Setup entrypoint
+WORKDIR "/app/${SERVICE_NAME}"
+CMD [ \
+    "watchexec-wrapper", \
+    "--filter", "**/*.go", \
+    "--ignore", "**/*_test.go", \
+    "--", \
+    "dlv-wrapper", "debug", "./cmd/pyck-${SERVICE_NAME}/..." \
+]
+ARG SERVICE_PORT=8080
+ENV PYCK_HTTP_PORT=${SERVICE_PORT}
+ENV PYCK_LOG_LEVEL=debug
+ENV PYCK_LOG_FORMAT=console
+ENV PYCK_DATABASE_DEBUG=true
+ENV PYCK_SERVICES_PATH=/app

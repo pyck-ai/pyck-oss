@@ -1,0 +1,63 @@
+# gqlgen configuration file
+# see https://gqlgen.com/config/
+
+schema:
+  - graph/*.graphql
+
+exec:
+  filename: gqlgen_gen.go
+
+federation:
+  filename: gqlgen_federation_gen.go
+  version: 2
+
+model:
+  filename: model/gqlgen_gen.go
+  package: model
+
+resolver:
+  layout: follow-schema
+  dir: resolvers
+  package: resolvers
+  filename_template: "{name}.resolvers.go"
+
+omit_gqlgen_version_in_file_notice: true
+
+skip_validation: false
+
+skip_mod_tidy: false
+
+# autobind tells gqlgen to search for any type names in the GraphQL schema in the
+# provided package. If they match it will use them, otherwise it will generate new.
+autobind:
+  - github.com/99designs/gqlgen/graphql/introspection
+  - github.com/pyck-ai/pyck/backend/management/ent/gen
+  - github.com/pyck-ai/pyck/backend/management/ent/gen/accesspolicy
+  - github.com/pyck-ai/pyck/backend/management/ent/gen/datatype
+  - github.com/pyck-ai/pyck/backend/management/ent/gen/device
+  - github.com/pyck-ai/pyck/backend/management/ent/gen/devicelocation
+  - github.com/pyck-ai/pyck/backend/management/ent/gen/deviceuser
+  - github.com/pyck-ai/pyck/backend/management/ent/gen/event
+  - github.com/pyck-ai/pyck/backend/management/ent/gen/group
+  - github.com/pyck-ai/pyck/backend/management/ent/gen/keyvalue
+  - github.com/pyck-ai/pyck/backend/management/ent/gen/role
+  - github.com/pyck-ai/pyck/backend/management/ent/gen/tenant
+  - github.com/pyck-ai/pyck/backend/management/ent/gen/user
+
+# This section declares type mapping between the GraphQL and Go type systems.
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.UUID
+  UUID:
+    model:
+      - github.com/99designs/gqlgen/graphql.UUID
+  Map:
+    model:
+      - github.com/99designs/gqlgen/graphql.Map
+  Node:
+    model:
+      - github.com/pyck-ai/pyck/backend/management/ent/gen.Noder
+  CustomEvent:
+    model:
+      - github.com/pyck-ai/pyck/backend/management/model.CustomEvent

@@ -1,0 +1,24 @@
+---
+operation: UpdateInventoryRepository
+name: "Update Inventory Repository"
+description: >
+  Updates an existing inventory repository's name.
+vars:
+  id: {$placeholder: "repository ID"}
+  input:
+    name: "Warehouse Shelf A1 Updated"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Repository updated"
+    assertions:
+      - ref: res.body.data.updateInventoryRepository.inventoryRepository
+        nil: false
+      - ref: res.body.data.updateInventoryRepository.inventoryRepository.name
+        equal: "Warehouse Shelf A1 Updated"

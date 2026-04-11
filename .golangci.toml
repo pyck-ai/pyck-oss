@@ -1,0 +1,268 @@
+version = "2"
+
+[run]
+timeout = "5m"
+issues-exit-code = 1
+tests = true
+build-tags = [ "integration" ]
+modules-download-mode = "readonly"
+go = ""
+
+[output]
+show-stats = true
+sort-order = [ "linter", "file", "severity" ]
+
+[severity]
+default = "@linter"
+
+[issues]
+uniq-by-line = true
+max-same-issues = 10
+new = true
+new-from-merge-base = "origin/main"
+whole-files = false
+
+[formatters]
+enable = [
+    "gofumpt",
+    "gci"
+]
+exclusions.generated = "strict"
+
+[formatters.settings.gci]
+sections = [
+    "standard",
+    "default",
+    "blank",
+    "prefix(github.com/pyck-ai/)",
+    "localmodule",
+    "dot",
+]
+no-inline-comments = true
+no-prefix-comments = true
+custom-order = true
+
+[linters]
+default = "none"
+enable = [
+  # Linters that find potential bugs
+  "asasalint",                 # Checks []any as any usage
+  "bidichk",                   # Checks dangerous unicode sequences
+  "bodyclose",                 # Checks HTTP response body closure
+  "containedctx",              # Detects struct context.Context fields
+  "copyloopvar",               # Detects copied loop variables
+  "durationcheck",             # Checks duration multiplication
+  "err113",                    # Checks error handling expressions
+  "errcheck",                  # Checks for unchecked errors
+  "errchkjson",                # Checks JSON encoding types
+  "errorlint",                 # Finds error wrapping problems
+  "forcetypeassert",           # Finds forced type assertions
+  "gosec",                     # Inspects security problems
+  "govet",                     # Reports suspicious constructs
+  "ineffassign",               # Detects unused assignments
+  "iotamixing",                # Detects non-iota use in iota const blocks
+  "nilnesserr",                # Reports incorrect nil error returns
+  "nosprintfhostport",         # Checks Sprintf host:port misuse
+  "rowserrcheck",              # Checks Rows.Err usage
+  "spancheck",                 # Checks OpenTelemetry/Census span mistakes
+  "sqlclosecheck",             # Checks SQL resource closure
+  "staticcheck",               # Staticcheck rule set
+  "unparam",                   # Reports unused parameters
+  "unused",                    # Checks for unused code
+  "wastedassign",              # Finds wasted assignments
+  "zerologlint",               # Detects zerolog dispatch mistakes
+
+  # Linters that help write better tests
+  "ginkgolinter",              # Enforces ginkgo/gomega standards
+  "paralleltest",              # Detects missing t.Parallel() usage
+  "testableexamples",          # Checks testable examples
+  "testifylint",               # Checks testify usage
+  "testpackage",               # Enforces separate _test packages
+  "thelper",                   # Detects test helpers without t.Helper()
+  "tparallel",                 # Detects inappropriate t.Parallel() usage
+  "usetesting",                # Reports testing package function usage
+
+  # Linters that help write better code
+  "asciicheck",                # Checks for non-ASCII identifiers
+  "canonicalheader",           # Checks net/http.Header uses canonical header
+  "contextcheck",              # Checks non-inherited context usage
+  "decorder",                  # Checks declaration order
+  "dogsled",                   # Checks excessive blank identifiers
+  "errname",                   # Checks error naming conventions
+  "exptostd",                  # Detects replaceable golang.org/x/exp functions
+  "fatcontext",                # Detects nested contexts
+  #"funcorder",                 # Checks function order
+  # "funlen",                    # Checks function length
+  "gochecknoinits",            # Checks for init functions
+  "gochecksumtype",            # Checks Go sum types exhaustiveness
+  "goconst",                   # Finds repeated strings
+  "godoclint",                 # Checks godoc practices
+  "goprintffuncname",          # Checks printf function naming
+  "gosmopolitan",              # Reports i18n/l10n anti-patterns
+  "grouper",                   # Analyzes expression groups
+  "iface",                     # Detects interface misuse
+  "importas",                  # Enforces import aliases
+  "inamedparam",               # Reports unnamed interface parameters
+  "interfacebloat",            # Checks interface method count
+  "intrange",                  # Finds integer range opportunities
+  "ireturn",                   # Enforces interface/concrete return types
+  "loggercheck",               # Checks logger key-value pairs
+  "makezero",                  # Finds non-zero slice declarations
+  "mirror",                    # Reports wrong bytes/strings mirror patterns
+  "misspell",                  # Finds misspelled words
+  "musttag",                   # Enforces struct field tags
+  "nakedret",                  # Checks naked return length
+  "nestif",                    # Reports deeply nested statements
+  "nilerr",                    # Finds nil returns with error checks
+  "nilnil",                    # Checks nil error/value returns
+  "noctx",                     # Detects missing context.Context usage
+  "nolintlint",                # Reports malformed nolint directives
+  "prealloc",                  # Finds pre-allocatable slice declarations
+  "predeclared",               # Finds shadowed predeclared identifiers
+  "protogetter",               # Reports direct proto field reads
+  "reassign",                  # Checks package variable reassignment
+  "unconvert",                 # Removes unnecessary type conversions
+  "usestdlibvars",             # Detects usable stdlib variables/constants
+  "whitespace",                # Checks unnecessary newlines
+
+  # Linters disabled because of incompatible requirements
+  # "cyclop",                    # Checks cyclomatic complexity
+  # "depguard",                  # Checks acceptable package imports
+  # "exhaustruct",               # Checks structure field initialization
+  # "gocognit",                  # Checks cognitive complexity
+  # "gocyclo",                   # Checks cyclomatic complexity
+  # "goheader",                  # Checks file header matches pattern
+  # "gomoddirectives",           # Manages go.mod directives
+  # "gomodguard",                # Blocks/allows Go module dependencies
+
+  # Linters disabled because of deprecation or conflict with other linters
+  # "wsl",                       # Manages empty lines
+
+  # Linters disabled because of incompatible legacy code
+  # "dupl",                      # Detects duplicate code
+  # "dupword",                   # Checks duplicate words
+  # "embeddedstructfieldcheck",  # Checks embedded field positioning
+  # "exhaustive",                # Checks enum switch exhaustiveness
+  # "forbidigo",                 # Forbids identifiers
+  # "gocheckcompilerdirectives", # Validates go compiler directives
+  # "gochecknoglobals",          # Checks for global variables
+  # "gocritic",                  # Provides performance/style diagnostics
+  # "godot",                     # Checks comment periods
+  # "godox",                     # Detects TODO/FIXME keywords
+  # "lll",                       # Reports long lines
+  # "maintidx",                  # Measures maintainability index
+  # "mnd",                       # Detects magic numbers
+  # "nlreturn",                  # Checks newlines before returns
+  # "nonamedreturns",            # Reports named returns
+  # "perfsprint",                # Checks fmt.Sprintf alternatives
+  # "promlinter",                # Checks Prometheus metrics naming
+  # "recvcheck",                 # Checks receiver type consistency
+  # "revive",                    # Configurable Go linter
+  # "sloglint",                  # Ensures consistent log/slog style
+  # "tagalign",                  # Checks struct tag alignment
+  # "tagliatelle",               # Checks struct tags
+  # "varnamelen",                # Checks variable name length
+  # "wrapcheck",                 # Checks external error wrapping
+  # "wsl_v5",                    # Manages empty lines
+]
+
+[linters.settings.ireturn]
+allow = [
+  "anon",
+  "empty",
+  "error",
+  "generic",
+  "stdlib",
+]
+
+[linters.settings.tagliatelle.case.rules]
+json = "snake"
+env = "upperSnake"
+
+# [linters.settings.tagliatelle.case.extended-rules.json]
+# extra-initialisms = true
+# case = "snake"
+
+# [[linters.settings.tagliatelle.case.overrides]]
+# pkg = "services/zitadel"
+# ignore = true
+
+# [[linters.settings.tagliatelle.case.overrides]]
+# pkg = "workflow"
+
+# [[linters.settings.tagliatelle.case.overrides.rules]]
+# json = "camel"
+
+[linters.settings.grouper]
+const-require-single-const = true
+import-require-single-import = true
+
+[linters.settings.iface]
+enable = [
+  "identical",
+  "opaque",
+  "unexported",
+]
+
+[linters.settings.importas]
+no-unaliased = true
+
+  [[linters.settings.importas.alias]]
+  pkg = "github.com/pyck-ai/pyck/backend/(\\w+)/ent/gen"
+  alias = "ent"
+
+  [[linters.settings.importas.alias]]
+  pkg = "github.com/pyck-ai/pyck/backend/(\\w+)/ent/gen/ent(\\w+)"
+  alias = ""
+
+  [[linters.settings.importas.alias]]
+  pkg = "github.com/pyck-ai/pyck/backend/(\\w+)/ent/gen/(\\w+)"
+  alias = "ent$2"
+
+
+
+[linters.exclusions]
+generated = "lax"
+presets = [
+  "comments",
+  "common-false-positives",
+  "legacy",
+  "std-error-handling"
+]
+paths = [ "third_party$", "builtin$", "examples$" ]
+
+  [[linters.exclusions.rules]]
+  path = "(.+)_test\\.go$"
+  text = "SA1019: handler.NewDefaultServer is deprecated: This was and is just an example."
+
+  [[linters.exclusions.rules]]
+  path = "main\\.go$"
+  text = "SA1019: handler.NewDefaultServer is deprecated: This was and is just an example."
+
+  [[linters.exclusions.rules]]
+  path = "/core/config.go$"
+  text = "Config is a global variable"
+
+  [[linters.exclusions.rules]]
+  path = "(.+)_test\\.go$"
+  linters = [ "err113", "gosec", "errchkjson", "goconst", "forcetypeassert", "bodyclose", "ireturn" ]
+
+  [[linters.exclusions.rules]]
+  path = "/test/(.+)\\.go$"
+  linters = [ "err113", "gosec", "errchkjson", "goconst", "forcetypeassert", "bodyclose", "ireturn", "nilnil" ]
+
+  [[linters.exclusions.rules]]
+  path = ".*/zitadel/.*\\.go$"
+  text = "SA1019: client.managementAPI.UpdateOIDCAppConfig is deprecated: .*"
+
+  [[linters.exclusions.rules]]
+  path = ".*/zitadel/.*\\.go$"
+  text = "SA1019: client.managementAPI.AddOrg is deprecated: .*"
+
+  [[linters.exclusions.rules]]
+  path = "backend/common/events/topic_test\\.go$"
+  linters = [ "testpackage" ]
+
+  [[linters.exclusions.rules]]
+  path = "backend/(.+)/api/client\\.go"
+  linters = [ "contextcheck", "ireturn", "errname" ]

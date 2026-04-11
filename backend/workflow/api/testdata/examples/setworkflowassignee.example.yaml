@@ -1,0 +1,23 @@
+---
+operation: SetWorkflowAssignee
+name: "Set Workflow Assignee"
+description: >
+  Assigns a workflow execution to a specific user.
+vars:
+  input:
+    workflowID: { $placeholder: "workflow execution ID" }
+    runID: { $placeholder: "run ID" }
+    assignee: { $placeholder: "user ID to assign" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Assignee returned"
+    assertions:
+      - ref: res.body.data.setWorkflowAssignee.assignee
+        nil: false

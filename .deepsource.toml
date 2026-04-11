@@ -1,0 +1,14 @@
+version = 1
+
+[[analyzers]]
+name = "go"
+enabled = true
+
+  [analyzers.meta]
+  import_root = "github.com/pyck-ai/pyck"
+  dependencies_vendored = false
+  cgo_enabled = false
+
+[[analyzers]]
+name = "test-coverage"
+enabled = true

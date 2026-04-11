@@ -1,0 +1,13 @@
+
+extend input InventoryItemSetWhereInput {
+  Data: [String!]
+  DataHasKey: String
+  DataIn: [String!]
+  DataContains: [String!]
+}
+
+type InventoryItemSetOutput
+{
+  inventoryItemSet: InventoryItemSet
+  workflows: [TemporalWorkflow]
+}

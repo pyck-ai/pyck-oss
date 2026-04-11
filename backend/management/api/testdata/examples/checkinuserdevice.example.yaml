@@ -1,0 +1,22 @@
+---
+operation: CheckInUserDevice
+name: "Check In User Device"
+description: >
+  Records that a user has checked out a device for use.
+vars:
+  input:
+    deviceID: { $placeholder: "device ID" }
+    userID: { $placeholder: "user ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Device user record returned"
+    assertions:
+      - ref: res.body.data.checkInUserDevice.deviceUser.id
+        nil: false

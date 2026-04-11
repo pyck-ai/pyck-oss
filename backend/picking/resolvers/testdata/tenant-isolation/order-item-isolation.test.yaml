@@ -1,0 +1,94 @@
+name: order-item-isolation
+description: Verify picking order items are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  orders:
+    - name: order-alpha
+      tenant: alpha
+    - name: order-beta
+      tenant: beta
+
+  orderItems:
+    - name: item-alpha
+      tenant: alpha
+      order: order-alpha
+      sku: PICK-A1
+      quantity: 10
+    - name: item-beta
+      tenant: beta
+      order: order-beta
+      sku: PICK-B1
+      quantity: 20
+
+checks:
+  # --- Read isolation ---
+  - type: query
+    entity: orderItem
+    tenant: alpha
+    description: "alpha sees only own order items"
+    expectCount: 1
+
+  - type: query
+    entity: orderItem
+    tenant: beta
+    description: "beta sees only own order items"
+    expectCount: 1
+
+  # --- Cross-tenant update + verify unchanged ---
+  - type: cross-update
+    entity: orderItem
+    tenant: alpha
+    target: beta/item-beta
+    description: "alpha cannot update beta's order item"
+    expectError: "not found"
+
+  - type: query
+    entity: orderItem
+    tenant: beta
+    description: "beta still has 1 order item after failed cross-update"
+    expectCount: 1
+
+  # --- Cross-tenant delete + verify still exists ---
+  - type: cross-delete
+    entity: orderItem
+    tenant: alpha
+    target: beta/item-beta
+    description: "alpha cannot delete beta's order item"
+    expectError: "not found"
+
+  - type: query
+    entity: orderItem
+    tenant: beta
+    description: "beta still has 1 order item after failed cross-delete"
+    expectCount: 1
+
+  # --- Cross-tenant create + verify no orphan ---
+  - type: cross-create
+    entity: orderItem
+    tenant: alpha
+    description: "alpha cannot create order item in beta's order"
+    args:
+      order: beta/order-beta
+      sku: CROSS-TENANT-ITEM
+      quantity: 99
+    expectError: "not found"
+
+  - type: query
+    entity: orderItem
+    tenant: alpha
+    description: "alpha still has 1 order item after failed cross-create"
+    expectCount: 1
+
+  # UpdatePickingOrderItem now validates orderID tenant ownership.
+  - type: cross-update-with-args
+    entity: orderItem
+    tenant: alpha
+    target: alpha/item-alpha
+    description: "alpha cannot reassign own order item to beta's order"
+    args:
+      orderID: beta/order-beta
+    expectError: "not found"

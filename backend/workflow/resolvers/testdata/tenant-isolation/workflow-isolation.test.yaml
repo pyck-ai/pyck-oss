@@ -1,0 +1,44 @@
+name: workflow-isolation
+description: Verify workflows are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  workflows:
+    - name: wf-alpha-1
+      tenant: alpha
+    - name: wf-alpha-2
+      tenant: alpha
+    - name: wf-beta-1
+      tenant: beta
+
+checks:
+  # --- Read isolation ---
+  - type: query
+    entity: workflow
+    tenant: alpha
+    description: "alpha sees only own workflows"
+    expectCount: 2
+
+  - type: query
+    entity: workflow
+    tenant: beta
+    description: "beta sees only own workflows"
+    expectCount: 1
+
+  # --- Cross-tenant delete + verify still exists ---
+  # Note: Workflow has no update mutation, only RegisterWorkflow (upsert) and Delete
+  - type: cross-delete
+    entity: workflow
+    tenant: alpha
+    target: beta/wf-beta-1
+    description: "alpha cannot delete beta's workflow"
+    expectError: "not found"
+
+  - type: query
+    entity: workflow
+    tenant: beta
+    description: "beta still has 1 workflow after failed cross-delete"
+    expectCount: 1

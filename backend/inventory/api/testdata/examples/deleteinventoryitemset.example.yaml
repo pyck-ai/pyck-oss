@@ -1,0 +1,20 @@
+---
+operation: DeleteInventoryItemSet
+name: "Delete Inventory Item Set"
+description: >
+  Soft-deletes an inventory item set by ID.
+vars:
+  id: {$placeholder: "item set ID"}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Deleted ID returned"
+    assertions:
+      - ref: res.body.data.deleteInventoryItemSet.deletedID
+        equal: {$ref: req.body.variables.id}

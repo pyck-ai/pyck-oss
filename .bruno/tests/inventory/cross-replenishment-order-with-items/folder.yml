@@ -1,0 +1,11 @@
+info:
+  name: Cross - Replenishment Order with Items
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a replenishment order with inline items, queries to verify order and item data, and cleans up.
+
+
+request:
+  auth: inherit

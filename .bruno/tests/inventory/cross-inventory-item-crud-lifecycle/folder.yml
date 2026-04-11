@@ -1,0 +1,11 @@
+info:
+  name: Cross - Inventory Item CRUD Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Full CRUD lifecycle for inventory items. Creates a data type, creates an item with data, queries to verify all fields persisted, updates SKU and data, verifies update, deletes, and verifies deletion.
+
+
+request:
+  auth: inherit

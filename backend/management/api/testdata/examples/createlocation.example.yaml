@@ -1,0 +1,23 @@
+---
+operation: CreateLocation
+name: "Create Location"
+description: >
+  Creates a warehouse location.
+vars:
+  input:
+    name: "Zone A - Rack 1"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Location created"
+    assertions:
+      - ref: res.body.data.createLocation.location.id
+        nil: false
+      - ref: res.body.data.createLocation.location.name
+        equal: "Zone A - Rack 1"

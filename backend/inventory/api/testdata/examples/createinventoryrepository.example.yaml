@@ -1,0 +1,26 @@
+---
+operation: CreateInventoryRepository
+name: "Create Inventory Repository"
+description: >
+  Creates a new inventory repository (storage location).
+vars:
+  input:
+    name: "Warehouse Shelf A1"
+    type: static
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Repository created"
+    assertions:
+      - ref: res.body.data.createInventoryRepository.inventoryRepository
+        nil: false
+      - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+        nil: false
+      - ref: res.body.data.createInventoryRepository.inventoryRepository.name
+        equal: {$ref: req.body.variables.input.name}

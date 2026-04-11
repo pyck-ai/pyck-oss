@@ -1,0 +1,26 @@
+---
+operation: UpdateReceivingInbound
+name: "Update Receiving Inbound"
+description: >
+  Updates a receiving inbound's orderID and data fields.
+vars:
+  id: { $placeholder: "inbound ID" }
+  input:
+    orderID: "PO-2026-002"
+    data:
+      warehouse: "WH-B"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated inbound returned"
+    assertions:
+      - ref: res.body.data.updateReceivingInbound.receivingInbound.id
+        nil: false
+      - ref: res.body.data.updateReceivingInbound.receivingInbound.orderID
+        equal: "PO-2026-002"

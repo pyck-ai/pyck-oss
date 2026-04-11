@@ -1,0 +1,10 @@
+# brunogen configuration
+#
+# serviceEnvNames maps a service name (as used in the Go module / directory)
+# to the suffix used in Bruno environment variable names.
+#
+# The generated URL variable is: env_baseurl_<envName>_query
+#
+# If a service name is not listed here, the name is used as-is.
+serviceEnvNames:
+  main-data: maindata

@@ -1,0 +1,310 @@
+# Deep Nesting: 50-Level Repository Movement Test
+# Tests repository movements through deeply nested hierarchies (50 levels).
+# A "box" repository is moved: inbound → branch_a_L50 → branch_b_L48 → outbound
+name: deep-nesting-50-levels
+itemSKU: deep-nest-item-50
+
+# ========================================================================
+# REPOSITORY STRUCTURE OVERVIEW (50 LEVELS)
+# ========================================================================
+#
+#  root (L0)
+#  ├─ inbound (entry point for box)
+#  ├─ outbound (exit point for box)
+#  ├─ branch_a_L1
+#  │  └─ ... (L2-L49)
+#  │     └─ branch_a_L50 (deepest in branch A - box enters here)
+#  └─ branch_b_L1
+#     └─ ... (L2-L47)
+#        └─ branch_b_L48 (3rd deepest in branch B - box moves here)
+#           └─ branch_b_L49
+#              └─ branch_b_L50
+#
+#  virtual (external - source of stock items)
+#  box (dynamic repository - moves through tree)
+#
+# ========================================================================
+# REPOSITORY DEFINITIONS (105 total)
+# ========================================================================
+repositories:
+  # Virtual repo (for item source)
+  - { name: virtual, type: static, virtual: true }
+
+  # Root of the hierarchy
+  - { name: root, type: static, virtual: false }
+
+  # Inbound/Outbound repos (children of root)
+  - { name: inbound, parent: root, type: static, virtual: false }
+  - { name: outbound, parent: root, type: static, virtual: false }
+
+  # Branch A: 50 levels (branch_a_L1 through branch_a_L50)
+  - { name: branch_a_L1, parent: root, type: static, virtual: false }
+  - { name: branch_a_L2, parent: branch_a_L1, type: static, virtual: false }
+  - { name: branch_a_L3, parent: branch_a_L2, type: static, virtual: false }
+  - { name: branch_a_L4, parent: branch_a_L3, type: static, virtual: false }
+  - { name: branch_a_L5, parent: branch_a_L4, type: static, virtual: false }
+  - { name: branch_a_L6, parent: branch_a_L5, type: static, virtual: false }
+  - { name: branch_a_L7, parent: branch_a_L6, type: static, virtual: false }
+  - { name: branch_a_L8, parent: branch_a_L7, type: static, virtual: false }
+  - { name: branch_a_L9, parent: branch_a_L8, type: static, virtual: false }
+  - { name: branch_a_L10, parent: branch_a_L9, type: static, virtual: false }
+  - { name: branch_a_L11, parent: branch_a_L10, type: static, virtual: false }
+  - { name: branch_a_L12, parent: branch_a_L11, type: static, virtual: false }
+  - { name: branch_a_L13, parent: branch_a_L12, type: static, virtual: false }
+  - { name: branch_a_L14, parent: branch_a_L13, type: static, virtual: false }
+  - { name: branch_a_L15, parent: branch_a_L14, type: static, virtual: false }
+  - { name: branch_a_L16, parent: branch_a_L15, type: static, virtual: false }
+  - { name: branch_a_L17, parent: branch_a_L16, type: static, virtual: false }
+  - { name: branch_a_L18, parent: branch_a_L17, type: static, virtual: false }
+  - { name: branch_a_L19, parent: branch_a_L18, type: static, virtual: false }
+  - { name: branch_a_L20, parent: branch_a_L19, type: static, virtual: false }
+  - { name: branch_a_L21, parent: branch_a_L20, type: static, virtual: false }
+  - { name: branch_a_L22, parent: branch_a_L21, type: static, virtual: false }
+  - { name: branch_a_L23, parent: branch_a_L22, type: static, virtual: false }
+  - { name: branch_a_L24, parent: branch_a_L23, type: static, virtual: false }
+  - { name: branch_a_L25, parent: branch_a_L24, type: static, virtual: false }
+  - { name: branch_a_L26, parent: branch_a_L25, type: static, virtual: false }
+  - { name: branch_a_L27, parent: branch_a_L26, type: static, virtual: false }
+  - { name: branch_a_L28, parent: branch_a_L27, type: static, virtual: false }
+  - { name: branch_a_L29, parent: branch_a_L28, type: static, virtual: false }
+  - { name: branch_a_L30, parent: branch_a_L29, type: static, virtual: false }
+  - { name: branch_a_L31, parent: branch_a_L30, type: static, virtual: false }
+  - { name: branch_a_L32, parent: branch_a_L31, type: static, virtual: false }
+  - { name: branch_a_L33, parent: branch_a_L32, type: static, virtual: false }
+  - { name: branch_a_L34, parent: branch_a_L33, type: static, virtual: false }
+  - { name: branch_a_L35, parent: branch_a_L34, type: static, virtual: false }
+  - { name: branch_a_L36, parent: branch_a_L35, type: static, virtual: false }
+  - { name: branch_a_L37, parent: branch_a_L36, type: static, virtual: false }
+  - { name: branch_a_L38, parent: branch_a_L37, type: static, virtual: false }
+  - { name: branch_a_L39, parent: branch_a_L38, type: static, virtual: false }
+  - { name: branch_a_L40, parent: branch_a_L39, type: static, virtual: false }
+  - { name: branch_a_L41, parent: branch_a_L40, type: static, virtual: false }
+  - { name: branch_a_L42, parent: branch_a_L41, type: static, virtual: false }
+  - { name: branch_a_L43, parent: branch_a_L42, type: static, virtual: false }
+  - { name: branch_a_L44, parent: branch_a_L43, type: static, virtual: false }
+  - { name: branch_a_L45, parent: branch_a_L44, type: static, virtual: false }
+  - { name: branch_a_L46, parent: branch_a_L45, type: static, virtual: false }
+  - { name: branch_a_L47, parent: branch_a_L46, type: static, virtual: false }
+  - { name: branch_a_L48, parent: branch_a_L47, type: static, virtual: false }
+  - { name: branch_a_L49, parent: branch_a_L48, type: static, virtual: false }
+  - { name: branch_a_L50, parent: branch_a_L49, type: static, virtual: false }
+
+  # Branch B: 50 levels (branch_b_L1 through branch_b_L50)
+  - { name: branch_b_L1, parent: root, type: static, virtual: false }
+  - { name: branch_b_L2, parent: branch_b_L1, type: static, virtual: false }
+  - { name: branch_b_L3, parent: branch_b_L2, type: static, virtual: false }
+  - { name: branch_b_L4, parent: branch_b_L3, type: static, virtual: false }
+  - { name: branch_b_L5, parent: branch_b_L4, type: static, virtual: false }
+  - { name: branch_b_L6, parent: branch_b_L5, type: static, virtual: false }
+  - { name: branch_b_L7, parent: branch_b_L6, type: static, virtual: false }
+  - { name: branch_b_L8, parent: branch_b_L7, type: static, virtual: false }
+  - { name: branch_b_L9, parent: branch_b_L8, type: static, virtual: false }
+  - { name: branch_b_L10, parent: branch_b_L9, type: static, virtual: false }
+  - { name: branch_b_L11, parent: branch_b_L10, type: static, virtual: false }
+  - { name: branch_b_L12, parent: branch_b_L11, type: static, virtual: false }
+  - { name: branch_b_L13, parent: branch_b_L12, type: static, virtual: false }
+  - { name: branch_b_L14, parent: branch_b_L13, type: static, virtual: false }
+  - { name: branch_b_L15, parent: branch_b_L14, type: static, virtual: false }
+  - { name: branch_b_L16, parent: branch_b_L15, type: static, virtual: false }
+  - { name: branch_b_L17, parent: branch_b_L16, type: static, virtual: false }
+  - { name: branch_b_L18, parent: branch_b_L17, type: static, virtual: false }
+  - { name: branch_b_L19, parent: branch_b_L18, type: static, virtual: false }
+  - { name: branch_b_L20, parent: branch_b_L19, type: static, virtual: false }
+  - { name: branch_b_L21, parent: branch_b_L20, type: static, virtual: false }
+  - { name: branch_b_L22, parent: branch_b_L21, type: static, virtual: false }
+  - { name: branch_b_L23, parent: branch_b_L22, type: static, virtual: false }
+  - { name: branch_b_L24, parent: branch_b_L23, type: static, virtual: false }
+  - { name: branch_b_L25, parent: branch_b_L24, type: static, virtual: false }
+  - { name: branch_b_L26, parent: branch_b_L25, type: static, virtual: false }
+  - { name: branch_b_L27, parent: branch_b_L26, type: static, virtual: false }
+  - { name: branch_b_L28, parent: branch_b_L27, type: static, virtual: false }
+  - { name: branch_b_L29, parent: branch_b_L28, type: static, virtual: false }
+  - { name: branch_b_L30, parent: branch_b_L29, type: static, virtual: false }
+  - { name: branch_b_L31, parent: branch_b_L30, type: static, virtual: false }
+  - { name: branch_b_L32, parent: branch_b_L31, type: static, virtual: false }
+  - { name: branch_b_L33, parent: branch_b_L32, type: static, virtual: false }
+  - { name: branch_b_L34, parent: branch_b_L33, type: static, virtual: false }
+  - { name: branch_b_L35, parent: branch_b_L34, type: static, virtual: false }
+  - { name: branch_b_L36, parent: branch_b_L35, type: static, virtual: false }
+  - { name: branch_b_L37, parent: branch_b_L36, type: static, virtual: false }
+  - { name: branch_b_L38, parent: branch_b_L37, type: static, virtual: false }
+  - { name: branch_b_L39, parent: branch_b_L38, type: static, virtual: false }
+  - { name: branch_b_L40, parent: branch_b_L39, type: static, virtual: false }
+  - { name: branch_b_L41, parent: branch_b_L40, type: static, virtual: false }
+  - { name: branch_b_L42, parent: branch_b_L41, type: static, virtual: false }
+  - { name: branch_b_L43, parent: branch_b_L42, type: static, virtual: false }
+  - { name: branch_b_L44, parent: branch_b_L43, type: static, virtual: false }
+  - { name: branch_b_L45, parent: branch_b_L44, type: static, virtual: false }
+  - { name: branch_b_L46, parent: branch_b_L45, type: static, virtual: false }
+  - { name: branch_b_L47, parent: branch_b_L46, type: static, virtual: false }
+  - { name: branch_b_L48, parent: branch_b_L47, type: static, virtual: false }
+  - { name: branch_b_L49, parent: branch_b_L48, type: static, virtual: false }
+  - { name: branch_b_L50, parent: branch_b_L49, type: static, virtual: false }
+
+  # Box repo (dynamic - will move through tree)
+  # Starts at inbound, moves to branch_a_L50, then to branch_b_L48, then to outbound
+  - { name: box, parent: inbound, type: dynamic, virtual: false }
+
+# ========================================================================
+# MOVEMENT DEFINITIONS
+# ========================================================================
+movements:
+  # Phase 1: Seed stock into box (item movement from virtual to box)
+  - name: seed_box
+    moveType: item
+    from: virtual
+    to: box
+    qty: 100
+
+  # Phase 2: Move box from inbound to deepest node in branch A (repository movement)
+  - name: move_box_inbound_to_a50
+    moveType: repository
+    from: inbound
+    to: branch_a_L50
+    repoToMove: box
+
+  # Phase 3: Move box from branch A to 3rd deepest node in branch B (repository movement)
+  - name: move_box_a50_to_b48
+    moveType: repository
+    from: branch_a_L50
+    to: branch_b_L48
+    repoToMove: box
+
+  # Phase 4: Move box from branch B to outbound (repository movement)
+  - name: move_box_b48_to_outbound
+    moveType: repository
+    from: branch_b_L48
+    to: outbound
+    repoToMove: box
+
+# ========================================================================
+# TEST STEPS (Execute movements and verify stock levels)
+# ========================================================================
+steps:
+  # ======== PHASE 1: SEED STOCK ========
+  - name: seed_box
+    action: create
+    moveType: item
+    from: virtual
+    to: box
+    qty: 100
+    expectedStocks:
+      inbound: { qty: 0, ownQty: 0, in: 100, ownIn: 0, out: 0, ownOut: 0 }
+
+  - name: exec_seed_box
+    action: execute
+    movement: seed_box
+    expectedStocks:
+      root:    { qty: 100, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      inbound: { qty: 100, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  # ======== PHASE 2: MOVE BOX TO BRANCH A L50 (deepest in branch A) ========
+  - name: move_box_inbound_to_a50
+    action: create
+    moveType: repository
+    from: box
+    to: branch_a_L50
+    expectedStocks:
+      root:         { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      inbound:      { qty: 100, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut:   0 }
+      box:          { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L1:  { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L10: { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L20: { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L30: { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L40: { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L50: { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L1:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: exec_move_box_inbound_to_a50
+    action: execute
+    movement: move_box_inbound_to_a50
+    expectedStocks:
+      root:         { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      inbound:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:          { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L1:  { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L10: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L20: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L30: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L40: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L50: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L1:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ======== PHASE 3: MOVE BOX FROM BRANCH A L50 TO BRANCH B L48 ========
+  - name: move_box_a50_to_b48
+    action: create
+    moveType: repository
+    from: box
+    to: branch_b_L48
+    expectedStocks:
+      root:         { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:          { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L1:  { qty: 100, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut:   0 }
+      branch_a_L10: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut:   0 }
+      branch_a_L20: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut:   0 }
+      branch_a_L30: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut:   0 }
+      branch_a_L40: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut:   0 }
+      branch_a_L50: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut:   0 }
+      branch_b_L1:  { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L10: { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L20: { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L30: { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L40: { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L48: { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L50: { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: exec_move_box_a50_to_b48
+    action: execute
+    movement: move_box_a50_to_b48
+    expectedStocks:
+      root:         { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:          { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L1:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L10: { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L20: { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L30: { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L40: { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L50: { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L1:  { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L10: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L20: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L30: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L40: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L48: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L50: { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ======== PHASE 4: MOVE BOX FROM BRANCH B L48 TO OUTBOUND ========
+  - name: move_box_b48_to_outbound
+    action: create
+    moveType: repository
+    from: box
+    to: outbound
+    expectedStocks:
+      root:         { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      box:          { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L1:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L1:  { qty: 100, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut:   0 }
+      branch_b_L10: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut:   0 }
+      branch_b_L20: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut:   0 }
+      branch_b_L30: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut:   0 }
+      branch_b_L40: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut:   0 }
+      branch_b_L48: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut:   0 }
+      branch_b_L50: { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: exec_move_box_b48_to_outbound
+    action: execute
+    movement: move_box_b48_to_outbound
+    expectedStocks:
+      root:         { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:          { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_a_L1:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L1:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L10: { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L20: { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L30: { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L40: { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L48: { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      branch_b_L50: { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }

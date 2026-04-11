@@ -1,0 +1,21 @@
+type CustomEvent {
+  type: String!
+  operation: String!
+  payload: Map!
+}
+
+input CustomEventPayloadInput {
+  id: ID!
+  data: Map
+}
+
+input SendCustomEventInput {
+  type: String!
+  operation: String!
+  payload: CustomEventPayloadInput!
+}
+
+type SendCustomEventResponse {
+  success: Boolean!
+  workflows: [TemporalWorkflow!]!
+}

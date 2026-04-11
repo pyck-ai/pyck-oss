@@ -1,0 +1,100 @@
+version: "3.45"
+
+set: [errexit, nounset, pipefail]
+
+includes:
+  module:
+    flatten: true
+    taskfile: ../../task/module.yaml
+  container:
+    flatten: true
+    taskfile: ../../task/container.yaml
+    vars:
+      NAME: temporal
+
+# vars:
+#   CONTAINER_REGISTRY: ghcr.io/pyck-ai/pyck
+
+# includes:
+#   module:
+#     taskfile: ../../task/module.yaml
+#     flatten: true
+#   cmd:
+#     taskfile: ../../task/cmd.yaml
+#     flatten: true
+
+# tasks:
+#   run:
+#     desc: Run Temporal locally
+#     cmds:
+#       - >-
+#         docker compose
+#         -f ../../docker-compose.yml
+#         up
+#         --build
+#         --pull=always
+#         --force-recreate
+#         --remove-orphans
+#         --no-log-prefix
+#         --wait
+#         "temporal"
+#         {{.CLI_ARGS}}
+
+#   logs:
+#     desc: View Temporal logs
+#     cmds:
+#       - >-
+#         docker compose
+#         -f ../../docker-compose.yml
+#         logs
+#         --follow
+#         "temporal"
+
+#   debug:
+#     desc: Debug Temporal (dlv)
+#     cmds:
+#       - >-
+#         docker compose
+#         -f ../../docker-compose.yml
+#         -f ../../docker-compose.debug.yml
+#         up
+#         --build
+#         --pull=always
+#         --force-recreate
+#         --remove-orphans
+#         --no-log-prefix
+#         --no-deps
+#         "temporal"
+#         {{.CLI_ARGS}}
+
+#   container:
+#     desc: Build container
+#     cmds:
+#       - >-
+#         docker build
+#         --file=Dockerfile
+#         --build-arg=GIT_COMMIT_SHA={{.GIT_COMMIT_SHA}}
+#         --build-arg=GIT_COMMIT_DATE={{.GIT_COMMIT_DATE}}
+#         --tag={{.CONTAINER_REGISTRY}}/{{.CONTAINER_NAME}}:{{.GIT_COMMIT_SHA}}
+#         ../..
+#     vars:
+#       GIT_COMMIT_SHA:
+#         sh: git rev-parse HEAD
+#       GIT_COMMIT_DATE:
+#         sh: git log -1 --format=%cI
+#       CONTAINER_NAME:
+#         sh: basename "{{.TASK_DIR}}"
+#     requires:
+#       vars:
+#         - CONTAINER_REGISTRY
+#         - CONTAINER_NAME
+#         - GIT_COMMIT_SHA
+#         - GIT_COMMIT_DATE
+#     sources:
+#       - Dockerfile
+#       - ./go.mod
+#       - ./go.sum
+#       - ./**/*.go
+#       - ../common/go.mod
+#       - ../common/go.sum
+#       - ../common/**/*.go

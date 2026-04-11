@@ -1,0 +1,24 @@
+---
+operation: UpdateDevice
+name: "Update Device"
+description: >
+  Updates an existing device's name or data.
+vars:
+  id: { $placeholder: "device ID" }
+  input:
+    name: "Scanner-001-Updated"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated device returned"
+    assertions:
+      - ref: res.body.data.updateDevice.device.id
+        nil: false
+      - ref: res.body.data.updateDevice.device.name
+        equal: "Scanner-001-Updated"

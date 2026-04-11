@@ -1,0 +1,20 @@
+---
+operation: DeleteDevice
+name: "Delete Device"
+description: >
+  Soft-deletes a device by ID.
+vars:
+  id: { $placeholder: "device ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Deleted ID returned"
+    assertions:
+      - ref: res.body.data.deleteDevice.deletedID
+        equal: {$ref: req.body.variables.id}

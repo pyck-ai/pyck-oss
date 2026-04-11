@@ -1,0 +1,27 @@
+---
+operation: CreateUser
+name: "Create User"
+description: >
+  Creates a user account with IDP reference and contact details.
+vars:
+  input:
+    username: "jdoe"
+    email: "jdoe@example.com"
+    firstName: "John"
+    lastName: "Doe"
+    idpID: { $placeholder: "IDP user ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "User created"
+    assertions:
+      - ref: res.body.data.createUser.id
+        nil: false
+      - ref: res.body.data.createUser.username
+        equal: "jdoe"

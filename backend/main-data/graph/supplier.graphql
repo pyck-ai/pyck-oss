@@ -1,0 +1,12 @@
+
+
+extend input SupplierWhereInput {
+  Data: [String!]
+  DataHasKey: String
+  DataIn: [String!]
+  DataContains: [String!]
+}
+
+type SupplierDeletePayload {
+  deletedID: ID
+}

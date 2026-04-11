@@ -1,0 +1,12 @@
+info:
+  name: {{.Name}}
+  type: folder
+  seq: {{.Seq}}
+{{- if .Description}}
+
+docs: |-
+  {{.Description}}
+{{- end}}
+
+request:
+  auth: inherit

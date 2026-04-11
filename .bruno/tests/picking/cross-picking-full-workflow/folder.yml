@@ -1,0 +1,11 @@
+info:
+  name: Cross - Picking Full Workflow
+  type: folder
+  seq: 1
+
+docs: |-
+  End-to-end cross-service test: sets up data types for orders and items in management, creates a complete picking order with multiple items, queries and filters in various ways, performs updates, deletes individual items, then cleans up everything including cascade delete verification.
+
+
+request:
+  auth: inherit

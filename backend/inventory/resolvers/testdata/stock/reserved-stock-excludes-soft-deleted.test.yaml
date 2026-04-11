@@ -1,0 +1,174 @@
+# Reserved Stock Excludes Soft Deleted
+# Tests that:
+# 1. Soft-deleted movements do not reserve stock
+# 2. New movements can use the freed capacity after deletion
+# 3. Stock levels remain accurate throughout all operations
+#
+# Repository structure:
+#
+#   virtual (virtual, unlimited source)
+#
+#   warehouse
+#   ├── shelf      (holds seeded items)
+#   ├── zone-a     (destination zone)
+#   └── zone-b     (destination zone)
+#
+name: reserved-stock-excludes-soft-deleted
+itemSKU: reserved-deletion-item
+
+repositories:
+  - name: virtual    # unlimited virtual source
+    parent: ""
+    type: static
+    virtual: true
+
+  - name: warehouse  # root physical repository
+    parent: ""
+    type: static
+    virtual: false
+
+  - name: shelf      # holds seeded stock
+    parent: warehouse
+    type: static
+    virtual: false
+
+  - name: zone-a     # first destination zone
+    parent: warehouse
+    type: static
+    virtual: false
+
+  - name: zone-b     # second destination zone
+    parent: warehouse
+    type: static
+    virtual: false
+
+steps:
+  # BEFORE                          AFTER
+  #
+  # virtual [ownQty: 0]             virtual [ownQty: 0]
+  #                                    out: 100
+  #
+  # warehouse                        warehouse
+  # ├── shelf    [ownQty: 0]         ├── shelf    [ownQty: 0]
+  # ├── zone-a   [ownQty: 0]         │              in: 100
+  # └── zone-b   [ownQty: 0]         ├── zone-a   [ownQty: 0]
+  #                                   └── zone-b   [ownQty: 0]
+  - name: setup_seed
+    action: create
+    moveType: item
+    from: virtual
+    to: shelf
+    qty: 100
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut: 100 }
+      warehouse: { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty:   0, ownQty:   0, in: 100, ownIn: 100, out:   0, ownOut:   0 }
+      zone-a:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: setup_execute
+    action: execute
+    movement: setup_seed
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-a:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # warehouse
+  # ├── shelf    [ownQty: 100]
+  # │              out: 30 ──╮
+  # ├── zone-a   [ownQty:   0]
+  # │              in:  30 ◄─╯
+  # └── zone-b   [ownQty:   0]
+  - name: create_movement_a
+    action: create
+    moveType: item
+    from: shelf
+    to: zone-a
+    qty: 30
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:  30, ownOut:  30 }
+      zone-a:    { qty:   0, ownQty:   0, in:  30, ownIn:  30, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # warehouse
+  # ├── shelf    [ownQty: 100]
+  # │              out: 20 ──────╮
+  # ├── zone-a   [ownQty:   0]  │
+  # └── zone-b   [ownQty:   0]  │
+  #                in:  20 ◄─────╯
+  - name: create_movement_b
+    action: create
+    moveType: item
+    from: shelf
+    to: zone-b
+    qty: 20
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:  50, ownOut:  50 }
+      zone-a:    { qty:   0, ownQty:   0, in:  30, ownIn:  30, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:  20, ownIn:  20, out:   0, ownOut:   0 }
+
+  # Soft-delete clears movement A's reservation (30 items)
+  #
+  # warehouse
+  # ├── shelf    [ownQty: 100]
+  # │              out: 30 ╳╌╌╮
+  # ├── zone-a   [ownQty:   0]
+  # │              in:  30 ◄╌╌╯
+  # └── zone-b   [ownQty:   0]
+  - name: delete_movement_a
+    action: delete
+    movement: create_movement_a
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:  20, ownOut:  20 }
+      zone-a:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:  20, ownIn:  20, out:   0, ownOut:   0 }
+
+  # Available = 100 − 20 (only B reserved) = 80
+  #
+  # warehouse
+  # ├── shelf    [ownQty: 100]
+  # │              out: 80 ──╮
+  # ├── zone-a   [ownQty:   0]
+  # │              in:  80 ◄─╯
+  # └── zone-b   [ownQty:   0]
+  - name: create_movement_c
+    action: create
+    moveType: item
+    from: shelf
+    to: zone-a
+    qty: 80
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty: 100, ownQty: 100, in:   0, ownIn:   0, out: 100, ownOut: 100 }
+      zone-a:    { qty:   0, ownQty:   0, in:  80, ownIn:  80, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:  20, ownIn:  20, out:   0, ownOut:   0 }
+
+  - name: execute_movement_c
+    action: execute
+    movement: create_movement_c
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty:  20, ownQty:  20, in:   0, ownIn:   0, out:  20, ownOut:  20 }
+      zone-a:    { qty:  80, ownQty:  80, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:  20, ownIn:  20, out:   0, ownOut:   0 }
+
+  - name: execute_movement_b
+    action: execute
+    movement: create_movement_b
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-a:    { qty:  80, ownQty:  80, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-b:    { qty:  20, ownQty:  20, in:   0, ownIn:   0, out:   0, ownOut:   0 }

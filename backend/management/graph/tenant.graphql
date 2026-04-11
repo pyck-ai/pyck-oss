@@ -1,0 +1,13 @@
+input RegisterTenantInput {
+  name: String!
+  adminUsername: String!
+  adminEmail: String!
+  adminFirstName: String!
+  adminLastName: String!
+  adminPassword: String!
+  """
+  Optional metadata for the tenant.
+  Synced to Zitadel org metadata and tenant.data.
+  """
+  data: Map
+}

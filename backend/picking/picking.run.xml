@@ -1,0 +1,8 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="picking" type="GoRemoteDebugConfigurationType" factoryName="Go Remote" port="7086">
+    <log_file alias="Delve Log" path="$PROJECT_DIR$/backend/picking/tmp/dlv.log" skipped="false" />
+    <option name="disconnectOption" value="LEAVE" />
+    <disconnect value="LEAVE" />
+    <method v="2" />
+  </configuration>
+</component>

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "$id": "test.schema.json",
+  "title": "TestScenario",
+  "description": "Fixture for a multi-step Bruno test flow.",
+  "type": "object",
+  "required": ["name", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "name":        { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/TestStep" }
+    }
+  },
+  "$defs": {
+    "TestStep": {
+      "type": "object",
+      "required": ["operation"],
+      "additionalProperties": false,
+      "properties": {
+        "id":          { "type": "string" },
+        "name":        { "type": "string" },
+        "operation":   { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "vars":        { "type": "object" },
+        "skip":        { "type": "array", "items": { "$ref": "#/$defs/TestAssertion" } },
+        "tests":       { "type": "array", "items": { "$ref": "#/$defs/TestAssertion" } }
+      }
+    },
+    "TestAssertion": {
+      "type": "object",
+      "required": ["msg", "assertions"],
+      "additionalProperties": false,
+      "properties": {
+        "msg":        { "type": "string", "minLength": 1 },
+        "assertions": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/Assertion" } }
+      }
+    },
+    "Assertion": {
+      "type": "object",
+      "required": ["ref"],
+      "additionalProperties": false,
+      "minProperties": 2,
+      "maxProperties": 2,
+      "properties": {
+        "ref":            { "type": "string", "minLength": 1 },
+        "equal":          {},
+        "notEqual":       {},
+        "nil":            { "type": "boolean" },
+        "notNil":         { "type": "boolean" },
+        "exists":         { "type": "boolean" },
+        "empty":          {},
+        "notEmpty":       {},
+        "contains":       {},
+        "isType":         { "type": "string" },
+        "greater":        {},
+        "less":           {},
+        "greaterOrEqual": {},
+        "lessOrEqual":    {},
+        "len":            { "type": "integer", "minimum": 0 },
+        "regexp":         { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,0 +1,131 @@
+---
+name: "User - Key Value Lifecycle"
+description: >
+  Sets a key-value entry, verifies it in list queries,
+  updates it via set (upsert), and deletes it.
+steps:
+  - id: createDT
+    name: "Create data type for key values"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "UI Settings Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "keyvalue"
+        jsonSchema: '{"type":"object","properties":{"theme":{"type":"string"},"density":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: set
+    name: "Set key value"
+    operation: management.setKeyValue
+    vars:
+      input:
+        name: "ui.theme"
+        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        data:
+          theme: "dark"
+          density: "compact"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Entry created"
+        assertions:
+          - ref: res.body.data.setKeyValue.id
+            nil: false
+      - msg: "Name persisted"
+        assertions:
+          - ref: res.body.data.setKeyValue.name
+            equal: "ui.theme"
+
+  - name: "Query key value by name"
+    operation: management.getKeyValues
+    vars:
+      where:
+        name: "ui.theme"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one entry"
+        assertions:
+          - ref: res.body.data.keyValues.totalCount
+            equal: 1
+
+  - id: upsert
+    name: "Update key value (same key, new data)"
+    operation: management.setKeyValue
+    vars:
+      input:
+        name: "ui.theme"
+        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        data:
+          theme: "light"
+          density: "comfortable"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Delete key value"
+    operation: management.deleteKeyValue
+    vars:
+      id: {$ref: "res[upsert].body.data.setKeyValue.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteKeyValue.deletedID
+            equal: {$ref: "res[upsert].body.data.setKeyValue.id"}
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteDataType.deletedID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}

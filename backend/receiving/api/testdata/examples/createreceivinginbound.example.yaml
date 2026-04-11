@@ -1,0 +1,34 @@
+---
+operation: CreateReceivingInbound
+name: "Create Receiving Inbound"
+description: >
+  Creates a receiving inbound with supplier, order, data, and inline items.
+vars:
+  input:
+    supplierID: { $placeholder: "supplier ID" }
+    orderID: "PO-2026-001"
+    data:
+      warehouse: "WH-A"
+      receivedBy: "dock-3"
+    inboundItems:
+      - sku: "RECV-SKU-001"
+        quantity: 50
+      - sku: "RECV-SKU-002"
+        quantity: 25
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Inbound was created"
+    assertions:
+      - ref: res.body.data.createReceivingInbound.receivingInbound.id
+        nil: false
+      - ref: res.body.data.createReceivingInbound.receivingInbound.orderID
+        equal: "PO-2026-001"
+      - ref: res.body.data.createReceivingInbound.receivingInbound.inboundItems.totalCount
+        equal: 2

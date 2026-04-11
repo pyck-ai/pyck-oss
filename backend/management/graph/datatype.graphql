@@ -1,0 +1,8 @@
+
+extend type Query {
+  dataTypeEntities: [String!]
+}
+
+type DataTypeDeletePayload {
+  deletedID: ID
+}

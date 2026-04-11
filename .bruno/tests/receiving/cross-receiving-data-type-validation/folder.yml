@@ -1,0 +1,11 @@
+info:
+  name: Cross - Receiving Data Type Validation
+  type: folder
+  seq: 1
+
+docs: |-
+  Tests that data type schema validation works correctly for receiving inbounds. Rejects invalid data, accepts valid data, rejects data without dataTypeID, and validates schema constraints.
+
+
+request:
+  auth: inherit

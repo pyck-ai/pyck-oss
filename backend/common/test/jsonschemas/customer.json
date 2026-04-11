@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-06/schema#",
+  "title": "Customer 2",
+  "description": "",
+  "type": "object",
+  "properties": {
+    "fields": {
+      "type": "object",
+      "properties": {
+        "eb214d08-6327-4b90-8143-4fa7b8ba1be3": {
+          "type": "string",
+          "unique": true
+        }
+      },
+      "required": []
+    },
+    "fieldsSettings": {
+      "type": "object",
+      "properties": {
+        "eb214d08-6327-4b90-8143-4fa7b8ba1be3": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "default": "text"
+            },
+            "label": {
+              "type": "string",
+              "default": "Name"
+            },
+            "description": {
+              "type": "string",
+              "default": ""
+            },
+            "placeholder": {
+              "type": "string"
+            },
+            "order": {
+              "type": "number",
+              "default": 0.5
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "fields"
+  ]
+}

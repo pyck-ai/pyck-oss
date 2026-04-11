@@ -1,0 +1,82 @@
+name: order-isolation
+description: Verify picking orders are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  orders:
+    - name: order-alpha-1
+      tenant: alpha
+    - name: order-alpha-2
+      tenant: alpha
+    - name: order-beta-1
+      tenant: beta
+
+checks:
+  # --- Read isolation ---
+  - type: query
+    entity: order
+    tenant: alpha
+    description: "alpha sees only own orders"
+    expectCount: 2
+
+  - type: query
+    entity: order
+    tenant: beta
+    description: "beta sees only own orders"
+    expectCount: 1
+
+  # --- Cross-tenant update + verify unchanged ---
+  - type: cross-update
+    entity: order
+    tenant: alpha
+    target: beta/order-beta-1
+    description: "alpha cannot update beta's order"
+    expectError: "not found"
+
+  - type: query
+    entity: order
+    tenant: beta
+    description: "beta still has 1 order after failed cross-update"
+    expectCount: 1
+
+  # --- Cross-tenant delete + verify still exists ---
+  - type: cross-delete
+    entity: order
+    tenant: alpha
+    target: beta/order-beta-1
+    description: "alpha cannot delete beta's order"
+    expectError: "not found"
+
+  - type: query
+    entity: order
+    tenant: beta
+    description: "beta still has 1 order after failed cross-delete"
+    expectCount: 1
+
+  # CreatePickingOrder accepts cross-tenant customerID.
+  # Alpha can create an order referencing beta's customer UUID.
+  # Tracked in: https://github.com/pyck-ai/pyck/issues/16
+  #
+  # - type: cross-create
+  # entity: order
+  # tenant: alpha
+  # description: "alpha cannot create order with beta's customer"
+  # args:
+  # customerID: beta/order-beta-1
+  # expectError: "not found"
+
+  # UpdatePickingOrder accepts cross-tenant customerID.
+  # Alpha can update own order to reference beta's customer UUID.
+  # Tracked in: https://github.com/pyck-ai/pyck/issues/16
+  #
+  # - type: cross-update-with-args
+  # entity: order
+  # tenant: alpha
+  # target: alpha/order-alpha-1
+  # description: "alpha cannot update own order to reference beta's customer"
+  # args:
+  # customerID: beta/order-beta-1
+  # expectError: "not found"

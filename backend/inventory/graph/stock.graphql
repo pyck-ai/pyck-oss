@@ -1,0 +1,40 @@
+
+input ClearVirtualStockInput{
+  itemID: ID
+  repositoryID: ID!
+}
+
+type RebuildStockOutput {
+  success: Boolean!
+}
+
+extend input StockWhereInput {
+  time: Time
+  netStockGTE: Int
+}
+
+type RepositoryTree {
+  repositoryID: ID!
+  parentID: ID
+  stocks: [Stock!]!
+  children: [RepositoryTreeEdge!]!
+  createdAt: Time!
+}
+
+
+extend type Query {
+  getStockTree(after: Cursor, first: Int, before: Cursor, last: Int, where: StockWhereInput): RepositoryTreeConnection!
+}
+
+type RepositoryTreeConnection {
+  edges: [RepositoryTreeEdge!]!
+  pageInfo: PageInfo!
+}
+
+type RepositoryTreeEdge {
+  node: RepositoryTree!
+  cursor: Cursor!
+}
+
+
+

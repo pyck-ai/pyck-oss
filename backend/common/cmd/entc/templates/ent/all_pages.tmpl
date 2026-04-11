@@ -1,0 +1,28 @@
+{{/* gotype: entgo.io/ent/entc/gen.Graph */}}
+
+{{ define "all_pages" }}
+{{ template "header" $ }}
+
+{{ range $node := $.Nodes }}
+
+// AllPages paginates through all {{ $node.Name }} records matching the current
+// query predicates in pages of pageSize, collecting every row. This avoids the
+// LimitMixin hard cap that silently truncates results when no explicit Limit is
+// set.
+func ({{ $node.QueryReceiver }} *{{ $node.QueryName }}) AllPages(ctx context.Context, pageSize int) ([]*{{ $node.Name }}, error) {
+	var all []*{{ $node.Name }}
+	for offset := 0; ; offset += pageSize {
+		page, err := {{ $node.QueryReceiver }}.Clone().Limit(pageSize).Offset(offset).All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if len(page) < pageSize {
+			break
+		}
+	}
+	return all, nil
+}
+{{ end }}
+
+{{ end }}

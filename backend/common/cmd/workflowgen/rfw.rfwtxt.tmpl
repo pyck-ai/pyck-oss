@@ -1,0 +1,11 @@
+// User Task: {{.Name}}
+// Source: {{.BPMNFile}}
+widget {{.ID}} = ActivityContainer(
+    child: ListView(
+        children: [
+          ActivityHeader(title: "{{.Name}}"),
+          // TODO: Implement UI for {{.Name}}
+          OutlinedButton(text: "Next [DEBUG]", onPressed: event "next" { }),
+        ]
+    )
+);

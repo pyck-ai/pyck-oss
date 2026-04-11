@@ -1,0 +1,120 @@
+name: item-movement-isolation
+description: Verify item movements and their stock effects are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  repositories:
+    - name: virtual
+      tenant: alpha
+      type: static
+      virtual: true
+    - name: warehouse
+      tenant: alpha
+      type: static
+    - name: virtual
+      tenant: beta
+      type: static
+      virtual: true
+    - name: warehouse
+      tenant: beta
+      type: static
+
+  items:
+    - sku: PART-100
+      tenant: alpha
+    - sku: PART-100
+      tenant: beta
+
+  itemMovements:
+    - name: stock-in-alpha
+      tenant: alpha
+      item: PART-100
+      from: virtual
+      to: warehouse
+      quantity: 50
+      handler: test-handler
+    - name: stock-in-beta
+      tenant: beta
+      item: PART-100
+      from: virtual
+      to: warehouse
+      quantity: 30
+      handler: test-handler
+
+checks:
+  # --- Read isolation ---
+  - type: query
+    entity: itemMovement
+    tenant: alpha
+    description: "alpha sees only own item movements"
+    expectCount: 1
+
+  - type: query
+    entity: itemMovement
+    tenant: beta
+    description: "beta sees only own item movements"
+    expectCount: 1
+
+  # --- Cross-tenant update + verify unchanged ---
+  - type: cross-update
+    entity: itemMovement
+    tenant: alpha
+    target: beta/stock-in-beta
+    description: "alpha cannot update beta's item movement"
+    expectError: "not found"
+
+  - type: query
+    entity: itemMovement
+    tenant: beta
+    description: "beta still has 1 item movement after failed cross-update"
+    expectCount: 1
+
+  # --- Cross-tenant delete + verify still exists ---
+  - type: cross-delete
+    entity: itemMovement
+    tenant: alpha
+    target: beta/stock-in-beta
+    description: "alpha cannot delete beta's item movement"
+    expectError: "not found"
+
+  - type: query
+    entity: itemMovement
+    tenant: beta
+    description: "beta still has 1 item movement after failed cross-delete"
+    expectCount: 1
+
+  # --- Cross-tenant execute + verify not executed ---
+  - type: cross-execute
+    entity: itemMovement
+    tenant: alpha
+    target: beta/stock-in-beta
+    description: "alpha cannot execute beta's item movement"
+    expectError: "not found"
+
+  - type: query
+    entity: itemMovement
+    tenant: beta
+    description: "beta still has 1 item movement after failed cross-execute"
+    expectCount: 1
+
+  # --- Cross-tenant create + verify no orphan ---
+  - type: cross-create
+    entity: itemMovement
+    tenant: alpha
+    description: "alpha cannot create item movement with beta's repositories"
+    args:
+      item: alpha/PART-100
+      from: beta/virtual
+      to: beta/warehouse
+      quantity: 10
+      handler: test-handler
+    expectError: "not found"
+
+  - type: query
+    entity: itemMovement
+    tenant: alpha
+    description: "alpha still has 1 item movement after failed cross-create"
+    expectCount: 1

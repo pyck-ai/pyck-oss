@@ -1,0 +1,29 @@
+---
+operation: UpdateCustomer
+name: "Update Customer"
+description: >
+  Updates a customer's data.
+vars:
+  id: { $placeholder: "customer ID" }
+  input:
+    dataTypeID: { $placeholder: "customer data type ID" }
+    data:
+      name: "Acme Corp Updated"
+      industry: "technology"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated customer returned"
+    assertions:
+      - ref: res.body.data.updateCustomer.id
+        nil: false
+      - ref: res.body.data.updateCustomer.data.name
+        equal: "Acme Corp Updated"
+      - ref: res.body.data.updateCustomer.data.industry
+        equal: "technology"

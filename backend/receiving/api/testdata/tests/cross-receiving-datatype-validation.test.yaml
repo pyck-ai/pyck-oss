@@ -1,0 +1,193 @@
+---
+name: "Cross - Receiving Data Type Validation"
+description: >
+  Tests that data type schema validation works correctly for
+  receiving inbounds. Rejects invalid data, accepts valid data,
+  rejects data without dataTypeID, and validates schema constraints.
+steps:
+  - id: createDataType
+    name: "Create strict data type"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Strict Receiving Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "inbound"
+        jsonSchema: '{"type":"object","properties":{"status":{"type":"string","enum":["pending","received","inspected"]},"weight":{"type":"number","minimum":0,"maximum":10000}},"required":["status"],"additionalProperties":false}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - name: "Reject data without dataTypeID"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        data:
+          status: "pending"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (data without data type)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Reject invalid enum value"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        dataTypeID: {$ref: "res[createDataType].body.data.createDataType.id"}
+        data:
+          status: "invalid-status"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (schema validation)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Reject additionalProperties"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        dataTypeID: {$ref: "res[createDataType].body.data.createDataType.id"}
+        data:
+          status: "pending"
+          unknownField: "not allowed"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (additionalProperties)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Reject missing required field"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        dataTypeID: {$ref: "res[createDataType].body.data.createDataType.id"}
+        data:
+          weight: 500
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (missing required status)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Reject weight exceeding maximum"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        dataTypeID: {$ref: "res[createDataType].body.data.createDataType.id"}
+        data:
+          status: "pending"
+          weight: 99999
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (weight max 10000)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - id: createValid
+    name: "Accept valid data"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        dataTypeID: {$ref: "res[createDataType].body.data.createDataType.id"}
+        data:
+          status: "received"
+          weight: 250.5
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound created successfully"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+      - msg: "Data persisted"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.data.status
+            equal: "received"
+
+  - name: "Reject invalid update data"
+    operation: receiving.updateReceivingInbound
+    vars:
+      id: {$ref: "res[createValid].body.data.createReceivingInbound.receivingInbound.id"}
+      input:
+        data:
+          status: "bogus"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (invalid enum on update)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Cleanup - delete inbound"
+    operation: receiving.deleteReceivingInbound
+    vars:
+      id: {$ref: "res[createValid].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDataType].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

@@ -1,0 +1,97 @@
+---
+services:
+  db:
+    container_name: db
+    image: 'postgres:alpine'
+    restart: always
+    ports:
+      - 5432:5432
+    env_file: ../../../.env
+    environment:
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --data-checksums"
+    networks:
+      - pyck
+    volumes:
+     - ../../../config/db/entrypoint.sh:/usr/local/bin/pyck-entrypoint.sh:ro,z
+    # Ultra memory-optimized PostgreSQL configuration
+    entrypoint: ["/usr/local/bin/pyck-entrypoint.sh"]
+    command: >
+      postgres
+      -c shared_buffers=32MB
+      -c effective_cache_size=64MB
+      -c maintenance_work_mem=8MB
+      -c work_mem=1MB
+      -c max_connections=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c wal_buffers=1MB
+      -c default_statistics_target=50
+      -c checkpoint_completion_target=0.9
+      -c max_wal_size=128MB
+      -c min_wal_size=32MB
+      -c max_worker_processes=1
+      -c max_parallel_workers_per_gather=0
+      -c max_parallel_workers=1
+      -c max_parallel_maintenance_workers=1
+      -c autovacuum_max_workers=1
+      -c autovacuum_work_mem=-1
+      -c autovacuum_naptime=120s
+      -c temp_buffers=4MB
+      -c log_statement=none
+      -c log_duration=off
+      -c log_lock_waits=off
+      -c log_min_duration_statement=-1
+      -c shared_preload_libraries=''
+      -c huge_pages=off
+      -c track_activities=on
+      -c track_counts=on
+      -c track_io_timing=off
+      -c track_wal_io_timing=off
+    healthcheck:
+      test: ["CMD", "pg_isready", "-d", "pyck_dev", "-U", "admin"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    tmpfs:
+      - /tmp:size=16M
+      - /run:size=16M
+
+---
+services:
+  db-ui:
+    container_name: db-ui
+    image: adminer:standalone
+    restart: always
+    ports:
+      - 15432:8080
+    networks:
+      - pyck
+    depends_on:
+      db: { condition: service_healthy }
+    env_file: ../../../.env
+    environment:
+      ADMINER_AUTOLOGIN_AUTOSUBMIT: true
+      ADMINER_DESIGN: adminer-dark
+      ADMINER_PLUGINS: 'pyck-autologin'
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 64M  # Adminer uses only ~20-30MB
+        reservations:
+          memory: 32M
+    volumes:
+      - ../../../config/adminer/pyck-autologin.php:/var/www/html/plugins/pyck-autologin.php:ro,z
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    tmpfs:
+      - /tmp:size=32M

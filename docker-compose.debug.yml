@@ -1,0 +1,9 @@
+include:
+  - config/compose/third-party/temporal.debug.yaml
+  - config/compose/backend/file.debug.yaml
+  - config/compose/backend/inventory.debug.yaml
+  - config/compose/backend/main-data.debug.yaml
+  - config/compose/backend/management.debug.yaml
+  - config/compose/backend/picking.debug.yaml
+  - config/compose/backend/receiving.debug.yaml
+  - config/compose/backend/workflow.debug.yaml

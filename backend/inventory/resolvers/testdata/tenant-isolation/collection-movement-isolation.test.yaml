@@ -1,0 +1,109 @@
+name: collection-movement-isolation
+description: Verify collection movements are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  repositories:
+    - name: virtual
+      tenant: alpha
+      type: static
+      virtual: true
+    - name: shelf
+      tenant: alpha
+      type: static
+    - name: virtual
+      tenant: beta
+      type: static
+      virtual: true
+    - name: shelf
+      tenant: beta
+      type: static
+
+  items:
+    - sku: GADGET
+      tenant: alpha
+    - sku: GADGET
+      tenant: beta
+
+  collectionMovements:
+    - name: batch-alpha
+      tenant: alpha
+      collection:
+        - item: GADGET
+          from: virtual
+          to: shelf
+          quantity: 10
+          handler: test-handler
+    - name: batch-beta
+      tenant: beta
+      collection:
+        - item: GADGET
+          from: virtual
+          to: shelf
+          quantity: 5
+          handler: test-handler
+
+checks:
+  # --- Read isolation ---
+  - type: query
+    entity: collectionMovement
+    tenant: alpha
+    description: "alpha sees only own collection movements"
+    expectCount: 1
+
+  - type: query
+    entity: collectionMovement
+    tenant: beta
+    description: "beta sees only own collection movements"
+    expectCount: 1
+
+  # --- Cross-tenant update + verify unchanged ---
+  - type: cross-update
+    entity: collectionMovement
+    tenant: alpha
+    target: beta/batch-beta
+    description: "alpha cannot update beta's collection movement"
+    expectError: "not found"
+
+  - type: query
+    entity: collectionMovement
+    tenant: beta
+    description: "beta still has 1 collection movement after failed cross-update"
+    expectCount: 1
+
+  # --- Cross-tenant delete + verify still exists ---
+  - type: cross-delete
+    entity: collectionMovement
+    tenant: alpha
+    target: beta/batch-beta
+    description: "alpha cannot delete beta's collection movement"
+    expectError: "not found"
+
+  - type: query
+    entity: collectionMovement
+    tenant: beta
+    description: "beta still has 1 collection movement after failed cross-delete"
+    expectCount: 1
+
+  # --- Cross-tenant create + verify no orphan ---
+  - type: cross-create
+    entity: collectionMovement
+    tenant: alpha
+    description: "alpha cannot create collection movement with beta's entities"
+    args:
+      collection:
+        - item: beta/GADGET
+          from: beta/virtual
+          to: beta/shelf
+          quantity: 10
+          handler: test-handler
+    expectError: "not found"
+
+  - type: query
+    entity: collectionMovement
+    tenant: alpha
+    description: "alpha still has 1 collection movement after failed cross-create"
+    expectCount: 1

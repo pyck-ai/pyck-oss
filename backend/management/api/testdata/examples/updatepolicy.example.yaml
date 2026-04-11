@@ -1,0 +1,30 @@
+---
+operation: UpdatePolicy
+name: "Update Policy"
+description: >
+  Updates the action, effect, or resource of an existing policy.
+vars:
+  id: { $placeholder: "policy ID" }
+  input:
+    action: "write"
+    effect: "allow"
+    resource: "inventory:*"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated policy returned"
+    assertions:
+      - ref: res.body.data.updatePolicy.id
+        nil: false
+      - ref: res.body.data.updatePolicy.action
+        equal: "write"
+      - ref: res.body.data.updatePolicy.effect
+        equal: "allow"
+      - ref: res.body.data.updatePolicy.resource
+        equal: "inventory:*"

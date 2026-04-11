@@ -1,0 +1,26 @@
+---
+operation: UpdateInventoryItemSet
+name: "Update Inventory Item Set"
+description: >
+  Updates the SKU of an existing inventory item set.
+vars:
+  id: {$placeholder: "item set ID"}
+  input:
+    sku: "WIDGET-SET-UPDATED"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Item set updated"
+    assertions:
+      - ref: res.body.data.updateInventoryItemSet.inventoryItemSet
+        nil: false
+      - ref: res.body.data.updateInventoryItemSet.inventoryItemSet.id
+        nil: false
+      - ref: res.body.data.updateInventoryItemSet.inventoryItemSet.sku
+        equal: "WIDGET-SET-UPDATED"

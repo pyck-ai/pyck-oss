@@ -1,0 +1,51 @@
+//go:generate go tool workflowgen ./workflows/...
+
+package main
+
+import (
+	workflowsdk "github.com/pyck-ai/pyck/backend/workflowsdk"
+)
+
+func main() {
+	if err := workflowsdk.RunDefaultWorker("default"); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// Alternatively, you can customize your worker like this:
+//
+// import (
+// 	"context"
+// 	"log"
+// 	"os"
+//
+// 	pycklog "github.com/pyck-ai/pyck/backend/common/log"
+//  workflowsdk "github.com/pyck-ai/pyck/backend/workflowsdk"
+// 	temporalclient "go.temporal.io/sdk/client"
+// 	temporalworker "go.temporal.io/sdk/worker"
+// )
+//
+// func main() {
+// 	worker, err := workflowsdk.NewWorker(context.Background(),
+// 		workflowsdk.WithLogOptions(pycklog.Options{
+// 			LogLevel:  pycklog.LevelStr(os.Getenv("PYCK_LOG_LEVEL")),
+// 			LogFormat: os.Getenv("PYCK_LOG_FORMAT"),
+// 		}),
+// 		workflowsdk.WithClientOptions(temporalclient.Options{
+// 			HostPort:  os.Getenv("PYCK_TEMPORAL_URL"),
+// 			Namespace: "default",
+// 		}),
+// 		workflowsdk.WithWorkerOptions(temporalworker.Options{
+// 			TaskQueueActivitiesPerSecond:       100,
+// 			MaxConcurrentActivityExecutionSize: 200,
+// 			MaxConcurrentActivityTaskPollers:   4,
+// 		}),
+// 	)
+// 	if err != nil {
+// 		log.Fatalf("failed to create worker: %v", err)
+// 	}
+//
+// 	if err := worker.Run(ctx); err != nil {
+// 		log.Fatalf("failed to run worker: %v", err)
+// 	}
+// }

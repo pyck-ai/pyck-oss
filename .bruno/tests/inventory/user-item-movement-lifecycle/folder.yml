@@ -1,0 +1,11 @@
+info:
+  name: User - Item Movement Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a virtual source repository, a static destination repository, and an inventory item, then creates an item movement from source to destination, reads it back, updates it, and executes it. Verifies that stocks and transactions are recorded after execution. A reverse movement is then executed to empty the destination repository so that all created entities can be deleted at the end.
+
+
+request:
+  auth: inherit

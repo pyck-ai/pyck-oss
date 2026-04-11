@@ -1,0 +1,73 @@
+---
+volumes:
+  nats_data: {}
+
+---
+services:
+  nats:
+    container_name: nats
+    image: nats:alpine
+    ports:
+      - "4222:4222" # NATS client port
+      - "8222:8222" # NATS monitoring port
+      - "6222:6222" # NATS cluster port
+      - "8889:8889"
+    restart: always
+    entrypoint: ["/entrypoint.sh"]
+    command:
+      - "--jetstream"
+      - "--config=/etc/nats-server/nats.conf"
+    volumes:
+      - ./../../../config/nats/nats.conf:/etc/nats-server/nats.conf:ro,z
+      - ./../../../config/nats/entrypoint.sh:/entrypoint.sh:ro,z
+      - nats_data:/usr/local/nats-server/data
+    environment:
+      # Aggressive Go runtime tuning for minimal memory
+      GOGC: 25                   # Very aggressive GC
+      GOMEMLIMIT: 64MiB          # Strict memory limit
+      GOMAXPROCS: 4              # Limit Go threads
+      GODEBUG: madvdontneed=1    # Release memory to OS faster
+    deploy:
+      resources:
+        limits:
+          memory: 64M          # Enforce container memory limit
+    networks:
+      pyck:
+        aliases:
+          - nats-server
+    healthcheck:
+      test: ["CMD", "nc", "localhost", "4222"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+---
+services:
+  nats-ui:
+    container_name: nats-ui
+    image: ghcr.io/nats-nui/nui:latest
+    ports:
+      - "31311:31311"
+    restart: always
+    command:
+      - "--nats-cli-contexts=/nats-cli-contexts"
+    volumes:
+      - ./../../../config/nats-ui:/nats-cli-contexts:ro,z
+    environment:
+      # Optimize nats-ui memory usage
+      NODE_OPTIONS: "--max-old-space-size=64"  # Limit Node.js heap
+    deploy:
+      resources:
+        limits:
+          memory: 64M               # Limit UI memory usage
+    networks:
+      - pyck
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://0.0.0.0:31311"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      nats: { condition: service_healthy }

@@ -1,0 +1,15 @@
+{
+  "version": "1",
+  "name": "pyck",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ],
+  "size": 0.010342597961425781,
+  "filesCount": 44,
+  "presets": {
+    "requestType": "graphql",
+    "requestUrl": ""
+  }
+}

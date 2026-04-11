@@ -1,0 +1,23 @@
+---
+operation: ExecuteInventoryItemMovement
+name: "Execute Inventory Item Movement"
+description: >
+  Executes a pending inventory item movement, transferring the item quantity
+  between repositories and updating stock levels.
+vars:
+  id: { $placeholder: "item movement ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Movement executed"
+    assertions:
+      - ref: res.body.data.executeInventoryItemMovement.inventoryItemMovement
+        nil: false
+      - ref: res.body.data.executeInventoryItemMovement.inventoryItemMovement.executed
+        equal: true

@@ -1,0 +1,11 @@
+info:
+  name: User - Data Type CRUD Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a data type, verifies it appears in list queries, updates it, and deletes it. Also verifies entity list is queryable.
+
+
+request:
+  auth: inherit

@@ -1,0 +1,31 @@
+{
+  "name": "Tenant Settings",
+  "slug": "tenant-settings",
+  "description": "Configuration settings for tenant",
+  "entity": "tenant",
+  "default": true,
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "isPyckGo": {
+        "type": "boolean"
+      },
+      "isSetupPending": {
+        "type": "boolean"
+      },
+      "flavour": {
+        "type": "string"
+      },
+      "remoteMobileUI": {
+        "type": "string",
+        "format": "uri"
+      },
+      "remoteWebUI": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "additionalProperties": false
+  }
+}

@@ -1,0 +1,52 @@
+name: location-isolation
+description: Verify locations are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  locations:
+    - name: loc-alpha
+      tenant: alpha
+    - name: loc-beta
+      tenant: beta
+
+checks:
+  - type: query
+    entity: location
+    tenant: alpha
+    description: "alpha sees only own locations"
+    expectCount: 1
+
+  - type: query
+    entity: location
+    tenant: beta
+    description: "beta sees only own locations"
+    expectCount: 1
+
+  - type: cross-update
+    entity: location
+    tenant: alpha
+    target: beta/loc-beta
+    description: "alpha cannot update beta's location"
+    expectError: "not found"
+
+  - type: query
+    entity: location
+    tenant: beta
+    description: "beta still has 1 location after failed cross-update"
+    expectCount: 1
+
+  - type: cross-delete
+    entity: location
+    tenant: alpha
+    target: beta/loc-beta
+    description: "alpha cannot delete beta's location"
+    expectError: "not found"
+
+  - type: query
+    entity: location
+    tenant: beta
+    description: "beta still has 1 location after failed cross-delete"
+    expectCount: 1

@@ -1,0 +1,46 @@
+name: pyck-test
+variables:
+  - name: env_zitadel_url
+    value: https://auth.test.pyck.cloud
+  - name: env_zitadel_client_id
+    value: "355859006004213004"
+  - secret: true
+    name: env_pyck_token
+    disabled: true
+  - name: env_pyck_tenant_id
+    value: all
+    disabled: true
+  - name: env_baseurl
+    value: https://test.pyck.cloud
+  - name: env_baseurl_gateway
+    value: "{{env_baseurl}}"
+  - name: env_baseurl_gateway_query
+    value: "{{env_baseurl_gateway}}/graphql"
+  - name: env_baseurl_file
+    value: "{{env_baseurl_gateway}}"
+  - name: env_baseurl_file_query
+    value: "{{env_baseurl_gateway_query}}"
+  - name: env_baseurl_inventory
+    value: "{{env_baseurl_gateway}}"
+  - name: env_baseurl_inventory_query
+    value: "{{env_baseurl_gateway_query}}"
+  - name: env_baseurl_maindata
+    value: "{{env_baseurl_gateway}}"
+  - name: env_baseurl_maindata_query
+    value: "{{env_baseurl_gateway_query}}"
+  - name: env_baseurl_management
+    value: "{{env_baseurl_gateway}}"
+  - name: env_baseurl_management_query
+    value: "{{env_baseurl_gateway_query}}"
+  - name: env_baseurl_picking
+    value: "{{env_baseurl_gateway}}"
+  - name: env_baseurl_picking_query
+    value: "{{env_baseurl_gateway_query}}"
+  - name: env_baseurl_receiving
+    value: "{{env_baseurl_gateway}}"
+  - name: env_baseurl_receiving_query
+    value: "{{env_baseurl_gateway_query}}"
+  - name: env_baseurl_workflow
+    value: "{{env_baseurl_gateway}}"
+  - name: env_baseurl_workflow_query
+    value: "{{env_baseurl_gateway_query}}"

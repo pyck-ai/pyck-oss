@@ -1,0 +1,7 @@
+info:
+  name: registerworkflow
+  type: folder
+  seq: 1
+
+request:
+  auth: inherit

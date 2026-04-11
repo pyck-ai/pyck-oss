@@ -1,0 +1,231 @@
+---
+name: "User - Receiving Inbound Item CRUD Lifecycle"
+description: >
+  Full CRUD lifecycle for receiving inbound items. Creates a parent
+  inbound, then creates/reads/updates/deletes items with field
+  verification and filter queries.
+steps:
+  - id: createInbound
+    name: "Create parent inbound"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        orderID: "PO-ITEM-CRUD-001"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound was created"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+
+  - id: createItem
+    name: "Create inbound item with all fields"
+    operation: receiving.createReceivingInboundItem
+    vars:
+      input:
+        sku: "RECV-ITEM-CRUD-001"
+        quantity: 75
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item was created"
+        assertions:
+          - ref: res.body.data.createReceivingInboundItem.receivingInboundItem.id
+            nil: false
+      - msg: "SKU matches input"
+        assertions:
+          - ref: res.body.data.createReceivingInboundItem.receivingInboundItem.sku
+            equal: "RECV-ITEM-CRUD-001"
+      - msg: "Quantity matches input"
+        assertions:
+          - ref: res.body.data.createReceivingInboundItem.receivingInboundItem.quantity
+            equal: 75
+
+  - name: "Get item by ID"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        id: {$ref: "res[createItem].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one item returned"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            equal: 1
+      - msg: "Item matches"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.edges[].node.id
+            equal: {$ref: "res[createItem].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+      - msg: "SKU persisted"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.edges[].node.sku
+            equal: "RECV-ITEM-CRUD-001"
+      - msg: "Quantity persisted"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.edges[].node.quantity
+            equal: 75
+
+  - name: "Filter by SKU"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        sku: "RECV-ITEM-CRUD-001"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "At least one item returned"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            greater: 0
+
+  - name: "Filter by inboundID"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "At least one item for this inbound"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            greater: 0
+
+  - name: "Filter by quantity range"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        quantityGTE: 50
+        quantityLTE: 100
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item within range"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            equal: 1
+
+  - name: "Update item"
+    operation: receiving.updateReceivingInboundItem
+    vars:
+      id: {$ref: "res[createItem].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+      input:
+        sku: "RECV-ITEM-CRUD-002"
+        quantity: 150
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item was updated"
+        assertions:
+          - ref: res.body.data.updateReceivingInboundItem.receivingInboundItem.id
+            nil: false
+      - msg: "SKU was changed"
+        assertions:
+          - ref: res.body.data.updateReceivingInboundItem.receivingInboundItem.sku
+            equal: "RECV-ITEM-CRUD-002"
+      - msg: "Quantity was changed"
+        assertions:
+          - ref: res.body.data.updateReceivingInboundItem.receivingInboundItem.quantity
+            equal: 150
+
+  - name: "Delete item"
+    operation: receiving.deleteReceivingInboundItem
+    vars:
+      id: {$ref: "res[createItem].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID matches"
+        assertions:
+          - ref: res.body.data.deleteReceivingInboundItem.deletedID
+            equal: {$ref: "res[createItem].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+
+  - name: "Verify item was deleted"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        id: {$ref: "res[createItem].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results returned"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            equal: 0
+
+  - name: "Cleanup - delete inbound"
+    operation: receiving.deleteReceivingInbound
+    vars:
+      id: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteReceivingInbound.deletedID
+            equal: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}

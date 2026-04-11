@@ -1,0 +1,16 @@
+
+extend input ReceivingInboundItemWhereInput {
+  Data: [String!]
+  DataHasKey: String
+  DataIn: [String!]
+  DataContains: [String!]
+}
+
+type ReceivingInboundItemOutput
+{
+  receivingInboundItem: ReceivingInboundItem
+  workflows: [TemporalWorkflow]
+}
+
+
+

@@ -1,0 +1,20 @@
+---
+operation: DeletePickingOrderItem
+name: "Delete Picking Order Item"
+description: >
+  Soft-deletes a single picking order item by ID.
+vars:
+  id: { $placeholder: "picking order item ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Deleted ID returned"
+    assertions:
+      - ref: res.body.data.deletePickingOrderItem.deletedID
+        equal: {$ref: req.body.variables.id}

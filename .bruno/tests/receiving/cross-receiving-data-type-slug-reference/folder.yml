@@ -1,0 +1,11 @@
+info:
+  name: Cross - Receiving Data Type Slug Reference
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates data types and references them by slug when creating inbounds and items. Verifies slug-based lookup and data validation.
+
+
+request:
+  auth: inherit

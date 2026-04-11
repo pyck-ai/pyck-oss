@@ -1,0 +1,8 @@
+-- create "workflows" table
+CREATE TABLE "workflows" ("id" uuid NOT NULL, "tenant_id" uuid NOT NULL, "created_at" timestamptz NOT NULL, "created_by" uuid NULL, "updated_at" timestamptz NULL, "updated_by" uuid NULL, "deleted_at" timestamptz NULL, "deleted_by" uuid NULL, "data_type_id" uuid NULL, "data_type_slug" character varying NULL, "data" jsonb NULL, "name" character varying NOT NULL DEFAULT '', "active" boolean NULL DEFAULT true, "filter_rule" character varying NULL, PRIMARY KEY ("id"));
+-- create index "workflow_tenant_id_name_deleted_at" to table: "workflows"
+CREATE UNIQUE INDEX "workflow_tenant_id_name_deleted_at" ON "workflows" ("tenant_id", "name", "deleted_at");
+-- create "workflow-signals" table
+CREATE TABLE "workflow-signals" ("id" uuid NOT NULL, "tenant_id" uuid NOT NULL, "created_at" timestamptz NOT NULL, "created_by" uuid NULL, "updated_at" timestamptz NULL, "updated_by" uuid NULL, "deleted_at" timestamptz NULL, "deleted_by" uuid NULL, "data_type_id" uuid NULL, "data_type_slug" character varying NULL, "data" jsonb NULL, "event_name" character varying NOT NULL DEFAULT '', "start" boolean NOT NULL DEFAULT false, "workflow_id" uuid NOT NULL, PRIMARY KEY ("id"), CONSTRAINT "workflow-signals_workflows_workflowSignals" FOREIGN KEY ("workflow_id") REFERENCES "workflows" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION);
+-- create index "workflowsignal_tenant_id_workflow_id_event_name_deleted_at" to table: "workflow-signals"
+CREATE UNIQUE INDEX "workflowsignal_tenant_id_workflow_id_event_name_deleted_at" ON "workflow-signals" ("tenant_id", "workflow_id", "event_name", "deleted_at");

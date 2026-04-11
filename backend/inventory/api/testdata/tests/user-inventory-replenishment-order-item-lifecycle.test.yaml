@@ -1,0 +1,141 @@
+name: "User - Replenishment Order Item Lifecycle"
+description: 'Creates a replenishment order, adds an item to it, reads it back, updates
+  it, and deletes it. The parent order is deleted at the end.
+
+  '
+steps:
+- id: createOrder
+  name: Create replenishment order
+  operation: inventory.createReplenishmentOrder
+  vars:
+    input:
+      items:
+      - sku: {$fake: "{{sku}}-{{nonce}}"}
+        quantity: 10
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Replenishment order created
+    assertions:
+    - ref: res.body.data.createReplenishmentOrder.replenishmentOrder.id
+      nil: false
+- id: createOrderItem
+  name: Create replenishment order item
+  operation: inventory.createReplenishmentOrderItem
+  vars:
+    input:
+      sku: {$fake: "{{sku}}-{{nonce}}"}
+      quantity: 50
+      replenishmentorderID:
+        $ref: res[createOrder].body.data.createReplenishmentOrder.replenishmentOrder.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Order item created
+    assertions:
+    - ref: res.body.data.createReplenishmentOrderItem.replenishmentOrderItem.id
+      nil: false
+    - ref: res.body.data.createReplenishmentOrderItem.replenishmentOrderItem.sku
+      equal:
+        $ref: req.body.variables.input.sku
+- name: Get created order item
+  operation: inventory.getReplenishmentOrderItems
+  vars:
+    where:
+      id:
+        $ref: res[createOrderItem].body.data.createReplenishmentOrderItem.replenishmentOrderItem.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Exactly one order item returned
+    assertions:
+    - ref: res.body.data.replenishmentOrderItems.totalCount
+      equal: 1
+  - msg: SKU persisted
+    assertions:
+    - ref: res.body.data.replenishmentOrderItems.edges[].node.sku
+      equal:
+        $ref: res[createOrderItem].body.data.createReplenishmentOrderItem.replenishmentOrderItem.sku
+  - msg: Parent order ID persisted
+    assertions:
+    - ref: res.body.data.replenishmentOrderItems.edges[].node.replenishmentOrderID
+      equal:
+        $ref: res[createOrder].body.data.createReplenishmentOrder.replenishmentOrder.id
+- name: Update replenishment order item
+  operation: inventory.updateReplenishmentOrderItem
+  vars:
+    id:
+      $ref: res[createOrderItem].body.data.createReplenishmentOrderItem.replenishmentOrderItem.id
+    input:
+      quantity: 75
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Order item updated
+    assertions:
+    - ref: res.body.data.updateReplenishmentOrderItem.replenishmentOrderItem
+      nil: false
+  - msg: Updated quantity returned
+    assertions:
+    - ref: res.body.data.updateReplenishmentOrderItem.replenishmentOrderItem.quantity
+      equal: 75
+- name: Delete replenishment order item
+  operation: inventory.deleteReplenishmentOrderItem
+  vars:
+    id:
+      $ref: res[createOrderItem].body.data.createReplenishmentOrderItem.replenishmentOrderItem.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteReplenishmentOrderItem.deletedID
+      equal: {$ref: "res[createOrderItem].body.data.createReplenishmentOrderItem.replenishmentOrderItem.id"}
+- name: Delete replenishment order
+  operation: inventory.deleteReplenishmentOrder
+  vars:
+    id:
+      $ref: res[createOrder].body.data.createReplenishmentOrder.replenishmentOrder.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteReplenishmentOrder.deletedID
+      equal: {$ref: "res[createOrder].body.data.createReplenishmentOrder.replenishmentOrder.id"}

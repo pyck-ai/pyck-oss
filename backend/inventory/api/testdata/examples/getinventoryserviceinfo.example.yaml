@@ -1,0 +1,20 @@
+---
+operation: GetInventoryServiceInfo
+name: "Get Inventory Service Info"
+description: >
+  Returns the current version and date of the inventory service.
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Service info returned"
+    assertions:
+      - ref: res.body.data.inventoryServiceInfo.version
+        nil: false
+      - ref: res.body.data.inventoryServiceInfo.date
+        nil: false

@@ -1,0 +1,27 @@
+---
+operation: UpdateUser
+name: "Update User"
+description: >
+  Updates user profile fields.
+vars:
+  id: { $placeholder: "user ID" }
+  input:
+    firstName: "Jane"
+    lastName: "Doe"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated user returned"
+    assertions:
+      - ref: res.body.data.updateUser.id
+        nil: false
+      - ref: res.body.data.updateUser.firstName
+        equal: "Jane"
+      - ref: res.body.data.updateUser.lastName
+        equal: "Doe"

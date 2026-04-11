@@ -1,0 +1,240 @@
+---
+name: "Cross - Picking Data Type Slug Reference"
+description: >
+  Cross-service test: creates data types with slugs, then creates picking
+  orders and items referencing them by slug. Verifies that the slug-referenced
+  data type validates input data correctly and that dataTypeID/dataTypeSlug
+  are persisted on the entity.
+steps:
+  - id: createDataType
+    name: "Create order data type with slug"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Slug-Referenced Order Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "order"
+        jsonSchema: '{"type":"object","properties":{"deliveryWindow":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created with slug"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.slug
+            nil: false
+
+  - id: createItemDataType
+    name: "Create item data type with slug"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Slug-Referenced Item Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "order_items"
+        jsonSchema: '{"type":"object","properties":{"storageTemp":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.slug
+            nil: false
+
+  - name: "Verify data type is queryable"
+    operation: management.getDataTypes
+    vars:
+      where:
+        id: {$ref: "res[createDataType].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type found"
+        assertions:
+          - ref: res.body.data.dataTypes.totalCount
+            equal: 1
+          - ref: res.body.data.dataTypes.edges[].node.slug
+            equal: {$ref: "res[createDataType].body.data.createDataType.slug"}
+
+  - id: createOrder
+    name: "Create order referencing data type by slug"
+    operation: picking.createPickingOrder
+    vars:
+      input:
+        customerID: {$fake: uuid}
+        dataTypeSlug: {$ref: "res[createDataType].body.data.createDataType.slug"}
+        data:
+          deliveryWindow: "morning"
+        orderItems:
+          - sku: "TEMP-ITEM-001"
+            quantity: 2
+            dataTypeSlug: {$ref: "res[createItemDataType].body.data.createDataType.slug"}
+            data:
+              storageTemp: "cold"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Order created with validated data"
+        assertions:
+          - ref: res.body.data.createPickingOrder.pickingOrder.id
+            nil: false
+          - ref: res.body.data.createPickingOrder.pickingOrder.orderItems.totalCount
+            equal: 1
+      - msg: "DataTypeID persisted from slug"
+        assertions:
+          - ref: res.body.data.createPickingOrder.pickingOrder.dataTypeID
+            equal: {$ref: "res[createDataType].body.data.createDataType.id"}
+      - msg: "DataTypeSlug persisted"
+        assertions:
+          - ref: res.body.data.createPickingOrder.pickingOrder.dataTypeSlug
+            equal: {$ref: "res[createDataType].body.data.createDataType.slug"}
+
+  - name: "Query order by ID"
+    operation: picking.getPickingOrders
+    vars:
+      where:
+        id: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Order found"
+        assertions:
+          - ref: res.body.data.pickingOrders.totalCount
+            equal: 1
+      - msg: "DataTypeID persisted on query"
+        assertions:
+          - ref: res.body.data.pickingOrders.edges[].node.dataTypeID
+            equal: {$ref: "res[createDataType].body.data.createDataType.id"}
+      - msg: "DataTypeSlug persisted on query"
+        assertions:
+          - ref: res.body.data.pickingOrders.edges[].node.dataTypeSlug
+            equal: {$ref: "res[createDataType].body.data.createDataType.slug"}
+
+  - id: addItem
+    name: "Add standalone item by slug"
+    operation: picking.createPickingOrderItem
+    vars:
+      input:
+        orderID: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+        sku: "TEMP-ITEM-002"
+        quantity: 7
+        dataTypeSlug: {$ref: "res[createItemDataType].body.data.createDataType.slug"}
+        data:
+          storageTemp: "frozen"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created"
+        assertions:
+          - ref: res.body.data.createPickingOrderItem.pickingOrderItem.id
+            nil: false
+          - ref: res.body.data.createPickingOrderItem.pickingOrderItem.sku
+            equal: "TEMP-ITEM-002"
+      - msg: "Item DataTypeID persisted from slug"
+        assertions:
+          - ref: res.body.data.createPickingOrderItem.pickingOrderItem.dataTypeID
+            equal: {$ref: "res[createItemDataType].body.data.createDataType.id"}
+      - msg: "Item DataTypeSlug persisted"
+        assertions:
+          - ref: res.body.data.createPickingOrderItem.pickingOrderItem.dataTypeSlug
+            equal: {$ref: "res[createItemDataType].body.data.createDataType.slug"}
+
+  - name: "Verify order has 2 items total"
+    operation: picking.getPickingOrderItems
+    vars:
+      where:
+        orderID: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Two items in order"
+        assertions:
+          - ref: res.body.data.pickingOrderItems.totalCount
+            equal: 2
+
+  - name: "Cleanup - delete order"
+    operation: picking.deletePickingOrder
+    vars:
+      id: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete order data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDataType].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete item data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createItemDataType].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

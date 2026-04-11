@@ -1,0 +1,16 @@
+extend input LocationWhereInput {
+    Data: [String!]
+    DataHasKey: String
+    DataIn: [String!]
+    DataContains: [String!]
+}
+
+type LocationOutput {
+    location: Location!
+    workflows: [TemporalWorkflow!]!
+}
+
+type LocationDeletePayload {
+    deletedID: ID
+    workflows: [TemporalWorkflow!]!
+}

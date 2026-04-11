@@ -1,0 +1,23 @@
+---
+operation: GetPickingOrders
+name: "Get Picking Orders"
+description: >
+  Queries picking orders with pagination and ordering.
+vars:
+  first: 10
+  orderBy:
+    direction: ASC
+    field: CREATED_AT
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Result set returned"
+    assertions:
+      - ref: res.body.data.pickingOrders.totalCount
+        nil: false

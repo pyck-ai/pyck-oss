@@ -1,0 +1,22 @@
+---
+operation: DeleteInventoryStock
+name: "Delete Inventory Stock"
+description: >
+  Clears virtual stock for a repository, optionally scoped to a specific item.
+  Use itemID to clear stock for one item only; omit it to clear all stock in the repository.
+vars:
+  input:
+    repositoryID: {$placeholder: "repository ID"}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Deleted ID returned"
+    assertions:
+      - ref: res.body.data.deleteInventoryStock.deletedID
+        nil: false

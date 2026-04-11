@@ -1,0 +1,11 @@
+info:
+  name: User - Event CRUD Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a custom event definition, verifies it in list queries, updates it, and deletes it. Skipped when the token lacks admin role.
+
+
+request:
+  auth: inherit

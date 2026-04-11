@@ -1,0 +1,192 @@
+# Multi-Item Repository Movement Deletion
+# Tests that deleting a pending repository movement correctly reverses stock
+# reservations for ALL items in the repository, not just a single item.
+# This validates the multi-item path in DeleteInventoryRepositoryMovement where
+# originalStockRecords are queried by movement_id + repository_id, and each
+# item's stock changes are reversed via SimulateRepositoryStockMapWithMode.
+name: multi-item-repo-movement-deletion
+items:
+  - item-a
+  - item-b
+
+# ========================================================================
+# REPOSITORY STRUCTURE OVERVIEW
+# ========================================================================
+#
+#  warehouse (root)
+#  ├─ storage
+#  │  └─ shelf       ← holds item-a (100) and item-b (50)
+#  └─ outbound
+#
+# ========================================================================
+
+repositories:
+  - name: virtual
+    parent: ""
+    type: static
+    virtual: true
+
+  - name: warehouse
+    parent: ""
+    type: static
+    virtual: false
+
+  - name: storage
+    parent: warehouse
+    type: static
+    virtual: false
+
+  - name: shelf
+    parent: storage
+    type: static
+    virtual: false
+
+  - name: outbound
+    parent: warehouse
+    type: static
+    virtual: false
+
+steps:
+  # =========================================================================
+  # SEED: Add item-a (100 units) to shelf
+  # =========================================================================
+  - name: seed_item_a_create
+    action: create
+    moveType: item
+    item: item-a
+    from: virtual
+    to: shelf
+    qty: 100
+
+  - name: seed_item_a_execute
+    action: execute
+    movement: seed_item_a_create
+    expectedItemStocks:
+      item-a:
+        virtual:    { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        warehouse:  { qty: 100, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        storage:    { qty: 100, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        shelf:      { qty: 100, ownQty: 100, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        outbound:   { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      item-b:
+        warehouse:  { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        storage:    { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        shelf:      { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        outbound:   { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  # =========================================================================
+  # SEED: Add item-b (50 units) to shelf
+  # =========================================================================
+  - name: seed_item_b_create
+    action: create
+    moveType: item
+    item: item-b
+    from: virtual
+    to: shelf
+    qty: 50
+
+  - name: seed_item_b_execute
+    action: execute
+    movement: seed_item_b_create
+    expectedItemStocks:
+      item-a:
+        warehouse:  { qty: 100, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        storage:    { qty: 100, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        shelf:      { qty: 100, ownQty: 100, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        outbound:   { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      item-b:
+        warehouse:  { qty:  50, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        storage:    { qty:  50, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        shelf:      { qty:  50, ownQty:  50, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        outbound:   { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  # =========================================================================
+  # TEST: Create repo movement (move shelf from storage → warehouse)
+  # =========================================================================
+  #
+  # This creates a pending repo movement. The simulation:
+  #   FROM side: storage gets outgoing += each item's quantity
+  #   TO side: warehouse is skipped (shelf is already a child of warehouse)
+  #
+  # For item-a (100 qty): storage.outgoing += 100
+  # For item-b ( 50 qty): storage.outgoing +=  50
+  #
+  # =========================================================================
+  - name: create_repo_shelf_to_warehouse
+    action: create
+    moveType: repository
+    from: shelf
+    to: warehouse
+    expectedItemStocks:
+      item-a:
+        warehouse:  { qty: 100, ownQty:   0, in:   0, ownIn: 0, out:   0, ownOut: 0 }
+        storage:    { qty: 100, ownQty:   0, in:   0, ownIn: 0, out: 100, ownOut: 0 }
+        shelf:      { qty: 100, ownQty: 100, in:   0, ownIn: 0, out:   0, ownOut: 0 }
+        outbound:   { qty:   0, ownQty:   0, in:   0, ownIn: 0, out:   0, ownOut: 0 }
+      item-b:
+        warehouse:  { qty:  50, ownQty:   0, in:   0, ownIn: 0, out:   0, ownOut: 0 }
+        storage:    { qty:  50, ownQty:   0, in:   0, ownIn: 0, out:  50, ownOut: 0 }
+        shelf:      { qty:  50, ownQty:  50, in:   0, ownIn: 0, out:   0, ownOut: 0 }
+        outbound:   { qty:   0, ownQty:   0, in:   0, ownIn: 0, out:   0, ownOut: 0 }
+
+  # =========================================================================
+  # TEST: Delete the pending repo movement — must reverse BOTH items
+  # =========================================================================
+  #
+  # The delete reads originalStockRecords filtered by movement_id + repository_id.
+  # This MUST find records for BOTH item-a AND item-b to correctly reverse
+  # the full outgoing stock on storage for each item.
+  #
+  # =========================================================================
+  - name: delete_repo_shelf_to_warehouse
+    action: delete
+    movement: create_repo_shelf_to_warehouse
+    expectedItemStocks:
+      item-a:
+        warehouse:  { qty: 100, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        storage:    { qty: 100, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        shelf:      { qty: 100, ownQty: 100, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        outbound:   { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      item-b:
+        warehouse:  { qty:  50, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        storage:    { qty:  50, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        shelf:      { qty:  50, ownQty:  50, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        outbound:   { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  # =========================================================================
+  # VERIFICATION: Create and execute a subsequent item movement to prove
+  # stock is consistent after multi-item repo movement deletion
+  # =========================================================================
+  - name: post_delete_item_a_create
+    action: create
+    moveType: item
+    item: item-a
+    from: shelf
+    to: outbound
+    qty: 30
+    expectedItemStocks:
+      item-a:
+        warehouse:  { qty: 100, ownQty:   0, in:  0, ownIn:  0, out:   0, ownOut:  0 }
+        storage:    { qty: 100, ownQty:   0, in:  0, ownIn:  0, out:  30, ownOut:  0 }
+        shelf:      { qty: 100, ownQty: 100, in:  0, ownIn:  0, out:  30, ownOut: 30 }
+        outbound:   { qty:   0, ownQty:   0, in: 30, ownIn: 30, out:   0, ownOut:  0 }
+      item-b:
+        warehouse:  { qty:  50, ownQty:   0, in:  0, ownIn:  0, out:   0, ownOut:  0 }
+        storage:    { qty:  50, ownQty:   0, in:  0, ownIn:  0, out:   0, ownOut:  0 }
+        shelf:      { qty:  50, ownQty:  50, in:  0, ownIn:  0, out:   0, ownOut:  0 }
+        outbound:   { qty:   0, ownQty:   0, in:  0, ownIn:  0, out:   0, ownOut:  0 }
+
+  - name: post_delete_item_a_execute
+    action: execute
+    movement: post_delete_item_a_create
+    expectedItemStocks:
+      item-a:
+        warehouse:  { qty: 100, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        storage:    { qty:  70, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        shelf:      { qty:  70, ownQty:  70, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        outbound:   { qty:  30, ownQty:  30, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      item-b:
+        warehouse:  { qty:  50, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        storage:    { qty:  50, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        shelf:      { qty:  50, ownQty:  50, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+        outbound:   { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }

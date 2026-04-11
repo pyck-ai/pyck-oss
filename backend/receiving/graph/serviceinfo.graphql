@@ -1,0 +1,8 @@
+type ServiceInfo {
+    version: String!
+    date: Time
+}
+
+extend type Query {
+    receivingServiceInfo: ServiceInfo!
+}

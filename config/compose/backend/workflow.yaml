@@ -1,0 +1,42 @@
+services:
+  workflow:
+    container_name: workflow
+    build:
+      context: ../../../
+      dockerfile: ./backend/Dockerfile
+      args:
+        - SERVICE_NAME=workflow
+        - SERVICE_PORT=8089
+      network: host
+    restart: always
+    env_file: ../../../.env
+    environment:
+      - PYCK_LOG_FORMAT=console
+    volumes:
+      - ./../../../backend/workflow/ent/migrate/migrations/:/app/workflow/ent/migrate/migrations/:z
+      - ./../../keys/zitadel_certificate.crt:/etc/ssl/certs/zitadel.crt:ro,z
+      - ./../../keys/local-key.json:/data/keys/local-key.json:ro,z
+    ports:
+      - "7089:7089"
+      - "8089:8089"
+    networks:
+      - pyck
+    extra_hosts:
+      - "auth.local.pyck.cloud:172.30.0.100"
+    depends_on:
+      db: { condition: service_healthy }
+      gateway: { condition: service_healthy }
+      management: { condition: service_healthy }
+      nats: { condition: service_healthy }
+      temporal: { condition: service_healthy }
+      zitadel: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8089"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 64M

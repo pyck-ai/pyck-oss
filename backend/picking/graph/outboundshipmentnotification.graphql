@@ -1,0 +1,6 @@
+extend input PickingOutboundShipmentNotificationWhereInput {
+    Data: [String!]
+    DataHasKey: String
+    DataIn: [String!]
+    DataContains: [String!]
+}

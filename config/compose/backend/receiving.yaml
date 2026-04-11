@@ -1,0 +1,42 @@
+services:
+  receiving:
+    container_name: receiving
+    build:
+      context: ../../../
+      dockerfile: ./backend/Dockerfile
+      args:
+        - SERVICE_NAME=receiving
+        - SERVICE_PORT=8087
+      network: host
+    restart: always
+    env_file: ../../../.env
+    environment:
+      - PYCK_LOG_FORMAT=console
+    volumes:
+      - ./../../../backend/receiving/ent/migrate/migrations/:/app/receiving/ent/migrate/migrations/:z
+      - ./../../keys/zitadel_certificate.crt:/etc/ssl/certs/zitadel.crt:ro,z
+      - ./../../keys/local-key.json:/data/keys/local-key.json:ro,z
+    ports:
+      - "7087:7087"
+      - "8087:8087"
+    networks:
+      - pyck
+    extra_hosts:
+      - "auth.local.pyck.cloud:172.30.0.100"
+    depends_on:
+      db: { condition: service_healthy }
+      gateway: { condition: service_healthy }
+      management: { condition: service_healthy }
+      nats: { condition: service_healthy }
+      temporal: { condition: service_healthy }
+      zitadel: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8087"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 64M

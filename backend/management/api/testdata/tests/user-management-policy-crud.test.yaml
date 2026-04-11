@@ -1,0 +1,171 @@
+---
+name: "User - Policy CRUD Lifecycle"
+description: >
+  Creates an access policy, verifies it in list and single-item queries,
+  updates it, and deletes it. Skipped when the token lacks admin role.
+steps:
+  - id: checkRole
+    name: "Check role"
+    operation: management.getMe
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+
+  - id: queryRoles
+    name: "Query existing roles"
+    operation: management.getRoles
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      first: 1
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "At least one role exists"
+        assertions:
+          - ref: res.body.data.roles.totalCount
+            greater: 0
+
+  - id: create
+    name: "Create policy"
+    operation: management.createPolicy
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      input:
+        action: "read"
+        effect: "allow"
+        resource: "inventory:items"
+        roleID: {$ref: "res[queryRoles].body.data.roles.edges[0].node.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Policy created"
+        assertions:
+          - ref: res.body.data.createPolicy.id
+            nil: false
+      - msg: "Action persisted"
+        assertions:
+          - ref: res.body.data.createPolicy.action
+            equal: "read"
+      - msg: "Effect persisted"
+        assertions:
+          - ref: res.body.data.createPolicy.effect
+            equal: "allow"
+
+  - name: "Query policy by ID (list)"
+    operation: management.getAccessPolicies
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createPolicy.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one policy"
+        assertions:
+          - ref: res.body.data.accessPolicies.totalCount
+            equal: 1
+
+  - name: "Get policy by ID (single)"
+    operation: management.getPolicy
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      id: {$ref: "res[create].body.data.createPolicy.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Policy returned"
+        assertions:
+          - ref: res.body.data.policy.id
+            equal: {$ref: "res[create].body.data.createPolicy.id"}
+
+  - name: "Update policy"
+    operation: management.updatePolicy
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      id: {$ref: "res[create].body.data.createPolicy.id"}
+      input:
+        action: "write"
+        effect: "allow"
+        resource: "inventory:items"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Action updated"
+        assertions:
+          - ref: res.body.data.updatePolicy.action
+            equal: "write"
+
+  - name: "Delete policy"
+    operation: management.deletePolicy
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      id: {$ref: "res[create].body.data.createPolicy.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deletePolicy
+            equal: {$ref: "res[create].body.data.createPolicy.id"}

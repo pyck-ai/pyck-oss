@@ -1,0 +1,21 @@
+operation: GetFiles
+name: Get files
+description: >
+  Retrieves a paginated list of files. Results can be filtered by any
+  FileWhereInput field and ordered by available FileOrder fields.
+vars:
+  where:
+    reftype: supplier
+expect:
+  - msg: Status is 200
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: No GraphQL errors
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: Files list returned
+    assertions:
+      - ref: res.body.data.files.totalCount
+        nil: false

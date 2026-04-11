@@ -1,0 +1,101 @@
+name: "User - Replenishment Order Lifecycle"
+description: 'Creates a replenishment order with items, reads it back, updates it,
+  then deletes it. All steps after create are skipped when the create step returns
+  errors.
+
+  '
+steps:
+- id: createOrder
+  name: Create replenishment order
+  operation: inventory.createReplenishmentOrder
+  vars:
+    input:
+      items:
+      - sku: {$fake: "{{sku}}-{{nonce}}"}
+        quantity: 50
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Order created
+    assertions:
+    - ref: res.body.data.createReplenishmentOrder.replenishmentOrder
+      nil: false
+    - ref: res.body.data.createReplenishmentOrder.replenishmentOrder.id
+      nil: false
+  - msg: One order item created
+    assertions:
+    - ref: res.body.data.createReplenishmentOrder.replenishmentOrder.replenishmentOrderItems.totalCount
+      equal: 1
+- name: Get created order
+  operation: inventory.getReplenishmentOrders
+  vars:
+    where:
+      id:
+        $ref: res[createOrder].body.data.createReplenishmentOrder.replenishmentOrder.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Exactly one order returned
+    assertions:
+    - ref: res.body.data.replenishmentOrders.totalCount
+      equal: 1
+  - msg: Returned order matches created order
+    assertions:
+    - ref: res.body.data.replenishmentOrders.edges[].node.id
+      equal:
+        $ref: res[createOrder].body.data.createReplenishmentOrder.replenishmentOrder.id
+- name: Update order
+  operation: inventory.updateReplenishmentOrder
+  vars:
+    id:
+      $ref: res[createOrder].body.data.createReplenishmentOrder.replenishmentOrder.id
+    input:
+      supplierID:
+        $fake: uuid
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Order updated
+    assertions:
+    - ref: res.body.data.updateReplenishmentOrder.replenishmentOrder
+      nil: false
+  - msg: SupplierID updated
+    assertions:
+    - ref: res.body.data.updateReplenishmentOrder.replenishmentOrder.supplierID
+      equal: {$ref: req.body.variables.input.supplierID}
+- name: Delete order
+  operation: inventory.deleteReplenishmentOrder
+  vars:
+    id:
+      $ref: res[createOrder].body.data.createReplenishmentOrder.replenishmentOrder.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteReplenishmentOrder.deletedID
+      equal: {$ref: "res[createOrder].body.data.createReplenishmentOrder.replenishmentOrder.id"}

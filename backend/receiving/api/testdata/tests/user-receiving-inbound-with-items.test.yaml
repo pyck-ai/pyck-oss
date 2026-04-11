@@ -1,0 +1,153 @@
+---
+name: "User - Receiving Inbound With Inline Items"
+description: >
+  Creates an inbound with inline items, verifies items are
+  associated, queries nested items, and tests cascade delete.
+steps:
+  - id: create
+    name: "Create inbound with 2 inline items"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        orderID: "PO-INLINE-001"
+        inboundItems:
+          - sku: "INLINE-SKU-001"
+            quantity: 10
+          - sku: "INLINE-SKU-002"
+            quantity: 20
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound was created"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+      - msg: "Inbound has 2 items"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.inboundItems.totalCount
+            equal: 2
+
+  - name: "Query items by inboundID"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        inboundID: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+      orderBy:
+        direction: ASC
+        field: SKU
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Two items returned"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            equal: 2
+
+  - name: "Filter by SKU prefix"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        skuHasPrefix: "INLINE-SKU"
+        inboundID: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Both items match prefix"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            equal: 2
+
+  - name: "Filter by exact SKU"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        sku: "INLINE-SKU-001"
+        inboundID: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one item with this SKU"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            equal: 1
+
+  - name: "Query inbound with nested items"
+    operation: receiving.getReceivingInbounds
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound found with nested items"
+        assertions:
+          - ref: res.body.data.receivingInbounds.edges[].node.inboundItems.totalCount
+            equal: 2
+
+  - name: "Delete inbound (cascade)"
+    operation: receiving.deleteReceivingInbound
+    vars:
+      id: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID matches"
+        assertions:
+          - ref: res.body.data.deleteReceivingInbound.deletedID
+            equal: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+
+  - name: "Verify inbound not found"
+    operation: receiving.getReceivingInbounds
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results returned"
+        assertions:
+          - ref: res.body.data.receivingInbounds.totalCount
+            equal: 0

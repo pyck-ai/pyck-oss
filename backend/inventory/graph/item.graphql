@@ -1,0 +1,32 @@
+
+extend input InventoryItemWhereInput {
+  Data: [String!]
+  DataHasKey: String
+  DataIn: [String!]
+  DataContains: [String!]
+}
+
+
+type InventoryItemOutput
+{
+  inventoryItem: InventoryItem
+  workflows: [TemporalWorkflow]
+}
+
+type InventoryRepositoryOutput
+{
+  inventoryRepository: Repository
+  workflows: [TemporalWorkflow]
+}
+
+type InventoryItemMovementOutput
+{
+  inventoryItemMovement: ItemMovement
+  workflows: [TemporalWorkflow]
+}
+
+type InventoryRepositoryMovementOutput
+{
+  inventoryRepositoryMovement: RepositoryMovement
+  workflows: [TemporalWorkflow]
+}

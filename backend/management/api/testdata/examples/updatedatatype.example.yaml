@@ -1,0 +1,25 @@
+---
+operation: UpdateDataType
+name: "Update Data Type"
+description: >
+  Updates the name and JSON schema of an existing data type.
+vars:
+  id: { $placeholder: "data type ID" }
+  input:
+    name: "Updated Customer Type"
+    jsonSchema: '{"type":"object","properties":{"name":{"type":"string"},"tier":{"type":"integer"}}}'
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated data type returned"
+    assertions:
+      - ref: res.body.data.updateDataType.id
+        nil: false
+      - ref: res.body.data.updateDataType.name
+        equal: "Updated Customer Type"

@@ -1,0 +1,210 @@
+---
+name: "Cross - Receiving Data Type Slug Reference"
+description: >
+  Creates data types and references them by slug when creating
+  inbounds and items. Verifies slug-based lookup and data validation.
+steps:
+  - id: createInboundDT
+    name: "Create inbound data type with slug"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Slug Inbound Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "inbound"
+        jsonSchema: '{"type":"object","properties":{"deliveryMethod":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created with slug"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.slug
+            nil: false
+
+  - id: createItemDT
+    name: "Create item data type with slug"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Slug Item Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "inbounditem"
+        jsonSchema: '{"type":"object","properties":{"storageTemp":{"type":"string","enum":["ambient","cold","frozen"]}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - name: "Verify inbound data type exists"
+    operation: management.getDataTypes
+    vars:
+      where:
+        id: {$ref: "res[createInboundDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type found"
+        assertions:
+          - ref: res.body.data.dataTypes.totalCount
+            equal: 1
+
+  - id: createInbound
+    name: "Create inbound via slug"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        orderID: "PO-SLUG-001"
+        dataTypeSlug: {$ref: "res[createInboundDT].body.data.createDataType.slug"}
+        data:
+          deliveryMethod: "express"
+        inboundItems:
+          - sku: "COLD-ITEM-001"
+            quantity: 30
+            dataTypeSlug: {$ref: "res[createItemDT].body.data.createDataType.slug"}
+            data:
+              storageTemp: "cold"
+          - sku: "FROZEN-ITEM-001"
+            quantity: 15
+            dataTypeSlug: {$ref: "res[createItemDT].body.data.createDataType.slug"}
+            data:
+              storageTemp: "frozen"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound created with validated data"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+      - msg: "Two items created"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.inboundItems.totalCount
+            equal: 2
+      - msg: "DataTypeID persisted from slug"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.dataTypeID
+            equal: {$ref: "res[createInboundDT].body.data.createDataType.id"}
+      - msg: "DataTypeSlug persisted"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.dataTypeSlug
+            equal: {$ref: "res[createInboundDT].body.data.createDataType.slug"}
+
+  - name: "Verify inbound data persisted"
+    operation: receiving.getReceivingInbounds
+    vars:
+      where:
+        id: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound found"
+        assertions:
+          - ref: res.body.data.receivingInbounds.totalCount
+            equal: 1
+      - msg: "Data persisted"
+        assertions:
+          - ref: res.body.data.receivingInbounds.edges[].node.data.deliveryMethod
+            equal: "express"
+      - msg: "DataTypeID persisted on query"
+        assertions:
+          - ref: res.body.data.receivingInbounds.edges[].node.dataTypeID
+            equal: {$ref: "res[createInboundDT].body.data.createDataType.id"}
+      - msg: "DataTypeSlug persisted on query"
+        assertions:
+          - ref: res.body.data.receivingInbounds.edges[].node.dataTypeSlug
+            equal: {$ref: "res[createInboundDT].body.data.createDataType.slug"}
+
+  - name: "Reject invalid data via slug"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        dataTypeSlug: {$ref: "res[createInboundDT].body.data.createDataType.slug"}
+        data:
+          deliveryMethod: 12345
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (type mismatch)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Delete inbound"
+    operation: receiving.deleteReceivingInbound
+    vars:
+      id: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete item data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createItemDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete inbound data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createInboundDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

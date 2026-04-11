@@ -1,0 +1,25 @@
+{{/* gotype: entgo.io/ent/entc/gen.Graph */}}
+
+{{ define "federation" }}
+{{ $pkg := base $.Config.Package }}
+{{ template "header" $ }}
+
+{{- range $node := $.Nodes }}
+{{- if $node.Annotations.EntGQL }}
+{{- if $node.Annotations.EntGQL.Directives }}
+{{- range $directive := $node.Annotations.EntGQL.Directives }}
+{{- if eq $directive.name "key" }}
+
+// IsEntity implements fedruntime.Entity for GraphQL federation
+// This method is required for the {{ $node.Name }} type to participate in federation
+func ({{ $node.Receiver }} {{ $node.Name }}) IsEntity() {
+	// This is a marker method for GraphQL federation - no implementation needed
+}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{ end }}
+

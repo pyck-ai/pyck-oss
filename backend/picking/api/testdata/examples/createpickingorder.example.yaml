@@ -1,0 +1,24 @@
+---
+operation: CreatePickingOrder
+name: "Create Picking Order"
+description: >
+  Creates a picking order with customer reference and optional line items.
+vars:
+  input:
+    customerID: { $placeholder: "customer ID" }
+    orderItems:
+      - sku: "EXAMPLE-SKU-001"
+        quantity: 1
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Order created"
+    assertions:
+      - ref: res.body.data.createPickingOrder.pickingOrder.id
+        nil: false

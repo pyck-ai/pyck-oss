@@ -1,0 +1,178 @@
+---
+name: "User - Device Lifecycle"
+description: >
+  Creates a location and device, assigns the device to the location,
+  checks in and checks out a user, unsets the device location, and deletes both.
+steps:
+  - id: createLocation
+    name: "Create location for device"
+    operation: management.createLocation
+    vars:
+      input:
+        name: "Dock 3"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Location created"
+        assertions:
+          - ref: res.body.data.createLocation.location.id
+            nil: false
+
+  - id: createDevice
+    name: "Create device"
+    operation: management.createDevice
+    vars:
+      input:
+        name: "Scanner-Dock3"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Device created"
+        assertions:
+          - ref: res.body.data.createDevice.device.id
+            nil: false
+
+  - name: "Query device by ID"
+    operation: management.getDevices
+    vars:
+      where:
+        id: {$ref: "res[createDevice].body.data.createDevice.device.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Device found"
+        assertions:
+          - ref: res.body.data.devices.totalCount
+            equal: 1
+
+  - name: "Update device name"
+    operation: management.updateDevice
+    vars:
+      id: {$ref: "res[createDevice].body.data.createDevice.device.id"}
+      input:
+        name: "Scanner-Dock3-Updated"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Name updated"
+        assertions:
+          - ref: res.body.data.updateDevice.device.name
+            equal: "Scanner-Dock3-Updated"
+
+  - id: setLocation
+    name: "Assign device to location"
+    operation: management.setDeviceLocation
+    vars:
+      input:
+        deviceID: {$ref: "res[createDevice].body.data.createDevice.device.id"}
+        locationID: {$ref: "res[createLocation].body.data.createLocation.location.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Device location assignment created"
+        assertions:
+          - ref: res.body.data.setDeviceLocation.DeviceLocation.id
+            nil: false
+
+  - name: "Query device locations"
+    operation: management.getDeviceLocations
+    vars:
+      where:
+        deviceID: {$ref: "res[createDevice].body.data.createDevice.device.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "One assignment found"
+        assertions:
+          - ref: res.body.data.deviceLocations.totalCount
+            equal: 1
+
+  - name: "Unset device location"
+    operation: management.unsetDeviceLocation
+    vars:
+      id: {$ref: "res[setLocation].body.data.setDeviceLocation.DeviceLocation.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.unsetDeviceLocation.deletedID
+            equal: {$ref: "res[setLocation].body.data.setDeviceLocation.DeviceLocation.id"}
+
+  - name: "Cleanup - delete device"
+    operation: management.deleteDevice
+    vars:
+      id: {$ref: "res[createDevice].body.data.createDevice.device.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteDevice.deletedID
+            equal: {$ref: "res[createDevice].body.data.createDevice.device.id"}
+
+  - name: "Cleanup - delete location"
+    operation: management.deleteLocation
+    vars:
+      id: {$ref: "res[createLocation].body.data.createLocation.location.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteLocation.deletedID
+            equal: {$ref: "res[createLocation].body.data.createLocation.location.id"}

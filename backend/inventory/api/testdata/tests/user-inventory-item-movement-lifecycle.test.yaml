@@ -1,0 +1,332 @@
+name: "User - Item Movement Lifecycle"
+description: 'Creates a virtual source repository, a static destination repository,
+  and an inventory item, then creates an item movement from source to destination,
+  reads it back, updates it, and executes it. Verifies that stocks and transactions
+  are recorded after execution. A reverse movement is then executed to empty the destination
+  repository so that all created entities can be deleted at the end.
+
+  '
+steps:
+- id: createSourceRepo
+  name: Create source repository
+  operation: inventory.createInventoryRepository
+  vars:
+    input:
+      name: {$fake: "{{productname}}-{{nonce}}"}
+      type: static
+      virtualRepo: true
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Source repository created
+    assertions:
+    - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+      nil: false
+- id: createDestRepo
+  name: Create destination repository
+  operation: inventory.createInventoryRepository
+  vars:
+    input:
+      name: {$fake: "{{productname}}-{{nonce}}"}
+      type: static
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Destination repository created
+    assertions:
+    - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+      nil: false
+- id: createItem
+  name: Create inventory item
+  operation: inventory.createInventoryItem
+  vars:
+    input:
+      sku: {$fake: "{{sku}}-{{nonce}}"}
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Item created
+    assertions:
+    - ref: res.body.data.createInventoryItem.inventoryItem.id
+      nil: false
+- id: createMovement
+  name: Create item movement
+  operation: inventory.createInventoryItemMovement
+  vars:
+    input:
+      quantity: 1
+      handler: "operator-01"
+      fromID:
+        $ref: res[createSourceRepo].body.data.createInventoryRepository.inventoryRepository.id
+      toID:
+        $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
+      itemID:
+        $ref: res[createItem].body.data.createInventoryItem.inventoryItem.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Movement created
+    assertions:
+    - ref: res.body.data.createInventoryItemMovement.inventoryItemMovement.id
+      nil: false
+    - ref: res.body.data.createInventoryItemMovement.inventoryItemMovement.executed
+      equal: false
+- name: Get created item movement
+  operation: inventory.getItemMovements
+  vars:
+    where:
+      id:
+        $ref: res[createMovement].body.data.createInventoryItemMovement.inventoryItemMovement.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Exactly one movement returned
+    assertions:
+    - ref: res.body.data.itemMovements.totalCount
+      equal: 1
+- name: Update item movement
+  operation: inventory.updateInventoryItemMovement
+  vars:
+    id:
+      $ref: res[createMovement].body.data.createInventoryItemMovement.inventoryItemMovement.id
+    input:
+      handler: "operator-updated"
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Movement updated
+    assertions:
+    - ref: res.body.data.updateInventoryItemMovement.inventoryItemMovement
+      nil: false
+    - ref: res.body.data.updateInventoryItemMovement.inventoryItemMovement.handler
+      equal: "operator-updated"
+- id: executeMovement
+  name: Execute item movement
+  operation: inventory.executeInventoryItemMovement
+  vars:
+    id:
+      $ref: res[createMovement].body.data.createInventoryItemMovement.inventoryItemMovement.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Movement executed
+    assertions:
+    - ref: res.body.data.executeInventoryItemMovement.inventoryItemMovement.executed
+      equal: true
+- name: Get stocks after execution
+  operation: inventory.getStocks
+  vars:
+    where:
+      repositoryID:
+        $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Destination repository has stock
+    assertions:
+    - ref: res.body.data.stocks.totalCount
+      greater: 0
+- name: Get transactions after execution
+  operation: inventory.getTransactions
+  vars:
+    where:
+      repositoryID:
+        $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Transaction created for executed movement
+    assertions:
+    - ref: res.body.data.transactions.totalCount
+      greater: 0
+- name: Get stock tree after execution
+  operation: inventory.getStockTree
+  vars:
+    where:
+      repositoryID:
+        $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Stock tree returned for destination repository
+    assertions:
+    - ref: res.body.data.getStockTree.edges
+      nil: false
+- id: reverseMovement
+  name: Create reverse item movement
+  operation: inventory.createInventoryItemMovement
+  vars:
+    input:
+      quantity: 1
+      handler: "operator-01"
+      fromID:
+        $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
+      toID:
+        $ref: res[createSourceRepo].body.data.createInventoryRepository.inventoryRepository.id
+      itemID:
+        $ref: res[createItem].body.data.createInventoryItem.inventoryItem.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Reverse movement created
+    assertions:
+    - ref: res.body.data.createInventoryItemMovement.inventoryItemMovement.id
+      nil: false
+- name: Execute reverse item movement
+  operation: inventory.executeInventoryItemMovement
+  vars:
+    id:
+      $ref: res[reverseMovement].body.data.createInventoryItemMovement.inventoryItemMovement.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Reverse movement executed
+    assertions:
+    - ref: res.body.data.executeInventoryItemMovement.inventoryItemMovement.executed
+      equal: true
+- name: Clear source repository stock
+  operation: inventory.deleteInventoryStock
+  vars:
+    input:
+      repositoryID:
+        $ref: res[createSourceRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteInventoryStock.deletedID
+      equal:
+        $ref: res[createSourceRepo].body.data.createInventoryRepository.inventoryRepository.id
+- name: Delete item
+  operation: inventory.deleteInventoryItem
+  vars:
+    id:
+      $ref: res[createItem].body.data.createInventoryItem.inventoryItem.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteInventoryItem.deletedID
+      equal: {$ref: "res[createItem].body.data.createInventoryItem.inventoryItem.id"}
+- name: Delete source repository
+  operation: inventory.deleteInventoryRepository
+  vars:
+    id:
+      $ref: res[createSourceRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteInventoryRepository.deletedID
+      equal: {$ref: "res[createSourceRepo].body.data.createInventoryRepository.inventoryRepository.id"}
+- name: Delete destination repository
+  operation: inventory.deleteInventoryRepository
+  vars:
+    id:
+      $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteInventoryRepository.deletedID
+      equal: {$ref: "res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id"}

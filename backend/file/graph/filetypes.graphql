@@ -1,0 +1,24 @@
+type InventoryItem @key(fields: "id") {
+  id: ID!
+  file: [File]
+}
+
+type Supplier @key(fields: "id") {
+  id: ID!
+  file: [File]
+}
+
+type Customer @key(fields: "id") {
+  id: ID!
+  file: [File]
+}
+
+type Repository @key(fields: "id") {
+  id: ID!
+  file: [File]
+}
+
+type PickingOrder @key(fields: "id") {
+  id: ID!
+  file: [File]
+}

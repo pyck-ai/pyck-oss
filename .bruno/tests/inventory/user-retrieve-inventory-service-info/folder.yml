@@ -1,0 +1,11 @@
+info:
+  name: User - Retrieve Inventory Service Info
+  type: folder
+  seq: 1
+
+docs: |-
+  Verifies the inventoryServiceInfo query returns version and date.
+
+
+request:
+  auth: inherit

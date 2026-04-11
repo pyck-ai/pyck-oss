@@ -1,0 +1,18 @@
+operation: GetFileServiceInfo
+name: Get file service info
+description: Returns the file service version and build date.
+expect:
+  - msg: Status is 200
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: No GraphQL errors
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: Service info returned
+    assertions:
+      - ref: res.body.data.fileServiceInfo.version
+        nil: false
+      - ref: res.body.data.fileServiceInfo.date
+        nil: false

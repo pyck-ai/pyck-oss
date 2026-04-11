@@ -1,0 +1,16 @@
+extend input DeviceWhereInput {
+    Data: [String!]
+    DataHasKey: String
+    DataIn: [String!]
+    DataContains: [String!]
+}
+
+type DeviceOutput {
+    device: Device!
+    workflows: [TemporalWorkflow!]!
+}
+
+type DeviceDeletePayload {
+    deletedID: ID
+    workflows: [TemporalWorkflow!]!
+}

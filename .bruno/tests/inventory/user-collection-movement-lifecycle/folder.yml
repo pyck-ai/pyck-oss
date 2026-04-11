@@ -1,0 +1,11 @@
+info:
+  name: User - Collection Movement Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a virtual source repository, a static destination repository, and an item, then creates a collection movement grouping one item-type entry, reads the collection back, and updates it. Cleans up by deleting the item movement inside the collection first, then the collection itself, and finally the item and repositories.
+
+
+request:
+  auth: inherit

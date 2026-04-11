@@ -1,0 +1,94 @@
+name: "User - Item Lifecycle"
+description: 'Creates an inventory item, reads it back, updates it, then deletes it.
+  All steps after create are skipped when the create step returns errors.
+
+  '
+steps:
+- id: createItem
+  name: Create item
+  operation: inventory.createInventoryItem
+  vars:
+    input:
+      sku: {$fake: "{{sku}}-{{nonce}}"}
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Item created
+    assertions:
+    - ref: res.body.data.createInventoryItem.inventoryItem
+      nil: false
+    - ref: res.body.data.createInventoryItem.inventoryItem.id
+      nil: false
+    - ref: res.body.data.createInventoryItem.inventoryItem.sku
+      equal:
+        $ref: req.body.variables.input.sku
+- name: Get created item
+  operation: inventory.getInventoryItems
+  vars:
+    where:
+      id:
+        $ref: res[createItem].body.data.createInventoryItem.inventoryItem.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Exactly one item returned
+    assertions:
+    - ref: res.body.data.inventoryItems.totalCount
+      equal: 1
+  - msg: Returned item matches created item
+    assertions:
+    - ref: res.body.data.inventoryItems.edges[].node.id
+      equal:
+        $ref: res[createItem].body.data.createInventoryItem.inventoryItem.id
+- name: Update item
+  operation: inventory.updateInventoryItem
+  vars:
+    id:
+      $ref: res[createItem].body.data.createInventoryItem.inventoryItem.id
+    input:
+      sku: {$fake: "{{sku}}-{{nonce}}"}
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Item updated
+    assertions:
+    - ref: res.body.data.updateInventoryItem.inventoryItem
+      nil: false
+    - ref: res.body.data.updateInventoryItem.inventoryItem.sku
+      equal: {$ref: req.body.variables.input.sku}
+- name: Delete item
+  operation: inventory.deleteInventoryItem
+  vars:
+    id:
+      $ref: res[createItem].body.data.createInventoryItem.inventoryItem.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteInventoryItem.deletedID
+      equal: {$ref: "res[createItem].body.data.createInventoryItem.inventoryItem.id"}

@@ -1,0 +1,24 @@
+---
+operation: CreateGroup
+name: "Create Group"
+description: >
+  Creates a group that can be assigned roles and users.
+vars:
+  input:
+    name: "Warehouse Operators"
+    description: "Group for warehouse floor operators"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Group created"
+    assertions:
+      - ref: res.body.data.createGroup.id
+        nil: false
+      - ref: res.body.data.createGroup.name
+        equal: "Warehouse Operators"

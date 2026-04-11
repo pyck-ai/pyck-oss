@@ -1,0 +1,148 @@
+---
+name: "User - Event CRUD Lifecycle"
+description: >
+  Creates a custom event definition, verifies it in list queries,
+  updates it, and deletes it. Skipped when the token lacks admin role.
+steps:
+  - id: checkRole
+    name: "Check role"
+    operation: management.getMe
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+
+  - id: create
+    name: "Create event"
+    operation: management.createEvent
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      input:
+        name: "ItemScanned"
+        topic: "warehouse.item.scanned"
+        description: "Fired when a warehouse item is scanned"
+        example:
+          itemID: "abc123"
+          location: "A1-R3"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Event created"
+        assertions:
+          - ref: res.body.data.createEvent.id
+            nil: false
+      - msg: "Topic persisted"
+        assertions:
+          - ref: res.body.data.createEvent.topic
+            equal: "warehouse.item.scanned"
+
+  - name: "Query event by ID"
+    operation: management.getEvents
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createEvent.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one event"
+        assertions:
+          - ref: res.body.data.events.totalCount
+            equal: 1
+
+  - name: "Update event"
+    operation: management.updateEvent
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      id: {$ref: "res[create].body.data.createEvent.id"}
+      input:
+        description: "Updated event description"
+        example:
+          itemID: "abc123"
+          location: "B2-R1"
+          scannedBy: "user42"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Description updated"
+        assertions:
+          - ref: res.body.data.updateEvent.description
+            equal: "Updated event description"
+
+  - name: "Delete event"
+    operation: management.deleteEvent
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      id: {$ref: "res[create].body.data.createEvent.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteEvent
+            equal: {$ref: "res[create].body.data.createEvent.id"}
+
+  - name: "Verify event deleted"
+    operation: management.getEvents
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createEvent.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results"
+        assertions:
+          - ref: res.body.data.events.totalCount
+            equal: 0

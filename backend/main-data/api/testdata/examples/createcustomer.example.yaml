@@ -1,0 +1,28 @@
+---
+operation: CreateCustomer
+name: "Create Customer"
+description: >
+  Creates a customer with data type reference and custom data.
+vars:
+  input:
+    dataTypeID: { $placeholder: "customer data type ID" }
+    data:
+      name: "Acme Corp"
+      industry: "manufacturing"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Customer created"
+    assertions:
+      - ref: res.body.data.createCustomer.id
+        nil: false
+      - ref: res.body.data.createCustomer.data.name
+        equal: "Acme Corp"
+      - ref: res.body.data.createCustomer.data.industry
+        equal: "manufacturing"

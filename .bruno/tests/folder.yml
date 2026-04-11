@@ -1,0 +1,21 @@
+info:
+  name: tests
+  type: folder
+  seq: 2
+
+request:
+  scripts:
+    - type: before-request
+      code: |-
+        function interpolate(s) {
+          return s.replace(/\{\{([^}]+)\}\}/g, function(match, name) {
+            return bru.getEnvVar(name.trim()) || bru.getGlobalEnvVar(name.trim()) || match;
+          });
+        }
+
+        const url = interpolate(req.getUrl());
+
+        const m = url.match(/^https?:\/\/([^/:?#]+)/);
+        if (m && m[1] === "eu.pyck.cloud") {
+          throw new Error(`[Safety] ❌ Test execution targeting production (eu.pyck.cloud) is not allowed.`);
+        }

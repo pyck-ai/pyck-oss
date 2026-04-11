@@ -1,0 +1,21 @@
+---
+operation: DeleteInventoryItemMovement
+name: "Delete Inventory Item Movement"
+description: >
+  Soft-deletes a pending inventory item movement by ID.
+  Only unexecuted movements can be deleted.
+vars:
+  id: {$placeholder: "item movement ID"}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Deleted ID returned"
+    assertions:
+      - ref: res.body.data.deleteInventoryItemMovement.deletedID
+        equal: {$ref: req.body.variables.id}

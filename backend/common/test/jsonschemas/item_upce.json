@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "$id": "http://example.com/example.json",
+  "type": "object",
+  "default": {},
+  "title": "Root Schema",
+  "required": [
+    "type",
+    "sum",
+    "meta"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "default": "",
+      "title": "The type Schema",
+      "examples": [
+        "custom"
+      ]
+    },
+    "sum": {
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "title": "The sum Schema",
+      "examples": [
+        15
+      ]
+    },
+    "meta": {
+      "type": "object",
+      "default": {},
+      "title": "The meta Schema",
+      "required": [
+        "name",
+        "weight",
+        "tags",
+        "barcode"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "title": "The name Schema",
+          "examples": [
+            "Testitem"
+          ]
+        },
+        "weight": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0,
+          "title": "The weight Schema",
+          "examples": [
+            50
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "default": [],
+          "title": "The tags Schema",
+          "items": {
+            "type": "string",
+            "title": "A Schema",
+            "examples": [
+              "test",
+              "foobar"
+            ]
+          },
+          "examples": [
+            [
+              "test",
+              "foobar"
+            ]
+          ]
+        },
+        "barcode": {
+          "type": "string",
+          "format": "upce",
+          "default": "",
+          "title": "The barcode Schema",
+          "examples": [
+            "01234565"
+          ]
+        }
+      },
+      "examples": [
+        {
+          "name": "Testitem",
+          "weight": 50,
+          "tags": [
+            "test",
+            "foobar"
+          ],
+          "barcode": "01234565"
+        }
+      ]
+    }
+  },
+  "examples": [
+    {
+      "type": "custom",
+      "sum": 15,
+      "meta": {
+        "name": "Testitem",
+        "weight": 50,
+        "tags": [
+          "test",
+          "foobar"
+        ],
+        "barcode": "01234565"
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+info:
+  name: User - Retrieve Receiving Service Info
+  type: folder
+  seq: 1
+
+docs: |-
+  Verifies the service info endpoint returns version.
+
+
+request:
+  auth: inherit

@@ -1,0 +1,220 @@
+---
+name: "Cross - Customer Data Type Validation"
+description: >
+  Tests that data type schema validation works correctly for customers.
+  Rejects invalid data, missing dataTypeID, and validates schema
+  constraints on create and update.
+steps:
+  - id: createDT
+    name: "Create strict data type for customers"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Strict Customer Schema"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"name":{"type":"string","minLength":1},"category":{"type":"string","enum":["retail","wholesale","distributor"]},"score":{"type":"integer","minimum":0,"maximum":100}},"required":["name","category"],"additionalProperties":false}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - name: "Reject data without dataTypeID"
+    operation: main-data.createCustomer
+    vars:
+      input:
+        data:
+          name: "Test"
+          category: "retail"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (data without data type)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Reject invalid enum value"
+    operation: main-data.createCustomer
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          name: "Test"
+          category: "invalid-category"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (schema validation)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Reject missing required field"
+    operation: main-data.createCustomer
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          name: "Test"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (missing category)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Reject additionalProperties"
+    operation: main-data.createCustomer
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          name: "Test"
+          category: "retail"
+          unknownField: "not allowed"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (additionalProperties)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Reject score exceeding maximum"
+    operation: main-data.createCustomer
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          name: "Test"
+          category: "retail"
+          score: 999
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (score max 100)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - id: createValid
+    name: "Accept valid customer data"
+    operation: main-data.createCustomer
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          name: "Valid Customer"
+          category: "wholesale"
+          score: 85
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Customer created"
+        assertions:
+          - ref: res.body.data.createCustomer.id
+            nil: false
+      - msg: "Data persisted"
+        assertions:
+          - ref: res.body.data.createCustomer.data.category
+            equal: "wholesale"
+          - ref: res.body.data.createCustomer.data.score
+            equal: 85
+
+  - name: "Reject invalid update data"
+    operation: main-data.updateCustomer
+    vars:
+      id: {$ref: "res[createValid].body.data.createCustomer.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          name: "Updated"
+          category: "bogus"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (invalid enum on update)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Accept valid update data"
+    operation: main-data.updateCustomer
+    vars:
+      id: {$ref: "res[createValid].body.data.createCustomer.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          name: "Updated Customer"
+          category: "distributor"
+          score: 95
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data updated"
+        assertions:
+          - ref: res.body.data.updateCustomer.data.category
+            equal: "distributor"
+
+  - name: "Cleanup - delete customer"
+    operation: main-data.deleteCustomer
+    vars:
+      id: {$ref: "res[createValid].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

@@ -1,0 +1,20 @@
+---
+operation: GenerateJsonSchema
+name: "Generate JSON Schema"
+description: >
+  Generates a JSON Schema from an example JSON data object.
+vars:
+  jsonData: '{"name":"Acme Corp","tier":3,"active":true}'
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Schema generated"
+    assertions:
+      - ref: res.body.data.generateJsonSchema.jsonSchema
+        nil: false

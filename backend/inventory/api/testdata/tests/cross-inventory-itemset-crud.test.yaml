@@ -1,0 +1,252 @@
+---
+name: "Cross - Inventory ItemSet CRUD Lifecycle"
+description: >
+  Creates an item set with associated items, queries to verify
+  the association, updates the set, and cleans up.
+steps:
+  - id: itemDT
+    name: "Create data type for items"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "ItemSet Item Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "inventoryitem"
+        jsonSchema: '{"type":"object","properties":{"size":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: setDT
+    name: "Create data type for item sets"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "ItemSet Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "inventoryitemset"
+        jsonSchema: '{"type":"object","properties":{"category":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: item1
+    name: "Create first item for set"
+    operation: inventory.createInventoryItem
+    vars:
+      input:
+        dataTypeID: {$ref: "res[itemDT].body.data.createDataType.id"}
+        sku: {$fake: "{{uuid}}"}
+        data:
+          size: "small"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+
+  - id: item2
+    name: "Create second item for set"
+    operation: inventory.createInventoryItem
+    vars:
+      input:
+        dataTypeID: {$ref: "res[itemDT].body.data.createDataType.id"}
+        sku: {$fake: "{{uuid}}"}
+        data:
+          size: "large"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+
+  - id: createSet
+    name: "Create item set with two items"
+    operation: inventory.createInventoryItemSet
+    vars:
+      input:
+        dataTypeID: {$ref: "res[setDT].body.data.createDataType.id"}
+        sku: {$fake: "{{uuid}}"}
+        data:
+          category: "electronics"
+        itemIDs:
+          - {$ref: "res[item1].body.data.createInventoryItem.inventoryItem.id"}
+          - {$ref: "res[item2].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "ItemSet created"
+        assertions:
+          - ref: res.body.data.createInventoryItemSet.inventoryItemSet.id
+            nil: false
+      - msg: "Two items associated"
+        assertions:
+          - ref: res.body.data.createInventoryItemSet.inventoryItemSet.items.totalCount
+            equal: 2
+      - msg: "DataTypeID persisted"
+        assertions:
+          - ref: res.body.data.createInventoryItemSet.inventoryItemSet.dataTypeID
+            equal: {$ref: "res[setDT].body.data.createDataType.id"}
+
+  - name: "Query item set and verify fields"
+    operation: inventory.getInventoryItemSets
+    vars:
+      where:
+        id: {$ref: "res[createSet].body.data.createInventoryItemSet.inventoryItemSet.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "ItemSet found"
+        assertions:
+          - ref: res.body.data.inventoryItemSets.totalCount
+            equal: 1
+      - msg: "SKU persisted"
+        assertions:
+          - ref: res.body.data.inventoryItemSets.edges[].node.sku
+            equal: {$ref: "res[createSet].body.data.createInventoryItemSet.inventoryItemSet.sku"}
+      - msg: "Data persisted"
+        assertions:
+          - ref: res.body.data.inventoryItemSets.edges[].node.data.category
+            equal: "electronics"
+      - msg: "Items association persisted"
+        assertions:
+          - ref: res.body.data.inventoryItemSets.edges[].node.items.totalCount
+            equal: 2
+
+  - name: "Cleanup - delete item set"
+    operation: inventory.deleteInventoryItemSet
+    vars:
+      id: {$ref: "res[createSet].body.data.createInventoryItemSet.inventoryItemSet.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteInventoryItemSet.deletedID
+            equal: {$ref: "res[createSet].body.data.createInventoryItemSet.inventoryItemSet.id"}
+
+  - name: "Cleanup - delete first item"
+    operation: inventory.deleteInventoryItem
+    vars:
+      id: {$ref: "res[item1].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteInventoryItem.deletedID
+            equal: {$ref: "res[item1].body.data.createInventoryItem.inventoryItem.id"}
+
+  - name: "Cleanup - delete second item"
+    operation: inventory.deleteInventoryItem
+    vars:
+      id: {$ref: "res[item2].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteInventoryItem.deletedID
+            equal: {$ref: "res[item2].body.data.createInventoryItem.inventoryItem.id"}
+
+  - name: "Cleanup - delete item data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[itemDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteDataType.deletedID
+            equal: {$ref: "res[itemDT].body.data.createDataType.id"}
+
+  - name: "Cleanup - delete set data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[setDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteDataType.deletedID
+            equal: {$ref: "res[setDT].body.data.createDataType.id"}

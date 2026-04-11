@@ -1,0 +1,11 @@
+info:
+  name: User - Repository Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates an inventory repository, reads it back, updates it, then deletes it. All steps after create are skipped when the create step returns errors.
+
+
+request:
+  auth: inherit

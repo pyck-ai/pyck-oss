@@ -1,0 +1,393 @@
+---
+name: "Cross - Picking Full Workflow"
+description: >
+  End-to-end cross-service test: sets up data types for orders and items in
+  management, creates a complete picking order with multiple items, queries
+  and filters in various ways, performs updates, deletes individual items,
+  then cleans up everything including cascade delete verification.
+steps:
+  - id: orderType
+    name: "Create data type for orders"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Full Workflow Order Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "order"
+        jsonSchema: '{"type":"object","properties":{"department":{"type":"string"},"urgency":{"type":"integer","minimum":1,"maximum":5}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: itemType
+    name: "Create data type for order items"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Full Workflow Item Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "order_items"
+        jsonSchema: '{"type":"object","properties":{"location":{"type":"string"},"weight":{"type":"number"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: order1
+    name: "Create first picking order with items"
+    operation: picking.createPickingOrder
+    vars:
+      input:
+        customerID: {$fake: uuid}
+        dataTypeID: {$ref: "res[orderType].body.data.createDataType.id"}
+        data:
+          department: "electronics"
+          urgency: 3
+        orderItems:
+          - sku: "ELEC-LAPTOP-001"
+            quantity: 2
+            dataTypeID: {$ref: "res[itemType].body.data.createDataType.id"}
+            data:
+              location: "A1-R3-S2"
+              weight: 2.5
+          - sku: "ELEC-MOUSE-002"
+            quantity: 10
+            dataTypeID: {$ref: "res[itemType].body.data.createDataType.id"}
+            data:
+              location: "A1-R3-S4"
+              weight: 0.1
+          - sku: "ELEC-CABLE-003"
+            quantity: 20
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Order created with 3 items"
+        assertions:
+          - ref: res.body.data.createPickingOrder.pickingOrder.id
+            nil: false
+          - ref: res.body.data.createPickingOrder.pickingOrder.orderItems.totalCount
+            equal: 3
+
+  - id: order2
+    name: "Create second picking order"
+    operation: picking.createPickingOrder
+    vars:
+      input:
+        customerID: {$fake: uuid}
+        dataTypeID: {$ref: "res[orderType].body.data.createDataType.id"}
+        data:
+          department: "food"
+          urgency: 5
+        orderItems:
+          - sku: "FOOD-APPLE-001"
+            quantity: 50
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Second order created"
+        assertions:
+          - ref: res.body.data.createPickingOrder.pickingOrder.id
+            nil: false
+
+  - name: "Query all orders with this data type"
+    operation: picking.getPickingOrders
+    vars:
+      where:
+        dataTypeID: {$ref: "res[orderType].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Both orders found"
+        assertions:
+          - ref: res.body.data.pickingOrders.totalCount
+            equal: 2
+
+  - name: "Query items for first order"
+    operation: picking.getPickingOrderItems
+    vars:
+      where:
+        orderID: {$ref: "res[order1].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Three items in first order"
+        assertions:
+          - ref: res.body.data.pickingOrderItems.totalCount
+            equal: 3
+
+  - name: "Query items by SKU prefix ELEC"
+    operation: picking.getPickingOrderItems
+    vars:
+      where:
+        orderID: {$ref: "res[order1].body.data.createPickingOrder.pickingOrder.id"}
+        skuHasPrefix: "ELEC"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "All three ELEC items found"
+        assertions:
+          - ref: res.body.data.pickingOrderItems.totalCount
+            equal: 3
+
+  - name: "Query items by exact SKU"
+    operation: picking.getPickingOrderItems
+    vars:
+      where:
+        sku: "ELEC-LAPTOP-001"
+        orderID: {$ref: "res[order1].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one laptop item"
+        assertions:
+          - ref: res.body.data.pickingOrderItems.totalCount
+            equal: 1
+          - ref: res.body.data.pickingOrderItems.edges[].node.sku
+            equal: "ELEC-LAPTOP-001"
+          - ref: res.body.data.pickingOrderItems.edges[].node.quantity
+            equal: 2
+
+  - id: findCable
+    name: "Find cable item to delete"
+    operation: picking.getPickingOrderItems
+    vars:
+      where:
+        sku: "ELEC-CABLE-003"
+        orderID: {$ref: "res[order1].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Cable item found"
+        assertions:
+          - ref: res.body.data.pickingOrderItems.totalCount
+            equal: 1
+          - ref: res.body.data.pickingOrderItems.edges[].node.id
+            nil: false
+
+  - name: "Update cable item quantity"
+    operation: picking.updatePickingOrderItem
+    vars:
+      id: {$ref: "res[findCable].body.data.pickingOrderItems.edges[0].node.id"}
+      input:
+        quantity: 99
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Quantity updated"
+        assertions:
+          - ref: res.body.data.updatePickingOrderItem.pickingOrderItem.quantity
+            equal: 99
+
+  - name: "Delete cable item individually"
+    operation: picking.deletePickingOrderItem
+    vars:
+      id: {$ref: "res[findCable].body.data.pickingOrderItems.edges[0].node.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Verify first order now has 2 items"
+    operation: picking.getPickingOrderItems
+    vars:
+      where:
+        orderID: {$ref: "res[order1].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Two items remain"
+        assertions:
+          - ref: res.body.data.pickingOrderItems.totalCount
+            equal: 2
+
+  - name: "Update first order customerID"
+    operation: picking.updatePickingOrder
+    vars:
+      id: {$ref: "res[order1].body.data.createPickingOrder.pickingOrder.id"}
+      input:
+        customerID: {$fake: uuid}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Order updated"
+        assertions:
+          - ref: res.body.data.updatePickingOrder.pickingOrder.customerID
+            equal: {$ref: req.body.variables.input.customerID}
+
+  - name: "Delete first order (cascade to remaining items)"
+    operation: picking.deletePickingOrder
+    vars:
+      id: {$ref: "res[order1].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Verify first order items all gone"
+    operation: picking.getPickingOrderItems
+    vars:
+      where:
+        orderID: {$ref: "res[order1].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No items remain"
+        assertions:
+          - ref: res.body.data.pickingOrderItems.totalCount
+            equal: 0
+
+  - name: "Second order still exists"
+    operation: picking.getPickingOrders
+    vars:
+      where:
+        id: {$ref: "res[order2].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Second order still there"
+        assertions:
+          - ref: res.body.data.pickingOrders.totalCount
+            equal: 1
+
+  - name: "Cleanup - delete second order"
+    operation: picking.deletePickingOrder
+    vars:
+      id: {$ref: "res[order2].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete order data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[orderType].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete item data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[itemType].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

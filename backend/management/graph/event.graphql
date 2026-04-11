@@ -1,0 +1,15 @@
+# Event entity input types for CRUD operations
+# These are for managing event schemas/templates, not for sending events
+
+input CreateEventInput {
+  topic: String!
+  name: String!
+  description: String!
+  example: Map
+}
+
+input UpdateEventInput {
+  name: String
+  description: String
+  example: Map
+}

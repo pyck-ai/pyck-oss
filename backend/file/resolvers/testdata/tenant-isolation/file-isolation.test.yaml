@@ -1,0 +1,69 @@
+name: file-isolation
+description: Verify files are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  files:
+    - name: file-alpha-1
+      tenant: alpha
+    - name: file-alpha-2
+      tenant: alpha
+    - name: file-beta-1
+      tenant: beta
+
+checks:
+  # --- Read isolation ---
+  - type: query
+    entity: file
+    tenant: alpha
+    description: "alpha sees only own files"
+    expectCount: 2
+
+  - type: query
+    entity: file
+    tenant: beta
+    description: "beta sees only own files"
+    expectCount: 1
+
+  # --- Cross-tenant update + verify unchanged ---
+  - type: cross-update
+    entity: file
+    tenant: alpha
+    target: beta/file-beta-1
+    description: "alpha cannot update beta's file"
+    expectError: "not found"
+
+  - type: query
+    entity: file
+    tenant: beta
+    description: "beta still has 1 file after failed cross-update"
+    expectCount: 1
+
+  # --- Cross-tenant delete + verify still exists ---
+  - type: cross-delete
+    entity: file
+    tenant: alpha
+    target: beta/file-beta-1
+    description: "alpha cannot delete beta's file"
+    expectError: "not found"
+
+  - type: query
+    entity: file
+    tenant: beta
+    description: "beta still has 1 file after failed cross-delete"
+    expectCount: 1
+
+  # CreateFile accepts any refid without tenant validation.
+  # Alpha can create a file referencing beta's entity UUID.
+  # Tracked in: https://github.com/pyck-ai/pyck/issues/16
+  #
+  # - type: cross-create
+  # entity: file
+  # tenant: alpha
+  # description: "alpha cannot create file referencing beta's entity"
+  # args:
+  # refid: beta/file-beta-1
+  # expectError: "not found"

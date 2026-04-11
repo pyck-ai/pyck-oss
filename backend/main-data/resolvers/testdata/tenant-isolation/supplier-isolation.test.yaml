@@ -1,0 +1,57 @@
+name: supplier-isolation
+description: Verify suppliers are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  suppliers:
+    - name: sup-alpha-1
+      tenant: alpha
+    - name: sup-alpha-2
+      tenant: alpha
+    - name: sup-beta-1
+      tenant: beta
+
+checks:
+  # --- Read isolation ---
+  - type: query
+    entity: supplier
+    tenant: alpha
+    description: "alpha sees only own suppliers"
+    expectCount: 2
+
+  - type: query
+    entity: supplier
+    tenant: beta
+    description: "beta sees only own suppliers"
+    expectCount: 1
+
+  # --- Cross-tenant update + verify unchanged ---
+  - type: cross-update
+    entity: supplier
+    tenant: alpha
+    target: beta/sup-beta-1
+    description: "alpha cannot update beta's supplier"
+    expectError: "not found"
+
+  - type: query
+    entity: supplier
+    tenant: beta
+    description: "beta still has 1 supplier after failed cross-update"
+    expectCount: 1
+
+  # --- Cross-tenant delete + verify still exists ---
+  - type: cross-delete
+    entity: supplier
+    tenant: alpha
+    target: beta/sup-beta-1
+    description: "alpha cannot delete beta's supplier"
+    expectError: "not found"
+
+  - type: query
+    entity: supplier
+    tenant: beta
+    description: "beta still has 1 supplier after failed cross-delete"
+    expectCount: 1

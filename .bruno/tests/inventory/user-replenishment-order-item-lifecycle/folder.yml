@@ -1,0 +1,11 @@
+info:
+  name: User - Replenishment Order Item Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a replenishment order, adds an item to it, reads it back, updates it, and deletes it. The parent order is deleted at the end.
+
+
+request:
+  auth: inherit

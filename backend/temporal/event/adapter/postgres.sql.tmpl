@@ -1,0 +1,116 @@
+CREATE OR REPLACE FUNCTION notify_workflow_change() RETURNS trigger AS $$
+DECLARE
+    -- === CONFIGURATION ===
+    -- The max characters in your text columns (e.g., varchar(255))
+    MAX_COLUMN_CHARS int := 255;
+    
+    -- The max bytes per character for your encoding (e.g., 4 for UTF-8)
+    MAX_BYTES_PER_CHAR int := 4;
+    
+    -- Calculate the max raw bytes this column could hold
+    MAX_RAW_BYTES int := MAX_COLUMN_CHARS * MAX_BYTES_PER_CHAR; -- 255 * 4 = 1020
+    
+    -- Calculate the exact slot size needed for the Base64-encoded string
+    -- Base64(1020) = ceil(1020/3.0)*4 = 1360 bytes.
+    TEXT_SLOT_LEN int := (ceil(MAX_RAW_BYTES / 3.0) * 4)::int;
+    -- =======================
+
+    payload text;
+    op_status text;
+
+    -- Variables to hold data
+    v_namespace_id text;
+    v_task_queue text;
+    v_workflow_type_name text;
+    v_workflow_id text;
+    v_run_id text;
+
+    -- Variables for safe decoding
+    hex_id_pattern text := '^[a-fA-F0-9]{32}$';
+    nil_uuid_bin bytea := decode('00000000000000000000000000000000', 'hex');
+    ns_id_hex text;
+    run_id_hex text;
+    ns_id_bin bytea;
+    run_id_bin bytea;
+
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        op_status := 'D_'; -- 'D' for Delete, '_' for no status
+        v_namespace_id       := OLD.namespace_id;
+        v_task_queue         := OLD.task_queue;
+        v_workflow_type_name := OLD.workflow_type_name;
+        v_workflow_id        := OLD.workflow_id;
+        v_run_id             := OLD.run_id;
+
+    ELSIF TG_OP = 'INSERT' THEN
+        -- 'I' for Insert, followed by the status
+        op_status := 'I' || COALESCE(NEW.status::text, '_');
+        v_namespace_id       := NEW.namespace_id;
+        v_task_queue         := NEW.task_queue;
+        v_workflow_type_name := NEW.workflow_type_name;
+        v_workflow_id        := NEW.workflow_id;
+        v_run_id             := NEW.run_id;
+
+    ELSIF TG_OP = 'UPDATE' THEN
+        IF NEW.status = OLD.status THEN
+            RETURN NEW; -- No change, do nothing
+        END IF;
+        -- 'U' for Update, followed by the status
+        op_status := 'U' || COALESCE(NEW.status::text, '_');
+        v_namespace_id       := NEW.namespace_id;
+        v_task_queue         := NEW.task_queue;
+        v_workflow_type_name := NEW.workflow_type_name;
+        v_workflow_id        := NEW.workflow_id;
+        v_run_id             := NEW.run_id;
+    END IF;
+
+    -- Safely get and decode UUIDs
+    ns_id_hex := replace(TRIM(COALESCE(v_namespace_id, '')), '-', '');
+    run_id_hex := replace(TRIM(COALESCE(v_run_id, '')), '-', '');
+
+    -- Check if they are valid 32-char hex strings
+    IF ns_id_hex ~ hex_id_pattern THEN
+        ns_id_bin := decode(ns_id_hex, 'hex');
+    ELSE
+        ns_id_bin := nil_uuid_bin;
+    END IF;
+    
+    IF run_id_hex ~ hex_id_pattern THEN
+        run_id_bin := decode(run_id_hex, 'hex');
+    ELSE
+        run_id_bin := nil_uuid_bin;
+    END IF;
+
+    -- Build the hyper-compact payload (no delimiters)
+    payload := concat(
+        -- Field 1: Op + Status (fixed 2 chars)
+        op_status,
+        
+        -- Field 2: Combined UUIDs (fixed 44 chars)
+        encode(
+            ns_id_bin || run_id_bin,
+            'base64'
+        ),
+        
+        -- Fields 3-5: Fixed-length, Base64-encoded, space-padded free text
+        -- 1. Trim/Coalesce, 2. LEFT() trim to column size, 3. Cast, 4. Encode, 5. Pad
+        RPAD(encode(LEFT(COALESCE(TRIM(v_task_queue), ''), MAX_COLUMN_CHARS)::bytea, 'base64'), TEXT_SLOT_LEN),
+        RPAD(encode(LEFT(COALESCE(TRIM(v_workflow_type_name), ''), MAX_COLUMN_CHARS)::bytea, 'base64'), TEXT_SLOT_LEN),
+        RPAD(encode(LEFT(COALESCE(TRIM(v_workflow_id), ''), MAX_COLUMN_CHARS)::bytea, 'base64'), TEXT_SLOT_LEN)
+    );
+
+    -- Send the notification
+    PERFORM pg_notify('{{.ChannelName}}', payload);
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE TRIGGER workflow_change_trigger
+	AFTER INSERT OR UPDATE OR DELETE ON executions_visibility
+	FOR EACH ROW EXECUTE FUNCTION notify_workflow_change();

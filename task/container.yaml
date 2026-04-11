@@ -1,0 +1,56 @@
+version: "3.45"
+
+vars:
+  CONTAINER_REGISTRY: ghcr.io/pyck/pyck
+
+tasks:
+  container:
+    desc: Build deployable container
+    prefix: "container{{if .NAME}}:{{.NAME}}{{end}}"
+    cmds:
+      - >-
+        docker compose
+        -f "{{.TASKFILE_DIR}}/../docker-compose.yml"
+        build
+        {{.CLI_ARGS}} {{.NAME}}
+
+  container:up:
+    desc: Run service container locally
+    prefix: "container:up{{if .NAME}}:{{.NAME}}{{end}}"
+    cmds:
+      - >-
+        docker compose
+        -f "{{.TASKFILE_DIR}}/../docker-compose.yml"
+        up --build --pull=always --remove-orphans --wait
+        {{.CLI_ARGS}} {{.NAME}}
+
+  container:debug:
+    desc: Run service debug container locally
+    prefix: "container:debug{{if .NAME}}:{{.NAME}}{{end}}"
+    cmds:
+      - >-
+        docker compose
+        -f "{{.TASKFILE_DIR}}/../docker-compose.yml"
+        -f "{{.TASKFILE_DIR}}/../docker-compose.debug.yml"
+        up --build --pull=always --remove-orphans --no-deps --force-recreate --no-log-prefix
+        {{.CLI_ARGS}} {{.NAME}}
+
+  container:logs:
+    desc: Follow service container logs
+    prefix: "container:logs{{if .NAME}}:{{.NAME}}{{end}}"
+    cmds:
+      - >-
+        docker compose
+        -f "{{.TASKFILE_DIR}}/../docker-compose.yml"
+        logs --follow {{if .NAME}}--no-log-prefix{{end}}
+        {{.CLI_ARGS}} {{.NAME}}
+
+  container:stop:
+    desc: Stop service container
+    prefix: "container:stop{{if .NAME}}:{{.NAME}}{{end}}"
+    cmds:
+      - >-
+        docker compose
+        -f "{{.TASKFILE_DIR}}/../docker-compose.yml"
+        stop
+        {{.CLI_ARGS}} {{.NAME}}

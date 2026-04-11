@@ -1,0 +1,29 @@
+---
+operation: CreateInventoryItemSet
+name: "Create Inventory Item Set"
+description: >
+  Creates a new inventory item set (a named grouping of inventory items sharing a SKU).
+vars:
+  input:
+    sku: "WIDGET-SET-001"
+    itemIDs:
+      - {$placeholder: "inventory item ID"}
+      - {$placeholder: "inventory item ID"}
+      - {$placeholder: "inventory item ID"}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Item set created"
+    assertions:
+      - ref: res.body.data.createInventoryItemSet.inventoryItemSet
+        nil: false
+      - ref: res.body.data.createInventoryItemSet.inventoryItemSet.id
+        nil: false
+      - ref: res.body.data.createInventoryItemSet.inventoryItemSet.sku
+        equal: {$ref: req.body.variables.input.sku}

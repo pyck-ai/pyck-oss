@@ -1,0 +1,169 @@
+name: "User - Repository Movement Delete"
+description: >
+  Creates a source parent repository, a child repository under it, and a
+  destination repository, then creates a repository movement and immediately
+  deletes it without executing. Verifies that unexecuted movements can be
+  deleted. Cleans up all repositories at the end.
+
+steps:
+- id: createSourceParent
+  name: Create source parent repository
+  operation: inventory.createInventoryRepository
+  vars:
+    input:
+      name: {$fake: "{{productname}}-{{nonce}}"}
+      type: static
+      virtualRepo: false
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Source parent repository created
+    assertions:
+    - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+      nil: false
+- id: createDestRepo
+  name: Create destination repository
+  operation: inventory.createInventoryRepository
+  vars:
+    input:
+      name: {$fake: "{{productname}}-{{nonce}}"}
+      type: static
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Destination repository created
+    assertions:
+    - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+      nil: false
+- id: createChildRepo
+  name: Create child repository
+  operation: inventory.createInventoryRepository
+  vars:
+    input:
+      name: {$fake: "{{productname}}-{{nonce}}"}
+      type: static
+      virtualRepo: false
+      parentID:
+        $ref: res[createSourceParent].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Child repository created
+    assertions:
+    - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+      nil: false
+- id: createMovement
+  name: Create repository movement
+  operation: inventory.createInventoryRepositoryMovement
+  vars:
+    input:
+      handler: "operator-01"
+      repositoryID:
+        $ref: res[createChildRepo].body.data.createInventoryRepository.inventoryRepository.id
+      toID:
+        $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Repository movement created
+    assertions:
+    - ref: res.body.data.createInventoryRepositoryMovement.inventoryRepositoryMovement.id
+      nil: false
+    - ref: res.body.data.createInventoryRepositoryMovement.inventoryRepositoryMovement.executed
+      equal: false
+- name: Delete unexecuted repository movement
+  operation: inventory.deleteInventoryRepositoryMovement
+  vars:
+    id:
+      $ref: res[createMovement].body.data.createInventoryRepositoryMovement.inventoryRepositoryMovement.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteInventoryRepositoryMovement.deletedID
+      equal: {$ref: "res[createMovement].body.data.createInventoryRepositoryMovement.inventoryRepositoryMovement.id"}
+- name: Delete child repository
+  operation: inventory.deleteInventoryRepository
+  vars:
+    id:
+      $ref: res[createChildRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteInventoryRepository.deletedID
+      equal: {$ref: "res[createChildRepo].body.data.createInventoryRepository.inventoryRepository.id"}
+- name: Delete source parent repository
+  operation: inventory.deleteInventoryRepository
+  vars:
+    id:
+      $ref: res[createSourceParent].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteInventoryRepository.deletedID
+      equal: {$ref: "res[createSourceParent].body.data.createInventoryRepository.inventoryRepository.id"}
+- name: Delete destination repository
+  operation: inventory.deleteInventoryRepository
+  vars:
+    id:
+      $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteInventoryRepository.deletedID
+      equal: {$ref: "res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id"}

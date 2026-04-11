@@ -1,0 +1,88 @@
+name: inbound-shipment-notification-isolation
+description: Verify inbound shipment notifications are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  inbounds:
+    - name: inbound-alpha
+      tenant: alpha
+    - name: inbound-beta
+      tenant: beta
+
+  inboundShipmentNotifications:
+    - name: notif-alpha
+      tenant: alpha
+      inbound: inbound-alpha
+    - name: notif-beta
+      tenant: beta
+      inbound: inbound-beta
+
+checks:
+  # --- Read isolation ---
+  - type: query
+    entity: inboundShipmentNotification
+    tenant: alpha
+    description: "alpha sees only own notifications"
+    expectCount: 1
+
+  - type: query
+    entity: inboundShipmentNotification
+    tenant: beta
+    description: "beta sees only own notifications"
+    expectCount: 1
+
+  # --- Cross-tenant update + verify unchanged ---
+  - type: cross-update
+    entity: inboundShipmentNotification
+    tenant: alpha
+    target: beta/notif-beta
+    description: "alpha cannot update beta's notification"
+    expectError: "not found"
+
+  - type: query
+    entity: inboundShipmentNotification
+    tenant: beta
+    description: "beta still has 1 notification after failed cross-update"
+    expectCount: 1
+
+  # --- Cross-tenant delete + verify still exists ---
+  - type: cross-delete
+    entity: inboundShipmentNotification
+    tenant: alpha
+    target: beta/notif-beta
+    description: "alpha cannot delete beta's notification"
+    expectError: "not found"
+
+  - type: query
+    entity: inboundShipmentNotification
+    tenant: beta
+    description: "beta still has 1 notification after failed cross-delete"
+    expectCount: 1
+
+  # --- Cross-tenant create + verify no orphan ---
+  - type: cross-create
+    entity: inboundShipmentNotification
+    tenant: alpha
+    description: "alpha cannot create notification for beta's inbound"
+    args:
+      inbound: beta/inbound-beta
+    expectError: "invalid inbound"
+
+  - type: query
+    entity: inboundShipmentNotification
+    tenant: alpha
+    description: "alpha still has 1 notification after failed cross-create"
+    expectCount: 1
+
+  # --- Cross-tenant update with inboundID reassignment ---
+  - type: cross-update-with-args
+    entity: inboundShipmentNotification
+    tenant: alpha
+    target: alpha/notif-alpha
+    description: "alpha cannot reassign own notification to beta's inbound"
+    args:
+      inboundID: beta/inbound-beta
+    expectError: "invalid inbound"

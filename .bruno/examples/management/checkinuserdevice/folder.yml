@@ -1,0 +1,7 @@
+info:
+  name: checkinuserdevice
+  type: folder
+  seq: 1
+
+request:
+  auth: inherit

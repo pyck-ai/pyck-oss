@@ -1,0 +1,112 @@
+---
+name: "User - Receiving Inbound Item Validation"
+description: >
+  Tests validation rules for inbound items: empty SKU, negative
+  quantity, and zero quantity (valid).
+steps:
+  - id: createInbound
+    name: "Create parent inbound"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound was created"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+
+  - name: "Reject empty SKU"
+    operation: receiving.createReceivingInboundItem
+    vars:
+      input:
+        sku: ""
+        quantity: 10
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Reject negative quantity"
+    operation: receiving.createReceivingInboundItem
+    vars:
+      input:
+        sku: "VALID-SKU"
+        quantity: -5
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Reject empty SKU in inline items"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        inboundItems:
+          - sku: ""
+            quantity: 10
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Accept zero quantity"
+    operation: receiving.createReceivingInboundItem
+    vars:
+      input:
+        sku: "ZERO-QTY-SKU"
+        quantity: 0
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created with zero quantity"
+        assertions:
+          - ref: res.body.data.createReceivingInboundItem.receivingInboundItem.quantity
+            equal: 0
+
+  - name: "Cleanup - delete inbound"
+    operation: receiving.deleteReceivingInbound
+    vars:
+      id: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

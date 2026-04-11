@@ -1,0 +1,151 @@
+---
+name: "User - Picking Outbound Shipment Notification CRUD Lifecycle"
+description: >
+  Full CRUD lifecycle for outbound shipment notifications. Creates a
+  parent order, then creates/reads/deletes a notification with
+  field verification and filter queries.
+steps:
+  - id: createOrder
+    name: "Create parent order"
+    operation: picking.createPickingOrder
+    vars:
+      input:
+        customerID: {$fake: uuid}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Order was created"
+        assertions:
+          - ref: res.body.data.createPickingOrder.pickingOrder.id
+            nil: false
+
+  - id: createNotification
+    name: "Create outbound shipment notification"
+    operation: picking.createPickingOutboundShipmentNotification
+    vars:
+      input:
+        orderID: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Notification was created"
+        assertions:
+          - ref: res.body.data.createPickingOutboundShipmentNotification.pickingOutboundShipmentNotification.id
+            nil: false
+      - msg: "OrderID matches"
+        assertions:
+          - ref: res.body.data.createPickingOutboundShipmentNotification.pickingOutboundShipmentNotification.orderID
+            equal: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+
+  - name: "Get notification by ID"
+    operation: picking.getPickingOutboundShipmentNotifications
+    vars:
+      where:
+        id: {$ref: "res[createNotification].body.data.createPickingOutboundShipmentNotification.pickingOutboundShipmentNotification.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one notification returned"
+        assertions:
+          - ref: res.body.data.pickingOutboundShipmentNotifications.totalCount
+            equal: 1
+      - msg: "ID matches"
+        assertions:
+          - ref: res.body.data.pickingOutboundShipmentNotifications.edges[].node.id
+            equal: {$ref: "res[createNotification].body.data.createPickingOutboundShipmentNotification.pickingOutboundShipmentNotification.id"}
+      - msg: "OrderID persisted"
+        assertions:
+          - ref: res.body.data.pickingOutboundShipmentNotifications.edges[].node.orderID
+            equal: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+
+  - name: "Filter by orderID"
+    operation: picking.getPickingOutboundShipmentNotifications
+    vars:
+      where:
+        orderID: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "At least one notification for this order"
+        assertions:
+          - ref: res.body.data.pickingOutboundShipmentNotifications.totalCount
+            greater: 0
+
+  - name: "Delete notification"
+    operation: picking.deletePickingOutboundShipmentNotification
+    vars:
+      id: {$ref: "res[createNotification].body.data.createPickingOutboundShipmentNotification.pickingOutboundShipmentNotification.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID matches"
+        assertions:
+          - ref: res.body.data.deletePickingOutboundShipmentNotification.deletedID
+            equal: {$ref: "res[createNotification].body.data.createPickingOutboundShipmentNotification.pickingOutboundShipmentNotification.id"}
+
+  - name: "Verify notification was deleted"
+    operation: picking.getPickingOutboundShipmentNotifications
+    vars:
+      where:
+        id: {$ref: "res[createNotification].body.data.createPickingOutboundShipmentNotification.pickingOutboundShipmentNotification.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results returned"
+        assertions:
+          - ref: res.body.data.pickingOutboundShipmentNotifications.totalCount
+            equal: 0
+
+  - name: "Cleanup - delete order"
+    operation: picking.deletePickingOrder
+    vars:
+      id: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deletePickingOrder.deletedID
+            equal: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}

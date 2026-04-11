@@ -1,0 +1,20 @@
+---
+operation: EnsureTemporalNamespace
+name: "Ensure Temporal Namespace"
+description: >
+  Ensures the Temporal namespace exists for the current tenant.
+  Safe to call multiple times. Returns the namespace name.
+vars: {}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Namespace returned"
+    assertions:
+      - ref: res.body.data.ensureTemporalNamespace
+        nil: false

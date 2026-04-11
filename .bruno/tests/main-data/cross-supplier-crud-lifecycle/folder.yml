@@ -1,0 +1,11 @@
+info:
+  name: Cross - Supplier CRUD Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a data type for suppliers, then performs full CRUD on a supplier entity. Verifies data persistence, dataTypeID, query filters, update, and soft delete.
+
+
+request:
+  auth: inherit

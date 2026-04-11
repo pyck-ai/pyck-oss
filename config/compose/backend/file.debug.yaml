@@ -1,0 +1,29 @@
+services:
+  file:
+    build:
+      context: ../../../
+      dockerfile: ./backend/Dockerfile.debug
+      args:
+        - SERVICE_NAME=file
+        - SERVICE_PORT=8088
+        - DELVE_PORT=7088
+    security_opt:
+      - "apparmor:unconfined" # required for debugging with delve
+    cap_add:
+      - "SYS_PTRACE"
+    volumes:
+      - go_cache:/var/cache/go/
+      - go_modcache:/go/pkg/mod/
+      - ./../../../backend/:/app/:ro,z
+      - ./../../../backend/file/.var/debug/:/tmp/debug/:Z
+      - ./../../../backend/file/ent/migrate/migrations/:/app/file/ent/migrate/migrations/:z
+      - ./../../keys/zitadel_certificate.crt:/etc/ssl/certs/zitadel.crt:ro,z
+      - ./../../keys/local-key.json:/data/keys/local-key.json:ro,z
+    environment:
+      - PYCK_LOG_FORMAT=console
+      - PYCK_OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - PYCK_SERVICES_PATH=/app
+    deploy:
+      resources:
+        limits:
+          memory: '1G'

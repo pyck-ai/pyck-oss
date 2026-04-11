@@ -1,0 +1,135 @@
+---
+name: "User - Data Type CRUD Lifecycle"
+description: >
+  Creates a data type, verifies it appears in list queries,
+  updates it, and deletes it. Also verifies entity list is queryable.
+steps:
+  - name: "Get data type entities"
+    operation: management.getDataTypeEntities
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Entities returned"
+        assertions:
+          - ref: res.body.data.dataTypeEntities
+            nil: false
+
+  - id: create
+    name: "Create data type"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Test Customer Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"tier":{"type":"integer","minimum":1,"maximum":5},"segment":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.slug
+            nil: false
+      - msg: "Entity persisted"
+        assertions:
+          - ref: res.body.data.createDataType.entity
+            equal: "customer"
+
+  - name: "Query data type by ID"
+    operation: management.getDataTypes
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one data type returned"
+        assertions:
+          - ref: res.body.data.dataTypes.totalCount
+            equal: 1
+      - msg: "Schema persisted"
+        assertions:
+          - ref: res.body.data.dataTypes.edges[].node.jsonSchema
+            nil: false
+
+  - name: "Update data type"
+    operation: management.updateDataType
+    vars:
+      id: {$ref: "res[create].body.data.createDataType.id"}
+      input:
+        name: "Updated Customer Type"
+        jsonSchema: '{"type":"object","properties":{"tier":{"type":"integer"},"segment":{"type":"string"},"region":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Updated data type returned"
+        assertions:
+          - ref: res.body.data.updateDataType.id
+            equal: {$ref: "res[create].body.data.createDataType.id"}
+      - msg: "Name updated"
+        assertions:
+          - ref: res.body.data.updateDataType.name
+            equal: "Updated Customer Type"
+
+  - name: "Delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[create].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID matches"
+        assertions:
+          - ref: res.body.data.deleteDataType.deletedID
+            equal: {$ref: "res[create].body.data.createDataType.id"}
+
+  - name: "Verify data type deleted"
+    operation: management.getDataTypes
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results"
+        assertions:
+          - ref: res.body.data.dataTypes.totalCount
+            equal: 0

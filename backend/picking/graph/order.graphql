@@ -1,0 +1,13 @@
+
+extend input PickingOrderWhereInput {
+  Data: [String!]
+  DataHasKey: String
+  DataIn: [String!]
+  DataContains: [String!]
+}
+
+type PickingOrderOutput
+{
+  pickingOrder: PickingOrder
+  workflows: [TemporalWorkflow]
+}

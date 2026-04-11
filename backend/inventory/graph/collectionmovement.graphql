@@ -1,0 +1,51 @@
+extend input InventoryCollectionWhereInput {
+  Data: [String!]
+  DataHasKey: String
+  DataIn: [String!]
+  DataContains: [String!]
+}
+
+input CreateCollectionMovementInput
+{
+  dataTypeID: UUID
+  dataTypeSlug: String
+  data: Map
+  collection: [CollectionMovementArrayInput]
+  handler: String
+}
+
+input CollectionMovementArrayInput
+{
+  handler: String!
+  dataTypeID: UUID
+  dataTypeSlug: String
+  data: Map
+  fromID: ID!
+  toID: ID!
+  itemID: ID
+  quantity: Float
+  repositoryID: ID
+  orderID: ID
+}
+
+type CreateCollectionMovementOutput
+{
+  id: ID!
+  movements: [CollectionMovement]
+  workflows: [TemporalWorkflow]
+}
+
+type CollectionMovement
+{
+  id: ID!
+  movementType: String!
+}
+
+type UpdateCollectionMovementOutput
+{
+  inventoryCollection: InventoryCollection!
+  workflows: [TemporalWorkflow]
+}
+
+
+

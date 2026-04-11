@@ -1,0 +1,67 @@
+name: device-location-isolation
+description: Verify device-location assignments are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  devices:
+    - name: dev-alpha
+      tenant: alpha
+    - name: dev-beta
+      tenant: beta
+
+  locations:
+    - name: loc-alpha
+      tenant: alpha
+    - name: loc-beta
+      tenant: beta
+
+  deviceLocations:
+    - name: dl-alpha
+      tenant: alpha
+      device: dev-alpha
+      location: loc-alpha
+    - name: dl-beta
+      tenant: beta
+      device: dev-beta
+      location: loc-beta
+
+checks:
+  # --- Read isolation ---
+  - type: query
+    entity: deviceLocation
+    tenant: alpha
+    description: "alpha sees only own device locations"
+    expectCount: 1
+
+  - type: query
+    entity: deviceLocation
+    tenant: beta
+    description: "beta sees only own device locations"
+    expectCount: 1
+
+  # --- Cross-tenant unset + verify unchanged ---
+  - type: cross-delete
+    entity: deviceLocation
+    tenant: alpha
+    target: beta/dl-beta
+    description: "alpha cannot unset beta's device location"
+    expectError: "not found"
+
+  - type: query
+    entity: deviceLocation
+    tenant: beta
+    description: "beta still has 1 device location after failed cross-unset"
+    expectCount: 1
+
+  # SetDeviceLocation now validates deviceID + locationID tenant ownership.
+  - type: cross-create
+    entity: deviceLocation
+    tenant: alpha
+    description: "alpha cannot set device location with beta's device and location"
+    args:
+      device: beta/dev-beta
+      location: beta/loc-beta
+    expectError: "not found"

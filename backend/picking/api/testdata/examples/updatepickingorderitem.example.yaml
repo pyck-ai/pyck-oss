@@ -1,0 +1,24 @@
+---
+operation: UpdatePickingOrderItem
+name: "Update Picking Order Item"
+description: >
+  Updates the quantity or data on an existing picking order item.
+vars:
+  id: { $placeholder: "picking order item ID" }
+  input:
+    quantity: 5
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated item returned"
+    assertions:
+      - ref: res.body.data.updatePickingOrderItem.pickingOrderItem.id
+        nil: false
+      - ref: res.body.data.updatePickingOrderItem.pickingOrderItem.quantity
+        equal: 5

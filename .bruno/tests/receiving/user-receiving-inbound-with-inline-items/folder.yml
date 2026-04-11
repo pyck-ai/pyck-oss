@@ -1,0 +1,11 @@
+info:
+  name: User - Receiving Inbound With Inline Items
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates an inbound with inline items, verifies items are associated, queries nested items, and tests cascade delete.
+
+
+request:
+  auth: inherit

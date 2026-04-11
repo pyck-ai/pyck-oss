@@ -1,0 +1,11 @@
+info:
+  name: Cross - Receiving Inbound With Data Type
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a data type in management, then creates a receiving inbound referencing it by ID. Verifies dataTypeID is persisted and filterable.
+
+
+request:
+  auth: inherit

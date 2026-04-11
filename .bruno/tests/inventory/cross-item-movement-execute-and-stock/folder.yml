@@ -1,0 +1,11 @@
+info:
+  name: Cross - Item Movement Execute and Stock
+  type: folder
+  seq: 1
+
+docs: |-
+  Seeds stock via a virtual repo, verifies insufficient stock rejection, then moves between static repos and verifies stock levels and transactions after execution.
+
+
+request:
+  auth: inherit

@@ -1,0 +1,185 @@
+---
+name: "User - Receiving Inbound CRUD Lifecycle"
+description: >
+  Full CRUD lifecycle for receiving inbounds. Creates an inbound with
+  supplierID and orderID, verifies all fields persisted, queries with
+  filters, updates fields, and deletes with verification.
+steps:
+  - id: create
+    name: "Create inbound with all optional fields"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        orderID: "PO-CRUD-001"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound was created"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+      - msg: "SupplierID matches input"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.supplierID
+            equal: {$ref: "req.body.variables.input.supplierID"}
+      - msg: "OrderID matches input"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.orderID
+            equal: "PO-CRUD-001"
+
+  - name: "Get inbound by ID"
+    operation: receiving.getReceivingInbounds
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one inbound returned"
+        assertions:
+          - ref: res.body.data.receivingInbounds.totalCount
+            equal: 1
+      - msg: "ID matches"
+        assertions:
+          - ref: res.body.data.receivingInbounds.edges[].node.id
+            equal: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+      - msg: "SupplierID persisted"
+        assertions:
+          - ref: res.body.data.receivingInbounds.edges[].node.supplierID
+            equal: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.supplierID"}
+      - msg: "OrderID persisted"
+        assertions:
+          - ref: res.body.data.receivingInbounds.edges[].node.orderID
+            equal: "PO-CRUD-001"
+
+  - name: "Filter by orderID"
+    operation: receiving.getReceivingInbounds
+    vars:
+      where:
+        orderID: "PO-CRUD-001"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "At least one inbound returned"
+        assertions:
+          - ref: res.body.data.receivingInbounds.totalCount
+            greater: 0
+
+  - name: "Filter by supplierID"
+    operation: receiving.getReceivingInbounds
+    vars:
+      where:
+        supplierID: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.supplierID"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "At least one inbound returned"
+        assertions:
+          - ref: res.body.data.receivingInbounds.totalCount
+            greater: 0
+
+  - id: update
+    name: "Update inbound fields"
+    operation: receiving.updateReceivingInbound
+    vars:
+      id: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+      input:
+        orderID: "PO-CRUD-002"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound was updated"
+        assertions:
+          - ref: res.body.data.updateReceivingInbound.receivingInbound.id
+            nil: false
+      - msg: "OrderID was changed"
+        assertions:
+          - ref: res.body.data.updateReceivingInbound.receivingInbound.orderID
+            equal: "PO-CRUD-002"
+
+  - name: "Verify old orderID filter returns nothing"
+    operation: receiving.getReceivingInbounds
+    vars:
+      where:
+        orderID: "PO-CRUD-001"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results with old orderID"
+        assertions:
+          - ref: res.body.data.receivingInbounds.totalCount
+            equal: 0
+
+  - name: "Delete inbound"
+    operation: receiving.deleteReceivingInbound
+    vars:
+      id: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID matches"
+        assertions:
+          - ref: res.body.data.deleteReceivingInbound.deletedID
+            equal: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+
+  - name: "Verify inbound was deleted"
+    operation: receiving.getReceivingInbounds
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results returned"
+        assertions:
+          - ref: res.body.data.receivingInbounds.totalCount
+            equal: 0

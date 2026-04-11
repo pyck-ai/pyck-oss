@@ -1,0 +1,24 @@
+---
+operation: SubmitUserDataInput
+name: "Submit User Data Input"
+description: >
+  Submits form data to a workflow execution that is waiting for user input.
+  The workflow must be in a user-input pending state.
+vars:
+  input:
+    workflowID: { $placeholder: "workflow execution ID" }
+    runID: { $placeholder: "run ID" }
+    data: '{"approved":true,"notes":"Looks good"}'
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Result returned"
+    assertions:
+      - ref: res.body.data.submitUserDataInput.result
+        nil: false

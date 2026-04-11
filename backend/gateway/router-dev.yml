@@ -1,0 +1,26 @@
+#sandbox:
+#  enabled: true
+#homepage:
+#  enabled: false
+supergraph:
+  listen: 0.0.0.0:4000
+  introspection: true
+include_subgraph_errors:
+  all: true # Propagate errors from all subgraphs
+    # subgraphs:
+    # items: false # Do not propagate errors from the items subgraph
+headers:
+  all:
+    request:
+      - propagate:
+          named: "Authorization"
+      - propagate:
+          named: "X-Pyck-Tenant-Id"
+      - propagate:
+          named: "X-Pyck-Feature"
+telemetry:
+  exporters:
+    logging:
+      stdout:
+        enabled: true
+        format: json

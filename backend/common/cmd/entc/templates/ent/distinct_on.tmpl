@@ -1,0 +1,31 @@
+{{/* gotype: entgo.io/ent/entc/gen.Graph */}}
+
+{{ define "distinct_on" }}
+{{ template "header" $ }}
+
+import (
+	"entgo.io/ent/dialect/sql"
+)
+
+{{ range $node := $.Nodes }}
+// DistinctOnExists filters {{ $node.Name }} records to include only the latest per group
+// of groupFields, ordered by orderField. Filters are propagated to the NOT EXISTS subquery.
+func ({{ $node.QueryReceiver }} *{{ $node.QueryName }}) DistinctOnExists(groupFields []string, orderField string, filters ...predicate.{{ $node.Name }}) *{{ $node.QueryName }} {
+	{{ $node.QueryReceiver }}.Where(func(s *sql.Selector) {
+		t := sql.Table("{{ $node.Table }}").As("s2")
+		conditions := make([]*sql.Predicate, 0, len(groupFields)+1)
+		for _, f := range groupFields {
+			conditions = append(conditions, sql.ColumnsEQ(t.C(f), s.C(f)))
+		}
+		conditions = append(conditions, sql.ColumnsGT(t.C(orderField), s.C(orderField)))
+		sub := sql.SelectExpr(sql.Expr("1")).From(t).Where(sql.And(conditions...))
+		for _, pf := range filters {
+			pf(sub)
+		}
+		s.Where(sql.Not(sql.Exists(sub)))
+	})
+	return {{ $node.QueryReceiver }}
+}
+{{ end }}
+
+{{ end }}

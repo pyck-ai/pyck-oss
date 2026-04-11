@@ -1,0 +1,23 @@
+---
+operation: CreateDevice
+name: "Create Device"
+description: >
+  Creates a handheld scanner or other warehouse device.
+vars:
+  input:
+    name: "Scanner-001"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Device created"
+    assertions:
+      - ref: res.body.data.createDevice.device.id
+        nil: false
+      - ref: res.body.data.createDevice.device.name
+        equal: "Scanner-001"

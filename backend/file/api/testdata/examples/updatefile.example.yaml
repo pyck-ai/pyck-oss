@@ -1,0 +1,22 @@
+operation: UpdateFile
+name: Update file
+description: Updates the metadata of an existing file record.
+vars:
+  id: { $placeholder: "file ID" }
+  input:
+    name: "updated-product-photo.jpg"
+expect:
+  - msg: Status is 200
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: No GraphQL errors
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: Updated file returned
+    assertions:
+      - ref: res.body.data.updateFile.id
+        nil: false
+      - ref: res.body.data.updateFile.name
+        equal: "updated-product-photo.jpg"

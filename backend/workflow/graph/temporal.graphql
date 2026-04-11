@@ -1,0 +1,10 @@
+type TemporalMetadata {
+  key: String!
+  value: String!
+}
+
+type TemporalWorkflow {
+  type: String!
+  id: String!
+  runID: String!
+}

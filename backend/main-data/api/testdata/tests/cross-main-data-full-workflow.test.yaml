@@ -1,0 +1,290 @@
+---
+name: "Cross - Main Data Full Workflow"
+description: >
+  End-to-end workflow with data types for both customers and suppliers.
+  Creates multiple entities, queries with filters, updates, deletes,
+  and verifies isolation between entity types.
+steps:
+  - id: customerDT
+    name: "Create data type for customers"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Full WF Customer Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"segment":{"type":"string"},"revenue":{"type":"number"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: supplierDT
+    name: "Create data type for suppliers"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Full WF Supplier Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "supplier"
+        jsonSchema: '{"type":"object","properties":{"country":{"type":"string"},"moq":{"type":"integer"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: customer1
+    name: "Create first customer"
+    operation: main-data.createCustomer
+    vars:
+      input:
+        dataTypeID: {$ref: "res[customerDT].body.data.createDataType.id"}
+        data:
+          segment: "enterprise"
+          revenue: 1000000
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Customer created"
+        assertions:
+          - ref: res.body.data.createCustomer.id
+            nil: false
+
+  - id: customer2
+    name: "Create second customer"
+    operation: main-data.createCustomer
+    vars:
+      input:
+        dataTypeID: {$ref: "res[customerDT].body.data.createDataType.id"}
+        data:
+          segment: "smb"
+          revenue: 50000
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Customer created"
+        assertions:
+          - ref: res.body.data.createCustomer.id
+            nil: false
+
+  - id: supplier1
+    name: "Create supplier"
+    operation: main-data.createSupplier
+    vars:
+      input:
+        dataTypeID: {$ref: "res[supplierDT].body.data.createDataType.id"}
+        data:
+          country: "Germany"
+          moq: 100
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Supplier created"
+        assertions:
+          - ref: res.body.data.createSupplier.id
+            nil: false
+
+  - name: "Query customers by dataTypeID"
+    operation: main-data.getCustomers
+    vars:
+      where:
+        dataTypeID: {$ref: "res[customerDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Both customers found"
+        assertions:
+          - ref: res.body.data.customers.totalCount
+            equal: 2
+
+  - name: "Query suppliers by dataTypeID"
+    operation: main-data.getSuppliers
+    vars:
+      where:
+        dataTypeID: {$ref: "res[supplierDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "One supplier found"
+        assertions:
+          - ref: res.body.data.suppliers.totalCount
+            equal: 1
+
+  - name: "Update first customer"
+    operation: main-data.updateCustomer
+    vars:
+      id: {$ref: "res[customer1].body.data.createCustomer.id"}
+      input:
+        dataTypeID: {$ref: "res[customerDT].body.data.createDataType.id"}
+        data:
+          segment: "enterprise"
+          revenue: 2000000
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Revenue updated"
+        assertions:
+          - ref: res.body.data.updateCustomer.data.revenue
+            equal: 2000000
+
+  - name: "Delete first customer"
+    operation: main-data.deleteCustomer
+    vars:
+      id: {$ref: "res[customer1].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Verify only second customer remains"
+    operation: main-data.getCustomers
+    vars:
+      where:
+        dataTypeID: {$ref: "res[customerDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "One customer remains"
+        assertions:
+          - ref: res.body.data.customers.totalCount
+            equal: 1
+
+  - name: "Supplier unaffected by customer delete"
+    operation: main-data.getSuppliers
+    vars:
+      where:
+        id: {$ref: "res[supplier1].body.data.createSupplier.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Supplier still exists"
+        assertions:
+          - ref: res.body.data.suppliers.totalCount
+            equal: 1
+
+  - name: "Cleanup - delete second customer"
+    operation: main-data.deleteCustomer
+    vars:
+      id: {$ref: "res[customer2].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete supplier"
+    operation: main-data.deleteSupplier
+    vars:
+      id: {$ref: "res[supplier1].body.data.createSupplier.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete customer data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[customerDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete supplier data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[supplierDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

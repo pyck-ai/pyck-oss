@@ -1,0 +1,22 @@
+---
+operation: SetDeviceLocation
+name: "Set Device Location"
+description: >
+  Assigns a device to a location.
+vars:
+  input:
+    deviceID: { $placeholder: "device ID" }
+    locationID: { $placeholder: "location ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Device location assignment returned"
+    assertions:
+      - ref: res.body.data.setDeviceLocation.DeviceLocation.id
+        nil: false

@@ -1,0 +1,137 @@
+# Repository Movement Deletion with Interleaved Item Movements
+# Tests that deleting a repo movement correctly handles stock when item movements
+# have been created and executed between the repo movement creation and deletion.
+# The key test: shelf accumulates more stock (120) between repo create and delete,
+# and the repo deletion must correctly reverse based on current stock, not original.
+name: repo-deletion-interleaved
+itemSKU: interleaved-test-item
+
+# ========================================================================
+# REPOSITORY STRUCTURE OVERVIEW
+# ========================================================================
+#
+#  warehouse (root)
+#  ├─ storage
+#  │  └─ shelf
+#  └─ outbound
+#
+# ========================================================================
+
+repositories:
+  # Virtual repository for initial stock additions
+  - name: virtual
+    parent: ""
+    type: static
+    virtual: true
+
+  # Main warehouse container
+  - name: warehouse
+    parent: ""
+    type: static
+    virtual: false
+
+  # Storage area containing shelf
+  - name: storage
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Shelf - accumulates stock via multiple seed movements
+  - name: shelf
+    parent: storage
+    type: static
+    virtual: false
+
+  # Outbound - target of the repo movement (will be deleted)
+  - name: outbound
+    parent: warehouse
+    type: static
+    virtual: false
+
+steps:
+  # =========================================================================
+  #  virtual                             warehouse
+  #  │                                   └─ storage
+  #  └─[100 items]────────────────────────► └─ shelf
+  # =========================================================================
+  - name: create_item_virtual_to_shelf
+    action: create
+    moveType: item
+    from: virtual
+    to: shelf
+    qty: 100
+    expectedStocks:
+      virtual:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut: 100 }
+      warehouse:  { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      storage:    { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:      { qty:   0, ownQty:   0, in: 100, ownIn: 100, out:   0, ownOut:   0 }
+      outbound:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: execute_item_virtual_to_shelf
+    action: execute
+    movement: create_item_virtual_to_shelf
+    expectedStocks:
+      virtual:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse:  { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      storage:    { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:      { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  virtual                             warehouse
+  #  │                                   └─ storage
+  #  └─[20 items]─────────────────────────► └─ shelf (now 120 items)
+  # =========================================================================
+  - name: create_item_virtual_to_shelf_second
+    action: create
+    moveType: item
+    from: virtual
+    to: shelf
+    qty: 20
+    expectedStocks:
+      virtual:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:  20, ownOut:  20 }
+      warehouse:  { qty: 100, ownQty:   0, in:  20, ownIn:   0, out:   0, ownOut:   0 }
+      storage:    { qty: 100, ownQty:   0, in:  20, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:      { qty: 100, ownQty: 100, in:  20, ownIn:  20, out:   0, ownOut:   0 }
+      outbound:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: execute_item_virtual_to_shelf_second
+    action: execute
+    movement: create_item_virtual_to_shelf_second
+    expectedStocks:
+      virtual:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse:  { qty: 120, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      storage:    { qty: 120, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:      { qty: 120, ownQty: 120, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ storage
+  #  │  └─ shelf ──[repo]─╮
+  #  └─ outbound          │
+  #     └─ ▒▒▒▒▒▒▒▒ ◄─────╯
+  # =========================================================================
+  - name: create_repo_shelf_to_outbound
+    action: create
+    moveType: repository
+    from: shelf
+    to: outbound
+    expectedStocks:
+      virtual:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse:  { qty: 120, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      storage:    { qty: 120, ownQty:   0, in:   0, ownIn:   0, out: 120, ownOut:   0 }
+      shelf:      { qty: 120, ownQty: 120, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:   { qty:   0, ownQty:   0, in: 120, ownIn:   0, out:   0, ownOut:   0 }
+
+  # Delete the repo movement — shelf has 120 items (not original 100)
+  # Reservations (storage.out=120, outbound.in=120) must be fully cleared
+  - name: delete_repo_shelf_to_outbound
+    action: delete
+    movement: create_repo_shelf_to_outbound
+    expectedStocks:
+      virtual:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse:  { qty: 120, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      storage:    { qty: 120, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:      { qty: 120, ownQty: 120, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }

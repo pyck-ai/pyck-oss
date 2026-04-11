@@ -1,0 +1,23 @@
+---
+operation: GetEvents
+name: "Get Events"
+description: >
+  Lists custom event definitions with pagination.
+vars:
+  first: 10
+  orderBy:
+    direction: ASC
+    field: CREATED_AT
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Result set returned"
+    assertions:
+      - ref: res.body.data.events.totalCount
+        nil: false

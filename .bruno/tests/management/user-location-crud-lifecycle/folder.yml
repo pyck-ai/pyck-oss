@@ -1,0 +1,11 @@
+info:
+  name: User - Location CRUD Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a location, verifies it appears in list queries, updates it, and deletes it.
+
+
+request:
+  auth: inherit

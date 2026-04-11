@@ -1,0 +1,24 @@
+---
+operation: UpdateLocation
+name: "Update Location"
+description: >
+  Updates an existing location's name or data.
+vars:
+  id: { $placeholder: "location ID" }
+  input:
+    name: "Zone A - Rack 1 Updated"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated location returned"
+    assertions:
+      - ref: res.body.data.updateLocation.location.id
+        nil: false
+      - ref: res.body.data.updateLocation.location.name
+        equal: "Zone A - Rack 1 Updated"

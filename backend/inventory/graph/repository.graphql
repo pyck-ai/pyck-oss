@@ -1,0 +1,17 @@
+
+extend input RepositoryWhereInput {
+  Data: [String!]
+  DataHasKey: String
+  DataIn: [String!]
+  DataContains: [String!]
+  DataContainsBool: DataBoolInput
+}
+
+input DataBoolInput {
+  key: String
+  value: Boolean
+}
+
+type RepositoryDeletePayload {
+  deletedID: ID
+}

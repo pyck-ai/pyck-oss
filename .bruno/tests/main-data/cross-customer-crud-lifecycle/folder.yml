@@ -1,0 +1,11 @@
+info:
+  name: Cross - Customer CRUD Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a data type for customers, then performs full CRUD on a customer entity. Verifies data persistence, dataTypeID, query filters, update, and soft delete.
+
+
+request:
+  auth: inherit

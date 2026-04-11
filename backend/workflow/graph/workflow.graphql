@@ -1,0 +1,471 @@
+extend type Query {
+  """
+  List workflow executions with pagination support.
+  Returns lightweight execution metadata without history.
+  Use workflowHistory query to fetch history for specific executions.
+  Pagination uses Temporal's NextPageToken directly.
+  """
+  workflowExecutions(
+    """Filter criteria for workflow executions."""
+    where: WorkflowExecutionsWhereInput
+    """Maximum number of executions to return. Defaults to 100."""
+    first: Int
+    """Pagination cursor from previous response (NextPageToken from Temporal)."""
+    after: String
+    """Ordering options for the returned list."""
+    orderBy: WorkflowExecutionOrder
+  ): WorkflowExecutionInfoConnection!
+
+  """
+  List assignable workflow executions with pagination support.
+  Returns only workflows that have user tasks (ActivityCount > 0 in UserDataInput).
+  Workflows without user task handlers or with no pending activities are excluded.
+  Uses the same pagination interface as workflowExecutions.
+  """
+  assignableWorkflowExecutions(
+    """Filter criteria for workflow executions."""
+    where: WorkflowExecutionsWhereInput
+    """Maximum number of executions to return. Defaults to 100."""
+    first: Int
+    """Pagination cursor from previous response."""
+    after: String
+    """Ordering options for the returned list."""
+    orderBy: WorkflowExecutionOrder
+  ): WorkflowExecutionInfoConnection!
+
+  """
+  Fetch workflow history for executions matching filter criteria.
+  Use workflowID and runID filters for a specific execution,
+  or other filters for batch retrieval across related workflows.
+  Returns all history events (no pagination).
+  """
+  workflowHistory(
+    """Filter criteria for workflow executions."""
+    where: WorkflowExecutionsWhereInput!
+    """Maximum number of executions to fetch history for. Defaults to 10, max 100."""
+    limit: Int
+  ): WorkflowExecutionHistoryConnection!
+}
+
+input WorkflowExecutionsWhereInput {
+  not: WorkflowExecutionsWhereInput
+  and: [WorkflowExecutionsWhereInput!]
+  or: [WorkflowExecutionsWhereInput!]
+  """
+  type_name field predicates
+  """
+  typeName: String
+  typeNameNEQ: String
+  typeNameIn: [String!]
+  typeNameNotIn: [String!]
+  typeNameContains: String
+  typeNameHasPrefix: String
+  typeNameHasSuffix: String
+  typeNameEqualFold: String
+  typeNameContainsFold: String
+  """
+  workflow_name field predicates
+  """
+  workflowName: String
+  workflowNameNEQ: String
+  workflowNameIn: [String!]
+  workflowNameNotIn: [String!]
+  workflowNameContains: String
+  workflowNameHasPrefix: String
+  workflowNameHasSuffix: String
+  workflowNameEqualFold: String
+  workflowNameContainsFold: String
+  """
+  assignee field predicates
+  """
+  assignee: String
+  assigneeNEQ: String
+  assigneeIn: [String!]
+  assigneeNotIn: [String!]
+  assigneeIsNil: Boolean
+  assigneeNotNil: Boolean
+  assigneeContains: String
+  assigneeHasPrefix: String
+  assigneeHasSuffix: String
+  assigneeEqualFold: String
+  assigneeContainsFold: String
+  """
+  group_by field predicates
+  """
+  groupBy: String
+  groupByNEQ: String
+  groupByIn: [String!]
+  groupByNotIn: [String!]
+  groupByIsNil: Boolean
+  groupByNotNil: Boolean
+  groupByContains: String
+  groupByHasPrefix: String
+  groupByHasSuffix: String
+  groupByEqualFold: String
+  groupByContainsFold: String
+  """
+  workflow_id field predicates
+  """
+  workflowID: String
+  workflowIDNEQ: String
+  workflowIDIn: [String!]
+  workflowIDNotIn: [String!]
+  workflowIDContains: String
+  workflowIDHasPrefix: String
+  workflowIDHasSuffix: String
+  workflowIDEqualFold: String
+  workflowIDContainsFold: String
+  """
+  run_id field predicates
+  """
+  runID: String
+  runIDNEQ: String
+  runIDIn: [String!]
+  runIDNotIn: [String!]
+  runIDContains: String
+  runIDHasPrefix: String
+  runIDHasSuffix: String
+  runIDEqualFold: String
+  runIDContainsFold: String
+  """
+  status field predicates
+  """
+  status: String
+  statusNEQ: String
+  statusIn: [String!]
+  statusNotIn: [String!]
+  statusContains: String
+  statusHasPrefix: String
+  statusHasSuffix: String
+  statusEqualFold: String
+  statusContainsFold: String
+  """
+  start_time field predicates
+  """
+  startTime: String
+  startTimeNEQ: String
+  startTimeIn: [String!]
+  startTimeNotIn: [String!]
+  startTimeGT: String
+  startTimeGTE: String
+  startTimeLT: String
+  startTimeLTE: String
+  """
+  close_time field predicates
+  """
+  closeTime: String
+  closeTimeNEQ: String
+  closeTimeIn: [String!]
+  closeTimeNotIn: [String!]
+  closeTimeGT: String
+  closeTimeGTE: String
+  closeTimeLT: String
+  closeTimeLTE: String
+  closeTimeIsNil: Boolean
+  closeTimeNotNil: Boolean
+  """
+  service field predicates
+  """
+  service: String
+  serviceNEQ: String
+  serviceIn: [String!]
+  serviceNotIn: [String!]
+  serviceContains: String
+  serviceHasPrefix: String
+  serviceHasSuffix: String
+  serviceEqualFold: String
+  serviceContainsFold: String
+  serviceIsNil: Boolean
+  serviceNotNil: Boolean
+  """
+  dataType field predicates
+  """
+  dataType: String
+  dataTypeNEQ: String
+  dataTypeIn: [String!]
+  dataTypeNotIn: [String!]
+  dataTypeContains: String
+  dataTypeHasPrefix: String
+  dataTypeHasSuffix: String
+  dataTypeEqualFold: String
+  dataTypeContainsFold: String
+  dataTypeIsNil: Boolean
+  dataTypeNotNil: Boolean
+  """
+  dataId field predicates
+  """
+  dataId: String
+  dataIdNEQ: String
+  dataIdIn: [String!]
+  dataIdNotIn: [String!]
+  dataIdContains: String
+  dataIdHasPrefix: String
+  dataIdHasSuffix: String
+  dataIdEqualFold: String
+  dataIdContainsFold: String
+  dataIdIsNil: Boolean
+  dataIdNotNil: Boolean
+}
+
+"""
+A connection to a list of WorkflowExecutionInfo items.
+"""
+type WorkflowExecutionInfoConnection {
+  """
+  A list of edges.
+  """
+  edges: [WorkflowExecutionInfoEdge!]!
+
+  """
+  Information to aid in pagination.
+  """
+  pageInfo: WorkflowExecutionPageInfo!
+
+  """
+  Identifies the total count of items in the connection.
+  """
+  totalCount: Int!
+}
+
+"""
+An edge in a WorkflowExecutionInfo connection.
+"""
+type WorkflowExecutionInfoEdge {
+  """
+  The item at the end of the edge.
+  """
+  node: WorkflowExecutionInfo!
+
+  """
+  A cursor for use in pagination.
+  """
+  cursor: String!
+}
+
+"""
+Information about pagination in a connection.
+"""
+type WorkflowExecutionPageInfo {
+  """
+  When paginating forwards, are there more items?
+  """
+  hasNextPage: Boolean!
+
+  """
+  When paginating backwards, are there more items?
+  """
+  hasPreviousPage: Boolean!
+
+  """
+  When paginating backwards, the cursor to continue.
+  """
+  startCursor: String
+
+  """
+  When paginating forwards, the cursor to continue.
+  """
+  endCursor: String
+}
+
+"""
+Ordering options for WorkflowExecution connections.
+"""
+input WorkflowExecutionOrder {
+  """
+  The ordering direction.
+  """
+  direction: WorkflowExecutionOrderDirection! = DESC
+
+  """
+  The field by which to order WorkflowExecutions.
+  """
+  field: WorkflowExecutionOrderField! = START_TIME
+}
+
+"""
+Possible directions in which to order a list of items.
+"""
+enum WorkflowExecutionOrderDirection {
+  """
+  Specifies an ascending order.
+  """
+  ASC
+
+  """
+  Specifies a descending order.
+  """
+  DESC
+}
+
+"""
+Properties by which WorkflowExecution connections can be ordered.
+"""
+enum WorkflowExecutionOrderField {
+  """
+  Order by start time.
+  """
+  START_TIME
+
+  """
+  Order by close time.
+  """
+  CLOSE_TIME
+
+  """
+  Order by workflow ID.
+  """
+  WORKFLOW_ID
+
+  """
+  Order by status.
+  """
+  STATUS
+}
+
+"""
+Information about a workflow execution.
+History is not included in list responses for performance.
+Use workflowHistory query to fetch history for specific executions.
+"""
+type WorkflowExecutionInfo {
+    """The workflow execution identifier (workflowId and runId)."""
+    execution: WorkflowExecution!
+    """The workflow type."""
+    type: WorkflowType!
+    """The time when the workflow started."""
+    startTime: String!
+    """The time when the workflow completed (null if still running)."""
+    closeTime: String
+    """The current status of the workflow execution."""
+    status: String!
+    """The number of events in the workflow history."""
+    historyLength: Int!
+    """The parent namespace ID if this is a child workflow."""
+    parentNamespaceId: String
+    """The parent execution if this is a child workflow."""
+    parentExecution: WorkflowExecution
+    """The time when the workflow was scheduled to execute."""
+    executionTime: String
+    """Custom memo data attached to the workflow."""
+    memo: WorkflowMemo
+    """Search attributes for querying workflows."""
+    searchAttributes: [TemporalMetadata!]!
+    """Auto reset points for the workflow."""
+    autoResetPoints: Map
+    """The task queue where the workflow is executed."""
+    taskQueue: String!
+    """The number of state transitions in the workflow."""
+    stateTransitionCount: Int!
+    """The size of the workflow history in bytes."""
+    historySizeBytes: Int!
+    """The version stamp of the most recent worker."""
+    mostRecentWorkerVersionStamp: Map
+    """The duration of the workflow execution."""
+    executionDuration: String
+    """The root execution if this is part of a workflow chain."""
+    rootExecution: WorkflowExecution
+}
+
+"""
+Workflow execution with its history.
+Used for history retrieval via workflowHistory query.
+"""
+type WorkflowExecutionHistory {
+    """The workflow execution identifier."""
+    execution: WorkflowExecution!
+    """The workflow type name."""
+    typeName: String!
+    """All history events for this execution."""
+    history: [WorkflowEvent!]!
+}
+
+"""
+A connection to a list of WorkflowExecutionHistory items.
+"""
+type WorkflowExecutionHistoryConnection {
+    """A list of edges."""
+    edges: [WorkflowExecutionHistoryEdge!]!
+    """Information to aid in pagination."""
+    pageInfo: WorkflowPageInfo!
+    """Identifies the total count of items in the connection."""
+    totalCount: Int!
+}
+
+"""
+An edge in a WorkflowExecutionHistory connection.
+"""
+type WorkflowExecutionHistoryEdge {
+    """The item at the end of the edge."""
+    node: WorkflowExecutionHistory!
+    """A cursor for use in pagination."""
+    cursor: String!
+}
+
+"""
+Page info for workflow connections.
+"""
+type WorkflowPageInfo {
+    """When paginating forwards, are there more items?"""
+    hasNextPage: Boolean!
+    """When paginating backwards, are there more items?"""
+    hasPreviousPage: Boolean!
+    """When paginating backwards, the cursor to continue."""
+    startCursor: String
+    """When paginating forwards, the cursor to continue."""
+    endCursor: String
+}
+
+type WorkflowExecution {
+    workflowId: String!
+    id: String!
+}
+
+type WorkflowType {
+    name: String!
+}
+
+type WorkflowMemo {
+  title: String
+  subtitle: String
+  data: Map
+}
+
+type WorkflowEvent {
+  eventId: Int!
+  eventTime: String!
+  eventType: String!
+  extra: Map
+}
+
+extend type Mutation {
+  registerWorkflow(input: RegisterWorkflowWithSignalsInput!): Workflow
+  deleteWorkflow(id: ID!): WorkflowDeletePayload!
+}
+
+input RegisterWorkflowWithSignalsInput {
+    dataTypeID: UUID
+    dataTypeSlug: String
+    data: Map
+    name: String!
+    taskQueue: String!
+    signals: [RegisterWorkflowSignalInput!]
+}
+
+input RegisterWorkflowSignalInput {
+    natsTopic: String!
+    temporalSignal: String!
+    temporalSignalType: WorkflowSignalType!
+    filterRule: String!
+}
+
+type WorkflowDeletePayload {
+  deletedID: ID
+}
+
+extend input WorkflowWhereInput {
+  Data: [String!]
+  DataHasKey: String
+  DataIn: [String!]
+  DataContains: [String!]
+}
+

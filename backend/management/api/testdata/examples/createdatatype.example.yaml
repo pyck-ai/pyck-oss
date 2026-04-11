@@ -1,0 +1,28 @@
+---
+operation: CreateDataType
+name: "Create Data Type"
+description: >
+  Creates a new data type with a JSON schema for a given entity.
+vars:
+  input:
+    name: "Example Customer Type"
+    slug: { $placeholder: "unique slug for this data type" }
+    entity: "customer"
+    jsonSchema: '{"type":"object","properties":{"name":{"type":"string"}}}'
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Data type created"
+    assertions:
+      - ref: res.body.data.createDataType.id
+        nil: false
+      - ref: res.body.data.createDataType.slug
+        nil: false
+      - ref: res.body.data.createDataType.name
+        equal: "Example Customer Type"

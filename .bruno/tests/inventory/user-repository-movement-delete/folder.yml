@@ -1,0 +1,11 @@
+info:
+  name: User - Repository Movement Delete
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a source parent repository, a child repository under it, and a destination repository, then creates a repository movement and immediately deletes it without executing. Verifies that unexecuted movements can be deleted. Cleans up all repositories at the end.
+
+
+request:
+  auth: inherit

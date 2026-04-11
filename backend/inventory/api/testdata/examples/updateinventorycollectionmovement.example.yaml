@@ -1,0 +1,25 @@
+---
+operation: UpdateInventoryCollectionMovement
+name: "Update Inventory Collection Movement"
+description: >
+  Updates an existing inventory collection movement. Only the handler field
+  can be changed after creation.
+vars:
+  id: {$placeholder: "collection movement ID"}
+  input:
+    handler: "handler-updated-01"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Collection movement updated"
+    assertions:
+      - ref: res.body.data.updateInventoryCollectionMovement.inventoryCollection
+        nil: false
+      - ref: res.body.data.updateInventoryCollectionMovement.inventoryCollection.handler
+        equal: "handler-updated-01"

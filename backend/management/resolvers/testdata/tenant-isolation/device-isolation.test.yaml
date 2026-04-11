@@ -1,0 +1,52 @@
+name: device-isolation
+description: Verify devices are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  devices:
+    - name: dev-alpha
+      tenant: alpha
+    - name: dev-beta
+      tenant: beta
+
+checks:
+  - type: query
+    entity: device
+    tenant: alpha
+    description: "alpha sees only own devices"
+    expectCount: 1
+
+  - type: query
+    entity: device
+    tenant: beta
+    description: "beta sees only own devices"
+    expectCount: 1
+
+  - type: cross-update
+    entity: device
+    tenant: alpha
+    target: beta/dev-beta
+    description: "alpha cannot update beta's device"
+    expectError: "not found"
+
+  - type: query
+    entity: device
+    tenant: beta
+    description: "beta still has 1 device after failed cross-update"
+    expectCount: 1
+
+  - type: cross-delete
+    entity: device
+    tenant: alpha
+    target: beta/dev-beta
+    description: "alpha cannot delete beta's device"
+    expectError: "not found"
+
+  - type: query
+    entity: device
+    tenant: beta
+    description: "beta still has 1 device after failed cross-delete"
+    expectCount: 1

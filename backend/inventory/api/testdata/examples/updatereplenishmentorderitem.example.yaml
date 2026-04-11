@@ -1,0 +1,26 @@
+---
+operation: UpdateReplenishmentOrderItem
+name: "Update Replenishment Order Item"
+description: >
+  Updates the quantity or SKU of an existing replenishment order item.
+vars:
+  id: {$placeholder: "replenishment order item ID"}
+  input:
+    quantity: 75
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Replenishment order item updated"
+    assertions:
+      - ref: res.body.data.updateReplenishmentOrderItem.replenishmentOrderItem
+        nil: false
+      - ref: res.body.data.updateReplenishmentOrderItem.replenishmentOrderItem.id
+        nil: false
+      - ref: res.body.data.updateReplenishmentOrderItem.replenishmentOrderItem.quantity
+        equal: 75

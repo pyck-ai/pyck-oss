@@ -1,0 +1,153 @@
+{{/* gotype: entgo.io/ent/entc/gen.Graph */}}
+
+{{ define "gql_pagination_jsonb" }}
+{{ template "header" $ }}
+
+import (
+	"fmt"
+	"io"
+	"strconv"
+
+	"entgo.io/contrib/entgql"
+	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqljson"
+)
+
+// JSONType defines the supported types for casting JSONB values during ordering.
+type JSONType string
+
+const (
+	// JSONTypeNumber casts the JSONB value to numeric for number comparisons.
+	JSONTypeNumber JSONType = "NUMBER"
+	// JSONTypeString casts the JSONB value to text for string comparisons.
+	JSONTypeString JSONType = "STRING"
+	// JSONTypeBoolean casts the JSONB value to boolean for boolean comparisons.
+	JSONTypeBoolean JSONType = "BOOLEAN"
+)
+
+// Validate returns an error if jt is not a valid JSONType.
+func (jt JSONType) Validate() error {
+	switch jt {
+	case JSONTypeNumber, JSONTypeString, JSONTypeBoolean:
+		return nil
+	default:
+		return fmt.Errorf("invalid JSONType %q", jt)
+	}
+}
+
+// MarshalGQL implements graphql.Marshaler interface.
+func (jt JSONType) MarshalGQL(w io.Writer) {
+	io.WriteString(w, strconv.Quote(string(jt)))
+}
+
+// UnmarshalGQL implements graphql.Unmarshaler interface.
+func (jt *JSONType) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("JSONType must be a string, got %T", v)
+	}
+	*jt = JSONType(str)
+	return jt.Validate()
+}
+
+{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ range $node := $gqlNodes }}
+{{ $names := nodePaginationNames $node }}
+{{ $name := $names.Node }}
+{{ $pager := print (camel $name) "Pager" }}
+{{ $order := $names.Order }}
+{{ $defaultOrder := print "Default" $name "Order" }}
+{{ $query := $node.QueryName }}
+{{ $r := $node.Receiver }}
+{{ $opt := print $name "PaginateOption" }}
+{{ $optOrder := print "With" $order }}
+
+// {{ $optOrder }} configures pagination ordering with JSONB support.
+func {{ $optOrder }}(order *{{ $order }}) {{ $opt }} {
+	if order == nil {
+		order = {{ $defaultOrder }}
+	}
+	o := *order
+	return func(pager *{{ $pager }}) error {
+		if err := o.Direction.Validate(); err != nil {
+			return err
+		}
+		if o.JSONType != nil {
+			if err := o.JSONType.Validate(); err != nil {
+				return err
+			}
+		}
+		if o.Field == nil && (o.JSONPath == nil || *o.JSONPath == "") {
+			o.Field = {{ $defaultOrder }}.Field
+		}
+		pager.order = &o
+		return nil
+	}
+}
+
+func (p *{{ $pager }}) toCursor({{ $r }} *{{ $name }}) Cursor {
+	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
+		return {{ $defaultOrder }}.Field.toCursor({{ $r }})
+	}
+	return p.ent_toCursor({{ $r }})
+}
+
+func (p *{{ $pager }}) applyCursors(query *{{ $query }}, after, before *Cursor) (*{{ $query }}, error) {
+	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
+		direction := p.order.Direction
+		if p.reverse {
+			direction = direction.Reverse()
+		}
+		for _, predicate := range entgql.CursorsPredicate(after, before,
+			{{ $defaultOrder }}.Field.column, {{ $defaultOrder }}.Field.column, direction) {
+			query = query.Where(predicate)
+		}
+		return query, nil
+	}
+	return p.ent_applyCursors(query, after, before)
+}
+
+func (p *{{ $pager }}) applyOrder(query *{{ $query }}) *{{ $query }} {
+	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
+		direction := p.order.Direction
+		if p.reverse {
+			direction = direction.Reverse()
+		}
+		col := "data"
+		opts := []sqljson.Option{sqljson.DotPath(*p.order.JSONPath)}
+		if p.order.JSONType != nil {
+			switch *p.order.JSONType {
+			case JSONTypeNumber:
+				opts = append(opts, sqljson.Cast("numeric"))
+			case JSONTypeString:
+				opts = append(opts, sqljson.Cast("text"))
+			case JSONTypeBoolean:
+				opts = append(opts, sqljson.Cast("boolean"))
+			}
+		}
+		if direction == entgql.OrderDirectionDesc {
+			query = query.Order(sqljson.OrderValueDesc(col, opts...))
+		} else {
+			query = query.Order(sqljson.OrderValue(col, opts...))
+		}
+		query = query.Order({{ $defaultOrder }}.Field.toTerm(direction.OrderTermOption()))
+		return query
+	}
+	return p.ent_applyOrder(query)
+}
+
+func (p *{{ $pager }}) orderExpr(query *{{ $query }}) sql.Querier {
+	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
+		direction := p.order.Direction
+		if p.reverse {
+			direction = direction.Reverse()
+		}
+		return sql.ExprFunc(func(b *sql.Builder) {
+			b.Ident({{ $defaultOrder }}.Field.column).Pad().WriteString(string(direction))
+		})
+	}
+	return p.ent_orderExpr(query)
+}
+
+{{ end }}
+{{ end }}

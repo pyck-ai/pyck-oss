@@ -1,0 +1,95 @@
+name: "User - Repository Lifecycle"
+description: 'Creates an inventory repository, reads it back, updates it, then deletes
+  it. All steps after create are skipped when the create step returns errors.
+
+  '
+steps:
+- id: createRepo
+  name: Create repository
+  operation: inventory.createInventoryRepository
+  vars:
+    input:
+      name: {$fake: "{{productname}}-{{nonce}}"}
+      type: static
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Repository created
+    assertions:
+    - ref: res.body.data.createInventoryRepository.inventoryRepository
+      nil: false
+    - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+      nil: false
+    - ref: res.body.data.createInventoryRepository.inventoryRepository.name
+      equal:
+        $ref: req.body.variables.input.name
+- name: Get created repository
+  operation: inventory.getRepositories
+  vars:
+    where:
+      id:
+        $ref: res[createRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Exactly one repository returned
+    assertions:
+    - ref: res.body.data.repositories.totalCount
+      equal: 1
+  - msg: Returned repository matches created repository
+    assertions:
+    - ref: res.body.data.repositories.edges[].node.id
+      equal:
+        $ref: res[createRepo].body.data.createInventoryRepository.inventoryRepository.id
+- name: Update repository
+  operation: inventory.updateInventoryRepository
+  vars:
+    id:
+      $ref: res[createRepo].body.data.createInventoryRepository.inventoryRepository.id
+    input:
+      name: {$fake: "{{productname}}-{{nonce}}"}
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Repository updated
+    assertions:
+    - ref: res.body.data.updateInventoryRepository.inventoryRepository
+      nil: false
+    - ref: res.body.data.updateInventoryRepository.inventoryRepository.name
+      equal: {$ref: req.body.variables.input.name}
+- name: Delete repository
+  operation: inventory.deleteInventoryRepository
+  vars:
+    id:
+      $ref: res[createRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteInventoryRepository.deletedID
+      equal: {$ref: "res[createRepo].body.data.createInventoryRepository.inventoryRepository.id"}

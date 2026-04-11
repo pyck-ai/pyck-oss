@@ -1,0 +1,26 @@
+---
+operation: CreateInventoryItem
+name: "Create Inventory Item"
+description: >
+  Creates a new inventory item.
+  Expects the server to return the created item with its assigned ID.
+vars:
+  input:
+    sku: "WIDGET-001"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Inventory item created"
+    assertions:
+      - ref: res.body.data.createInventoryItem.inventoryItem
+        nil: false
+      - ref: res.body.data.createInventoryItem.inventoryItem.id
+        nil: false
+      - ref: res.body.data.createInventoryItem.inventoryItem.sku
+        equal: { $ref: req.body.variables.input.sku }

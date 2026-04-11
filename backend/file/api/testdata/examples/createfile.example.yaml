@@ -1,0 +1,42 @@
+---
+operation: CreateFile
+name: "Create file"
+description: >
+  Creates a new file record linked to a supplier entity.
+  Expects the server to return a file ID and a pre-signed upload URL.
+vars:
+  input:
+    refid: { $placeholder: "entity ID (e.g. supplier ID)" }
+    reftype: supplier
+    name: "product-photo.jpg"
+    size: 204800
+    contentType: "image/jpeg"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "createFile response is complete"
+    assertions:
+      - ref: res.body.data.createFile
+        nil: false
+      - ref: res.body.data.createFile.id
+        nil: false
+      - ref: res.body.data.createFile.preSignedUploadUrl
+        nil: false
+  - msg: "File metadata matches input"
+    assertions:
+      - ref: res.body.data.createFile.file.id
+        nil: false
+      - ref: res.body.data.createFile.file.name
+        equal: "product-photo.jpg"
+      - ref: res.body.data.createFile.file.contentType
+        equal: "image/jpeg"
+      - ref: res.body.data.createFile.file.size
+        equal: 204800
+      - ref: res.body.data.createFile.file.reftype
+        equal: "supplier"

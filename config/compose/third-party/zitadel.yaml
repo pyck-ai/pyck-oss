@@ -1,0 +1,85 @@
+services:
+  zitadel:
+    restart: 'always'
+    container_name: zitadel
+    user: root  # this is required for rootless containers to use the correct permissions
+    networks:
+      pyck:
+        ipv4_address: 172.30.0.100
+    image: 'ghcr.io/zitadel/zitadel:v2.61.0'
+    command: 'start-from-init --masterkey "MasterkeyNeedsToHave32Characters" --tlsMode enabled'
+    environment:
+      # Database configuration
+      - 'ZITADEL_DATABASE_POSTGRES_HOST=db'
+      - 'ZITADEL_DATABASE_POSTGRES_PORT=5432'
+      - 'ZITADEL_DATABASE_POSTGRES_DATABASE=zitadel'
+      - 'ZITADEL_DATABASE_POSTGRES_USER_USERNAME=zitadel'
+      - 'ZITADEL_DATABASE_POSTGRES_USER_PASSWORD=zitadel'
+      - 'ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE=disable'
+      - 'ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME=admin'
+      - 'ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD=12345'
+      - 'ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE=disable'
+      
+      # Database connection pool optimization for memory efficiency
+      - 'ZITADEL_DATABASE_POSTGRES_MAX_OPEN_CONNS=10'
+      - 'ZITADEL_DATABASE_POSTGRES_MAX_IDLE_CONNS=5'
+      - 'ZITADEL_DATABASE_POSTGRES_MAX_CONN_LIFETIME=5m'
+      - 'ZITADEL_DATABASE_POSTGRES_MAX_CONN_IDLE_TIME=1m'
+      
+      # External configuration
+      - 'ZITADEL_EXTERNALDOMAIN=auth.local.pyck.cloud'
+      - 'ZITADEL_EXTERNALPORT=8080'
+      - 'ZITADEL_EXTERNALSECURE=true'
+      - 'ZITADEL_TLS_ENABLED=true'
+      - 'ZITADEL_TLS_KEYPATH=/data/keys/zitadel_private_key.pem'
+      - 'ZITADEL_TLS_CERTPATH=/data/keys/zitadel_certificate.crt'
+      
+      # Instance configuration
+      - 'ZITADEL_FIRSTINSTANCE_MACHINEKEYPATH=/data/keys/zitadel-admin-sa.json'
+      - 'ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_USERNAME=zitadel-admin-sa'
+      - 'ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_NAME=Admin'
+      - 'ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINEKEY_TYPE=1'
+      
+      # Memory optimization settings
+      - 'GOGC=100'  # Go garbage collection target percentage
+      - 'GOMEMLIMIT=384MiB'  # Go memory soft limit
+      
+      # Logging optimization - reduce verbosity to save memory
+      - 'ZITADEL_LOG_LEVEL=warn'
+    volumes:
+      - ../../../config/keys/:/data/keys/:z
+    depends_on:
+      db: { condition: 'service_healthy' }
+    ports:
+      - '8080:8080'
+    healthcheck:
+      test: ["CMD", "/app/zitadel", "ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  zitadel-debug:
+    restart: always
+    container_name: zitadel-debug
+    build:
+      context: ../../../config/oidc-debug
+      dockerfile: Dockerfile
+    env_file: ../../../.env
+    networks:
+      pyck:
+        ipv4_address: 172.30.0.103
+    extra_hosts:
+      - "auth.local.pyck.cloud:172.30.0.100"
+    depends_on:
+      zitadel: { condition: 'service_healthy' }
+    ports:
+      - 4182:3000
+    deploy:
+      resources:
+        limits:
+          memory: 64M

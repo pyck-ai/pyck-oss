@@ -1,0 +1,118 @@
+name: "User - File CRUD Lifecycle"
+description: >
+  Creates a file record, verifies it appears in the list query, updates its
+  metadata, runs image analysis (expected to fail on a non-image file), and
+  deletes it at the end.
+steps:
+  - id: createFile
+    name: Create file
+    operation: file.createFile
+    vars:
+      input:
+        refid: {$fake: uuid}
+        reftype: supplier
+        name: "product-photo.jpg"
+        size: 204800
+        contentType: "image/jpeg"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: No GraphQL errors
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: createFile response is complete
+        assertions:
+          - ref: res.body.data.createFile.id
+            nil: false
+          - ref: res.body.data.createFile.preSignedUploadUrl
+            nil: false
+      - msg: File metadata matches input
+        assertions:
+          - ref: res.body.data.createFile.file.id
+            nil: false
+          - ref: res.body.data.createFile.file.name
+            equal: {$ref: req.body.variables.input.name}
+          - ref: res.body.data.createFile.file.contentType
+            equal: {$ref: req.body.variables.input.contentType}
+          - ref: res.body.data.createFile.file.size
+            equal: {$ref: req.body.variables.input.size}
+
+  - name: Query created file by ID
+    operation: file.getFiles
+    vars:
+      where:
+        id: {$ref: "res[createFile].body.data.createFile.file.id"}
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: No GraphQL errors
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: Exactly one file returned
+        assertions:
+          - ref: res.body.data.files.totalCount
+            equal: 1
+      - msg: Returned file matches created file
+        assertions:
+          - ref: res.body.data.files.edges[].node.id
+            equal: {$ref: "res[createFile].body.data.createFile.file.id"}
+
+  - name: Update file metadata
+    operation: file.updateFile
+    vars:
+      id: {$ref: "res[createFile].body.data.createFile.file.id"}
+      input:
+        description: "Updated product photo metadata"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: No GraphQL errors
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: Updated file returned
+        assertions:
+          - ref: res.body.data.updateFile.id
+            nil: false
+          - ref: res.body.data.updateFile.description
+            equal: {$ref: req.body.variables.input.description}
+
+  - name: Analyze image file (non-image file returns error)
+    operation: file.analyzeImageFile
+    vars:
+      id: {$ref: "res[createFile].body.data.createFile.file.id"}
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: Cannot analyze non-image file
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: Delete file
+    operation: file.deleteFile
+    vars:
+      id: {$ref: "res[createFile].body.data.createFile.file.id"}
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: No GraphQL errors
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: Deleted ID returned
+        assertions:
+          - ref: res.body.data.deleteFile.deletedID
+            equal: {$ref: "res[createFile].body.data.createFile.file.id"}

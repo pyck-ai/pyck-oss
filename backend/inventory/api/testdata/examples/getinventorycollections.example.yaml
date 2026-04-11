@@ -1,0 +1,25 @@
+---
+operation: GetInventoryCollections
+name: "Get Inventory Collections"
+description: >
+  Returns the 3 most recently created inventory collection movements.
+vars:
+  first: 3
+  orderBy:
+    field: CREATED_AT
+    direction: DESC
+  where:
+    createdAtGTE: "2023-10-17T00:00:00Z"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Result set returned"
+    assertions:
+      - ref: res.body.data.inventoryCollections.totalCount
+        nil: false

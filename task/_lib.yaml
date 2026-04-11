@@ -1,0 +1,32 @@
+version: "3.45"
+
+vars:
+  WATCHEXEC: >-
+    {{if eq .WATCH "true"}}
+    watchexec
+    --on-busy-update=restart
+    --stop-timeout 100ms
+    --debounce 500ms
+    --ignore '**/.var/**'
+    --ignore '**/dist/**'
+    --ignore '**/out/**'
+    --ignore '**/tmp/**'
+    --print-events
+    --timings
+    --color=always
+    {{if eq .CLEAR "true"}}
+    --clear=clear
+    {{end}}
+    {{end}}
+
+tasks:
+  _compose:
+    internal: true
+    cmds:
+      - docker compose --parallel=2 {{.ARGS}}
+
+  _compose-up:
+    internal: true
+    cmds:
+      - task: _compose
+        vars: { ARGS: "up --build --remove-orphans {{.ARGS}}" }

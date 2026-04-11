@@ -1,0 +1,23 @@
+extend input ReplenishmentOrderWhereInput {
+  Data: [String!]
+  DataHasKey: String
+  DataIn: [String!]
+  DataContains: [String!]
+}
+
+extend input ReplenishmentOrderItemWhereInput {
+  Data: [String!]
+  DataHasKey: String
+  DataIn: [String!]
+  DataContains: [String!]
+}
+
+type ReplenishmentOrderOutput {
+  replenishmentOrder: ReplenishmentOrder
+  workflows: [TemporalWorkflow]
+}
+
+type ReplenishmentOrderItemOutput {
+  replenishmentOrderItem: ReplenishmentOrderItem
+  workflows: [TemporalWorkflow]
+}

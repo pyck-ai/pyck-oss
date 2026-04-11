@@ -1,0 +1,152 @@
+---
+name: "User - Receiving Inbound Shipment Notification CRUD Lifecycle"
+description: >
+  Full CRUD lifecycle for inbound shipment notifications. Creates a
+  parent inbound, then creates/reads/deletes a notification with
+  field verification and filter queries.
+steps:
+  - id: createInbound
+    name: "Create parent inbound"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        orderID: "PO-NOTIF-CRUD-001"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound was created"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+
+  - id: createNotification
+    name: "Create inbound shipment notification"
+    operation: receiving.createReceivingInboundShipmentNotification
+    vars:
+      input:
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Notification was created"
+        assertions:
+          - ref: res.body.data.createReceivingInboundShipmentNotification.receivingInboundShipmentNotification.id
+            nil: false
+      - msg: "InboundID matches"
+        assertions:
+          - ref: res.body.data.createReceivingInboundShipmentNotification.receivingInboundShipmentNotification.inboundID
+            equal: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+
+  - name: "Get notification by ID"
+    operation: receiving.getReceivingInboundShipmentNotifications
+    vars:
+      where:
+        id: {$ref: "res[createNotification].body.data.createReceivingInboundShipmentNotification.receivingInboundShipmentNotification.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one notification returned"
+        assertions:
+          - ref: res.body.data.receivingInboundShipmentNotifications.totalCount
+            equal: 1
+      - msg: "ID matches"
+        assertions:
+          - ref: res.body.data.receivingInboundShipmentNotifications.edges[].node.id
+            equal: {$ref: "res[createNotification].body.data.createReceivingInboundShipmentNotification.receivingInboundShipmentNotification.id"}
+      - msg: "InboundID persisted"
+        assertions:
+          - ref: res.body.data.receivingInboundShipmentNotifications.edges[].node.inboundID
+            equal: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+
+  - name: "Filter by inboundID"
+    operation: receiving.getReceivingInboundShipmentNotifications
+    vars:
+      where:
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "At least one notification for this inbound"
+        assertions:
+          - ref: res.body.data.receivingInboundShipmentNotifications.totalCount
+            greater: 0
+
+  - name: "Delete notification"
+    operation: receiving.deleteReceivingInboundShipmentNotification
+    vars:
+      id: {$ref: "res[createNotification].body.data.createReceivingInboundShipmentNotification.receivingInboundShipmentNotification.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID matches"
+        assertions:
+          - ref: res.body.data.deleteReceivingInboundShipmentNotification.deletedID
+            equal: {$ref: "res[createNotification].body.data.createReceivingInboundShipmentNotification.receivingInboundShipmentNotification.id"}
+
+  - name: "Verify notification was deleted"
+    operation: receiving.getReceivingInboundShipmentNotifications
+    vars:
+      where:
+        id: {$ref: "res[createNotification].body.data.createReceivingInboundShipmentNotification.receivingInboundShipmentNotification.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results returned"
+        assertions:
+          - ref: res.body.data.receivingInboundShipmentNotifications.totalCount
+            equal: 0
+
+  - name: "Cleanup - delete inbound"
+    operation: receiving.deleteReceivingInbound
+    vars:
+      id: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteReceivingInbound.deletedID
+            equal: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}

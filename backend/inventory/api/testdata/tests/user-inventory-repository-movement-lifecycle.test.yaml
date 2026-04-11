@@ -1,0 +1,242 @@
+name: "User - Repository Movement Lifecycle"
+description: 'Creates a source parent repository and a child repository under it,
+  plus a destination parent repository. Creates a repository movement to re-parent
+  the child from the source parent to the destination parent, reads it back, updates
+  it, and executes it. Cleans up all repositories at the end.
+
+  '
+steps:
+- id: createSourceParent
+  name: Create source parent repository
+  operation: inventory.createInventoryRepository
+  vars:
+    input:
+      name: {$fake: "{{productname}}-{{nonce}}"}
+      type: static
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Source parent repository created
+    assertions:
+    - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+      nil: false
+- id: createDestRepo
+  name: Create destination repository
+  operation: inventory.createInventoryRepository
+  vars:
+    input:
+      name: {$fake: "{{productname}}-{{nonce}}"}
+      type: static
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Destination repository created
+    assertions:
+    - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+      nil: false
+- id: createChildRepo
+  name: Create child repository
+  operation: inventory.createInventoryRepository
+  vars:
+    input:
+      name: {$fake: "{{productname}}-{{nonce}}"}
+      type: static
+      virtualRepo: false
+      parentID:
+        $ref: res[createSourceParent].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Child repository created
+    assertions:
+    - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+      nil: false
+- id: createMovement
+  name: Create repository movement
+  operation: inventory.createInventoryRepositoryMovement
+  vars:
+    input:
+      handler: "operator-01"
+      repositoryID:
+        $ref: res[createChildRepo].body.data.createInventoryRepository.inventoryRepository.id
+      toID:
+        $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Repository movement created
+    assertions:
+    - ref: res.body.data.createInventoryRepositoryMovement.inventoryRepositoryMovement.id
+      nil: false
+    - ref: res.body.data.createInventoryRepositoryMovement.inventoryRepositoryMovement.executed
+      equal: false
+- name: Get created repository movement
+  operation: inventory.getRepositoryMovements
+  vars:
+    where:
+      id:
+        $ref: res[createMovement].body.data.createInventoryRepositoryMovement.inventoryRepositoryMovement.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Exactly one movement returned
+    assertions:
+    - ref: res.body.data.repositoryMovements.totalCount
+      equal: 1
+- name: Update repository movement
+  operation: inventory.updateInventoryRepositoryMovement
+  vars:
+    id:
+      $ref: res[createMovement].body.data.createInventoryRepositoryMovement.inventoryRepositoryMovement.id
+    input:
+      handler: "operator-updated"
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Repository movement updated
+    assertions:
+    - ref: res.body.data.updateInventoryRepositoryMovement.inventoryRepositoryMovement
+      nil: false
+    - ref: res.body.data.updateInventoryRepositoryMovement.inventoryRepositoryMovement.handler
+      equal: "operator-updated"
+- name: Execute repository movement
+  operation: inventory.executeInventoryRepositoryMovement
+  vars:
+    id:
+      $ref: res[createMovement].body.data.createInventoryRepositoryMovement.inventoryRepositoryMovement.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Repository movement executed
+    assertions:
+    - ref: res.body.data.executeInventoryRepositoryMovement.inventoryRepositoryMovement.executed
+      equal: true
+- name: Verify child was re-parented to destination
+  operation: inventory.getRepositories
+  vars:
+    where:
+      id:
+        $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Destination now has one child
+    assertions:
+    - ref: res.body.data.repositories.edges[].node.children.totalCount
+      equal: 1
+- name: Verify executed repository movement cannot be deleted
+  operation: inventory.deleteInventoryRepositoryMovement
+  vars:
+    id:
+      $ref: res[createMovement].body.data.createInventoryRepositoryMovement.inventoryRepositoryMovement.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: Cannot delete executed movement
+    assertions:
+    - ref: res.body.errors
+      nil: false
+- name: Delete child repository
+  operation: inventory.deleteInventoryRepository
+  vars:
+    id:
+      $ref: res[createChildRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteInventoryRepository.deletedID
+      equal: {$ref: "res[createChildRepo].body.data.createInventoryRepository.inventoryRepository.id"}
+- name: Delete source parent repository
+  operation: inventory.deleteInventoryRepository
+  vars:
+    id:
+      $ref: res[createSourceParent].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteInventoryRepository.deletedID
+      equal: {$ref: "res[createSourceParent].body.data.createInventoryRepository.inventoryRepository.id"}
+- name: Delete destination repository
+  operation: inventory.deleteInventoryRepository
+  vars:
+    id:
+      $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteInventoryRepository.deletedID
+      equal: {$ref: "res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id"}

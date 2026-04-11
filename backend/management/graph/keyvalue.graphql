@@ -1,0 +1,10 @@
+type KeyValueDeletePayload {
+  deletedID: ID
+}
+
+input SetKeyValueInput {
+  name: String!
+  dataTypeID: ID
+  dataTypeSlug: String
+  data: Map!
+}

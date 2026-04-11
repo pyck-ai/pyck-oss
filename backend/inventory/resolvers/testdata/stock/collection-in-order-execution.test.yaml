@@ -1,0 +1,186 @@
+# Collection In-Order Execution
+# Tests that:
+# 1. Multi-collection movements can be created atomically
+# 2. Each movement in the collection can be executed in order
+# 3. Stock reservations and levels are correct after each execution
+name: collection-in-order-execution
+itemSKU: in-order-item
+
+# ========================================================================
+# REPOSITORY STRUCTURE OVERVIEW
+# ========================================================================
+#
+# Initial Structure:
+#  warehouse (root)
+#  ├─ shelf
+#  ├─ zone-a
+#  ├─ zone-b
+#  └─ zone-c
+#
+# ========================================================================
+
+repositories:
+  # Virtual repository for initial stock additions
+  - name: virtual
+    parent: ""
+    type: static
+    virtual: true
+
+  # Main warehouse container
+  - name: warehouse
+    parent: ""
+    type: static
+    virtual: false
+
+  # Shelf - holds initial stock, source for all collection movements
+  - name: shelf
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Zone A - destination for collection entries [0] and [3]
+  - name: zone-a
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Zone B - destination for collection entry [1]
+  - name: zone-b
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Zone C - destination for collection entry [2]
+  - name: zone-c
+    parent: warehouse
+    type: static
+    virtual: false
+
+steps:
+  # =========================================================================
+  #  virtual                             warehouse
+  #    └─[200 items]────────────────────► └─ shelf
+  # =========================================================================
+  - name: setup_seed
+    action: create
+    moveType: item
+    from: virtual
+    to: shelf
+    qty: 200
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out: 200, ownOut: 200 }
+      warehouse: { qty:   0, ownQty:   0, in: 200, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty:   0, ownQty:   0, in: 200, ownIn: 200, out:   0, ownOut:   0 }
+      zone-a:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-c:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: setup_execute
+    action: execute
+    movement: setup_seed
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 200, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty: 200, ownQty: 200, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-a:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-c:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: create_collection
+    action: create
+    moveType: collection
+    collection:
+      # =========================================================================
+      #  warehouse
+      #  ├─ shelf ──[40 items]─╮
+      #  ├─ zone-a ◄───────────╯
+      #  ├─ zone-b
+      #  └─ zone-c
+      # =========================================================================
+      - from: shelf
+        to: zone-a
+        qty: 40
+
+      # =========================================================================
+      #  warehouse
+      #  ├─ shelf ──[30 items]──╮
+      #  ├─ zone-a              │
+      #  ├─ zone-b ◄────────────╯
+      #  └─ zone-c
+      # =========================================================================
+      - from: shelf
+        to: zone-b
+        qty: 30
+
+      # =========================================================================
+      #  warehouse
+      #  ├─ shelf ──[20 items]──╮
+      #  ├─ zone-a              │
+      #  ├─ zone-b              │
+      #  └─ zone-c ◄────────────╯
+      # =========================================================================
+      - from: shelf
+        to: zone-c
+        qty: 20
+
+      # =========================================================================
+      #  warehouse
+      #  ├─ shelf ──[10 items]─╮
+      #  ├─ zone-a ◄───────────╯
+      #  ├─ zone-b
+      #  └─ zone-c
+      # =========================================================================
+      - from: shelf
+        to: zone-a
+        qty: 10
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 200, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty: 200, ownQty: 200, in:   0, ownIn:   0, out: 100, ownOut: 100 }
+      zone-a:    { qty:   0, ownQty:   0, in:  50, ownIn:  50, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:  30, ownIn:  30, out:   0, ownOut:   0 }
+      zone-c:    { qty:   0, ownQty:   0, in:  20, ownIn:  20, out:   0, ownOut:   0 }
+
+  - name: execute_first
+    action: execute
+    movement: create_collection[0]
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 200, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty: 160, ownQty: 160, in:   0, ownIn:   0, out:  60, ownOut:  60 }
+      zone-a:    { qty:  40, ownQty:  40, in:  10, ownIn:  10, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:  30, ownIn:  30, out:   0, ownOut:   0 }
+      zone-c:    { qty:   0, ownQty:   0, in:  20, ownIn:  20, out:   0, ownOut:   0 }
+
+  - name: execute_second
+    action: execute
+    movement: create_collection[1]
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 200, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty: 130, ownQty: 130, in:   0, ownIn:   0, out:  30, ownOut:  30 }
+      zone-a:    { qty:  40, ownQty:  40, in:  10, ownIn:  10, out:   0, ownOut:   0 }
+      zone-b:    { qty:  30, ownQty:  30, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-c:    { qty:   0, ownQty:   0, in:  20, ownIn:  20, out:   0, ownOut:   0 }
+
+  - name: execute_third
+    action: execute
+    movement: create_collection[2]
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 200, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty: 110, ownQty: 110, in:   0, ownIn:   0, out:  10, ownOut:  10 }
+      zone-a:    { qty:  40, ownQty:  40, in:  10, ownIn:  10, out:   0, ownOut:   0 }
+      zone-b:    { qty:  30, ownQty:  30, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-c:    { qty:  20, ownQty:  20, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: execute_fourth
+    action: execute
+    movement: create_collection[3]
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 200, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-a:    { qty:  50, ownQty:  50, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-b:    { qty:  30, ownQty:  30, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-c:    { qty:  20, ownQty:  20, in:   0, ownIn:   0, out:   0, ownOut:   0 }

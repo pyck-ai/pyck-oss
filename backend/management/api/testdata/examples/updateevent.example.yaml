@@ -1,0 +1,25 @@
+---
+operation: UpdateEvent
+name: "Update Event"
+description: >
+  Updates an existing custom event definition.
+vars:
+  id: { $placeholder: "event ID" }
+  input:
+    description: "Updated event description"
+    example: '{"itemID":"abc123","location":"B2-R1"}'
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated event returned"
+    assertions:
+      - ref: res.body.data.updateEvent.id
+        nil: false
+      - ref: res.body.data.updateEvent.description
+        equal: "Updated event description"

@@ -1,0 +1,11 @@
+info:
+  name: Cross - Supplier Data Type Slug Reference
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a data type with a slug and references it by slug when creating suppliers. Verifies dataTypeID and dataTypeSlug are persisted.
+
+
+request:
+  auth: inherit

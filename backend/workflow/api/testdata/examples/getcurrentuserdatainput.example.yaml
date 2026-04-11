@@ -1,0 +1,23 @@
+---
+operation: GetCurrentUserDataInput
+name: "Get Current User Data Input"
+description: >
+  Returns the current pending user data input form for an active workflow
+  execution. The workflow must be in a state waiting for user input.
+vars:
+  input:
+    workflowID: { $placeholder: "workflow execution ID" }
+    runID: { $placeholder: "run ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Data input returned"
+    assertions:
+      - ref: res.body.data.currentUserDataInput.type
+        nil: false

@@ -1,0 +1,21 @@
+---
+name: "User - Retrieve Receiving Service Info"
+description: >
+  Verifies the service info endpoint returns version.
+steps:
+  - name: "Get service info"
+    operation: receiving.getReceivingServiceInfo
+    vars: {}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Service info returned"
+        assertions:
+          - ref: res.body.data.receivingServiceInfo.version
+            nil: false

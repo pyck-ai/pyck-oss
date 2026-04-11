@@ -1,0 +1,27 @@
+---
+operation: CreateReplenishmentOrderItem
+name: "Create Replenishment Order Item"
+description: >
+  Adds an individual item to an existing replenishment order.
+vars:
+  input:
+    sku: "RESTOCK-SKU-002"
+    quantity: 50
+    replenishmentorderID: {$placeholder: "replenishment order ID"}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Replenishment order item created"
+    assertions:
+      - ref: res.body.data.createReplenishmentOrderItem.replenishmentOrderItem
+        nil: false
+      - ref: res.body.data.createReplenishmentOrderItem.replenishmentOrderItem.id
+        nil: false
+      - ref: res.body.data.createReplenishmentOrderItem.replenishmentOrderItem.sku
+        equal: {$ref: req.body.variables.input.sku}

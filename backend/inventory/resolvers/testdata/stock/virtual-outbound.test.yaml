@@ -1,0 +1,104 @@
+# Virtual Outbound Scenario
+# Tests that virtual repositories acting as sinks correctly clamp stock to zero.
+# Items are seeded from a virtual source into a pallet, then moved to a virtual outbound.
+# After execution, all virtual repos must report zero stock (they are infinite sinks/sources).
+name: virtual-outbound
+itemSKU: def
+
+# ========================================================================
+# REPOSITORY STRUCTURE OVERVIEW
+# ========================================================================
+#
+#  virtual-root (virtual)        real-root
+#  └─ virtual-outbound (virtual) └─ real-inbound
+#                                   └─ pallet (dynamic)
+#
+# ========================================================================
+
+repositories:
+  # Virtual root - infinite source for initial stock seeding
+  - name: virtual-root
+    parent: ""
+    type: static
+    virtual: true
+
+  # Virtual outbound - infinite sink, destination for final movement
+  - name: virtual-outbound
+    parent: virtual-root
+    type: static
+    virtual: true
+
+  # Real root - top-level real warehouse
+  - name: real-root
+    parent: ""
+    type: static
+    virtual: false
+
+  # Real inbound - receiving area under real-root
+  - name: real-inbound
+    parent: real-root
+    type: static
+    virtual: false
+
+  # Pallet - dynamic container that holds the actual items
+  - name: pallet
+    parent: real-inbound
+    type: dynamic
+    virtual: false
+
+steps:
+  # =========================================================================
+  #  virtual-root                         real-root
+  #  │                                    └─ real-inbound
+  #  └─[30 items]──────────────────────────► └─ pallet
+  # =========================================================================
+  - name: setup_stock
+    action: create
+    moveType: item
+    from: virtual-root
+    to: pallet
+    qty: 30
+    expectedStocks:
+      virtual-root:     { qty:  0, ownQty:  0, in:  0, ownIn:  0, out: 30, ownOut: 30 }
+      virtual-outbound: { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      real-root:        { qty:  0, ownQty:  0, in: 30, ownIn:  0, out:  0, ownOut:  0 }
+      real-inbound:     { qty:  0, ownQty:  0, in: 30, ownIn:  0, out:  0, ownOut:  0 }
+      pallet:           { qty:  0, ownQty:  0, in: 30, ownIn: 30, out:  0, ownOut:  0 }
+
+  - name: execute_setup_stock
+    action: execute
+    movement: setup_stock
+    expectedStocks:
+      virtual-root:     { qty:  0, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      virtual-outbound: { qty:  0, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      real-root:        { qty: 30, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      real-inbound:     { qty: 30, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      pallet:           { qty: 30, ownQty: 30, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  # =========================================================================
+  #  virtual-root                         real-root
+  #  └─ virtual-outbound ◄─┐                 └─ real-inbound
+  #                        └──[30 items]─────── └─ pallet
+  # =========================================================================
+  - name: move_pallet_to_virtual_outbound
+    action: create
+    moveType: item
+    from: pallet
+    to: virtual-outbound
+    qty: 30
+    expectedStocks:
+      virtual-root:     { qty:  0, ownQty:  0, in: 30, ownIn:  0, out:  0, ownOut:  0 }
+      virtual-outbound: { qty:  0, ownQty:  0, in: 30, ownIn: 30, out:  0, ownOut:  0 }
+      real-root:        { qty: 30, ownQty:  0, in:  0, ownIn:  0, out: 30, ownOut:  0 }
+      real-inbound:     { qty: 30, ownQty:  0, in:  0, ownIn:  0, out: 30, ownOut:  0 }
+      pallet:           { qty: 30, ownQty: 30, in:  0, ownIn:  0, out: 30, ownOut: 30 }
+
+  - name: execute_move_pallet_to_virtual_outbound
+    action: execute
+    movement: move_pallet_to_virtual_outbound
+    expectedStocks:
+      virtual-root:     { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      virtual-outbound: { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      real-root:        { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      real-inbound:     { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      pallet:           { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }

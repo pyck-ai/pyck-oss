@@ -1,0 +1,20 @@
+---
+operation: DeleteReplenishmentOrder
+name: "Delete Replenishment Order"
+description: >
+  Soft-deletes a replenishment order by ID.
+vars:
+  id: {$placeholder: "replenishment order ID"}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Deleted ID returned"
+    assertions:
+      - ref: res.body.data.deleteReplenishmentOrder.deletedID
+        equal: {$ref: req.body.variables.id}

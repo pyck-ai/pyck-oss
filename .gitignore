@@ -1,0 +1,59 @@
+#################################
+### 🚀 System & Tooling Files ###
+#################################
+
+# IDE and Project-Specific Configuration
+.claude/
+.idea/
+.task/
+.var/
+.vscode/
+.opencode/
+
+
+#####################################
+### 🔐 Environment & Credentials  ###
+#####################################
+
+# Environment Variables and Local Overrides
+.envrc
+.env
+.env.*
+!.env.example
+
+# Sensitive Files
+AGENTS.local.md
+CLAUDE.local.md
+config/keys/
+secrets.yaml
+
+
+#########################################
+### 📦 Build Artifacts & Dependencies ###
+#########################################
+
+# Dependencies
+node_modules/
+
+# Build Artifacts
+dist/
+build/
+out/
+bin/
+obj/
+
+# Go-Specific Outputs
+**/cmd/*/*
+!**/cmd/*/*/
+!**/cmd/*/*.go
+go.work.sum
+cover.out
+coverprofile.txt
+coverage.html
+
+
+##############################
+### 🐳 Docker Overrides    ###
+##############################
+
+docker-compose.override.yml

@@ -1,0 +1,11 @@
+info:
+  name: User - Receiving Inbound Item CRUD Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Full CRUD lifecycle for receiving inbound items. Creates a parent inbound, then creates/reads/updates/deletes items with field verification and filter queries.
+
+
+request:
+  auth: inherit

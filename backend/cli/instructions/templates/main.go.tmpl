@@ -1,0 +1,310 @@
+package main
+
+import (
+	"context"
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"reflect"
+	"strings"
+	"syscall"
+
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/worker"
+	"go.temporal.io/sdk/workflow"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+
+{{ range .Imports }}
+    {{ . }}
+{{ end }}
+)
+
+var workflowsList = []workflowsdk.Workflow{
+{{- range .Workflows }}
+    {{ . }},
+{{- end }}
+}
+
+type runtimeConfig struct {
+	TemporalURL string
+	Namespace   string
+	TaskQueue   string
+	BearerToken string
+	TenantID    string
+	UseTLS      bool
+}
+
+func main() {
+	if err := run(); err != nil {
+		log.Println("fatal:", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+
+	temporalClient, temporalWorker, err := setupTemporalClientAndWorker(cfg)
+	if err != nil {
+		return err
+	}
+	defer temporalClient.Close()
+
+	if err := registerWorkflowsAndActivities(temporalWorker); err != nil {
+		return err
+	}
+
+	if err := registerWorkflowsToPyck(ctx); err != nil {
+		return err
+	}
+
+	runErrCh := make(chan error, 1)
+	go func() {
+		runErrCh <- temporalWorker.Run(nil)
+	}()
+
+	select {
+	case <-ctx.Done():
+		temporalWorker.Stop()
+		return nil
+	case err := <-runErrCh:
+		return err
+	}
+}
+
+func authInterceptor(bearerToken string) func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		if bearerToken != "" {
+			md := metadata.Pairs("authorization", "Bearer "+bearerToken)
+			ctx = metadata.NewOutgoingContext(ctx, md)
+		}
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}
+
+func setupTemporalClientAndWorker(cfg runtimeConfig) (client.Client, worker.Worker, error) {
+	options := client.Options{
+		HostPort:  cfg.TemporalURL,
+		Namespace: cfg.Namespace,
+	}
+
+	// Configure TLS and auth based on UseTLS flag
+	if cfg.UseTLS {
+		serverName := strings.Replace(cfg.TemporalURL, ":443", "", 1)
+		
+		dialOptions := []grpc.DialOption{
+			grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+				ServerName: serverName,
+			})),
+		}
+		
+		// Add auth interceptor only if bearer token is present
+		if cfg.BearerToken != "" {
+			dialOptions = append(dialOptions, grpc.WithChainUnaryInterceptor(authInterceptor(cfg.BearerToken)))
+		}
+		
+		options.ConnectionOptions = client.ConnectionOptions{
+			DialOptions: dialOptions,
+		}
+	} else {
+		// NoTLS mode: require explicit insecure credentials
+		dialOptions := []grpc.DialOption{
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		}
+		
+		// Add auth interceptor if bearer token is present
+		if cfg.BearerToken != "" {
+			dialOptions = append(dialOptions, grpc.WithChainUnaryInterceptor(authInterceptor(cfg.BearerToken)))
+		}
+		
+		options.ConnectionOptions = client.ConnectionOptions{
+			DialOptions: dialOptions,
+		}
+	}
+
+	temporalClient, err := client.Dial(options)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	temporalWorker := worker.New(temporalClient, cfg.TaskQueue, worker.Options{})
+	return temporalClient, temporalWorker, nil
+}
+
+func loadConfig() (runtimeConfig, error) {
+	cfg := runtimeConfig{
+		TemporalURL: strings.TrimSpace(os.Getenv("PYCK_TEMPORAL_URL")),
+		Namespace:   strings.TrimSpace(os.Getenv("PYCK_TEMPORAL_NAMESPACE")),
+		BearerToken: strings.TrimSpace(os.Getenv("PYCK_TEMPORAL_BEARER_TOKEN")),
+		TenantID:    strings.TrimSpace(os.Getenv("PYCK_TENANT_ID")),
+		UseTLS:      strings.ToLower(strings.TrimSpace(os.Getenv("PYCK_TEMPORAL_USE_TLS"))) == "true",
+	}
+
+	if cfg.TemporalURL == "" {
+		return runtimeConfig{}, errors.New("PYCK_TEMPORAL_URL must be set")
+	}
+
+	if cfg.TenantID == "" {
+		return runtimeConfig{}, errors.New("PYCK_TENANT_ID must be set")
+	}
+
+	if cfg.Namespace == "" {
+		cfg.Namespace = "default"
+	}
+
+	cfg.TaskQueue = fmt.Sprintf("pyck-tenant-%s-task-queue", cfg.TenantID)
+	return cfg, nil
+}
+
+type workflowSignalProvider interface {
+	WorkflowSignals() []workflowsdk.Signal
+}
+
+var (
+	expectedCtxType   = reflect.TypeOf((*workflow.Context)(nil)).Elem()
+	expectedErrorType = reflect.TypeOf((*error)(nil)).Elem()
+)
+
+func registerWorkflowsAndActivities(worker worker.Worker) error {
+	for _, w := range workflowsList {
+		opts := workflow.RegisterOptions{
+			Name: w.WorkflowName(),
+		}
+
+		// Use reflection to extract Workflow method from struct-based workflows
+		wfValue := reflect.ValueOf(w)
+		wfMethod := wfValue.MethodByName("Workflow")
+
+		if !wfMethod.IsValid() {
+			return fmt.Errorf("workflow %T does not provide Workflow method", w)
+		}
+
+		// Validate method signature: func(ctx workflow.Context, data T) error
+		wfType := wfMethod.Type()
+		
+		// 1. Validate method signature count: func(I1, I2) O1
+		if wfType.NumIn() != 2 || wfType.NumOut() != 1 {
+			return fmt.Errorf(
+				"workflow %T Workflow method has invalid signature (count): expected func(workflow.Context, T) error, got func(%d in, %d out)",
+				w, wfType.NumIn(), wfType.NumOut(),
+			)
+		}
+		
+		// 2. Validate Input 1 Type: Must be workflow.Context
+		if wfType.In(0) != expectedCtxType {
+			return fmt.Errorf(
+				"workflow %T Workflow method has invalid signature (Input 1 type): expected %s, got %s",
+				w, expectedCtxType.String(), wfType.In(0).String(),
+			)
+		}
+		
+		// 3. Validate Output 1 Type: Must be error
+		if wfType.Out(0) != expectedErrorType {
+			return fmt.Errorf(
+				"workflow %T Workflow method has invalid signature (Output 1 type): expected %s, got %s",
+				w, expectedErrorType.String(), wfType.Out(0).String(),
+			)
+		}
+
+		// Register the workflow method
+		worker.RegisterWorkflowWithOptions(wfMethod.Interface(), opts)
+
+		// Extract and register activities from workflows that provide them
+		if wfWithAct, ok := w.(workflowsdk.WorkflowWithActivities); ok {
+			wfWithAct.Activities().Register(worker)
+		}
+	}
+	return nil
+}
+
+func registerWorkflowsToPyck(ctx context.Context) error {
+	apiClient := pyck_client.GetAPIClient()
+
+	for _, w := range workflowsList {
+		workflowName := w.WorkflowName()
+
+		var signals []workflowsdk.Signal
+		
+		// Extract signals from struct-based workflows
+		if wfSig, ok := w.(workflowSignalProvider); ok {
+			signals = append(signals, wfSig.WorkflowSignals()...)
+		}
+
+		if len(signals) == 0 {
+			continue
+		}
+
+		active := true
+		registerInput := pyck_client.RegisterWorkflowWithSignalsInput{
+			Name:    workflowName,
+			Active:  &active,
+			Signals: make([]pyck_client.RegisterWorkflowSignalInput, 0, len(signals)),
+		}
+
+		if meta, ok := w.(workflowsdk.WorkflowWithMetadata); ok {
+			if dataTypeID := meta.WorkflowDataTypeID(); dataTypeID != nil {
+				registerInput.DataTypeID = dataTypeID
+			}
+			if dataTypeSlug := meta.WorkflowDataTypeSlug(); dataTypeSlug != nil {
+				registerInput.DataTypeSlug = dataTypeSlug
+			}
+			if data := meta.WorkflowData(); len(data) > 0 {
+				registerInput.Data = data
+			}
+		}
+
+		for _, sig := range signals {
+			temporalSignal := sig.EventName
+			topic := strings.TrimSpace(sig.Topic)
+
+			if sig.IsStart() && topic == "" {
+				return fmt.Errorf("workflow %q start signal %q missing NATS topic; provide one via workflowsdk.NewStartSignal", workflowName, temporalSignal)
+			}
+
+			signalIdentifier := temporalSignal
+			if signalIdentifier == "" {
+				signalIdentifier = sig.Type.String()
+			}
+
+			payload := pyck_client.RegisterWorkflowSignalInput{
+				NatsTopic:          topic,
+				TemporalSignal:     temporalSignal,
+				TemporalSignalType: sig.Type,
+			}
+
+			if sig.DataTypeID != nil {
+				payload.DataTypeID = sig.DataTypeID
+			}
+			if sig.DataTypeSlug != nil {
+				payload.DataTypeSlug = sig.DataTypeSlug
+			}
+			if sig.Data != nil {
+				payload.Data = sig.Data
+			}
+
+			registerInput.Signals = append(registerInput.Signals, payload)
+		}
+
+		if len(registerInput.Signals) == 0 {
+			continue
+		}
+
+		if _, err := apiClient.RegisterWorkflowWithSignals(ctx, registerInput); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

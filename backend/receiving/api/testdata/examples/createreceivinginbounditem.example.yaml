@@ -1,0 +1,27 @@
+---
+operation: CreateReceivingInboundItem
+name: "Create Receiving Inbound Item"
+description: >
+  Creates a single inbound item associated with an existing inbound.
+vars:
+  input:
+    sku: "RECV-ITEM-001"
+    quantity: 100
+    inboundID: { $placeholder: "inbound ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Item was created"
+    assertions:
+      - ref: res.body.data.createReceivingInboundItem.receivingInboundItem.id
+        nil: false
+      - ref: res.body.data.createReceivingInboundItem.receivingInboundItem.sku
+        equal: "RECV-ITEM-001"
+      - ref: res.body.data.createReceivingInboundItem.receivingInboundItem.quantity
+        equal: 100

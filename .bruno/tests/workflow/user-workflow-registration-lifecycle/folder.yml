@@ -1,0 +1,11 @@
+info:
+  name: User - Workflow Registration Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Registers a workflow definition, verifies it appears in list and signal queries, then deletes it.
+
+
+request:
+  auth: inherit

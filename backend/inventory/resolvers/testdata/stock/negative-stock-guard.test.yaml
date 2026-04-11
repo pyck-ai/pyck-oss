@@ -1,0 +1,120 @@
+# Negative Stock Guard Test
+# Tests that the stock underflow protection prevents creating movements
+# that would result in negative stock levels
+name: negative-stock-guard
+itemSKU: negative-guard-test-item
+
+# ========================================================================
+# REPOSITORY STRUCTURE OVERVIEW
+# ========================================================================
+#
+#  warehouse (root)
+#  ├─ storage
+#  │  └─ shelf
+#  └─ outbound
+#
+# ========================================================================
+
+repositories:
+  # Virtual repository for initial stock additions
+  - name: virtual
+    parent: ""
+    type: static
+    virtual: true
+
+  # Main warehouse container
+  - name: warehouse
+    parent: ""
+    type: static
+    virtual: false
+
+  # Storage area containing shelf
+  - name: storage
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Shelf - holds a small stock quantity (10 items)
+  - name: shelf
+    parent: storage
+    type: static
+    virtual: false
+
+  # Outbound - destination for item movements
+  - name: outbound
+    parent: warehouse
+    type: static
+    virtual: false
+
+steps:
+  # =========================================================================
+  #  virtual                             warehouse
+  #  │                                   └─ storage
+  #  └─[100 items]────────────────────────► └─ shelf
+  # =========================================================================
+  - name: create_item_virtual_to_shelf
+    action: create
+    moveType: item
+    from: virtual
+    to: shelf
+    qty: 10
+    expectedStocks:
+      virtual:    { qty:  0, ownQty:  0, in:  0, ownIn:  0, out: 10, ownOut: 10 }
+      warehouse:  { qty:  0, ownQty:  0, in: 10, ownIn:  0, out:  0, ownOut:  0 }
+      storage:    { qty:  0, ownQty:  0, in: 10, ownIn:  0, out:  0, ownOut:  0 }
+      shelf:      { qty:  0, ownQty:  0, in: 10, ownIn: 10, out:  0, ownOut:  0 }
+      outbound:   { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+
+  - name: execute_item_virtual_to_shelf
+    action: execute
+    movement: create_item_virtual_to_shelf
+    expectedStocks:
+      virtual:    { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      warehouse:  { qty: 10, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      storage:    { qty: 10, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      shelf:      { qty: 10, ownQty: 10, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      outbound:   { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ storage
+  #  │  └─ shelf ──[10 items]────╮
+  #  └─ outbound ◄───────────────╯
+  # =========================================================================
+  - name: create_item_shelf_to_outbound
+    action: create
+    moveType: item
+    from: shelf
+    to: outbound
+    qty: 10
+    expectedStocks:
+      virtual:    { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      warehouse:  { qty: 10, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      storage:    { qty: 10, ownQty:  0, in:  0, ownIn:  0, out: 10, ownOut:  0 }
+      shelf:      { qty: 10, ownQty: 10, in:  0, ownIn:  0, out: 10, ownOut: 10 }
+      outbound:   { qty:  0, ownQty:  0, in: 10, ownIn: 10, out:  0, ownOut:  0 }
+
+  - name: execute_item_shelf_to_outbound
+    action: execute
+    movement: create_item_shelf_to_outbound
+    expectedStocks:
+      virtual:    { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      warehouse:  { qty: 10, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      storage:    { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      shelf:      { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      outbound:   { qty: 10, ownQty: 10, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+
+  # Shelf now has 0 items — trying to move 1 item should fail
+  - name: create_item_shelf_to_outbound_overflow
+    action: create
+    moveType: item
+    from: shelf
+    to: outbound
+    qty: 1
+    expectError: "insufficient stock"
+    expectedStocks:
+      virtual:    { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      warehouse:  { qty: 10, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      storage:    { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      shelf:      { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      outbound:   { qty: 10, ownQty: 10, in:  0, ownIn:  0, out:  0, ownOut:  0 }

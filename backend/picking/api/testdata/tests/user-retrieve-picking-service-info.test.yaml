@@ -1,0 +1,20 @@
+---
+name: "User - Retrieve Picking Service Info"
+description: >
+  Verifies the pickingServiceInfo query returns version and date.
+steps:
+  - name: "Get service info"
+    operation: picking.getPickingServiceInfo
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Version returned"
+        assertions:
+          - ref: res.body.data.pickingServiceInfo.version
+            nil: false

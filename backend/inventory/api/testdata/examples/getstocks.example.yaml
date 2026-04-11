@@ -1,0 +1,25 @@
+---
+operation: GetStocks
+name: "Get Stocks"
+description: >
+  Returns the 3 stock entries with the highest quantity.
+vars:
+  first: 3
+  orderBy:
+    field: QUANTITY
+    direction: DESC
+  where:
+    createdAtGTE: "2023-10-17T00:00:00Z"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Result set returned"
+    assertions:
+      - ref: res.body.data.stocks.totalCount
+        nil: false

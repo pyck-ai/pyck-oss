@@ -1,0 +1,20 @@
+---
+operation: DeleteCustomer
+name: "Delete Customer"
+description: >
+  Soft-deletes a customer by ID.
+vars:
+  id: { $placeholder: "customer ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Deleted ID returned"
+    assertions:
+      - ref: res.body.data.deleteCustomer.deletedID
+        equal: {$ref: req.body.variables.id}

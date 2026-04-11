@@ -1,0 +1,512 @@
+# Multi-Tree Deep Hierarchy Scenario
+# Comprehensive test covering deep hierarchies, multiple trees, cross-tree movements,
+# repository relocations, and collection movements
+name: multi-tree
+itemSKU: multi-item
+
+# ========================================================================
+# INITIAL REPOSITORY STRUCTURE OVERVIEW
+# ========================================================================
+#
+#  A_warehouse (root)                           B_warehouse (root)
+#  ├─ A1_storage                                ├─ B1_storage
+#  │  ├─ A1_1_zone                              │  └─ B1_1_shelf
+#  │  │  └─ A1_1_1_shelf (depth 4)              │
+#  │  └─ A1_2_zone                              └─ outbound
+#  │     └─ [pallet] (dynamic)
+#  └─ A2_storage
+#     └─ A2_1_shelf
+#
+# ========================================================================
+
+repositories:
+  # Virtual repository for initial stock additions
+  - name: virtual
+    parent: ""
+    type: static
+    virtual: true
+
+  # ── Tree A: Deep hierarchy (4 levels) ──
+
+  # Main warehouse A - root of Tree A
+  - name: A_warehouse
+    parent: ""
+    type: static
+    virtual: false
+
+  # First storage area under A_warehouse
+  - name: A1_storage
+    parent: A_warehouse
+    type: static
+    virtual: false
+
+  # First zone under A1_storage
+  - name: A1_1_zone
+    parent: A1_storage
+    type: static
+    virtual: false
+
+  # Deepest shelf (depth 4) - holds initial stock
+  - name: A1_1_1_shelf
+    parent: A1_1_zone
+    type: static
+    virtual: false
+
+  # Second zone under A1_storage - initial pallet parent
+  - name: A1_2_zone
+    parent: A1_storage
+    type: static
+    virtual: false
+
+  # Dynamic pallet that will be relocated between trees
+  - name: pallet
+    parent: A1_2_zone
+    type: dynamic
+    virtual: false
+
+  # Second storage area under A_warehouse
+  - name: A2_storage
+    parent: A_warehouse
+    type: static
+    virtual: false
+
+  # Shelf under A2_storage - receives second seed
+  - name: A2_1_shelf
+    parent: A2_storage
+    type: static
+    virtual: false
+
+  # ── Tree B: Separate warehouse tree ──
+
+  # Main warehouse B - root of Tree B
+  - name: B_warehouse
+    parent: ""
+    type: static
+    virtual: false
+
+  # Storage area under B_warehouse
+  - name: B1_storage
+    parent: B_warehouse
+    type: static
+    virtual: false
+
+  # Shelf under B1_storage - cross-tree item destination
+  - name: B1_1_shelf
+    parent: B1_storage
+    type: static
+    virtual: false
+
+  # Outbound area - cross-tree repo destination for pallet
+  - name: outbound
+    parent: B_warehouse
+    type: static
+    virtual: false
+
+steps:
+  # =========================================================================
+  #  virtual                             A_warehouse
+  #    │                                 └─ A1_storage
+  #    │                                    └─ A1_1_zone
+  #    └─[100 items]─────────────────────────► └─ A1_1_1_shelf
+  # =========================================================================
+  - name: create_item_virtual_to_A1_1_1_shelf
+    action: create
+    moveType: item
+    from: virtual
+    to: A1_1_1_shelf
+    qty: 100
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut: 100 }
+
+      A_warehouse:  { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      A1_storage:   { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_zone:    { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_1_shelf: { qty:   0, ownQty:   0, in: 100, ownIn: 100, out:   0, ownOut:   0 }
+      A1_2_zone:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      pallet:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_storage:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_1_shelf:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      B_warehouse:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: execute_item_virtual_to_A1_1_1_shelf
+    action: execute
+    movement: create_item_virtual_to_A1_1_1_shelf
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      A_warehouse:  { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_storage:   { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_zone:    { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_1_shelf: { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_2_zone:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      pallet:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_storage:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_1_shelf:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      B_warehouse:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  A_warehouse
+  #  └─ A1_storage
+  #     ├─ A1_1_zone
+  #     │  └─ A1_1_1_shelf ──[30 items]──╮
+  #     │                                │ (sibling zones)
+  #     └─ A1_2_zone                     │
+  #        └─ pallet ◄───────────────────╯
+  # =========================================================================
+  - name: create_item_A1_1_1_shelf_to_pallet
+    action: create
+    moveType: item
+    from: A1_1_1_shelf
+    to: pallet
+    qty: 30
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      A_warehouse:  { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_storage:   { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_zone:    { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:  30, ownOut:   0 }
+      A1_1_1_shelf: { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:  30, ownOut:  30 }
+      A1_2_zone:    { qty:   0, ownQty:   0, in:  30, ownIn:   0, out:   0, ownOut:   0 }
+      pallet:       { qty:   0, ownQty:   0, in:  30, ownIn:  30, out:   0, ownOut:   0 }
+      A2_storage:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_1_shelf:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      B_warehouse:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: execute_item_A1_1_1_shelf_to_pallet
+    action: execute
+    movement: create_item_A1_1_1_shelf_to_pallet
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      A_warehouse:  { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_storage:   { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_zone:    { qty:  70, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_1_shelf: { qty:  70, ownQty:  70, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_2_zone:    { qty:  30, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      pallet:       { qty:  30, ownQty:  30, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_storage:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_1_shelf:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      B_warehouse:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  BEFORE:                             AFTER:
+  # -------------------------------------------------------------------------
+  #  virtual                             A_warehouse
+  #    │                                 └─ A2_storage
+  #    └─[20 items]───────────────────────► └─ A2_1_shelf
+  # =========================================================================
+  - name: create_item_virtual_to_A2_1_shelf
+    action: create
+    moveType: item
+    from: virtual
+    to: A2_1_shelf
+    qty: 20
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:  20, ownOut:  20 }
+
+      A_warehouse:  { qty: 100, ownQty:   0, in:  20, ownIn:   0, out:   0, ownOut:   0 }
+      A1_storage:   { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_zone:    { qty:  70, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_1_shelf: { qty:  70, ownQty:  70, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_2_zone:    { qty:  30, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      pallet:       { qty:  30, ownQty:  30, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_storage:   { qty:   0, ownQty:   0, in:  20, ownIn:   0, out:   0, ownOut:   0 }
+      A2_1_shelf:   { qty:   0, ownQty:   0, in:  20, ownIn:  20, out:   0, ownOut:   0 }
+
+      B_warehouse:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: execute_item_virtual_to_A2_1_shelf
+    action: execute
+    movement: create_item_virtual_to_A2_1_shelf
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      A_warehouse:  { qty: 120, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_storage:   { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_zone:    { qty:  70, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_1_shelf: { qty:  70, ownQty:  70, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_2_zone:    { qty:  30, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      pallet:       { qty:  30, ownQty:  30, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_storage:   { qty:  20, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_1_shelf:   { qty:  20, ownQty:  20, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      B_warehouse:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: create_collection_A2_1_shelf_to_A1_1_1_shelf
+    action: create
+    moveType: collection
+    collection:
+      # =========================================================================
+      #  A_warehouse
+      #  ├─ A1_storage
+      #  │  ├─ A1_1_zone
+      #  │  │  └─ A1_1_1_shelf ◄──[15 items]─╮
+      #  │  └─ A1_2_zone                     │ (cross-branch collection)
+      #  │     └─ pallet                     │
+      #  └─ A2_storage                       │
+      #     └─ A2_1_shelf ───────────────────╯
+      # =========================================================================
+      - from: A2_1_shelf
+        to: A1_1_1_shelf
+        qty: 15
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      A_warehouse:  { qty: 120, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_storage:   { qty: 100, ownQty:   0, in:  15, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_zone:    { qty:  70, ownQty:   0, in:  15, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_1_shelf: { qty:  70, ownQty:  70, in:  15, ownIn:  15, out:   0, ownOut:   0 }
+      A1_2_zone:    { qty:  30, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      pallet:       { qty:  30, ownQty:  30, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_storage:   { qty:  20, ownQty:   0, in:   0, ownIn:   0, out:  15, ownOut:   0 }
+      A2_1_shelf:   { qty:  20, ownQty:  20, in:   0, ownIn:   0, out:  15, ownOut:  15 }
+
+      B_warehouse:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: execute_collection_A2_1_shelf_to_A1_1_1_shelf
+    action: execute
+    movement: create_collection_A2_1_shelf_to_A1_1_1_shelf[0]
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      A_warehouse:  { qty: 120, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_storage:   { qty: 115, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_zone:    { qty:  85, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_1_shelf: { qty:  85, ownQty:  85, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_2_zone:    { qty:  30, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      pallet:       { qty:  30, ownQty:  30, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_storage:   { qty:   5, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_1_shelf:   { qty:   5, ownQty:   5, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      B_warehouse:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  A_warehouse
+  #  ├─ A1_storage
+  #  │  ├─ A1_1_zone
+  #  │  │  └─ A1_1_1_shelf
+  #  │  └─ A1_2_zone
+  #  │     └─ pallet ────[repo]─╮
+  #  └─ A2_storage              │
+  #     ├─ A2_1_shelf           │
+  #     └─ ▒▒▒▒▒▒▒▒ ◄───────────╯
+  # =========================================================================
+  - name: create_repository_pallet_to_A2_storage
+    action: create
+    moveType: repository
+    from: pallet
+    to: A2_storage
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      A_warehouse:  { qty: 120, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_storage:   { qty: 115, ownQty:   0, in:   0, ownIn:   0, out:  30, ownOut:   0 }
+      A1_1_zone:    { qty:  85, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_1_shelf: { qty:  85, ownQty:  85, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_2_zone:    { qty:  30, ownQty:   0, in:   0, ownIn:   0, out:  30, ownOut:   0 }
+      pallet:       { qty:  30, ownQty:  30, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_storage:   { qty:   5, ownQty:   0, in:  30, ownIn:   0, out:   0, ownOut:   0 }
+      A2_1_shelf:   { qty:   5, ownQty:   5, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      B_warehouse:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: execute_repository_pallet_to_A2_storage
+    action: execute
+    movement: create_repository_pallet_to_A2_storage
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      A_warehouse:  { qty: 120, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_storage:   { qty:  85, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_zone:    { qty:  85, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_1_shelf: { qty:  85, ownQty:  85, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_2_zone:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_storage:   { qty:  35, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_1_shelf:   { qty:   5, ownQty:   5, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      pallet:       { qty:  30, ownQty:  30, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      B_warehouse:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  A_warehouse (root)                           B_warehouse (root)
+  #  └─ A1_storage                                └─ B1_storage
+  #     └─ A1_1_zone                     ╭─────────► └─ B1_1_shelf
+  #        └─ A1_1_1_shelf ──[15 items]──╯
+  # =========================================================================
+  - name: create_item_A1_1_1_shelf_to_B1_1_shelf
+    action: create
+    moveType: item
+    from: A1_1_1_shelf
+    to: B1_1_shelf
+    qty: 15
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      A_warehouse:  { qty: 120, ownQty:   0, in:   0, ownIn:   0, out:  15, ownOut:   0 }
+      A1_storage:   { qty:  85, ownQty:   0, in:   0, ownIn:   0, out:  15, ownOut:   0 }
+      A1_1_zone:    { qty:  85, ownQty:   0, in:   0, ownIn:   0, out:  15, ownOut:   0 }
+      A1_1_1_shelf: { qty:  85, ownQty:  85, in:   0, ownIn:   0, out:  15, ownOut:  15 }
+      A1_2_zone:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_storage:   { qty:  35, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_1_shelf:   { qty:   5, ownQty:   5, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      pallet:       { qty:  30, ownQty:  30, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      B_warehouse:  { qty:   0, ownQty:   0, in:  15, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:   0, ownQty:   0, in:  15, ownIn:   0, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:   0, ownQty:   0, in:  15, ownIn:  15, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: execute_item_A1_1_1_shelf_to_B1_1_shelf
+    action: execute
+    movement: create_item_A1_1_1_shelf_to_B1_1_shelf
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      A_warehouse:  { qty: 105, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_storage:   { qty:  70, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_zone:    { qty:  70, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_1_shelf: { qty:  70, ownQty:  70, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_2_zone:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_storage:   { qty:  35, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_1_shelf:   { qty:   5, ownQty:   5, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      pallet:       { qty:  30, ownQty:  30, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      B_warehouse:  { qty:  15, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:  15, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:  15, ownQty:  15, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: create_collection_pallet_to_B1_storage
+    action: create
+    moveType: collection
+    collection:
+      # =========================================================================
+      #  A_warehouse (root)                           B_warehouse (root)
+      #  ├─ A1_storage             ╭────────────────► └─ B1_storage
+      #  └─ A2_storage             │
+      #     ├─ A2_1_shelf          │
+      #     └─ pallet ──[10 items]─╯
+      # =========================================================================
+      - from: pallet
+        to: B1_storage
+        qty: 10
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      A_warehouse:  { qty: 105, ownQty:   0, in:   0, ownIn:   0, out:  10, ownOut:   0 }
+      A1_storage:   { qty:  70, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_zone:    { qty:  70, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_1_shelf: { qty:  70, ownQty:  70, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_2_zone:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_storage:   { qty:  35, ownQty:   0, in:   0, ownIn:   0, out:  10, ownOut:   0 }
+      A2_1_shelf:   { qty:   5, ownQty:   5, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      pallet:       { qty:  30, ownQty:  30, in:   0, ownIn:   0, out:  10, ownOut:  10 }
+
+      B_warehouse:  { qty:  15, ownQty:   0, in:  10, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:  15, ownQty:   0, in:  10, ownIn:  10, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:  15, ownQty:  15, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: execute_collection_pallet_to_B1_storage
+    action: execute
+    movement: create_collection_pallet_to_B1_storage[0]
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      A_warehouse:  { qty:  95, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_storage:   { qty:  70, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_zone:    { qty:  70, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_1_shelf: { qty:  70, ownQty:  70, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_2_zone:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_storage:   { qty:  25, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_1_shelf:   { qty:   5, ownQty:   5, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      pallet:       { qty:  20, ownQty:  20, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      B_warehouse:  { qty:  25, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:  25, ownQty:  10, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:  15, ownQty:  15, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  A_warehouse (root)                           B_warehouse (root)
+  #  ├─ A1_storage                                └─ B1_storage
+  #  └─ A2_storage             ╭───────────────────► └─ ▒▒▒▒▒▒▒▒
+  #     ├─ A2_1_shelf          │
+  #     └─ pallet ──────[repo]─╯
+  # =========================================================================
+  - name: create_repository_pallet_to_outbound
+    action: create
+    moveType: repository
+    from: pallet
+    to: outbound
+    qty: 0
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      A_warehouse:  { qty:  95, ownQty:   0, in:   0, ownIn:   0, out:  20, ownOut:   0 }
+      A1_storage:   { qty:  70, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_zone:    { qty:  70, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_1_shelf: { qty:  70, ownQty:  70, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_2_zone:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_storage:   { qty:  25, ownQty:   0, in:   0, ownIn:   0, out:  20, ownOut:   0 }
+      A2_1_shelf:   { qty:   5, ownQty:   5, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      pallet:       { qty:  20, ownQty:  20, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      B_warehouse:  { qty:  25, ownQty:   0, in:  20, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:  25, ownQty:  10, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:  15, ownQty:  15, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:   0, ownQty:   0, in:  20, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: execute_repository_pallet_to_outbound
+    action: execute
+    movement: create_repository_pallet_to_outbound
+    expectedStocks:
+      virtual:      { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      A_warehouse:  { qty:  75, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_storage:   { qty:  70, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_zone:    { qty:  70, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_1_1_shelf: { qty:  70, ownQty:  70, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A1_2_zone:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_storage:   { qty:   5, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      A2_1_shelf:   { qty:   5, ownQty:   5, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+      B_warehouse:  { qty:  45, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_storage:   { qty:  25, ownQty:  10, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      B1_1_shelf:   { qty:  15, ownQty:  15, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:     { qty:  20, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      pallet:       { qty:  20, ownQty:  20, in:   0, ownIn:   0, out:   0, ownOut:   0 }

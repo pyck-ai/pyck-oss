@@ -1,0 +1,80 @@
+name: inbound-isolation
+description: Verify receiving inbounds are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  inbounds:
+    - name: inbound-alpha-1
+      tenant: alpha
+    - name: inbound-alpha-2
+      tenant: alpha
+    - name: inbound-beta-1
+      tenant: beta
+
+checks:
+  # --- Read isolation ---
+  - type: query
+    entity: inbound
+    tenant: alpha
+    description: "alpha sees only own inbounds"
+    expectCount: 2
+
+  - type: query
+    entity: inbound
+    tenant: beta
+    description: "beta sees only own inbounds"
+    expectCount: 1
+
+  # --- Cross-tenant update + verify unchanged ---
+  - type: cross-update
+    entity: inbound
+    tenant: alpha
+    target: beta/inbound-beta-1
+    description: "alpha cannot update beta's inbound"
+    expectError: "not found"
+
+  - type: query
+    entity: inbound
+    tenant: beta
+    description: "beta still has 1 inbound after failed cross-update"
+    expectCount: 1
+
+  # --- Cross-tenant delete + verify still exists ---
+  - type: cross-delete
+    entity: inbound
+    tenant: alpha
+    target: beta/inbound-beta-1
+    description: "alpha cannot delete beta's inbound"
+    expectError: "not found"
+
+  - type: query
+    entity: inbound
+    tenant: beta
+    description: "beta still has 1 inbound after failed cross-delete"
+    expectCount: 1
+
+  # CreateReceivingInbound accepts cross-tenant supplierID.
+  # Tracked in: https://github.com/pyck-ai/pyck/issues/16
+  #
+  # - type: cross-create
+  # entity: inbound
+  # tenant: alpha
+  # description: "alpha cannot create inbound with beta's supplier"
+  # args:
+  # supplierID: beta/inbound-beta-1
+  # expectError: "not found"
+
+  # UpdateReceivingInbound accepts cross-tenant supplierID.
+  # Tracked in: https://github.com/pyck-ai/pyck/issues/16
+  #
+  # - type: cross-update-with-args
+  # entity: inbound
+  # tenant: alpha
+  # target: alpha/inbound-alpha-1
+  # description: "alpha cannot update own inbound to reference beta's supplier"
+  # args:
+  # supplierID: beta/inbound-beta-1
+  # expectError: "not found"

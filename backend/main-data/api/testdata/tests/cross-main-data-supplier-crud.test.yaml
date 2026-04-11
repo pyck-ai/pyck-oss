@@ -1,0 +1,219 @@
+---
+name: "Cross - Supplier CRUD Lifecycle"
+description: >
+  Creates a data type for suppliers, then performs full CRUD on a
+  supplier entity. Verifies data persistence, dataTypeID, query
+  filters, update, and soft delete.
+steps:
+  - id: createDT
+    name: "Create data type for suppliers"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Supplier Profile"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "supplier"
+        jsonSchema: '{"type":"object","properties":{"companyName":{"type":"string"},"region":{"type":"string"},"rating":{"type":"integer","minimum":1,"maximum":10}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: create
+    name: "Create supplier with data"
+    operation: main-data.createSupplier
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          companyName: "Global Parts Inc"
+          region: "EU"
+          rating: 8
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Supplier created"
+        assertions:
+          - ref: res.body.data.createSupplier.id
+            nil: false
+      - msg: "DataTypeID persisted"
+        assertions:
+          - ref: res.body.data.createSupplier.dataTypeID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}
+      - msg: "Data persisted"
+        assertions:
+          - ref: res.body.data.createSupplier.data.companyName
+            equal: "Global Parts Inc"
+          - ref: res.body.data.createSupplier.data.region
+            equal: "EU"
+          - ref: res.body.data.createSupplier.data.rating
+            equal: 8
+
+  - name: "Query supplier by ID"
+    operation: main-data.getSuppliers
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createSupplier.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one supplier"
+        assertions:
+          - ref: res.body.data.suppliers.totalCount
+            equal: 1
+      - msg: "DataTypeID persisted on query"
+        assertions:
+          - ref: res.body.data.suppliers.edges[].node.dataTypeID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}
+      - msg: "Data fields persisted"
+        assertions:
+          - ref: res.body.data.suppliers.edges[].node.data.companyName
+            equal: "Global Parts Inc"
+          - ref: res.body.data.suppliers.edges[].node.data.region
+            equal: "EU"
+          - ref: res.body.data.suppliers.edges[].node.data.rating
+            equal: 8
+
+  - name: "Query by dataTypeID"
+    operation: main-data.getSuppliers
+    vars:
+      where:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "At least one supplier"
+        assertions:
+          - ref: res.body.data.suppliers.totalCount
+            greater: 0
+
+  - name: "Update supplier data"
+    operation: main-data.updateSupplier
+    vars:
+      id: {$ref: "res[create].body.data.createSupplier.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          companyName: "Global Parts Intl"
+          region: "APAC"
+          rating: 9
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data updated"
+        assertions:
+          - ref: res.body.data.updateSupplier.data.companyName
+            equal: "Global Parts Intl"
+          - ref: res.body.data.updateSupplier.data.region
+            equal: "APAC"
+          - ref: res.body.data.updateSupplier.data.rating
+            equal: 9
+
+  - name: "Verify updated data on query"
+    operation: main-data.getSuppliers
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createSupplier.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Updated data persisted"
+        assertions:
+          - ref: res.body.data.suppliers.edges[].node.data.companyName
+            equal: "Global Parts Intl"
+          - ref: res.body.data.suppliers.edges[].node.data.rating
+            equal: 9
+
+  - name: "Delete supplier"
+    operation: main-data.deleteSupplier
+    vars:
+      id: {$ref: "res[create].body.data.createSupplier.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID matches"
+        assertions:
+          - ref: res.body.data.deleteSupplier.deletedID
+            equal: {$ref: "res[create].body.data.createSupplier.id"}
+
+  - name: "Verify supplier deleted"
+    operation: main-data.getSuppliers
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createSupplier.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results"
+        assertions:
+          - ref: res.body.data.suppliers.totalCount
+            equal: 0
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteDataType.deletedID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}

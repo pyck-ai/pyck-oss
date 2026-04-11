@@ -1,0 +1,87 @@
+name: itemset-isolation
+description: Verify item sets are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  items:
+    - sku: APPLE
+      tenant: alpha
+    - sku: BANANA
+      tenant: alpha
+    - sku: APPLE
+      tenant: beta
+
+  itemSets:
+    - name: fruit-box-alpha
+      tenant: alpha
+      sku: FRUIT-BOX
+      items:
+        - APPLE
+        - BANANA
+    - name: fruit-box-beta
+      tenant: beta
+      sku: FRUIT-BOX
+      items:
+        - APPLE
+
+checks:
+  # --- Read isolation ---
+  - type: query
+    entity: itemSet
+    tenant: alpha
+    description: "alpha sees only own item sets"
+    expectCount: 1
+
+  - type: query
+    entity: itemSet
+    tenant: beta
+    description: "beta sees only own item sets"
+    expectCount: 1
+
+  # --- Cross-tenant update + verify unchanged ---
+  - type: cross-update
+    entity: itemSet
+    tenant: alpha
+    target: beta/fruit-box-beta
+    description: "alpha cannot update beta's item set"
+    expectError: "not found"
+
+  - type: query
+    entity: itemSet
+    tenant: beta
+    description: "beta still has 1 item set after failed cross-update"
+    expectCount: 1
+
+  # --- Cross-tenant delete + verify still exists ---
+  - type: cross-delete
+    entity: itemSet
+    tenant: alpha
+    target: beta/fruit-box-beta
+    description: "alpha cannot delete beta's item set"
+    expectError: "not found"
+
+  - type: query
+    entity: itemSet
+    tenant: beta
+    description: "beta still has 1 item set after failed cross-delete"
+    expectCount: 1
+
+  # --- Cross-tenant create + verify no orphan ---
+  - type: cross-create
+    entity: itemSet
+    tenant: alpha
+    description: "alpha cannot create item set with beta's items"
+    args:
+      sku: CROSS-TENANT-SET
+      items:
+        - beta/APPLE
+    expectError: "invalid itemIDs"
+
+  - type: query
+    entity: itemSet
+    tenant: alpha
+    description: "alpha still has 1 item set after failed cross-create"
+    expectCount: 1

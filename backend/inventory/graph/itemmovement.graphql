@@ -1,0 +1,11 @@
+
+extend input ItemMovementWhereInput {
+  Data: [String!]
+  DataHasKey: String
+  DataIn: [String!]
+  DataContains: [String!]
+}
+
+type ItemMovementDeletePayload {
+  deletedID: ID
+}

@@ -1,0 +1,29 @@
+---
+operation: UpdateSupplier
+name: "Update Supplier"
+description: >
+  Updates a supplier's data.
+vars:
+  id: { $placeholder: "supplier ID" }
+  input:
+    dataTypeID: { $placeholder: "supplier data type ID" }
+    data:
+      companyName: "Global Parts Updated"
+      region: "APAC"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated supplier returned"
+    assertions:
+      - ref: res.body.data.updateSupplier.id
+        nil: false
+      - ref: res.body.data.updateSupplier.data.companyName
+        equal: "Global Parts Updated"
+      - ref: res.body.data.updateSupplier.data.region
+        equal: "APAC"

@@ -1,0 +1,11 @@
+extend input ReceivingInboundWhereInput {
+    Data: [String!]
+    DataHasKey: String
+    DataIn: [String!]
+    DataContains: [String!]
+}
+
+type ReceivingInboundOutput {
+    receivingInbound: ReceivingInbound
+    workflows: [TemporalWorkflow]
+}

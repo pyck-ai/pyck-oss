@@ -1,0 +1,39 @@
+---
+name: "User - Retrieve Management Service Info"
+description: >
+  Verifies the managementServiceInfo query returns version and date,
+  and that getMe returns the current user's profile.
+steps:
+  - name: "Get service info"
+    operation: management.getManagementServiceInfo
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Version returned"
+        assertions:
+          - ref: res.body.data.managementServiceInfo.version
+            nil: false
+
+  - name: "Get current user"
+    operation: management.getMe
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "User profile returned"
+        assertions:
+          - ref: res.body.data.me.UserID
+            nil: false
+          - ref: res.body.data.me.TenantID
+            nil: false

@@ -1,0 +1,22 @@
+---
+operation: UpdatePickingOrder
+name: "Update Picking Order"
+description: >
+  Updates fields on an existing picking order.
+vars:
+  id: { $placeholder: "picking order ID" }
+  input:
+    customerID: { $placeholder: "customer ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated order returned"
+    assertions:
+      - ref: res.body.data.updatePickingOrder.pickingOrder.id
+        nil: false

@@ -1,0 +1,19 @@
+---
+operation: GetDataTypeEntities
+name: "Get Data Type Entities"
+description: >
+  Returns the list of entity type names that support data types.
+vars: {}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Entities returned"
+    assertions:
+      - ref: res.body.data.dataTypeEntities
+        nil: false

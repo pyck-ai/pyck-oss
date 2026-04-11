@@ -1,0 +1,117 @@
+name: repository-movement-isolation
+description: Verify repository movements are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  repositories:
+    - name: zone-a
+      tenant: alpha
+      type: static
+    - name: shelf
+      tenant: alpha
+      type: static
+      parent: zone-a
+    - name: zone-b
+      tenant: alpha
+      type: static
+    - name: zone-a
+      tenant: beta
+      type: static
+    - name: shelf
+      tenant: beta
+      type: static
+      parent: zone-a
+    - name: zone-b
+      tenant: beta
+      type: static
+
+  repositoryMovements:
+    - name: move-shelf-alpha
+      tenant: alpha
+      repository: shelf
+      from: zone-a
+      to: zone-b
+      handler: test-handler
+    - name: move-shelf-beta
+      tenant: beta
+      repository: shelf
+      from: zone-a
+      to: zone-b
+      handler: test-handler
+
+checks:
+  # --- Read isolation ---
+  - type: query
+    entity: repositoryMovement
+    tenant: alpha
+    description: "alpha sees only own repository movements"
+    expectCount: 1
+
+  - type: query
+    entity: repositoryMovement
+    tenant: beta
+    description: "beta sees only own repository movements"
+    expectCount: 1
+
+  # --- Cross-tenant update + verify unchanged ---
+  - type: cross-update
+    entity: repositoryMovement
+    tenant: alpha
+    target: beta/move-shelf-beta
+    description: "alpha cannot update beta's repository movement"
+    expectError: "not found"
+
+  - type: query
+    entity: repositoryMovement
+    tenant: beta
+    description: "beta still has 1 repository movement after failed cross-update"
+    expectCount: 1
+
+  # --- Cross-tenant delete + verify still exists ---
+  - type: cross-delete
+    entity: repositoryMovement
+    tenant: alpha
+    target: beta/move-shelf-beta
+    description: "alpha cannot delete beta's repository movement"
+    expectError: "not found"
+
+  - type: query
+    entity: repositoryMovement
+    tenant: beta
+    description: "beta still has 1 repository movement after failed cross-delete"
+    expectCount: 1
+
+  # --- Cross-tenant execute + verify not executed ---
+  - type: cross-execute
+    entity: repositoryMovement
+    tenant: alpha
+    target: beta/move-shelf-beta
+    description: "alpha cannot execute beta's repository movement"
+    expectError: "not found"
+
+  - type: query
+    entity: repositoryMovement
+    tenant: beta
+    description: "beta still has 1 repository movement after failed cross-execute"
+    expectCount: 1
+
+  # --- Cross-tenant create + verify no orphan ---
+  - type: cross-create
+    entity: repositoryMovement
+    tenant: alpha
+    description: "alpha cannot create repository movement with beta's repos"
+    args:
+      repository: beta/shelf
+      from: beta/zone-a
+      to: beta/zone-b
+      handler: test-handler
+    expectError: "not found"
+
+  - type: query
+    entity: repositoryMovement
+    tenant: alpha
+    description: "alpha still has 1 repository movement after failed cross-create"
+    expectCount: 1

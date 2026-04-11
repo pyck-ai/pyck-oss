@@ -1,0 +1,320 @@
+version: "3.45"
+
+output: prefixed
+
+set: [errexit, nounset, pipefail]
+
+includes:
+  _: { internal: true, taskfile: ./task/_lib.yaml, flatten: true }
+  container: { internal: true, taskfile: ./task/container.yaml }
+
+  cli:
+    {
+      internal: true,
+      taskfile: ./backend/cli/Taskfile.yaml,
+      dir: ./backend/cli,
+    }
+  common:
+    {
+      internal: true,
+      taskfile: ./backend/common/Taskfile.yaml,
+      dir: ./backend/common,
+    }
+  file:
+    {
+      internal: true,
+      taskfile: ./backend/file/Taskfile.yaml,
+      dir: ./backend/file,
+    }
+  gateway:
+    {
+      internal: true,
+      taskfile: ./backend/gateway/Taskfile.yaml,
+      dir: ./backend/gateway,
+    }
+  inventory:
+    {
+      internal: true,
+      taskfile: ./backend/inventory/Taskfile.yaml,
+      dir: ./backend/inventory,
+    }
+  main-data:
+    {
+      internal: true,
+      taskfile: ./backend/main-data/Taskfile.yaml,
+      dir: ./backend/main-data,
+    }
+  management:
+    {
+      internal: true,
+      taskfile: ./backend/management/Taskfile.yaml,
+      dir: ./backend/management,
+    }
+  picking:
+    {
+      internal: true,
+      taskfile: ./backend/picking/Taskfile.yaml,
+      dir: ./backend/picking,
+    }
+  receiving:
+    {
+      internal: true,
+      taskfile: ./backend/receiving/Taskfile.yaml,
+      dir: ./backend/receiving,
+    }
+  temporal:
+    {
+      internal: true,
+      taskfile: ./backend/temporal/Taskfile.yaml,
+      dir: ./backend/temporal,
+    }
+  workflow:
+    {
+      internal: true,
+      taskfile: ./backend/workflow/Taskfile.yaml,
+      dir: ./backend/workflow,
+    }
+  workflowsdk:
+    {
+      internal: true,
+      taskfile: ./backend/workflowsdk/Taskfile.yaml,
+      dir: ./backend/workflowsdk,
+    }
+
+tasks:
+  default:
+    aliases: [help]
+    cmds:
+      - task: ci-ready
+
+  clean:
+    desc: Clean all modules
+    deps:
+      - task: cli:{{.TASK}}
+      - task: common:{{.TASK}}
+      - task: file:{{.TASK}}
+      - task: inventory:{{.TASK}}
+      - task: main-data:{{.TASK}}
+      - task: management:{{.TASK}}
+      - task: picking:{{.TASK}}
+      - task: receiving:{{.TASK}}
+      - task: temporal:{{.TASK}}
+      - task: workflow:{{.TASK}}
+      - task: gateway:{{.TASK}}
+      - task: workflowsdk:{{.TASK}}
+
+  generate:
+    desc: Generate all modules
+    deps:
+      - task: clean
+    cmds:
+      - task: common:{{.TASK}}
+      - task: management:{{.TASK}}
+      - task: file:{{.TASK}}
+      - task: inventory:{{.TASK}}
+      - task: main-data:{{.TASK}}
+      - task: picking:{{.TASK}}
+      - task: receiving:{{.TASK}}
+      - task: workflow:{{.TASK}}
+      - task: workflowsdk:{{.TASK}}
+      - task: cli:{{.TASK}}
+      - task: gateway:{{.TASK}}
+      - task: temporal:{{.TASK}}
+
+  lint:
+    desc: Lint all modules
+    cmds:
+      - ./scripts/check-go-versions.sh
+      - task: common:{{.TASK}}
+      - task: file:{{.TASK}}
+      - task: inventory:{{.TASK}}
+      - task: main-data:{{.TASK}}
+      - task: management:{{.TASK}}
+      - task: picking:{{.TASK}}
+      - task: receiving:{{.TASK}}
+      - task: workflow:{{.TASK}}
+      - task: workflowsdk:{{.TASK}}
+      - task: cli:{{.TASK}}
+      - task: temporal:{{.TASK}}
+
+  lint:fix:
+    desc: Lint all modules and fix issues
+    cmds:
+      - ./scripts/check-go-versions.sh --fix
+      - task: common:{{.TASK}}
+      - task: file:{{.TASK}}
+      - task: inventory:{{.TASK}}
+      - task: main-data:{{.TASK}}
+      - task: management:{{.TASK}}
+      - task: picking:{{.TASK}}
+      - task: receiving:{{.TASK}}
+      - task: workflow:{{.TASK}}
+      - task: workflowsdk:{{.TASK}}
+      - task: cli:{{.TASK}}
+      - task: temporal:{{.TASK}}
+
+  format:
+    desc: Format all modules
+    deps:
+      - task: common:{{.TASK}}
+      - task: file:{{.TASK}}
+      - task: inventory:{{.TASK}}
+      - task: main-data:{{.TASK}}
+      - task: management:{{.TASK}}
+      - task: picking:{{.TASK}}
+      - task: receiving:{{.TASK}}
+      - task: workflow:{{.TASK}}
+      - task: workflowsdk:{{.TASK}}
+      - task: cli:{{.TASK}}
+      - task: temporal:{{.TASK}}
+
+  format:diff:
+    desc: Show format diff for all modules
+    cmds:
+      - task: common:{{.TASK}}
+      - task: file:{{.TASK}}
+      - task: inventory:{{.TASK}}
+      - task: main-data:{{.TASK}}
+      - task: management:{{.TASK}}
+      - task: picking:{{.TASK}}
+      - task: receiving:{{.TASK}}
+      - task: workflow:{{.TASK}}
+      - task: workflowsdk:{{.TASK}}
+      - task: cli:{{.TASK}}
+      - task: temporal:{{.TASK}}
+
+  test:
+    desc: Test all modules
+    cmds:
+      - task: common:{{.TASK}}
+      - task: file:{{.TASK}}
+      - task: inventory:{{.TASK}}
+      - task: main-data:{{.TASK}}
+      - task: management:{{.TASK}}
+      - task: picking:{{.TASK}}
+      - task: receiving:{{.TASK}}
+      - task: workflow:{{.TASK}}
+      - task: workflowsdk:{{.TASK}}
+      - task: cli:{{.TASK}}
+      - task: temporal:{{.TASK}}
+
+  build:
+    desc: Build all modules
+    cmds:
+      - task: common:{{.TASK}}
+      - task: file:{{.TASK}}
+      - task: inventory:{{.TASK}}
+      - task: main-data:{{.TASK}}
+      - task: management:{{.TASK}}
+      - task: picking:{{.TASK}}
+      - task: receiving:{{.TASK}}
+      - task: workflow:{{.TASK}}
+      - task: cli:{{.TASK}}
+
+  install:
+    desc: Install all modules
+    cmds:
+      - task: file:{{.TASK}}
+      - task: inventory:{{.TASK}}
+      - task: main-data:{{.TASK}}
+      - task: management:{{.TASK}}
+      - task: picking:{{.TASK}}
+      - task: receiving:{{.TASK}}
+      - task: workflow:{{.TASK}}
+      - task: cli:{{.TASK}}
+
+  container:
+    desc: Build all deployable containers
+    cmds:
+      - task: container:{{.TASK}}
+
+  container:up:
+    desc: Run all service containers locally
+    cmds:
+      - task: container:{{.TASK}}
+
+  container:debug:
+    desc: Run all service debug containers locally
+    cmds:
+      - task: container:{{.TASK}}
+
+  container:logs:
+    desc: Follow logs of all service containers
+    cmds:
+      - task: container:{{.TASK}}
+
+  container:stop:
+    desc: Stop all service containers
+    cmds:
+      - task: container:{{.TASK}}
+
+  setup:
+    aliases: [local-setup]
+    desc: "Set up local development environment"
+    env:
+      GOPRIVATE: github.com/pyck-ai
+    cmds:
+      - silent: true
+        defer: |-
+          {{if .SILENT}}{{else}}
+          cat >&2 <<EOF
+          {{if .EXIT_CODE}}
+          ⚠️ Local setup failed with exit code {{.EXIT_CODE}}.
+          ⚠️ Please consult the command output above and container logs for more details.
+          {{else}}
+          ✅ Local setup completed successfully.
+
+          You can now access the following administrative UIs:
+          - MinIO:    http://localhost:9001
+          - NATS:     http://localhost:31311
+          - Postgres: http://localhost:15432
+          - Temporal: http://localhost:3000
+          - Zitadel:  https://auth.local.pyck.cloud:8080
+
+          {{end}}
+          EOF
+          {{end}}
+      - task: cli:install
+      - mkcert -install
+      - mkcert -cert-file ./config/keys/zitadel_certificate.crt -key-file ./config/keys/zitadel_private_key.pem "auth.local.pyck.cloud"
+      - { task: _compose-up, vars: { ARGS: "--wait db db-ui" } }
+      - { task: _compose-up, vars: { ARGS: "--wait zitadel" } }
+      - sh ./config/setup/local-zitadel-setup.sh
+      - { task: _compose-up, vars: { ARGS: "--wait minio" } }
+      - sh ./config/setup/local-minio-setup.sh
+      - { task: _compose-up, vars: { ARGS: "--wait nats nats-ui" } }
+      - { task: _compose-up, vars: { ARGS: "--wait temporal temporal-ui" } }
+
+  ci-ready:
+    desc: "Check if the backend is ready for CI"
+    cmds:
+      - silent: true
+        defer: |-
+          cat >&2 <<EOF
+          {{if .EXIT_CODE}}
+          ⚠️ CI readiness-check failed with exit code {{.EXIT_CODE}}.
+          ⚠️ Please consult the command output above for more details.
+          {{else}}
+          ✅ CI readiness-check succeeded.
+          {{end}}
+          EOF
+      - { task: generate, vars: { SILENT: true } }
+      - { task: lint, vars: { SILENT: true } }
+      - { task: test, vars: { SILENT: true } }
+      - { task: build, vars: { SILENT: true } }
+      - { task: container, vars: { SILENT: true } }
+
+  jaeger:
+    desc: "Run Jaeger locally"
+    cmds:
+      - silent: true
+        defer: |-
+          cat >&2 <<EOF
+          {{if .EXIT_CODE}}
+          ⚠️ Jaeger failed with exit code {{.EXIT_CODE}}.
+          ⚠️ Please consult the command output above for more details.
+          {{else}}
+          ✅ Jaeger started successfully: http://localhost:16686/.
+          {{end}}
+          EOF
+      - docker compose up --build --wait jaeger

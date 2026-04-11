@@ -1,0 +1,259 @@
+query GetWorkflows(
+  $where: WorkflowWhereInput
+  $before: Cursor
+  $after: Cursor
+  $first: Int
+  $last: Int
+  $orderBy: WorkflowOrder
+) {
+  workflows(
+    first: $first
+    after: $after
+    before: $before
+    last: $last
+    orderBy: $orderBy
+    where: $where
+  ) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    edges {
+      cursor
+      node {
+        ...workflow
+        ...workflowWorkflowSignals
+      }
+    }
+  }
+}
+
+query GetWorkflowSignals(
+  $where: WorkflowSignalWhereInput
+  $before: Cursor
+  $after: Cursor
+  $first: Int
+  $last: Int
+  $orderBy: WorkflowSignalOrder
+) {
+  workflowSignals(
+    first: $first
+    after: $after
+    before: $before
+    last: $last
+    orderBy: $orderBy
+    where: $where
+  ) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    edges {
+      cursor
+      node {
+        ...workflowSignal
+      }
+    }
+  }
+}
+
+mutation RegisterWorkflow($input: RegisterWorkflowWithSignalsInput!) {
+  registerWorkflow(input: $input) {
+    ...workflow
+    ...workflowWorkflowSignals
+  }
+}
+
+mutation DeleteWorkflow($id: ID!) {
+  deleteWorkflow(id: $id) {
+    deletedID
+  }
+}
+
+mutation SubmitUserDataInput($input: UserDataInput!) {
+  userDataInput(input: $input) {
+    result
+    workflow {
+      type
+      id
+      runID
+    }
+  }
+}
+
+mutation SetWorkflowAssignee($input: SetWorkflowAssigneeInput!) {
+  setWorkflowAssignee(input: $input) {
+    assignee
+  }
+}
+
+query GetCurrentUserDataInput($input: UserDataInputQueryInput!) {
+  currentUserDataInput(input: $input) {
+    activityIndex
+    activityCount
+    type {
+      id
+      schema
+    }
+    data
+    errors
+  }
+}
+
+fragment workflow on Workflow {
+  id
+  tenantID
+  dataTypeID
+  dataTypeSlug
+  data
+  createdAt
+  createdBy
+  updatedAt
+  updatedBy
+  deletedAt
+  deletedBy
+  name
+  taskQueue
+}
+
+fragment workflowWorkflowSignals on Workflow {
+  workflowsignals {
+    ...workflowSignal
+  }
+}
+
+fragment workflowSignal on WorkflowSignal {
+  id
+  tenantID
+  createdAt
+  createdBy
+  updatedAt
+  updatedBy
+  deletedAt
+  deletedBy
+  workflowID
+  natsTopic
+  temporalSignal
+  temporalSignalType
+  filterRule
+}
+
+query GetWorkflowExecutions(
+  $where: WorkflowExecutionsWhereInput
+  $first: Int
+  $after: String
+  $orderBy: WorkflowExecutionOrder
+) {
+  workflowExecutions(
+    where: $where
+    first: $first
+    after: $after
+    orderBy: $orderBy
+  ) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    edges {
+      cursor
+      node {
+        ...workflowExecutionInfo
+      }
+    }
+  }
+}
+
+query GetWorkflowHistory(
+  $where: WorkflowExecutionsWhereInput!
+  $limit: Int
+) {
+  workflowHistory(
+    where: $where
+    limit: $limit
+  ) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    edges {
+      cursor
+      node {
+        execution {
+          ...workflowExecution
+        }
+        typeName
+        history {
+          ...workflowEvent
+        }
+      }
+    }
+  }
+}
+
+fragment workflowEvent on WorkflowEvent {
+  eventId
+  eventTime
+  eventType
+  extra
+}
+
+fragment workflowExecutionInfo on WorkflowExecutionInfo {
+  execution {
+    ...workflowExecution
+  }
+  type {
+    ...workflowType
+  }
+  startTime
+  closeTime
+  status
+  historyLength
+  parentNamespaceId
+  parentExecution {
+    ...workflowExecution
+  }
+  executionTime
+  memo {
+    title
+    subtitle
+    data
+  }
+  searchAttributes {
+    ...workflowMetadata
+  }
+  autoResetPoints
+  taskQueue
+  stateTransitionCount
+  historySizeBytes
+  mostRecentWorkerVersionStamp
+  executionDuration
+  rootExecution {
+    ...workflowExecution
+  }
+}
+
+fragment workflowExecution on WorkflowExecution {
+  workflowId
+  id
+}
+
+fragment workflowType on WorkflowType {
+  name
+}
+
+fragment workflowMetadata on TemporalMetadata {
+  key
+  value
+}

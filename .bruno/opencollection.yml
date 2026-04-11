@@ -1,0 +1,108 @@
+opencollection: 1.0.0
+
+info:
+  name: pyck
+config:
+  proxy:
+    inherit: true
+    config:
+      protocol: http
+      hostname: ""
+      port: ""
+      auth:
+        username: ""
+        password: ""
+      bypassProxy: ""
+
+request:
+  headers:
+    - name: X-Pyck-Tenant-ID
+      value: "{{env_pyck_tenant_id}}"
+  auth:
+    type: bearer
+    token: "{{env_pyck_token}}"
+  scripts:
+    - type: before-request
+      code: |-
+        const tokenEnvVar = "env_pyck_token"
+        const tenantIDEnvVar = "env_pyck_tenant_id"
+
+        function decodeJWT(t) {
+          try {
+            return JSON.parse(Buffer.from(
+              t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'
+            ), 'base64').toString('utf8'))
+          }                                                                                               catch (e) {
+            return null;
+          }
+        }
+
+        function ensureTenantID() {
+          const header = req.getHeader("X-Pyck-Tenant-ID")
+          const body = req.getBody();
+
+          if (header !== "{{" + tenantIDEnvVar + "}}") {
+            return
+          }
+
+          let tenantID = bru.getEnvVar(tenantIDEnvVar)
+          if (!tenantID) {
+              tenantID = bru.getGlobalEnvVar(tenantIDEnvVar)
+          }
+          if (!tenantID) {
+            tenantID = "all"
+          }
+
+          if (body && body.query && tenantID.trim() === "all") {
+            const queryType = body.query
+              .replace(/\s*#.*$/gm, '')
+              .trim()
+              .toLowerCase();
+
+            if (queryType.startsWith('mutation')) {
+              throw new Error(`[GraphQL] ❌ Using 'x-pyck-tenant-id: all' with mutations is deprecated.`);
+            }
+          }
+
+          bru.setEnvVar(tenantIDEnvVar, tenantID)
+          req.setHeader("X-Pyck-Tenant-ID", tenantID)
+        }
+
+        function ensureAuthentication() {
+          const env = bru.getEnvName()
+
+          if (!env) {
+            throw new Error(`[Auth] ❌ No environment selected.`);
+          }
+
+          // First, we check whether the request has marked that it wants to use our dynamic authentication by setting the auth to the token env variable. If not, we skip the auth override alltogether.
+          const header = req.getHeader("Authorization")
+          
+          if (header !== "Bearer {{" + tokenEnvVar + "}}") {
+            return
+          }
+          
+          // If the request is marked as using authentication, we use the token from the env if present. Otherwise we fall back to the collection-wide OAuth token.
+          const overrideToken = bru.getEnvVar(tokenEnvVar)
+
+          if (overrideToken) {
+            bru.setEnvVar(tokenEnvVar, overrideToken)
+            return
+          }
+
+          const accessToken = bru.getOauth2CredentialVar('$oauth2.pyck.access_token');
+          const idToken = decodeJWT(bru.getOauth2CredentialVar('$oauth2.pyck.id_token'));
+          const clientID = bru.getEnvVar('env_zitadel_client_id');
+
+          if (accessToken && idToken && idToken.client_id === clientID) {
+            bru.setEnvVar(tokenEnvVar, accessToken)
+            return
+          }
+
+          throw new Error(`[Auth] 🛑 No token available. Please run 'Zitadel Login' once.`);
+        }
+
+        ensureTenantID();
+        ensureAuthentication();
+bundled: false
+extensions: {}

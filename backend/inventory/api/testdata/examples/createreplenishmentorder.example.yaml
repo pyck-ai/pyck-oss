@@ -1,0 +1,26 @@
+---
+operation: CreateReplenishmentOrder
+name: "Create Replenishment Order"
+description: >
+  Creates a replenishment order with one or more order items.
+  Each item specifies a SKU and the quantity to replenish.
+vars:
+  input:
+    items:
+      - sku: "RESTOCK-SKU-001"
+        quantity: 100
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Replenishment order created"
+    assertions:
+      - ref: res.body.data.createReplenishmentOrder.replenishmentOrder
+        nil: false
+      - ref: res.body.data.createReplenishmentOrder.replenishmentOrder.id
+        nil: false

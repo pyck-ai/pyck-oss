@@ -1,0 +1,24 @@
+---
+operation: SetKeyValue
+name: "Set Key Value"
+description: >
+  Creates or updates a key-value entry for the current user.
+vars:
+  input:
+    name: "ui.theme"
+    data: '{"theme":"dark","density":"compact"}'
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Key-value entry returned"
+    assertions:
+      - ref: res.body.data.setKeyValue.id
+        nil: false
+      - ref: res.body.data.setKeyValue.name
+        equal: "ui.theme"

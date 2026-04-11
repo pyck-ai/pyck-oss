@@ -1,0 +1,133 @@
+---
+name: "User - Workflow Registration Lifecycle"
+description: >
+  Registers a workflow definition, verifies it appears in list and signal queries,
+  then deletes it.
+steps:
+  - name: "List workflows before registration"
+    operation: workflow.getWorkflows
+    vars:
+      first: 10
+      orderBy:
+        direction: ASC
+        field: CREATED_AT
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Result set returned"
+        assertions:
+          - ref: res.body.data.workflows.totalCount
+            nil: false
+
+  - id: register
+    name: "Register workflow"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "TestPickingWorkflow"
+        taskQueue: "test-task-queue"
+        signals:
+          - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
+            temporalSignal: "testCreated"
+            temporalSignalType: "start"
+            filterRule: "*"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Workflow registered"
+        assertions:
+          - ref: res.body.data.registerWorkflow.id
+            nil: false
+          - ref: res.body.data.registerWorkflow.name
+            equal: "TestPickingWorkflow"
+
+  - name: "Query registered workflow"
+    operation: workflow.getWorkflows
+    vars:
+      where:
+        id: {$ref: "res[register].body.data.registerWorkflow.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one workflow returned"
+        assertions:
+          - ref: res.body.data.workflows.totalCount
+            equal: 1
+      - msg: "Name persisted"
+        assertions:
+          - ref: res.body.data.workflows.edges[].node.name
+            equal: "TestPickingWorkflow"
+
+  - name: "Query workflow signals"
+    operation: workflow.getWorkflowSignals
+    vars:
+      where:
+        workflowID: {$ref: "res[register].body.data.registerWorkflow.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Signal returned"
+        assertions:
+          - ref: res.body.data.workflowSignals.totalCount
+            equal: 1
+
+  - name: "Delete workflow"
+    operation: workflow.deleteWorkflow
+    vars:
+      id: {$ref: "res[register].body.data.registerWorkflow.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID matches"
+        assertions:
+          - ref: res.body.data.deleteWorkflow.deletedID
+            equal: {$ref: "res[register].body.data.registerWorkflow.id"}
+
+  - name: "Verify workflow deleted"
+    operation: workflow.getWorkflows
+    vars:
+      where:
+        id: {$ref: "res[register].body.data.registerWorkflow.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results"
+        assertions:
+          - ref: res.body.data.workflows.totalCount
+            equal: 0

@@ -1,0 +1,11 @@
+info:
+  name: User - Retrieve Workflow Service Info
+  type: folder
+  seq: 1
+
+docs: |-
+  Verifies the workflowServiceInfo query returns version and date.
+
+
+request:
+  auth: inherit

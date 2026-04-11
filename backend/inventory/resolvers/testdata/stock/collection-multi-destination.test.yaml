@@ -1,0 +1,178 @@
+# Collection Multi-Destination Scenario
+# Tests single-movement collections sent to multiple destinations in sequence,
+# verifying that reservations from all pending movements stack correctly.
+name: collection-multi-destination
+itemSKU: coll-multi-dest
+
+# ========================================================================
+# REPOSITORY STRUCTURE OVERVIEW
+# ========================================================================
+#
+#  warehouse (root)
+#  ├─ shelf
+#  ├─ zone-a
+#  ├─ zone-b
+#  └─ outbound
+#
+# ========================================================================
+
+repositories:
+  # Virtual repository for initial stock additions
+  - name: virtual
+    parent: ""
+    type: static
+    virtual: true
+
+  # Main warehouse container
+  - name: warehouse
+    parent: ""
+    type: static
+    virtual: false
+
+  # Shelf - holds initial stock, source for all outgoing movements
+  - name: shelf
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Zone A - destination for first collection (will be deleted)
+  - name: zone-a
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Zone B - destination for second collection (executed first)
+  - name: zone-b
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Outbound - destination for third collection
+  - name: outbound
+    parent: warehouse
+    type: static
+    virtual: false
+
+steps:
+  # =========================================================================
+  #  virtual                             warehouse
+  #    └─[200 items]────────────────────► └─ shelf
+  # =========================================================================
+  - name: seed_create
+    action: create
+    moveType: item
+    from: virtual
+    to: shelf
+    qty: 200
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out: 200, ownOut: 200 }
+      warehouse: { qty:   0, ownQty:   0, in: 200, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty:   0, ownQty:   0, in: 200, ownIn: 200, out:   0, ownOut:   0 }
+
+  - name: seed_execute
+    action: execute
+    movement: seed_create
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      warehouse: { qty: 200, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      shelf:     { qty: 200, ownQty: 200, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  - name: create_coll_shelf_to_zone_a
+    action: create
+    moveType: collection
+    collection:
+      # =========================================================================
+      #  warehouse
+      #  ├─ shelf ──[30 items]─╮
+      #  ├─ zone-a ◄───────────╯
+      #  ├─ zone-b
+      #  └─ outbound
+      # =========================================================================
+      - from: shelf
+        to: zone-a
+        qty: 30
+    expectedStocks:
+      shelf:     { qty: 200, ownQty: 200, in: 0, ownIn: 0, out:  30, ownOut:  30 }
+      zone-a:    { qty:   0, ownQty:   0, in: 30, ownIn: 30, out:  0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:  0, ownIn:  0, out:  0, ownOut:   0 }
+      outbound:  { qty:   0, ownQty:   0, in:  0, ownIn:  0, out:  0, ownOut:   0 }
+      warehouse: { qty: 200, ownQty:   0, in:  0, ownIn:  0, out:  0, ownOut:   0 }
+
+  - name: create_coll_shelf_to_zone_b
+    action: create
+    moveType: collection
+    collection:
+      # =========================================================================
+      #  warehouse
+      #  ├─ shelf ──[50 items]──╮
+      #  ├─ zone-a              │
+      #  ├─ zone-b ◄────────────╯
+      #  └─ outbound
+      # =========================================================================
+      - from: shelf
+        to: zone-b
+        qty: 50
+    expectedStocks:
+      shelf:     { qty: 200, ownQty: 200, in: 0, ownIn: 0, out:  80, ownOut:  80 }
+      zone-a:    { qty:   0, ownQty:   0, in: 30, ownIn: 30, out:  0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in: 50, ownIn: 50, out:  0, ownOut:   0 }
+      outbound:  { qty:   0, ownQty:   0, in:  0, ownIn:  0, out:  0, ownOut:   0 }
+      warehouse: { qty: 200, ownQty:   0, in:  0, ownIn:  0, out:  0, ownOut:   0 }
+
+  - name: create_coll_shelf_to_outbound
+    action: create
+    moveType: collection
+    collection:
+      # =========================================================================
+      #  warehouse
+      #  ├─ shelf ──[20 items]───╮
+      #  ├─ zone-a               │
+      #  ├─ zone-b               │
+      #  └─ outbound ◄───────────╯
+      # =========================================================================
+      - from: shelf
+        to: outbound
+        qty: 20
+    expectedStocks:
+      shelf:     { qty: 200, ownQty: 200, in: 0, ownIn: 0, out: 100, ownOut: 100 }
+      zone-a:    { qty:   0, ownQty:   0, in: 30, ownIn: 30, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in: 50, ownIn: 50, out:   0, ownOut:   0 }
+      outbound:  { qty:   0, ownQty:   0, in: 20, ownIn: 20, out:   0, ownOut:   0 }
+      warehouse: { qty: 200, ownQty:   0, in:  0, ownIn:  0, out:   0, ownOut:   0 }
+
+  - name: execute_coll_shelf_to_zone_b
+    action: execute
+    movement: create_coll_shelf_to_zone_b[0]
+    expectedStocks:
+      shelf:     { qty: 150, ownQty: 150, in: 0, ownIn: 0, out: 50, ownOut: 50 }
+      zone-a:    { qty:   0, ownQty:   0, in: 30, ownIn: 30, out:  0, ownOut:  0 }
+      zone-b:    { qty:  50, ownQty:  50, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      outbound:  { qty:   0, ownQty:   0, in: 20, ownIn: 20, out:  0, ownOut:  0 }
+      warehouse: { qty: 200, ownQty:   0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ shelf ──[30 items]─╳ (delete movement)
+  #  ├─ zone-a ◄╌╌╌╌╌╌╌╌╌╌╌╯
+  #  ├─ zone-b
+  #  └─ outbound
+  # =========================================================================
+  - name: delete_coll_shelf_to_zone_a
+    action: delete
+    movement: create_coll_shelf_to_zone_a[0]
+    expectedStocks:
+      shelf:     { qty: 150, ownQty: 150, in: 0, ownIn: 0, out: 20, ownOut: 20 }
+      zone-a:    { qty:   0, ownQty:   0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      zone-b:    { qty:  50, ownQty:  50, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      outbound:  { qty:   0, ownQty:   0, in: 20, ownIn: 20, out:  0, ownOut:  0 }
+      warehouse: { qty: 200, ownQty:   0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+
+  - name: execute_coll_shelf_to_outbound
+    action: execute
+    movement: create_coll_shelf_to_outbound[0]
+    expectedStocks:
+      shelf:     { qty: 130, ownQty: 130, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      zone-a:    { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      zone-b:    { qty:  50, ownQty:  50, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      outbound:  { qty:  20, ownQty:  20, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      warehouse: { qty: 200, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }

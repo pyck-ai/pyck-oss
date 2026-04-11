@@ -1,0 +1,11 @@
+info:
+  name: Cross - Customer Data Type Validation
+  type: folder
+  seq: 1
+
+docs: |-
+  Tests that data type schema validation works correctly for customers. Rejects invalid data, missing dataTypeID, and validates schema constraints on create and update.
+
+
+request:
+  auth: inherit

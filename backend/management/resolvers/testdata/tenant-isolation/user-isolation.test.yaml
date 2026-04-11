@@ -1,0 +1,77 @@
+name: user-isolation
+description: Verify users are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  roles:
+    - name: role-alpha
+      tenant: alpha
+    - name: role-beta
+      tenant: beta
+
+  groups:
+    - name: group-alpha
+      tenant: alpha
+    - name: group-beta
+      tenant: beta
+
+  users:
+    - name: user-alpha
+      tenant: alpha
+    - name: user-beta
+      tenant: beta
+
+checks:
+  - type: query
+    entity: user
+    tenant: alpha
+    description: "alpha sees only own users"
+    expectCount: 1
+
+  - type: query
+    entity: user
+    tenant: beta
+    description: "beta sees only own users"
+    expectCount: 1
+
+  - type: cross-update
+    entity: user
+    tenant: alpha
+    target: beta/user-beta
+    description: "alpha cannot update beta's user"
+    expectError: "not found"
+
+  - type: query
+    entity: user
+    tenant: beta
+    description: "beta still has 1 user after failed cross-update"
+    expectCount: 1
+
+  - type: cross-delete
+    entity: user
+    tenant: alpha
+    target: beta/user-beta
+    description: "alpha cannot delete beta's user"
+    expectError: "not found"
+
+  - type: query
+    entity: user
+    tenant: beta
+    description: "beta still has 1 user after failed cross-delete"
+    expectCount: 1
+
+  # CreateUser now validates tenantID matches caller + validates roleIDs/groupIDs.
+  # (Cannot easily test tenantID mismatch via YAML — needs direct GraphQL with wrong tenantID.)
+
+  # UpdateUser now validates addRoleIDs/addGroupIDs tenant ownership.
+  - type: cross-update-with-args
+    entity: user
+    tenant: alpha
+    target: alpha/user-alpha
+    description: "alpha cannot add beta's role to own user"
+    args:
+      addRoleID: beta/role-beta
+    expectError: "invalid role IDs"

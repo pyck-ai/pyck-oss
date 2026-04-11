@@ -1,0 +1,20 @@
+---
+operation: DeleteUser
+name: "Delete User"
+description: >
+  Deletes a user by ID. Returns the deleted user ID.
+vars:
+  id: { $placeholder: "user ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Deleted ID returned"
+    assertions:
+      - ref: res.body.data.deleteUser
+        equal: {$ref: req.body.variables.id}

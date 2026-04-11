@@ -1,0 +1,11 @@
+info:
+  name: Cross - Picking Data Type Slug Reference
+  type: folder
+  seq: 1
+
+docs: |-
+  Cross-service test: creates data types with slugs, then creates picking orders and items referencing them by slug. Verifies that the slug-referenced data type validates input data correctly and that dataTypeID/dataTypeSlug are persisted on the entity.
+
+
+request:
+  auth: inherit

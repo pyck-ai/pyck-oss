@@ -1,0 +1,22 @@
+---
+operation: RegisterTenant
+name: "Register Tenant"
+description: >
+  Registers a new tenant. Requires admin privileges.
+vars:
+  input:
+    name: { $placeholder: "tenant name" }
+    idpOrgRef: { $placeholder: "IDP organization reference" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Registration succeeded"
+    assertions:
+      - ref: res.body.data.registerTenant.success
+        equal: true

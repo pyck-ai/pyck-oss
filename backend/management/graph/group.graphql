@@ -1,0 +1,4 @@
+extend type Query {
+  """Fetch a specific group by ID"""
+  group(id: ID!): Group
+}

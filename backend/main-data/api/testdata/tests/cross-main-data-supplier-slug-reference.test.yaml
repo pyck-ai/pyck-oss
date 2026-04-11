@@ -1,0 +1,121 @@
+---
+name: "Cross - Supplier Data Type Slug Reference"
+description: >
+  Creates a data type with a slug and references it by slug when
+  creating suppliers. Verifies dataTypeID and dataTypeSlug are
+  persisted.
+steps:
+  - id: createDT
+    name: "Create data type with slug for suppliers"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Slug Supplier Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "supplier"
+        jsonSchema: '{"type":"object","properties":{"leadTime":{"type":"integer"},"certified":{"type":"boolean"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created with slug"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.slug
+            nil: false
+
+  - id: create
+    name: "Create supplier via slug"
+    operation: main-data.createSupplier
+    vars:
+      input:
+        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        data:
+          leadTime: 14
+          certified: true
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Supplier created"
+        assertions:
+          - ref: res.body.data.createSupplier.id
+            nil: false
+      - msg: "DataTypeID persisted from slug"
+        assertions:
+          - ref: res.body.data.createSupplier.dataTypeID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}
+      - msg: "DataTypeSlug persisted"
+        assertions:
+          - ref: res.body.data.createSupplier.dataTypeSlug
+            equal: {$ref: "res[createDT].body.data.createDataType.slug"}
+
+  - name: "Verify persistence on query"
+    operation: main-data.getSuppliers
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createSupplier.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Supplier found"
+        assertions:
+          - ref: res.body.data.suppliers.totalCount
+            equal: 1
+      - msg: "DataTypeID persisted on query"
+        assertions:
+          - ref: res.body.data.suppliers.edges[].node.dataTypeID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}
+      - msg: "DataTypeSlug persisted on query"
+        assertions:
+          - ref: res.body.data.suppliers.edges[].node.dataTypeSlug
+            equal: {$ref: "res[createDT].body.data.createDataType.slug"}
+      - msg: "Data persisted"
+        assertions:
+          - ref: res.body.data.suppliers.edges[].node.data.leadTime
+            equal: 14
+
+  - name: "Cleanup - delete supplier"
+    operation: main-data.deleteSupplier
+    vars:
+      id: {$ref: "res[create].body.data.createSupplier.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

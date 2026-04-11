@@ -1,0 +1,21 @@
+---
+operation: GetMainDataServiceInfo
+name: "Get Main Data Service Info"
+description: >
+  Returns service metadata including version.
+vars: {}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Service info returned"
+    assertions:
+      - ref: res.body.data.mainDataServiceInfo.version
+        nil: false
+      - ref: res.body.data.mainDataServiceInfo.date
+        nil: false

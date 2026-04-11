@@ -1,0 +1,28 @@
+
+type Mutation {
+  createFile(input: CreateFileInput!): CreateFileResult
+  updateFile(id: ID!, input: UpdateFileInput!): File
+  deleteFile(id: ID!): FileDeletePayload!
+
+  analyzeImageFile(id: ID!): ImageAnalysisResponse!
+}
+
+scalar UUID
+
+type FileDeletePayload {
+  deletedID: ID
+}
+
+type GetPreSignedUploadUrlPayload {
+  url: String
+}
+
+type CreateFileResult {
+  id: ID!
+  preSignedUploadUrl: String
+  file: File
+}
+
+type ImageAnalysisResponse {
+  jsonData: String!
+}

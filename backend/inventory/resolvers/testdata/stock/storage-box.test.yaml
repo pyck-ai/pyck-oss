@@ -1,0 +1,148 @@
+# Storage Box Scenario
+# Tests item and repository movements between storage, shelf, box, and outbound locations.
+# Box is a dynamic repository that starts under storage and gets moved to outbound.
+name: storage-box
+itemSKU: def
+
+# ========================================================================
+# REPOSITORY STRUCTURE OVERVIEW
+# ========================================================================
+#
+#  warehouse (root)
+#  ├─ storage
+#  │  ├─ shelf
+#  │  └─ box (dynamic)
+#  └─ outbound
+#
+# ========================================================================
+
+repositories:
+  # Virtual repository for initial stock additions
+  - name: virtual
+    parent: ""
+    type: static
+    virtual: true
+
+  # Main warehouse container
+  - name: warehouse
+    parent: ""
+    type: static
+    virtual: false
+
+  # Storage area - parent of shelf and box
+  - name: storage
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Shelf - holds initial stock
+  - name: shelf
+    parent: storage
+    type: static
+    virtual: false
+
+  # Box - dynamic container, starts under storage, will be moved to outbound
+  - name: box
+    parent: storage
+    type: dynamic
+    virtual: false
+
+  # Outbound - destination for box repo movement
+  - name: outbound
+    parent: warehouse
+    type: static
+    virtual: false
+
+steps:
+  # =========================================================================
+  #  virtual                             warehouse
+  #  │                                   └─ storage
+  #  └─[50 items]────────────────────────► └─ shelf
+  # =========================================================================
+  - name: create_item_virtual_to_shelf
+    action: create
+    moveType: item
+    from: virtual
+    to: shelf
+    qty: 50
+    expectedStocks:
+      virtual:   { qty:  0, ownQty:  0, in:  0, ownIn:  0, out: 50, ownOut: 50 }
+      warehouse: { qty:  0, ownQty:  0, in: 50, ownIn:  0, out:  0, ownOut:  0 }
+      storage:   { qty:  0, ownQty:  0, in: 50, ownIn:  0, out:  0, ownOut:  0 }
+      shelf:     { qty:  0, ownQty:  0, in: 50, ownIn: 50, out:  0, ownOut:  0 }
+      box:       { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      outbound:  { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+
+  - name: execute_item_virtual_to_shelf
+    action: execute
+    movement: create_item_virtual_to_shelf
+    expectedStocks:
+      virtual:   { qty:  0, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      warehouse: { qty: 50, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      storage:   { qty: 50, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      shelf:     { qty: 50, ownQty: 50, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      box:       { qty:  0, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      outbound:  { qty:  0, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  # =========================================================================
+  #  warehouse
+  #  └─ storage
+  #     ├─ shelf ──[5 items]─╮
+  #     └─ box ◄─────────────╯
+  # =========================================================================
+  - name: create_item_shelf_to_box
+    action: create
+    moveType: item
+    from: shelf
+    to: box
+    qty: 5
+    expectedStocks:
+      virtual:   { qty:  0, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      warehouse: { qty: 50, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      storage:   { qty: 50, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      shelf:     { qty: 50, ownQty: 50, in: 0, ownIn: 0, out: 5, ownOut: 5 }
+      box:       { qty:  0, ownQty:  0, in: 5, ownIn: 5, out: 0, ownOut: 0 }
+      outbound:  { qty:  0, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  - name: execute_item_shelf_to_box
+    action: execute
+    movement: create_item_shelf_to_box
+    expectedStocks:
+      virtual:   { qty:  0, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      warehouse: { qty: 50, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      storage:   { qty: 50, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      shelf:     { qty: 45, ownQty: 45, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      box:       { qty:  5, ownQty:  5, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      outbound:  { qty:  0, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ storage
+  #  │  ├─ shelf
+  #  │  └─ box ────[repo]─╮
+  #  └─ outbound          │
+  #     └─ ▒▒▒▒▒▒▒▒ ◄─────╯
+  # =========================================================================
+  - name: create_repository_box_to_outbound
+    action: create
+    moveType: repository
+    from: box
+    to: outbound
+    expectedStocks:
+      virtual:   { qty:  0, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      warehouse: { qty: 50, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      storage:   { qty: 50, ownQty:  0, in: 0, ownIn: 0, out: 5, ownOut: 0 }
+      shelf:     { qty: 45, ownQty: 45, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      box:       { qty:  5, ownQty:  5, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      outbound:  { qty:  0, ownQty:  0, in: 5, ownIn: 0, out: 0, ownOut: 0 }
+
+  - name: execute_repository_box_to_outbound
+    action: execute
+    movement: create_repository_box_to_outbound
+    expectedStocks:
+      virtual:   { qty:  0, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      warehouse: { qty: 50, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      storage:   { qty: 45, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      shelf:     { qty: 45, ownQty: 45, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      box:       { qty:  5, ownQty:  5, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      outbound:  { qty:  5, ownQty:  0, in: 0, ownIn: 0, out: 0, ownOut: 0 }

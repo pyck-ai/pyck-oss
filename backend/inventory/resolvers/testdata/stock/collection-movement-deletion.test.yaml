@@ -1,0 +1,183 @@
+# Collection Movement Deletion
+# Tests that:
+# 1. Executed movements in a collection cannot be deleted
+# 2. Non-executed movements in a collection can be deleted
+# 3. Stock reservations update correctly when movements are deleted
+name: collection-movement-deletion
+itemSKU: deletion-test-item
+
+# ========================================================================
+# REPOSITORY STRUCTURE OVERVIEW
+# ========================================================================
+#
+# Initial Structure:
+#  warehouse (root)
+#  ├─ shelf
+#  ├─ zone-a
+#  ├─ zone-b
+#  └─ outbound
+#
+# ========================================================================
+
+repositories:
+  # Virtual repository for initial stock additions
+  - name: virtual
+    parent: ""
+    type: static
+    virtual: true
+
+  # Main warehouse container
+  - name: warehouse
+    parent: ""
+    type: static
+    virtual: false
+
+  # Shelf - holds initial stock, source for all collection movements
+  - name: shelf
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Zone A - destination for collection entry [0]
+  - name: zone-a
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Zone B - destination for collection entry [1] (will be deleted)
+  - name: zone-b
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Outbound - destination for collection entry [2]
+  - name: outbound
+    parent: warehouse
+    type: static
+    virtual: false
+
+steps:
+  # =========================================================================
+  #  virtual                             warehouse
+  #    └─[100 items]────────────────────► └─ shelf
+  # =========================================================================
+  - name: setup_seed
+    action: create
+    moveType: item
+    from: virtual
+    to: shelf
+    qty: 100
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut: 100 }
+      warehouse: { qty:   0, ownQty:   0, in: 100, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty:   0, ownQty:   0, in: 100, ownIn: 100, out:   0, ownOut:   0 }
+      zone-a:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: setup_execute
+    action: execute
+    movement: setup_seed
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-a:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:  { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: create_collection
+    action: create
+    moveType: collection
+    collection:
+      # =========================================================================
+      #  warehouse
+      #  ├─ shelf ──[20 items]─╮
+      #  ├─ zone-a ◄───────────╯
+      #  ├─ zone-b
+      #  └─ outbound
+      # =========================================================================
+      - from: shelf
+        to: zone-a
+        qty: 20
+
+      # =========================================================================
+      #  warehouse
+      #  ├─ shelf ──[15 items]──╮
+      #  ├─ zone-a              │
+      #  ├─ zone-b ◄────────────╯
+      #  └─ outbound
+      # =========================================================================
+      - from: shelf
+        to: zone-b
+        qty: 15
+
+      # =========================================================================
+      #  warehouse
+      #  ├─ shelf ──[10 items]───╮
+      #  ├─ zone-a               │
+      #  ├─ zone-b               │
+      #  └─ outbound ◄───────────╯
+      # =========================================================================
+      - from: shelf
+        to: outbound
+        qty: 10
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty: 100, ownQty: 100, in:   0, ownIn:   0, out:  45, ownOut:  45 }
+      zone-a:    { qty:   0, ownQty:   0, in:  20, ownIn:  20, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:  15, ownIn:  15, out:   0, ownOut:   0 }
+      outbound:  { qty:   0, ownQty:   0, in:  10, ownIn:  10, out:   0, ownOut:   0 }
+
+  - name: execute_first
+    action: execute
+    movement: create_collection[0]
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty:  80, ownQty:  80, in:   0, ownIn:   0, out:  25, ownOut:  25 }
+      zone-a:    { qty:  20, ownQty:  20, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:  15, ownIn:  15, out:   0, ownOut:   0 }
+      outbound:  { qty:   0, ownQty:   0, in:  10, ownIn:  10, out:   0, ownOut:   0 }
+
+  - name: try_delete_executed
+    action: delete
+    movement: create_collection[0]
+    expectError: cannot delete an executed movement
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty:  80, ownQty:  80, in:   0, ownIn:   0, out:  25, ownOut:  25 }
+      zone-a:    { qty:  20, ownQty:  20, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:  15, ownIn:  15, out:   0, ownOut:   0 }
+      outbound:  { qty:   0, ownQty:   0, in:  10, ownIn:  10, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ shelf ──[15 items]──╮
+  #  ├─ zone-a              ╳ (delete movement)
+  #  ├─ zone-b ◄────────────╯
+  #  └─ outbound
+  # =========================================================================
+  - name: delete_second
+    action: delete
+    movement: create_collection[1]
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty:  80, ownQty:  80, in:   0, ownIn:   0, out:  10, ownOut:  10 }
+      zone-a:    { qty:  20, ownQty:  20, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:  { qty:   0, ownQty:   0, in:  10, ownIn:  10, out:   0, ownOut:   0 }
+
+  - name: execute_third
+    action: execute
+    movement: create_collection[2]
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty: 100, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      shelf:     { qty:  70, ownQty:  70, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-a:    { qty:  20, ownQty:  20, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      zone-b:    { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      outbound:  { qty:  10, ownQty:  10, in:   0, ownIn:   0, out:   0, ownOut:   0 }

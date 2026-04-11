@@ -1,0 +1,14 @@
+services:
+  temporal:
+    container_name: temporal
+    build:
+      context: ../../../
+      dockerfile: ./backend/temporal/Dockerfile.debug
+    security_opt:
+      - "apparmor:unconfined" # required for debugging with delve
+    cap_add:
+      - "SYS_PTRACE"
+    deploy:
+      resources:
+        limits:
+          memory: '1G'

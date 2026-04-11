@@ -1,0 +1,130 @@
+---
+name: "Cross - Receiving Inbound With Data Type"
+description: >
+  Creates a data type in management, then creates a receiving inbound
+  referencing it by ID. Verifies dataTypeID is persisted and
+  filterable.
+steps:
+  - id: createDataType
+    name: "Create data type for inbounds"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Receiving Inbound Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "inbound"
+        jsonSchema: '{"type":"object","properties":{"priority":{"type":"string","enum":["low","medium","high"]},"notes":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type was created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: createInbound
+    name: "Create inbound with data type"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        orderID: "PO-DT-001"
+        dataTypeID: {$ref: "res[createDataType].body.data.createDataType.id"}
+        data:
+          priority: "high"
+          notes: "Fragile shipment"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound was created with data type"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+          - ref: res.body.data.createReceivingInbound.receivingInbound.dataTypeID
+            equal: {$ref: "res[createDataType].body.data.createDataType.id"}
+      - msg: "Data was persisted"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.data.priority
+            equal: "high"
+
+  - name: "Query by dataTypeID"
+    operation: receiving.getReceivingInbounds
+    vars:
+      where:
+        dataTypeID: {$ref: "res[createDataType].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "At least one inbound with this data type"
+        assertions:
+          - ref: res.body.data.receivingInbounds.totalCount
+            greater: 0
+
+  - name: "Update inbound data"
+    operation: receiving.updateReceivingInbound
+    vars:
+      id: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+      input:
+        dataTypeID: {$ref: "res[createDataType].body.data.createDataType.id"}
+        data:
+          priority: "low"
+          notes: "Updated notes"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data was updated"
+        assertions:
+          - ref: res.body.data.updateReceivingInbound.receivingInbound.data.priority
+            equal: "low"
+
+  - name: "Delete inbound"
+    operation: receiving.deleteReceivingInbound
+    vars:
+      id: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDataType].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

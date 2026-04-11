@@ -1,0 +1,28 @@
+---
+operation: CreateInventoryRepositoryMovement
+name: "Create Inventory Repository Movement"
+description: >
+  Creates a repository movement record to transfer all items from one repository
+  to another. The movement is not executed until ExecuteInventoryRepositoryMovement is called.
+vars:
+  input:
+    handler: "operator-01"
+    toID: {$placeholder: "destination repository ID"}
+    repositoryID: {$placeholder: "repository ID to move"}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Repository movement created"
+    assertions:
+      - ref: res.body.data.createInventoryRepositoryMovement.inventoryRepositoryMovement
+        nil: false
+      - ref: res.body.data.createInventoryRepositoryMovement.inventoryRepositoryMovement.id
+        nil: false
+      - ref: res.body.data.createInventoryRepositoryMovement.inventoryRepositoryMovement.executed
+        equal: false

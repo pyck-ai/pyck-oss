@@ -1,0 +1,59 @@
+---
+volumes:
+  jaeger_data: {}
+
+---
+services:
+  jaeger:
+    image: cr.jaegertracing.io/jaegertracing/jaeger
+    container_name: jaeger
+    restart: always
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+      - "5778:5778"
+      - "9411:9411"
+    environment:
+      # Network configuration
+      JAEGER_LISTEN_HOST: 0.0.0.0
+      
+      # Storage backend configuration - use Badger for persistent storage
+      SPAN_STORAGE_TYPE: badger
+      BADGER_EPHEMERAL: false
+      BADGER_DIRECTORY_VALUE: /data/badger/data
+      BADGER_DIRECTORY_KEY: /data/badger/key
+      
+      # Memory optimization settings
+      BADGER_SPAN_STORE_TTL: 72h
+      BADGER_VALUE_LOG_FILE_SIZE: 64MiB
+      BADGER_NUM_COMPACTORS: 1
+      BADGER_NUM_LEVEL_ZERO_TABLES: 1
+      BADGER_NUM_LEVEL_ZERO_TABLES_STALL: 2
+      
+      # Query service memory limits
+      QUERY_MAX_CLOCK_SKEW_ADJUSTMENT: 0s
+      QUERY_ADDITIONAL_HEADERS: "Access-Control-Allow-Origin: *"
+      
+      # Collector memory optimization
+      COLLECTOR_OTLP_ENABLED: true
+      COLLECTOR_HTTP_HOST_PORT: :4318
+      COLLECTOR_GRPC_HOST_PORT: :4317
+      
+      # Java memory settings for the JVM
+      JAVA_OPTS: "-Xms64m -Xmx256m -XX:+UseG1GC -XX:MaxGCPauseMillis=100"
+    volumes:
+      # Persistent storage volume for traces
+      - jaeger_data:/data/badger
+    networks:
+      - pyck
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:16686"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 512M

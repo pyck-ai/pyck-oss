@@ -1,0 +1,33 @@
+---
+operation: CreateInventoryCollectionMovement
+name: "Create Inventory Collection Movement"
+description: >
+  Creates a collection of item movements in a single operation.
+  The collection can mix item movements (using itemID) and repository movements
+  (using repositoryID). Each entry specifies a quantity, source, and destination repository.
+vars:
+  input:
+    handler: "operator-01"
+    collection:
+      - handler: "operator-01"
+        fromID: {$placeholder: "source repository ID"}
+        toID: {$placeholder: "destination repository ID"}
+        itemID: {$placeholder: "inventory item ID"}
+        quantity: 10
+      - handler: "operator-01"
+        fromID: {$placeholder: "source repository ID (optional, inferred from repositoryID if omitted)"}
+        toID: {$placeholder: "destination repository ID"}
+        repositoryID: {$placeholder: "repository ID to move"}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Collection movement created"
+    assertions:
+      - ref: res.body.data.createInventoryCollectionMovement.id
+        nil: false

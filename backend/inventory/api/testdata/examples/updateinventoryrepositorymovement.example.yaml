@@ -1,0 +1,29 @@
+---
+operation: UpdateInventoryRepositoryMovement
+name: "Update Inventory Repository Movement"
+description: >
+  Updates a pending inventory repository movement. Only non-immutable fields
+  (handler, blockedBy) can be changed after creation. Executed movements
+  cannot be updated or deleted.
+vars:
+  id: {$placeholder: "repository movement ID"}
+  input:
+    handler: "operator-updated"
+    blockedBy: {$placeholder: "movement ID that blocks this one (optional)"}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Repository movement updated"
+    assertions:
+      - ref: res.body.data.updateInventoryRepositoryMovement.inventoryRepositoryMovement
+        nil: false
+      - ref: res.body.data.updateInventoryRepositoryMovement.inventoryRepositoryMovement.id
+        nil: false
+      - ref: res.body.data.updateInventoryRepositoryMovement.inventoryRepositoryMovement.handler
+        equal: "operator-updated"

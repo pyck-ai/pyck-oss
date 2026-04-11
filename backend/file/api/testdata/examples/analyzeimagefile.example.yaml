@@ -1,0 +1,20 @@
+operation: AnalyzeImageFile
+name: Analyze image file
+description: >
+  Runs image analysis on a previously uploaded file and stores the result
+  as JSON data on the file record. The referenced file must be an image.
+vars:
+  id: { $placeholder: "image file ID" }
+expect:
+  - msg: Status is 200
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: No GraphQL errors
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: Analysis result returned
+    assertions:
+      - ref: res.body.data.analyzeImageFile.jsonData
+        nil: false

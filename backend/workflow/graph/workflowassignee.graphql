@@ -1,0 +1,30 @@
+extend type Query {
+  workflowAssignee(
+    input: GetWorkflowAssigneeInput!
+  ): GetWorkflowAssigneeResponse!
+}
+
+input GetWorkflowAssigneeInput {
+  workflowId: String!
+  workflowExecutionId: String!
+}
+
+type GetWorkflowAssigneeResponse {
+  assignee: String!
+}
+
+extend type Mutation {
+  setWorkflowAssignee(
+    input: SetWorkflowAssigneeInput!
+  ): SetWorkflowAssigneeResponse
+}
+
+input SetWorkflowAssigneeInput {
+  workflowId: String!
+  workflowExecutionId: String!
+  assigneeID: ID
+}
+
+type SetWorkflowAssigneeResponse {
+  assignee: String!
+}

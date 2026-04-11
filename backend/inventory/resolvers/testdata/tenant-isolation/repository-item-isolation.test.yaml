@@ -1,0 +1,111 @@
+name: repository-item-isolation
+description: Verify repositories and items are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  repositories:
+    - name: warehouse
+      tenant: alpha
+      type: static
+      virtual: false
+    - name: shelf
+      tenant: alpha
+      type: static
+      parent: warehouse
+    - name: warehouse
+      tenant: beta
+      type: static
+      virtual: false
+    - name: shelf
+      tenant: beta
+      type: static
+      parent: warehouse
+
+  items:
+    - sku: ITEM-001
+      tenant: alpha
+    - sku: ITEM-001
+      tenant: beta
+
+checks:
+  # --- Read isolation ---
+  - type: query
+    entity: repository
+    tenant: alpha
+    description: "alpha sees only own repositories"
+    expectCount: 2
+
+  - type: query
+    entity: repository
+    tenant: beta
+    description: "beta sees only own repositories"
+    expectCount: 2
+
+  - type: query
+    entity: item
+    tenant: alpha
+    description: "alpha sees only own items"
+    expectCount: 1
+
+  - type: query
+    entity: item
+    tenant: beta
+    description: "beta sees only own items"
+    expectCount: 1
+
+  # --- Cross-tenant update + verify unchanged ---
+  - type: cross-update
+    entity: repository
+    tenant: alpha
+    target: beta/warehouse
+    description: "alpha cannot update beta's repository"
+    expectError: "not found"
+
+  - type: query
+    entity: repository
+    tenant: beta
+    description: "beta still has 2 repositories after failed cross-update"
+    expectCount: 2
+
+  - type: cross-update
+    entity: item
+    tenant: alpha
+    target: beta/ITEM-001
+    description: "alpha cannot update beta's item"
+    expectError: "not found"
+
+  - type: query
+    entity: item
+    tenant: beta
+    description: "beta still has 1 item after failed cross-update"
+    expectCount: 1
+
+  # --- Cross-tenant delete + verify still exists ---
+  - type: cross-delete
+    entity: repository
+    tenant: alpha
+    target: beta/warehouse
+    description: "alpha cannot delete beta's repository"
+    expectError: "not found"
+
+  - type: query
+    entity: repository
+    tenant: beta
+    description: "beta still has 2 repositories after failed cross-delete"
+    expectCount: 2
+
+  - type: cross-delete
+    entity: item
+    tenant: alpha
+    target: beta/ITEM-001
+    description: "alpha cannot delete beta's item"
+    expectError: "not found"
+
+  - type: query
+    entity: item
+    tenant: beta
+    description: "beta still has 1 item after failed cross-delete"
+    expectCount: 1

@@ -1,0 +1,11 @@
+info:
+  name: Cross - Inventory Repository CRUD Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Full CRUD lifecycle for repositories. Creates static repos, queries by name and type, updates layout and data, deletes, and verifies soft-delete behavior.
+
+
+request:
+  auth: inherit

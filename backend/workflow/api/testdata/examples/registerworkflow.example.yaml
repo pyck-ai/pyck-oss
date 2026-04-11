@@ -1,0 +1,28 @@
+---
+operation: RegisterWorkflow
+name: "Register Workflow"
+description: >
+  Registers a workflow definition with optional NATS signal triggers.
+vars:
+  input:
+    name: "PickingOrderWorkflow"
+    taskQueue: "picking-task-queue"
+    signals:
+      - natsTopic: "warehouse.order.created"
+        temporalSignal: "orderCreated"
+        temporalSignalType: "start"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Workflow registered"
+    assertions:
+      - ref: res.body.data.registerWorkflow.id
+        nil: false
+      - ref: res.body.data.registerWorkflow.name
+        equal: "PickingOrderWorkflow"

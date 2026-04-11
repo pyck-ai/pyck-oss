@@ -1,0 +1,52 @@
+---
+volumes:
+  minio_data: {}
+
+---
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: always
+    command: >
+      server /data
+      --console-address ":9001"
+      --json
+      --quiet
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: ${PYCK_AWS_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${PYCK_AWS_SECRET_ACCESS_KEY}
+      # Memory optimization settings
+      MINIO_CACHE: "off"  # Disable cache to save memory (saves ~50-100MB)
+      MINIO_CACHE_EXCLUDE: "*.pdf,*.jpg,*.png,*.gif,*.jpeg"
+      MINIO_CACHE_QUOTA: 0  # No cache quota
+      GOMAXPROCS: 4  # Limit Go threads
+      GOMEMLIMIT: 256MiB  # Go memory limit
+      GOGC: 50  # More aggressive garbage collection (default 100)
+      MADV_FREE: 1  # Return memory to OS more aggressively
+      MINIO_API_REQUESTS_MAX: 100  # Limit concurrent API requests
+      MINIO_API_REQUESTS_DEADLINE: 30s  # Request timeout
+      MINIO_STORAGE_CLASS_RRS: EC:0  # Disable erasure coding for single node
+      MINIO_LOG_LEVEL: ERROR  # Reduce logging overhead
+    networks:
+      - pyck
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 196M
+    sysctls:
+      - net.core.somaxconn=256
+      - net.ipv4.tcp_fin_timeout=30
+    tmpfs:
+      - /tmp:size=32M

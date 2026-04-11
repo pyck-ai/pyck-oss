@@ -1,0 +1,23 @@
+---
+operation: UpdatePickingOutboundShipmentNotification
+name: "Update Picking Outbound Shipment Notification"
+description: >
+  Updates an outbound shipment notification's data fields.
+vars:
+  id: { $placeholder: "notification ID" }
+  input:
+    data:
+      status: "shipped"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated notification returned"
+    assertions:
+      - ref: res.body.data.updatePickingOutboundShipmentNotification.pickingOutboundShipmentNotification.id
+        nil: false

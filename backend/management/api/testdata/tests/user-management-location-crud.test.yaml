@@ -1,0 +1,109 @@
+---
+name: "User - Location CRUD Lifecycle"
+description: >
+  Creates a location, verifies it appears in list queries,
+  updates it, and deletes it.
+steps:
+  - id: create
+    name: "Create location"
+    operation: management.createLocation
+    vars:
+      input:
+        name: "Zone A - Rack 1"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Location created"
+        assertions:
+          - ref: res.body.data.createLocation.location.id
+            nil: false
+      - msg: "Name persisted"
+        assertions:
+          - ref: res.body.data.createLocation.location.name
+            equal: "Zone A - Rack 1"
+
+  - name: "Query location by ID"
+    operation: management.getLocations
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createLocation.location.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one location"
+        assertions:
+          - ref: res.body.data.locations.totalCount
+            equal: 1
+      - msg: "Name persisted on query"
+        assertions:
+          - ref: res.body.data.locations.edges[].node.name
+            equal: "Zone A - Rack 1"
+
+  - name: "Update location"
+    operation: management.updateLocation
+    vars:
+      id: {$ref: "res[create].body.data.createLocation.location.id"}
+      input:
+        name: "Zone A - Rack 1 - Updated"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Name updated"
+        assertions:
+          - ref: res.body.data.updateLocation.location.name
+            equal: "Zone A - Rack 1 - Updated"
+
+  - name: "Delete location"
+    operation: management.deleteLocation
+    vars:
+      id: {$ref: "res[create].body.data.createLocation.location.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID matches"
+        assertions:
+          - ref: res.body.data.deleteLocation.deletedID
+            equal: {$ref: "res[create].body.data.createLocation.location.id"}
+
+  - name: "Verify location deleted"
+    operation: management.getLocations
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createLocation.location.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results"
+        assertions:
+          - ref: res.body.data.locations.totalCount
+            equal: 0

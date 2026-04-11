@@ -1,0 +1,28 @@
+---
+operation: CreateSupplier
+name: "Create Supplier"
+description: >
+  Creates a supplier with data type reference and custom data.
+vars:
+  input:
+    dataTypeID: { $placeholder: "supplier data type ID" }
+    data:
+      companyName: "Global Parts Inc"
+      region: "EU"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Supplier created"
+    assertions:
+      - ref: res.body.data.createSupplier.id
+        nil: false
+      - ref: res.body.data.createSupplier.data.companyName
+        equal: "Global Parts Inc"
+      - ref: res.body.data.createSupplier.data.region
+        equal: "EU"

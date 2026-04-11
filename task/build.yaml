@@ -1,0 +1,13 @@
+version: "3.45"
+
+tasks:
+  build:
+    desc: Build all module commands
+    env:
+      CGO_ENABLED: 0
+    vars:
+      MODULE:
+        sh: |
+          basename "{{.TASK_DIR}}"
+    cmds:
+      - go build -mod=readonly -trimpath -o "../../out/{{.MODULE}}/" "./cmd/..."

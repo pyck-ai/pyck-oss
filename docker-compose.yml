@@ -1,0 +1,28 @@
+name: pyck
+
+include: 
+  - config/compose/third-party/db.yaml
+  - config/compose/third-party/gateway.yaml
+  - config/compose/third-party/jaeger.yaml
+  - config/compose/third-party/minio.yaml
+  - config/compose/third-party/nats.yaml
+  - config/compose/third-party/temporal.yaml
+  - config/compose/third-party/zitadel.yaml
+
+  - config/compose/backend/file.yaml
+  - config/compose/backend/inventory.yaml
+  - config/compose/backend/main-data.yaml
+  - config/compose/backend/management.yaml
+  - config/compose/backend/picking.yaml
+  - config/compose/backend/receiving.yaml
+  - config/compose/backend/workflow.yaml
+volumes:
+  go_cache: {}
+  go_modcache: {}
+
+networks:
+  pyck:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16

@@ -1,0 +1,8 @@
+# Fully generated files
+*_gen.go        linguist-generated merge=ours
+**/ent/gen/**   linguist-generated merge=ours
+go.sum          linguist-generated merge=ours
+go.work.sum     linguist-generated merge=ours
+
+# Partially generated files
+backend/*/resolvers/*.resolvers.go  -linguist-generated

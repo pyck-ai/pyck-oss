@@ -1,0 +1,28 @@
+---
+operation: CreateEvent
+name: "Create Event"
+description: >
+  Creates a custom event definition with a topic and example payload.
+vars:
+  input:
+    name: "ItemScanned"
+    topic: "warehouse.item.scanned"
+    description: "Fired when a warehouse item is scanned"
+    example: '{"itemID":"abc123","location":"A1-R3"}'
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Event created"
+    assertions:
+      - ref: res.body.data.createEvent.id
+        nil: false
+      - ref: res.body.data.createEvent.name
+        equal: "ItemScanned"
+      - ref: res.body.data.createEvent.topic
+        equal: "warehouse.item.scanned"

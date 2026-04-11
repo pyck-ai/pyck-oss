@@ -1,0 +1,25 @@
+---
+operation: UpdateReplenishmentOrder
+name: "Update Replenishment Order"
+description: >
+  Updates an existing replenishment order. Supply any fields to change;
+  omitted fields are left unchanged.
+vars:
+  id: {$placeholder: "replenishment order ID"}
+  input:
+    supplierID: {$placeholder: "supplier UUID (optional)"}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Replenishment order updated"
+    assertions:
+      - ref: res.body.data.updateReplenishmentOrder.replenishmentOrder
+        nil: false
+      - ref: res.body.data.updateReplenishmentOrder.replenishmentOrder.id
+        nil: false

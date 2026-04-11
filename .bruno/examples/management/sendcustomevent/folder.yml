@@ -1,0 +1,7 @@
+info:
+  name: sendcustomevent
+  type: folder
+  seq: 1
+
+request:
+  auth: inherit

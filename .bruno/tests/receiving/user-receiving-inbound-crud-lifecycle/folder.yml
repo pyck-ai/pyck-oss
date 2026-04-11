@@ -1,0 +1,11 @@
+info:
+  name: User - Receiving Inbound CRUD Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Full CRUD lifecycle for receiving inbounds. Creates an inbound with supplierID and orderID, verifies all fields persisted, queries with filters, updates fields, and deletes with verification.
+
+
+request:
+  auth: inherit

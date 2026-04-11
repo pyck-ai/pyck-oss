@@ -1,0 +1,489 @@
+---
+name: "Cross - Item Movement Execute and Stock"
+description: >
+  Seeds stock via a virtual repo, verifies insufficient stock
+  rejection, then moves between static repos and verifies
+  stock levels and transactions after execution.
+steps:
+  - id: item
+    name: "Create inventory item"
+    operation: inventory.createInventoryItem
+    vars:
+      input:
+        sku: {$fake: "{{uuid}}"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+
+  - id: virtualRepo
+    name: "Create virtual repository (infinite source)"
+    operation: inventory.createInventoryRepository
+    vars:
+      input:
+        name: {$fake: "{{uuid}}"}
+        type: static
+        virtualRepo: true
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Virtual repo created"
+        assertions:
+          - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+            nil: false
+          - ref: res.body.data.createInventoryRepository.inventoryRepository.virtualRepo
+            equal: true
+
+  - id: repoA
+    name: "Create static repository A"
+    operation: inventory.createInventoryRepository
+    vars:
+      input:
+        name: {$fake: "{{uuid}}"}
+        type: static
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Repo A created"
+        assertions:
+          - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+            nil: false
+
+  - id: repoB
+    name: "Create static repository B"
+    operation: inventory.createInventoryRepository
+    vars:
+      input:
+        name: {$fake: "{{uuid}}"}
+        type: static
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Repo B created"
+        assertions:
+          - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+            nil: false
+
+  - id: seedMovement
+    name: "Seed stock: move 50 from virtual to repo A"
+    operation: inventory.createInventoryItemMovement
+    vars:
+      input:
+        itemID: {$ref: "res[item].body.data.createInventoryItem.inventoryItem.id"}
+        fromID: {$ref: "res[virtualRepo].body.data.createInventoryRepository.inventoryRepository.id"}
+        toID: {$ref: "res[repoA].body.data.createInventoryRepository.inventoryRepository.id"}
+        quantity: 50
+        handler: "test-seed"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Seed movement created"
+        assertions:
+          - ref: res.body.data.createInventoryItemMovement.inventoryItemMovement.id
+            nil: false
+
+  - name: "Execute seed movement"
+    operation: inventory.executeInventoryItemMovement
+    vars:
+      id: {$ref: "res[seedMovement].body.data.createInventoryItemMovement.inventoryItemMovement.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Seed movement executed"
+        assertions:
+          - ref: res.body.data.executeInventoryItemMovement.inventoryItemMovement.executed
+            equal: true
+
+  - name: "Verify stock seeded in repo A"
+    operation: inventory.getStocks
+    vars:
+      where:
+        itemID: {$ref: "res[item].body.data.createInventoryItem.inventoryItem.id"}
+        repositoryID: {$ref: "res[repoA].body.data.createInventoryRepository.inventoryRepository.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Stock records created for seed (2 = 1 reservation + 1 execution)"
+        assertions:
+          - ref: res.body.data.stocks.totalCount
+            equal: 2
+
+  - name: "Reject movement exceeding available stock"
+    operation: inventory.createInventoryItemMovement
+    vars:
+      input:
+        itemID: {$ref: "res[item].body.data.createInventoryItem.inventoryItem.id"}
+        fromID: {$ref: "res[repoA].body.data.createInventoryRepository.inventoryRepository.id"}
+        toID: {$ref: "res[repoB].body.data.createInventoryRepository.inventoryRepository.id"}
+        quantity: 999
+        handler: "test-worker"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Insufficient stock error"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - id: movement
+    name: "Move 25 from repo A to repo B"
+    operation: inventory.createInventoryItemMovement
+    vars:
+      input:
+        itemID: {$ref: "res[item].body.data.createInventoryItem.inventoryItem.id"}
+        fromID: {$ref: "res[repoA].body.data.createInventoryRepository.inventoryRepository.id"}
+        toID: {$ref: "res[repoB].body.data.createInventoryRepository.inventoryRepository.id"}
+        quantity: 25
+        handler: "test-worker"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Movement created"
+        assertions:
+          - ref: res.body.data.createInventoryItemMovement.inventoryItemMovement.id
+            nil: false
+      - msg: "Not yet executed"
+        assertions:
+          - ref: res.body.data.createInventoryItemMovement.inventoryItemMovement.executed
+            equal: false
+      - msg: "Quantity persisted"
+        assertions:
+          - ref: res.body.data.createInventoryItemMovement.inventoryItemMovement.quantity
+            equal: 25
+      - msg: "Handler persisted"
+        assertions:
+          - ref: res.body.data.createInventoryItemMovement.inventoryItemMovement.handler
+            equal: "test-worker"
+
+  - name: "Query movement and verify refs"
+    operation: inventory.getItemMovements
+    vars:
+      where:
+        id: {$ref: "res[movement].body.data.createInventoryItemMovement.inventoryItemMovement.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Movement found"
+        assertions:
+          - ref: res.body.data.itemMovements.totalCount
+            equal: 1
+      - msg: "ItemID persisted"
+        assertions:
+          - ref: res.body.data.itemMovements.edges[].node.itemID
+            equal: {$ref: "res[item].body.data.createInventoryItem.inventoryItem.id"}
+      - msg: "FromID persisted"
+        assertions:
+          - ref: res.body.data.itemMovements.edges[].node.fromID
+            equal: {$ref: "res[repoA].body.data.createInventoryRepository.inventoryRepository.id"}
+      - msg: "ToID persisted"
+        assertions:
+          - ref: res.body.data.itemMovements.edges[].node.toID
+            equal: {$ref: "res[repoB].body.data.createInventoryRepository.inventoryRepository.id"}
+
+  - name: "Execute movement from A to B"
+    operation: inventory.executeInventoryItemMovement
+    vars:
+      id: {$ref: "res[movement].body.data.createInventoryItemMovement.inventoryItemMovement.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Movement marked executed"
+        assertions:
+          - ref: res.body.data.executeInventoryItemMovement.inventoryItemMovement.executed
+            equal: true
+      - msg: "ExecutedAt set"
+        assertions:
+          - ref: res.body.data.executeInventoryItemMovement.inventoryItemMovement.executedAt
+            nil: false
+
+  - name: "Verify stock exists in repo B"
+    operation: inventory.getStocks
+    vars:
+      where:
+        itemID: {$ref: "res[item].body.data.createInventoryItem.inventoryItem.id"}
+        repositoryID: {$ref: "res[repoB].body.data.createInventoryRepository.inventoryRepository.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Stock records in B after movement (2 = 1 reservation + 1 execution)"
+        assertions:
+          - ref: res.body.data.stocks.totalCount
+            equal: 2
+
+  - name: "Verify stock still exists in repo A"
+    operation: inventory.getStocks
+    vars:
+      where:
+        itemID: {$ref: "res[item].body.data.createInventoryItem.inventoryItem.id"}
+        repositoryID: {$ref: "res[repoA].body.data.createInventoryRepository.inventoryRepository.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Stock records in A after both movements (4 = 2 from seed + 2 from debit)"
+        assertions:
+          - ref: res.body.data.stocks.totalCount
+            equal: 4
+
+  - name: "Verify executed movement cannot be deleted"
+    operation: inventory.deleteInventoryItemMovement
+    vars:
+      id: {$ref: "res[movement].body.data.createInventoryItemMovement.inventoryItemMovement.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Cannot delete executed movement"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Verify executed seed movement cannot be deleted"
+    operation: inventory.deleteInventoryItemMovement
+    vars:
+      id: {$ref: "res[seedMovement].body.data.createInventoryItemMovement.inventoryItemMovement.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Cannot delete executed seed movement"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - id: returnFromB
+    name: "Cleanup - return stock from repo B to virtual"
+    operation: inventory.createInventoryItemMovement
+    vars:
+      input:
+        itemID: {$ref: "res[item].body.data.createInventoryItem.inventoryItem.id"}
+        fromID: {$ref: "res[repoB].body.data.createInventoryRepository.inventoryRepository.id"}
+        toID: {$ref: "res[virtualRepo].body.data.createInventoryRepository.inventoryRepository.id"}
+        quantity: 25
+        handler: "test-cleanup"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - execute return from repo B"
+    operation: inventory.executeInventoryItemMovement
+    vars:
+      id: {$ref: "res[returnFromB].body.data.createInventoryItemMovement.inventoryItemMovement.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - id: returnFromA
+    name: "Cleanup - return stock from repo A to virtual"
+    operation: inventory.createInventoryItemMovement
+    vars:
+      input:
+        itemID: {$ref: "res[item].body.data.createInventoryItem.inventoryItem.id"}
+        fromID: {$ref: "res[repoA].body.data.createInventoryRepository.inventoryRepository.id"}
+        toID: {$ref: "res[virtualRepo].body.data.createInventoryRepository.inventoryRepository.id"}
+        quantity: 25
+        handler: "test-cleanup"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - execute return from repo A"
+    operation: inventory.executeInventoryItemMovement
+    vars:
+      id: {$ref: "res[returnFromA].body.data.createInventoryItemMovement.inventoryItemMovement.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - clear stock in virtual repo"
+    operation: inventory.deleteInventoryStock
+    vars:
+      input:
+        repositoryID: {$ref: "res[virtualRepo].body.data.createInventoryRepository.inventoryRepository.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteInventoryStock.deletedID
+            equal: {$ref: "res[virtualRepo].body.data.createInventoryRepository.inventoryRepository.id"}
+
+  - name: "Cleanup - delete item"
+    operation: inventory.deleteInventoryItem
+    vars:
+      id: {$ref: "res[item].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteInventoryItem.deletedID
+            equal: {$ref: "res[item].body.data.createInventoryItem.inventoryItem.id"}
+
+  - name: "Cleanup - delete repo A"
+    operation: inventory.deleteInventoryRepository
+    vars:
+      id: {$ref: "res[repoA].body.data.createInventoryRepository.inventoryRepository.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteInventoryRepository.deletedID
+            equal: {$ref: "res[repoA].body.data.createInventoryRepository.inventoryRepository.id"}
+
+  - name: "Cleanup - delete repo B"
+    operation: inventory.deleteInventoryRepository
+    vars:
+      id: {$ref: "res[repoB].body.data.createInventoryRepository.inventoryRepository.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteInventoryRepository.deletedID
+            equal: {$ref: "res[repoB].body.data.createInventoryRepository.inventoryRepository.id"}
+
+  - name: "Cleanup - delete virtual repo"
+    operation: inventory.deleteInventoryRepository
+    vars:
+      id: {$ref: "res[virtualRepo].body.data.createInventoryRepository.inventoryRepository.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteInventoryRepository.deletedID
+            equal: {$ref: "res[virtualRepo].body.data.createInventoryRepository.inventoryRepository.id"}

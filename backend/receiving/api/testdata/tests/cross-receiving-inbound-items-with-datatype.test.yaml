@@ -1,0 +1,246 @@
+---
+name: "Cross - Receiving Inbound Items With Data Types"
+description: >
+  Creates separate data types for inbounds and items, then creates
+  an inbound with inline items that each have their own data type.
+  Verifies data types and data are persisted on both levels.
+steps:
+  - id: createInboundDT
+    name: "Create data type for inbounds"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Inbound Shipment Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "inbound"
+        jsonSchema: '{"type":"object","properties":{"carrier":{"type":"string"},"trackingNo":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: createItemDT
+    name: "Create data type for inbound items"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Inbound Item Material Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "inbounditem"
+        jsonSchema: '{"type":"object","properties":{"material":{"type":"string","enum":["wood","metal","plastic"]},"hazardous":{"type":"boolean"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: createInbound
+    name: "Create inbound with typed inline items"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        orderID: "PO-TYPED-ITEMS-001"
+        dataTypeID: {$ref: "res[createInboundDT].body.data.createDataType.id"}
+        data:
+          carrier: "FedEx"
+          trackingNo: "FX-123456"
+        inboundItems:
+          - sku: "WOOD-PLANK-001"
+            quantity: 100
+            dataTypeID: {$ref: "res[createItemDT].body.data.createDataType.id"}
+            data:
+              material: "wood"
+              hazardous: false
+          - sku: "METAL-BEAM-001"
+            quantity: 25
+            dataTypeID: {$ref: "res[createItemDT].body.data.createDataType.id"}
+            data:
+              material: "metal"
+              hazardous: false
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound created with 2 items"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+          - ref: res.body.data.createReceivingInbound.receivingInbound.inboundItems.totalCount
+            equal: 2
+      - msg: "Inbound data persisted"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.data.carrier
+            equal: "FedEx"
+
+  - id: addItem
+    name: "Add another item to the inbound"
+    operation: receiving.createReceivingInboundItem
+    vars:
+      input:
+        sku: "PLASTIC-WRAP-001"
+        quantity: 500
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+        dataTypeID: {$ref: "res[createItemDT].body.data.createDataType.id"}
+        data:
+          material: "plastic"
+          hazardous: false
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created"
+        assertions:
+          - ref: res.body.data.createReceivingInboundItem.receivingInboundItem.id
+            nil: false
+
+  - name: "Verify three items total"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Three items total"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            equal: 3
+
+  - name: "Filter items by SKU prefix"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        skuHasPrefix: "METAL"
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "One metal item"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            equal: 1
+
+  - name: "Update item data"
+    operation: receiving.updateReceivingInboundItem
+    vars:
+      id: {$ref: "res[addItem].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+      input:
+        quantity: 1000
+        dataTypeID: {$ref: "res[createItemDT].body.data.createDataType.id"}
+        data:
+          material: "plastic"
+          hazardous: true
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item updated"
+        assertions:
+          - ref: res.body.data.updateReceivingInboundItem.receivingInboundItem.quantity
+            equal: 1000
+
+  - name: "Delete inbound (cascade)"
+    operation: receiving.deleteReceivingInbound
+    vars:
+      id: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Verify no items remain"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No items remain"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            equal: 0
+
+  - name: "Cleanup - delete item data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createItemDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete inbound data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createInboundDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

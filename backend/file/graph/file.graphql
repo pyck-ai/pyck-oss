@@ -1,0 +1,12 @@
+extend type File {
+    url: String
+    publicURL: String
+}
+
+
+extend input FileWhereInput {
+  Data: [String!]
+  DataHasKey: String
+  DataIn: [String!]
+  DataContains: [String!]
+}

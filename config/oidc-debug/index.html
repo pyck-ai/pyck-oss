@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OIDC Debug - JWT Token Development</title>
+    <script src="https://cdn.jsdelivr.net/npm/oidc-client-ts@3.0.1/dist/browser/oidc-client-ts.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #0a0a0a;
+            color: #e0e0e0;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #333;
+        }
+        
+        h1 {
+            color: #fff;
+            margin: 0;
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #666;
+        }
+        
+        .status-indicator.authenticated {
+            background-color: #10b981;
+        }
+        
+        button {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: #2563eb;
+        }
+        
+        button.logout {
+            background-color: #ef4444;
+        }
+        
+        button.logout:hover {
+            background-color: #dc2626;
+        }
+        
+        button:disabled {
+            background-color: #4b5563;
+            cursor: not-allowed;
+        }
+        
+        .token-section {
+            margin-bottom: 30px;
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .token-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        h2 {
+            color: #fff;
+            margin: 0;
+            font-size: 18px;
+        }
+        
+        .token-content {
+            background-color: #0d0d0d;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+            color: #a0a0a0;
+        }
+        
+        .token-content.expanded {
+            max-height: none;
+        }
+        
+        .jwt-decoded {
+            margin-top: 15px;
+        }
+        
+        .jwt-section {
+            background-color: #0d0d0d;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .jwt-section h3 {
+            color: #3b82f6;
+            margin: 0 0 10px 0;
+            font-size: 14px;
+        }
+        
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+            color: #a0a0a0;
+            font-size: 12px;
+        }
+        
+        .error {
+            background-color: #7f1d1d;
+            border: 1px solid #ef4444;
+            color: #fca5a5;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .info {
+            background-color: #1e3a5f;
+            border: 1px solid #3b82f6;
+            color: #93bbfc;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .copy-button {
+            background-color: #10b981;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .copy-button:hover {
+            background-color: #059669;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+        
+        .user-info {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .user-info h3 {
+            margin: 0 0 15px 0;
+            color: #fff;
+        }
+        
+        .user-info-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 10px 20px;
+        }
+        
+        .user-info-label {
+            color: #6b7280;
+            font-weight: 500;
+        }
+        
+        .user-info-value {
+            color: #e0e0e0;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>OIDC Debug Frontend</h1>
+        <div class="status">
+            <span id="status-text">Not authenticated</span>
+            <div id="status-indicator" class="status-indicator"></div>
+            <button id="auth-button" onclick="login()">Login with Zitadel</button>
+        </div>
+    </div>
+    
+    <div id="loading" class="loading" style="display: none;">
+        Processing authentication...
+    </div>
+    
+    <div id="error-container"></div>
+    
+    <div id="user-container" style="display: none;">
+        <div class="user-info">
+            <h3>User Information</h3>
+            <div class="user-info-grid">
+                <span class="user-info-label">Email:</span>
+                <span class="user-info-value" id="user-email">-</span>
+                
+                <span class="user-info-label">Name:</span>
+                <span class="user-info-value" id="user-name">-</span>
+                
+                <span class="user-info-label">Subject ID:</span>
+                <span class="user-info-value" id="user-sub">-</span>
+                
+                <span class="user-info-label">Organization:</span>
+                <span class="user-info-value" id="user-org">-</span>
+            </div>
+        </div>
+    </div>
+    
+    <div id="token-container" style="display: none;">
+        <div class="info">
+            <strong>Development Tokens:</strong> Use the ID Token (JWT) for authentication with Pyck services. 
+            The Access Token is opaque and used for Zitadel API calls only.
+        </div>
+        
+        <div class="token-section">
+            <div class="token-header">
+                <h2>ID Token (JWT) - Use this for Pyck Auth</h2>
+                <button class="copy-button" onclick="copyToken('id-token')">Copy Token</button>
+            </div>
+            <div id="id-token" class="token-content"></div>
+            <div id="id-token-decoded" class="jwt-decoded"></div>
+        </div>
+        
+        <div class="token-section">
+            <div class="token-header">
+                <h2>Access Token (Opaque)</h2>
+                <button class="copy-button" onclick="copyToken('access-token')">Copy Token</button>
+            </div>
+            <div id="access-token" class="token-content"></div>
+        </div>
+        
+        <div class="token-section">
+            <div class="token-header">
+                <h2>Bearer Header for Testing</h2>
+                <button class="copy-button" onclick="copyToken('bearer-header')">Copy Header</button>
+            </div>
+            <div id="bearer-header" class="token-content"></div>
+        </div>
+    </div>
+    
+    <script>
+        let client = null;
+        let isInitialized = false;
+        
+        // Initialize the application
+        initializeApp();
+        
+        async function initializeApp() {
+            try {
+                // Show loading state
+                document.getElementById('loading').style.display = 'block';
+                
+                // Fetch configuration from server
+                const response = await fetch('/api/config');
+                if (!response.ok) {
+                    throw new Error(`Failed to load configuration: ${response.status} ${response.statusText}`);
+                }
+                
+                const settings = await response.json();
+                console.log('Loaded OIDC configuration from server');
+                
+                // Initialize OIDC client with server configuration
+                client = new oidc.UserManager(settings);
+                isInitialized = true;
+                
+                // Hide loading state
+                document.getElementById('loading').style.display = 'none';
+                
+                // Handle redirect callback
+                if (window.location.pathname === '/callback') {
+                    document.getElementById('loading').style.display = 'block';
+                    client.signinRedirectCallback().then(() => {
+                        window.location.href = '/';
+                    }).catch(err => {
+                        console.error('Callback error:', err);
+                        showError('Authentication callback failed: ' + err.message);
+                    });
+                    return;
+                }
+                
+                // Check authentication status
+                await checkAuth();
+                
+            } catch (error) {
+                console.error('Failed to initialize app:', error);
+                document.getElementById('loading').style.display = 'none';
+                showError('Failed to initialize application: ' + error.message);
+            }
+        }
+        
+        async function checkAuth() {
+            if (!client || !isInitialized) {
+                showNotAuthenticated();
+                return;
+            }
+            
+            try {
+                const user = await client.getUser();
+                if (user && !user.expired) {
+                    showAuthenticated(user);
+                } else {
+                    showNotAuthenticated();
+                }
+            } catch (err) {
+                console.error('Auth check error:', err);
+                showNotAuthenticated();
+            }
+        }
+        
+        function login() {
+            if (!client || !isInitialized) {
+                showError('OIDC client not initialized. Please refresh the page.');
+                return;
+            }
+            
+            client.signinRedirect().catch(err => {
+                console.error('Login error:', err);
+                showError('Login failed: ' + err.message);
+            });
+        }
+        
+        function logout() {
+            if (!client || !isInitialized) {
+                showError('OIDC client not initialized. Please refresh the page.');
+                return;
+            }
+            
+            client.signoutRedirect().catch(err => {
+                console.error('Logout error:', err);
+                showError('Logout failed: ' + err.message);
+            });
+        }
+        
+        function showAuthenticated(user) {
+            document.getElementById('status-text').textContent = 'Authenticated';
+            document.getElementById('status-indicator').classList.add('authenticated');
+            document.getElementById('auth-button').textContent = 'Logout';
+            document.getElementById('auth-button').classList.add('logout');
+            document.getElementById('auth-button').onclick = logout;
+            
+            // Show user info
+            document.getElementById('user-container').style.display = 'block';
+            document.getElementById('user-email').textContent = user.profile.email || '-';
+            document.getElementById('user-name').textContent = user.profile.name || '-';
+            document.getElementById('user-sub').textContent = user.profile.sub || '-';
+            document.getElementById('user-org').textContent = 
+                user.profile['urn:zitadel:iam:user:resourceowner:id'] || '-';
+            
+            // Show tokens
+            document.getElementById('token-container').style.display = 'block';
+            
+            // ID Token (JWT)
+            document.getElementById('id-token').textContent = user.id_token;
+            decodeAndDisplayJWT(user.id_token, 'id-token-decoded');
+            
+            // Access Token
+            document.getElementById('access-token').textContent = user.access_token;
+            
+            // Bearer Header
+            document.getElementById('bearer-header').textContent = `Authorization: Bearer ${user.id_token}`;
+        }
+        
+        function showNotAuthenticated() {
+            document.getElementById('status-text').textContent = 'Not authenticated';
+            document.getElementById('status-indicator').classList.remove('authenticated');
+            document.getElementById('auth-button').textContent = 'Login with Zitadel';
+            document.getElementById('auth-button').classList.remove('logout');
+            document.getElementById('auth-button').onclick = login;
+            document.getElementById('auth-button').disabled = !isInitialized;
+            document.getElementById('user-container').style.display = 'none';
+            document.getElementById('token-container').style.display = 'none';
+        }
+        
+        function decodeAndDisplayJWT(token, elementId) {
+            try {
+                const parts = token.split('.');
+                if (parts.length !== 3) {
+                    throw new Error('Invalid JWT format');
+                }
+                
+                const header = JSON.parse(atob(parts[0]));
+                const payload = JSON.parse(atob(parts[1]));
+                
+                // Calculate expiry
+                const now = Math.floor(Date.now() / 1000);
+                const expiresIn = payload.exp ? payload.exp - now : null;
+                const isExpired = payload.exp ? now > payload.exp : false;
+                
+                const container = document.getElementById(elementId);
+                container.innerHTML = `
+                    <div class="jwt-section">
+                        <h3>Header</h3>
+                        <pre>${JSON.stringify(header, null, 2)}</pre>
+                    </div>
+                    <div class="jwt-section">
+                        <h3>Payload</h3>
+                        <pre>${JSON.stringify(payload, null, 2)}</pre>
+                    </div>
+                    <div class="jwt-section">
+                        <h3>Token Info</h3>
+                        <pre>Expires in: ${expiresIn ? Math.floor(expiresIn / 60) + ' minutes' : 'No expiry'}
+${isExpired ? 'Status: EXPIRED' : 'Status: Valid'}
+Issued: ${payload.iat ? new Date(payload.iat * 1000).toLocaleString() : 'Unknown'}
+Expires: ${payload.exp ? new Date(payload.exp * 1000).toLocaleString() : 'Never'}</pre>
+                    </div>
+                `;
+            } catch (err) {
+                document.getElementById(elementId).innerHTML = 
+                    '<div class="error">Failed to decode JWT: ' + err.message + '</div>';
+            }
+        }
+        
+        function copyToken(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                // Visual feedback
+                const button = element.parentElement.querySelector('.copy-button');
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.backgroundColor = '#059669';
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.backgroundColor = '#10b981';
+                }, 2000);
+            }).catch(err => {
+                showError('Failed to copy: ' + err.message);
+            });
+        }
+        
+        function showError(message) {
+            const container = document.getElementById('error-container');
+            container.innerHTML = `<div class="error">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

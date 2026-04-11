@@ -1,0 +1,23 @@
+---
+operation: GetWorkflowHistory
+name: "Get Workflow History"
+description: >
+  Retrieves the event history for a specific workflow execution.
+vars:
+  where:
+    workflowID: { $placeholder: "workflow execution ID" }
+    runID: { $placeholder: "run ID" }
+  limit: 50
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "History returned"
+    assertions:
+      - ref: res.body.data.workflowHistory.totalCount
+        nil: false

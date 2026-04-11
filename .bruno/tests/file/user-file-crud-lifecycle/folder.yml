@@ -1,0 +1,11 @@
+info:
+  name: User - File CRUD Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a file record, verifies it appears in the list query, updates its metadata, runs image analysis (expected to fail on a non-image file), and deletes it at the end.
+
+
+request:
+  auth: inherit

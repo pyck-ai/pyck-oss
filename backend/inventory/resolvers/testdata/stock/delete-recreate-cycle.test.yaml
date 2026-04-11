@@ -1,0 +1,177 @@
+# Delete-Recreate Cycle Scenario
+# Tests that after deleting a pending movement, a new movement can be created
+# to the same destination with different quantities, and stock remains correct.
+name: delete-recreate-cycle
+itemSKU: del-recreate-item
+
+# ========================================================================
+# REPOSITORY STRUCTURE OVERVIEW
+# ========================================================================
+#
+#  warehouse (root)
+#  ├─ shelf
+#  └─ outbound
+#
+# ========================================================================
+
+repositories:
+  # Virtual repository for initial stock additions
+  - name: virtual
+    parent: ""
+    type: static
+    virtual: true
+
+  # Main warehouse container
+  - name: warehouse
+    parent: ""
+    type: static
+    virtual: false
+
+  # Shelf - holds initial stock
+  - name: shelf
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Outbound - destination for movements
+  - name: outbound
+    parent: warehouse
+    type: static
+    virtual: false
+
+steps:
+  # =========================================================================
+  #  virtual                             warehouse
+  #    └─[100 items]────────────────────► └─ shelf
+  # =========================================================================
+  - name: seed_create
+    action: create
+    moveType: item
+    from: virtual
+    to: shelf
+    qty: 100
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out: 100, ownOut: 100 }
+      shelf:     { qty:   0, ownQty:   0, in: 100, ownIn: 100, out:   0, ownOut:   0 }
+
+  - name: seed_execute
+    action: execute
+    movement: seed_create
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      warehouse: { qty: 100, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      shelf:     { qty: 100, ownQty: 100, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      outbound:  { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  # =========================================================================
+  # Cycle 1: Create → Delete → Recreate with different qty → Execute
+  # =========================================================================
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ shelf ──[40 items]─╮
+  #  └─ outbound ◄─────────╯
+  # =========================================================================
+  - name: create_first_attempt
+    action: create
+    moveType: item
+    from: shelf
+    to: outbound
+    qty: 40
+    expectedStocks:
+      shelf:     { qty: 100, ownQty: 100, in: 0, ownIn: 0, out: 40, ownOut: 40 }
+      outbound:  { qty:   0, ownQty:   0, in: 40, ownIn: 40, out: 0, ownOut:  0 }
+      warehouse: { qty: 100, ownQty:   0, in:  0, ownIn:  0, out: 0, ownOut:  0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ shelf ──[40 items]─╳ (delete movement)
+  #  └─ outbound ◄─────────╯
+  # =========================================================================
+  - name: delete_first_attempt
+    action: delete
+    movement: create_first_attempt
+    expectedStocks:
+      shelf:     { qty: 100, ownQty: 100, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      outbound:  { qty:   0, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      warehouse: { qty: 100, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ shelf ──[25 items]─╮
+  #  └─ outbound ◄─────────╯
+  # =========================================================================
+  - name: create_corrected
+    action: create
+    moveType: item
+    from: shelf
+    to: outbound
+    qty: 25
+    expectedStocks:
+      shelf:     { qty: 100, ownQty: 100, in: 0, ownIn: 0, out: 25, ownOut: 25 }
+      outbound:  { qty:   0, ownQty:   0, in: 25, ownIn: 25, out: 0, ownOut:  0 }
+      warehouse: { qty: 100, ownQty:   0, in:  0, ownIn:  0, out: 0, ownOut:  0 }
+
+  - name: execute_corrected
+    action: execute
+    movement: create_corrected
+    expectedStocks:
+      shelf:     { qty:  75, ownQty:  75, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      outbound:  { qty:  25, ownQty:  25, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      warehouse: { qty: 100, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  # =========================================================================
+  # Cycle 2: Same with collection movements
+  # =========================================================================
+
+  - name: create_coll_first_attempt
+    action: create
+    moveType: collection
+    collection:
+      # =========================================================================
+      #  warehouse
+      #  ├─ shelf ──[50 items]─╮
+      #  └─ outbound ◄─────────╯
+      # =========================================================================
+      - from: shelf
+        to: outbound
+        qty: 50
+    expectedStocks:
+      shelf:     { qty:  75, ownQty:  75, in: 0, ownIn: 0, out: 50, ownOut: 50 }
+      outbound:  { qty:  25, ownQty:  25, in: 50, ownIn: 50, out: 0, ownOut:  0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ shelf ──[50 items]─╳ (delete movement)
+  #  └─ outbound ◄─────────╯
+  # =========================================================================
+  - name: delete_coll_first_attempt
+    action: delete
+    movement: create_coll_first_attempt[0]
+    expectedStocks:
+      shelf:     { qty:  75, ownQty:  75, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      outbound:  { qty:  25, ownQty:  25, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  - name: create_coll_corrected
+    action: create
+    moveType: collection
+    collection:
+      # =========================================================================
+      #  warehouse
+      #  ├─ shelf ──[10 items]─╮
+      #  └─ outbound ◄─────────╯
+      # =========================================================================
+      - from: shelf
+        to: outbound
+        qty: 10
+    expectedStocks:
+      shelf:     { qty:  75, ownQty:  75, in: 0, ownIn: 0, out: 10, ownOut: 10 }
+      outbound:  { qty:  25, ownQty:  25, in: 10, ownIn: 10, out: 0, ownOut:  0 }
+
+  - name: execute_coll_corrected
+    action: execute
+    movement: create_coll_corrected[0]
+    expectedStocks:
+      shelf:     { qty:  65, ownQty:  65, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      outbound:  { qty:  35, ownQty:  35, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      warehouse: { qty: 100, ownQty:   0, in: 0, ownIn: 0, out: 0, ownOut: 0 }

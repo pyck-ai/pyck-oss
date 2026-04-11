@@ -1,0 +1,23 @@
+---
+operation: UpdateReceivingInboundShipmentNotification
+name: "Update Receiving Inbound Shipment Notification"
+description: >
+  Updates an inbound shipment notification's data fields.
+vars:
+  id: { $placeholder: "notification ID" }
+  input:
+    data:
+      status: "received"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated notification returned"
+    assertions:
+      - ref: res.body.data.updateReceivingInboundShipmentNotification.receivingInboundShipmentNotification.id
+        nil: false

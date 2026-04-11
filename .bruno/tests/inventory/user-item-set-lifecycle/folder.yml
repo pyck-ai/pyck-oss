@@ -1,0 +1,11 @@
+info:
+  name: User - Item Set Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates an inventory item, then creates an item set grouping it, reads the set back, updates it, and deletes it. Verifies item association is persisted. All steps after createItemSet are skipped when it returns errors.
+
+
+request:
+  auth: inherit

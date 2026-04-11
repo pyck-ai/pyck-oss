@@ -1,0 +1,23 @@
+---
+operation: CreateReceivingInboundShipmentNotification
+name: "Create Receiving Inbound Shipment Notification"
+description: >
+  Creates an inbound shipment notification linked to an existing inbound.
+vars:
+  input:
+    inboundID: { $placeholder: "inbound ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Notification was created"
+    assertions:
+      - ref: res.body.data.createReceivingInboundShipmentNotification.receivingInboundShipmentNotification.id
+        nil: false
+      - ref: res.body.data.createReceivingInboundShipmentNotification.receivingInboundShipmentNotification.inboundID
+        nil: false

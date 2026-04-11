@@ -1,0 +1,76 @@
+version: "3.45"
+
+tasks:
+  clean:
+    desc: Clean generated files
+    cmds:
+      - find . -type f -name "*_gen.go" -exec rm -f {} +
+      - find . -type d -name "gen" -exec rm -rf {} +
+      - rm -fr ./out ./dist
+
+  generate:
+    desc: Generate module code
+    deps:
+      - task: clean
+    vars:
+      HAS_GENERATE_GO:
+        sh: test -f generate.go && echo "true" || true
+    cmds:
+      - go mod tidy -v -e 2>/dev/null
+      - >
+        go generate -x {{if ne .HAS_GENERATE_GO "true"}}./...{{end -}}
+      - go mod tidy -v
+      - go work sync
+
+  lint:
+    desc: Lint module
+    cmds:
+      - go mod verify
+      - golangci-lint-v2 config verify --schema '{{.TASKFILE_DIR}}/../.golangci-lint/golangci.v2.5.jsonschema.json'
+      - >-
+        golangci-lint-v2 run
+        --allow-serial-runners
+        --timeout=5m
+        ./...
+
+  lint:fix:
+    desc: Lint module and fix issues
+    cmds:
+      - go mod verify
+      - golangci-lint-v2 config verify
+      - >-
+        golangci-lint-v2 run
+        --allow-serial-runners
+        --timeout=5m
+        --fix
+        ./...
+
+  format:
+    desc: Format module
+    cmds:
+      - golangci-lint-v2 fmt ./...
+
+  format:diff:
+    desc: Show format diff for module
+    cmds:
+      - golangci-lint-v2 fmt --diff-colored ./... || true
+
+  test:
+    desc: Test module
+    cmds:
+      - >-
+        gotestsum
+        --format-icons=text
+        --format-hide-empty-pkg
+        "--format={{if .FORMAT}}{{.FORMAT}}{{else}}pkgname{{end}}"
+        {{if .RERUN}}
+        --rerun-fails{{if .RERUN}}={{.RERUN}}{{end}}
+        --rerun-fails-max-failures=5
+        --rerun-fails-run-root-test
+        --rerun-fails-abort-on-data-race
+        {{end}}
+        --packages=./...
+        --
+        -race
+        -cover -coverprofile=cover.out
+        {{.CLI_ARGS}}

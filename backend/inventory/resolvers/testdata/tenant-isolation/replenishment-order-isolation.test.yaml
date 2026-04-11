@@ -1,0 +1,78 @@
+name: replenishment-order-isolation
+description: Verify replenishment orders and their items are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  replenishmentOrders:
+    - name: order-alpha
+      tenant: alpha
+    - name: order-beta
+      tenant: beta
+
+checks:
+  # --- Read isolation ---
+  - type: query
+    entity: replenishmentOrder
+    tenant: alpha
+    description: "alpha sees only own replenishment orders"
+    expectCount: 1
+
+  - type: query
+    entity: replenishmentOrder
+    tenant: beta
+    description: "beta sees only own replenishment orders"
+    expectCount: 1
+
+  # --- Cross-tenant update + verify unchanged ---
+  - type: cross-update
+    entity: replenishmentOrder
+    tenant: alpha
+    target: beta/order-beta
+    description: "alpha cannot update beta's replenishment order"
+    expectError: "not found"
+
+  - type: query
+    entity: replenishmentOrder
+    tenant: beta
+    description: "beta still has 1 replenishment order after failed cross-update"
+    expectCount: 1
+
+  # --- Cross-tenant delete + verify still exists ---
+  - type: cross-delete
+    entity: replenishmentOrder
+    tenant: alpha
+    target: beta/order-beta
+    description: "alpha cannot delete beta's replenishment order"
+    expectError: "not found"
+
+  - type: query
+    entity: replenishmentOrder
+    tenant: beta
+    description: "beta still has 1 replenishment order after failed cross-delete"
+    expectCount: 1
+
+  # Alpha CAN create order with beta's supplierID ---
+  # This is a known cross-service reference injection (supplierID not validated).
+  # The order gets tenant_id=alpha, so alpha sees it but beta does not.
+  - type: cross-create
+    entity: replenishmentOrder
+    tenant: alpha
+    description: "alpha can create order with beta's supplierID"
+    args:
+      supplierID: beta/order-beta
+    expectError: none
+
+  - type: query
+    entity: replenishmentOrder
+    tenant: alpha
+    description: "alpha now sees 2 orders (original + one with beta's supplier)"
+    expectCount: 2
+
+  - type: query
+    entity: replenishmentOrder
+    tenant: beta
+    description: "beta still sees only 1 order (alpha's cross-tenant order is invisible)"
+    expectCount: 1

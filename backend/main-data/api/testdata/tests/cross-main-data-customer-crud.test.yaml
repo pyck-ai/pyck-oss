@@ -1,0 +1,219 @@
+---
+name: "Cross - Customer CRUD Lifecycle"
+description: >
+  Creates a data type for customers, then performs full CRUD on a
+  customer entity. Verifies data persistence, dataTypeID, query
+  filters, update, and soft delete.
+steps:
+  - id: createDT
+    name: "Create data type for customers"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Customer Profile"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"name":{"type":"string"},"industry":{"type":"string"},"tier":{"type":"integer","minimum":1,"maximum":5}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: create
+    name: "Create customer with data"
+    operation: main-data.createCustomer
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          name: "Acme Corp"
+          industry: "manufacturing"
+          tier: 3
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Customer created"
+        assertions:
+          - ref: res.body.data.createCustomer.id
+            nil: false
+      - msg: "DataTypeID persisted"
+        assertions:
+          - ref: res.body.data.createCustomer.dataTypeID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}
+      - msg: "Data persisted"
+        assertions:
+          - ref: res.body.data.createCustomer.data.name
+            equal: "Acme Corp"
+          - ref: res.body.data.createCustomer.data.industry
+            equal: "manufacturing"
+          - ref: res.body.data.createCustomer.data.tier
+            equal: 3
+
+  - name: "Query customer by ID"
+    operation: main-data.getCustomers
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one customer"
+        assertions:
+          - ref: res.body.data.customers.totalCount
+            equal: 1
+      - msg: "DataTypeID persisted on query"
+        assertions:
+          - ref: res.body.data.customers.edges[].node.dataTypeID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}
+      - msg: "Data fields persisted"
+        assertions:
+          - ref: res.body.data.customers.edges[].node.data.name
+            equal: "Acme Corp"
+          - ref: res.body.data.customers.edges[].node.data.industry
+            equal: "manufacturing"
+          - ref: res.body.data.customers.edges[].node.data.tier
+            equal: 3
+
+  - name: "Query by dataTypeID"
+    operation: main-data.getCustomers
+    vars:
+      where:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "At least one customer"
+        assertions:
+          - ref: res.body.data.customers.totalCount
+            greater: 0
+
+  - name: "Update customer data"
+    operation: main-data.updateCustomer
+    vars:
+      id: {$ref: "res[create].body.data.createCustomer.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          name: "Acme Corp Intl"
+          industry: "technology"
+          tier: 5
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data updated"
+        assertions:
+          - ref: res.body.data.updateCustomer.data.name
+            equal: "Acme Corp Intl"
+          - ref: res.body.data.updateCustomer.data.industry
+            equal: "technology"
+          - ref: res.body.data.updateCustomer.data.tier
+            equal: 5
+
+  - name: "Verify updated data on query"
+    operation: main-data.getCustomers
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Updated data persisted"
+        assertions:
+          - ref: res.body.data.customers.edges[].node.data.name
+            equal: "Acme Corp Intl"
+          - ref: res.body.data.customers.edges[].node.data.tier
+            equal: 5
+
+  - name: "Delete customer"
+    operation: main-data.deleteCustomer
+    vars:
+      id: {$ref: "res[create].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID matches"
+        assertions:
+          - ref: res.body.data.deleteCustomer.deletedID
+            equal: {$ref: "res[create].body.data.createCustomer.id"}
+
+  - name: "Verify customer deleted"
+    operation: main-data.getCustomers
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results"
+        assertions:
+          - ref: res.body.data.customers.totalCount
+            equal: 0
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteDataType.deletedID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}

@@ -1,0 +1,26 @@
+extend type Query {
+  me: UserProfile!
+}
+
+type UserProfile {
+  UserID: UUID!
+  Username: String!
+  Email: String!
+  FirstName: String!
+  LastName: String!
+  TenantID: UUID!
+  TenantName: String!
+  AssignedRoles: [UserRoleTuple!]! # Deprecated: use Tenants instead
+  Tenants: [UserTenants!]!
+}
+
+type UserRoleTuple {
+  Role: String!
+  TenantID: UUID!
+}
+
+type UserTenants {
+  ID: UUID!
+  Name: String!
+  Role: String!
+}

@@ -1,0 +1,6 @@
+type PickingOrderItem @key(fields: "sku") {
+  sku: String!
+  item: InventoryItem
+  availableStock: Int
+  reservedStock: Int
+}

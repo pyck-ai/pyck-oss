@@ -1,0 +1,27 @@
+---
+operation: UpdateReceivingInboundItem
+name: "Update Receiving Inbound Item"
+description: >
+  Updates an inbound item's SKU and quantity.
+vars:
+  id: { $placeholder: "inbound item ID" }
+  input:
+    sku: "RECV-ITEM-002"
+    quantity: 200
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated item returned"
+    assertions:
+      - ref: res.body.data.updateReceivingInboundItem.receivingInboundItem.id
+        nil: false
+      - ref: res.body.data.updateReceivingInboundItem.receivingInboundItem.sku
+        equal: "RECV-ITEM-002"
+      - ref: res.body.data.updateReceivingInboundItem.receivingInboundItem.quantity
+        equal: 200

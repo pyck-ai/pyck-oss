@@ -1,0 +1,30 @@
+version: "3.45"
+
+tasks:
+  clean:
+    desc: Clean generated files
+    cmds:
+      - rm -f *.graphql supergraph.yaml
+
+  generate:
+    desc: Compose supergraph
+    deps:
+      - task: clean
+    cmds:
+      - ./compose-supergraph.sh {{.DIRS | default "../"}}
+
+  # run:
+  #   desc: Run Apollo Router locally
+  #   cmds:
+  #     - >-
+  #       docker compose
+  #       -f ../../docker-compose.yml
+  #       up
+  #       --build
+  #       --pull=always
+  #       --force-recreate
+  #       --remove-orphans
+  #       --no-log-prefix
+  #       --wait
+  #       "gateway"
+  #       {{.CLI_ARGS}}

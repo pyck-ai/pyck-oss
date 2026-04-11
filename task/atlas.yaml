@@ -1,0 +1,28 @@
+version: "3.45"
+
+tasks:
+  atlas:migrate:
+    desc: Run atlas migrations
+    vars:
+      NAME:
+        sh: basename "{{.TASK_DIR}}"
+    cmds:
+      - >-
+        docker compose
+        -f "{{.TASKFILE_DIR}}/../docker-compose.yml"
+        -f "{{.TASKFILE_DIR}}/../docker-compose.debug.yml"
+        run
+        --rm --interactive --tty --no-deps
+        "{{.NAME}}"
+        go run -mod=readonly ent/migrate/main.go {{.CLI_ARGS}}
+
+  # atlas.rehash:
+  #   desc: Rehash atlas migrations
+  #   cmds:
+  #     - >-
+  #       docker run
+  #       --rm --interactive --tty
+  #       --volume "$(pwd)/ent/migrate/migrations/:/migrations/:z"
+  #       arigaio/atlas
+  #       migrate hash
+  #       {{.CLI_ARGS}}

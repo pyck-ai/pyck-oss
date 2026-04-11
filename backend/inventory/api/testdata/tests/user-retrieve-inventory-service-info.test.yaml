@@ -1,0 +1,20 @@
+---
+name: "User - Retrieve Inventory Service Info"
+description: >
+  Verifies the inventoryServiceInfo query returns version and date.
+steps:
+  - name: "Get service info"
+    operation: inventory.getInventoryServiceInfo
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Version returned"
+        assertions:
+          - ref: res.body.data.inventoryServiceInfo.version
+            nil: false

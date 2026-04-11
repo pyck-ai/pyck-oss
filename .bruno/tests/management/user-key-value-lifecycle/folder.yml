@@ -1,0 +1,11 @@
+info:
+  name: User - Key Value Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Sets a key-value entry, verifies it in list queries, updates it via set (upsert), and deletes it.
+
+
+request:
+  auth: inherit

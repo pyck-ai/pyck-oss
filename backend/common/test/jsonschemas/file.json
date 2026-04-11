@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "$id": "http://example.com/example.json",
+  "type": "object",
+  "default": {},
+  "title": "Root Schema",
+  "required": [
+    "type",
+    "meta"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "default": "",
+      "title": "The type Schema",
+      "examples": [
+        "custom"
+      ]
+    },
+    "meta": {
+      "type": "object",
+      "default": {},
+      "title": "The meta Schema",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "title": "The name Schema",
+          "examples": [
+            "Testitem"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "default": [],
+          "title": "The tags Schema",
+          "items": {
+            "type": "string",
+            "title": "A Schema",
+            "examples": [
+              "test",
+              "foobar"
+            ]
+          },
+          "examples": [
+            ["test",
+              "foobar"
+            ]
+          ]
+        }
+      },
+      "examples": [{
+        "name": "Test-File",
+        "tags": [
+          "test",
+          "foobar"
+        ]
+      }]
+    }
+  },
+  "examples": [{
+    "type": "custom",
+    "meta": {
+      "name": "Testitem",
+      "tags": [
+        "test",
+        "foobar"
+      ]
+    }
+  }]
+}

@@ -1,0 +1,11 @@
+info:
+  name: User - Retrieve Management Service Info
+  type: folder
+  seq: 1
+
+docs: |-
+  Verifies the managementServiceInfo query returns version and date, and that getMe returns the current user's profile.
+
+
+request:
+  auth: inherit

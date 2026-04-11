@@ -1,0 +1,151 @@
+# Parent Source Ghost Stock Test
+# Tests that moving items FROM a parent repo (instead of the child that owns them)
+# creates ghost stock: the child keeps its items while the parent's qty drops.
+#
+# This reproduces the Hellmann picking bug where movements were created with
+# FROM=Inbound (parent) instead of FROM=Pallet (child that owns the items).
+#
+# Correct flow:  Pallet → Box (Pallet loses ownQty, Inbound loses propagated qty)
+# Buggy flow:    Inbound → Box (Inbound loses qty, but Pallet is untouched = ghost)
+name: parent-source-ghost-stock
+itemSKU: ghost-stock-item
+# ========================================================================
+# REPOSITORY STRUCTURE OVERVIEW
+# ========================================================================
+#
+#  virtual-source (virtual)
+#
+#  halle (root)
+#  ├─ inbound
+#  │  └─ pallet (dynamic) ← items live here
+#  └─ packing-area
+#     └─ box (dynamic)    ← items should end up here
+#
+# ========================================================================
+repositories:
+  - name: virtual-source
+    parent: ""
+    type: static
+    virtual: true
+  - name: halle
+    parent: ""
+    type: static
+    virtual: false
+  - name: inbound
+    parent: halle
+    type: static
+    virtual: false
+  - name: pallet
+    parent: inbound
+    type: dynamic
+    virtual: false
+  - name: packing-area
+    parent: halle
+    type: static
+    virtual: false
+  - name: box
+    parent: packing-area
+    type: dynamic
+    virtual: false
+steps:
+  # =========================================================================
+  # Step 1: Receive 10 items into pallet (under inbound)
+  #
+  #  virtual-source                    halle
+  #  └─[10 items]──────────────────────► └─ inbound
+  #                                         └─ pallet
+  # =========================================================================
+  - name: receive_items
+    action: create
+    moveType: item
+    from: virtual-source
+    to: pallet
+    qty: 10
+    expectedStocks:
+      virtual-source: { qty:  0, ownQty:  0, in:  0, ownIn:  0, out: 10, ownOut: 10 }
+      halle:          { qty:  0, ownQty:  0, in: 10, ownIn:  0, out:  0, ownOut:  0 }
+      inbound:        { qty:  0, ownQty:  0, in: 10, ownIn:  0, out:  0, ownOut:  0 }
+      pallet:         { qty:  0, ownQty:  0, in: 10, ownIn: 10, out:  0, ownOut:  0 }
+      packing-area:   { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      box:            { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+  - name: execute_receive
+    action: execute
+    movement: receive_items
+    expectedStocks:
+      virtual-source: { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      halle:          { qty: 10, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      inbound:        { qty: 10, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      pallet:         { qty: 10, ownQty: 10, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      packing-area:   { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      box:            { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+  # =========================================================================
+  # Step 2: BUG — move FROM inbound (parent) instead of FROM pallet (child)
+  # This is what the picking workflow was doing wrong.
+  #
+  #  halle
+  #  ├─ inbound ──[5 items]──╮   (inbound doesn't own items! pallet does)
+  #  │  └─ pallet            │
+  #  └─ packing-area         │
+  #     └─ box ◄─────────────╯
+  # =========================================================================
+  - name: buggy_move_from_parent
+    action: create
+    moveType: item
+    from: inbound
+    to: box
+    qty: 5
+    expectedStocks:
+      virtual-source: { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      halle:          { qty: 10, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      inbound:        { qty: 10, ownQty:  0, in:  0, ownIn:  0, out:  5, ownOut:  5 }
+      pallet:         { qty: 10, ownQty: 10, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      packing-area:   { qty:  0, ownQty:  0, in:  5, ownIn:  0, out:  0, ownOut:  0 }
+      box:            { qty:  0, ownQty:  0, in:  5, ownIn:  5, out:  0, ownOut:  0 }
+  - name: execute_buggy_move
+    action: execute
+    movement: buggy_move_from_parent
+    expectedStocks:
+      virtual-source: { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      halle:          { qty: 10, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      # BUG: inbound qty=5 but pallet still has 10 — 15 total items in the system!
+      # inbound lost 5 from ownQty (clamped from -5 to 0) and 5 from qty
+      inbound:        { qty:  5, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      # GHOST: pallet is untouched — it still thinks it has 10 items
+      pallet:         { qty: 10, ownQty: 10, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      packing-area:   { qty:  5, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      box:            { qty:  5, ownQty:  5, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+  # =========================================================================
+  # Step 3: CORRECT — move FROM pallet (the actual owner)
+  # This is how it should be done.
+  #
+  #  halle
+  #  ├─ inbound
+  #  │  └─ pallet ──[5 items]──╮
+  #  └─ packing-area           │
+  #     └─ box ◄───────────────╯
+  # =========================================================================
+  - name: correct_move_from_pallet
+    action: create
+    moveType: item
+    from: pallet
+    to: box
+    qty: 5
+    expectedStocks:
+      virtual-source: { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      halle:          { qty: 10, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      inbound:        { qty:  5, ownQty:  0, in:  0, ownIn:  0, out:  5, ownOut:  0 }
+      pallet:         { qty: 10, ownQty: 10, in:  0, ownIn:  0, out:  5, ownOut:  5 }
+      packing-area:   { qty:  5, ownQty:  0, in:  5, ownIn:  0, out:  0, ownOut:  0 }
+      box:            { qty:  5, ownQty:  5, in:  5, ownIn:  5, out:  0, ownOut:  0 }
+  - name: execute_correct_move
+    action: execute
+    movement: correct_move_from_pallet
+    expectedStocks:
+      virtual-source: { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      halle:          { qty: 10, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      # After correct move: inbound=0 (lost 5 from buggy + 5 propagated from pallet)
+      inbound:        { qty:  0, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      # Pallet correctly reduced: had 10, gave away 5
+      pallet:         { qty:  5, ownQty:  5, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      packing-area:   { qty: 10, ownQty:  0, in:  0, ownIn:  0, out:  0, ownOut:  0 }
+      box:            { qty: 10, ownQty: 10, in:  0, ownIn:  0, out:  0, ownOut:  0 }

@@ -1,0 +1,84 @@
+name: group-isolation
+description: Verify groups are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  users:
+    - name: user-alpha
+      tenant: alpha
+    - name: user-beta
+      tenant: beta
+
+  roles:
+    - name: role-alpha
+      tenant: alpha
+    - name: role-beta
+      tenant: beta
+
+  groups:
+    - name: group-alpha
+      tenant: alpha
+    - name: group-beta
+      tenant: beta
+
+checks:
+  - type: query
+    entity: group
+    tenant: alpha
+    description: "alpha sees only own groups"
+    expectCount: 1
+
+  - type: query
+    entity: group
+    tenant: beta
+    description: "beta sees only own groups"
+    expectCount: 1
+
+  - type: cross-update
+    entity: group
+    tenant: alpha
+    target: beta/group-beta
+    description: "alpha cannot update beta's group"
+    expectError: "not found"
+
+  - type: query
+    entity: group
+    tenant: beta
+    description: "beta still has 1 group after failed cross-update"
+    expectCount: 1
+
+  - type: cross-delete
+    entity: group
+    tenant: alpha
+    target: beta/group-beta
+    description: "alpha cannot delete beta's group"
+    expectError: "not found"
+
+  - type: query
+    entity: group
+    tenant: beta
+    description: "beta still has 1 group after failed cross-delete"
+    expectCount: 1
+
+  # CreateGroup now validates userIDs/roleIDs tenant ownership.
+  - type: cross-create-with-edges
+    entity: group
+    tenant: alpha
+    description: "alpha cannot create group with beta's users"
+    args:
+      name: cross-tenant-group
+      userID: beta/user-beta
+    expectError: "invalid user IDs"
+
+  # UpdateGroup now validates addUserIDs tenant ownership.
+  - type: cross-update-with-args
+    entity: group
+    tenant: alpha
+    target: alpha/group-alpha
+    description: "alpha cannot add beta's user to own group"
+    args:
+      addUserID: beta/user-beta
+    expectError: "invalid user IDs"

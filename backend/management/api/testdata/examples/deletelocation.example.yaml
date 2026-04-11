@@ -1,0 +1,20 @@
+---
+operation: DeleteLocation
+name: "Delete Location"
+description: >
+  Soft-deletes a location by ID.
+vars:
+  id: { $placeholder: "location ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Deleted ID returned"
+    assertions:
+      - ref: res.body.data.deleteLocation.deletedID
+        equal: {$ref: req.body.variables.id}

@@ -1,0 +1,20 @@
+---
+operation: GetAssignableWorkflowExecutions
+name: "Get Assignable Workflow Executions"
+description: >
+  Lists workflow executions that can be assigned to users.
+vars:
+  first: 10
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Result set returned"
+    assertions:
+      - ref: res.body.data.assignableWorkflowExecutions.totalCount
+        nil: false

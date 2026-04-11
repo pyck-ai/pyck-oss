@@ -1,0 +1,94 @@
+name: inbound-item-isolation
+description: Verify receiving inbound items are isolated between tenants
+
+seed:
+  tenants:
+    - name: alpha
+    - name: beta
+
+  inbounds:
+    - name: inbound-alpha
+      tenant: alpha
+    - name: inbound-beta
+      tenant: beta
+
+  inboundItems:
+    - name: item-alpha
+      tenant: alpha
+      inbound: inbound-alpha
+      sku: RECV-A1
+      quantity: 100
+    - name: item-beta
+      tenant: beta
+      inbound: inbound-beta
+      sku: RECV-B1
+      quantity: 50
+
+checks:
+  # --- Read isolation ---
+  - type: query
+    entity: inboundItem
+    tenant: alpha
+    description: "alpha sees only own inbound items"
+    expectCount: 1
+
+  - type: query
+    entity: inboundItem
+    tenant: beta
+    description: "beta sees only own inbound items"
+    expectCount: 1
+
+  # --- Cross-tenant update + verify unchanged ---
+  - type: cross-update
+    entity: inboundItem
+    tenant: alpha
+    target: beta/item-beta
+    description: "alpha cannot update beta's inbound item"
+    expectError: "not found"
+
+  - type: query
+    entity: inboundItem
+    tenant: beta
+    description: "beta still has 1 inbound item after failed cross-update"
+    expectCount: 1
+
+  # --- Cross-tenant delete + verify still exists ---
+  - type: cross-delete
+    entity: inboundItem
+    tenant: alpha
+    target: beta/item-beta
+    description: "alpha cannot delete beta's inbound item"
+    expectError: "not found"
+
+  - type: query
+    entity: inboundItem
+    tenant: beta
+    description: "beta still has 1 inbound item after failed cross-delete"
+    expectCount: 1
+
+  # --- Cross-tenant create + verify no orphan ---
+  - type: cross-create
+    entity: inboundItem
+    tenant: alpha
+    description: "alpha cannot create inbound item in beta's inbound"
+    args:
+      inbound: beta/inbound-beta
+      sku: CROSS-TENANT-RECV
+      quantity: 99
+    expectError: "not found"
+
+  - type: query
+    entity: inboundItem
+    tenant: alpha
+    description: "alpha still has 1 inbound item after failed cross-create"
+    expectCount: 1
+
+  # UpdateReceivingInboundItem now validates inboundID tenant ownership.
+  - type: cross-update-with-args
+    entity: inboundItem
+    tenant: alpha
+    target: alpha/item-alpha
+    description: "alpha cannot reassign own inbound item to beta's inbound"
+    args:
+      inboundID: beta/inbound-beta
+    expectError: "not found"

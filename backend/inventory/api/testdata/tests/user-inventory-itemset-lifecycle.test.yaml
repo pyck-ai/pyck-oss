@@ -1,0 +1,142 @@
+name: "User - Item Set Lifecycle"
+description: >
+  Creates an inventory item, then creates an item set grouping it, reads
+  the set back, updates it, and deletes it. Verifies item association is
+  persisted. All steps after createItemSet are skipped when it returns errors.
+
+steps:
+- id: createItem
+  name: Create item for set
+  operation: inventory.createInventoryItem
+  vars:
+    input:
+      sku: {$fake: "{{sku}}-{{nonce}}"}
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Item created
+    assertions:
+    - ref: res.body.data.createInventoryItem.inventoryItem.id
+      nil: false
+- id: createItemSet
+  name: Create item set
+  operation: inventory.createInventoryItemSet
+  vars:
+    input:
+      sku: {$fake: "{{sku}}-{{nonce}}"}
+      itemIDs:
+      - $ref: res[createItem].body.data.createInventoryItem.inventoryItem.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Item set created
+    assertions:
+    - ref: res.body.data.createInventoryItemSet.inventoryItemSet
+      nil: false
+    - ref: res.body.data.createInventoryItemSet.inventoryItemSet.id
+      nil: false
+    - ref: res.body.data.createInventoryItemSet.inventoryItemSet.sku
+      equal:
+        $ref: req.body.variables.input.sku
+  - msg: Item associated
+    assertions:
+    - ref: res.body.data.createInventoryItemSet.inventoryItemSet.items.totalCount
+      equal: 1
+- name: Get created item set
+  operation: inventory.getInventoryItemSets
+  vars:
+    where:
+      id:
+        $ref: res[createItemSet].body.data.createInventoryItemSet.inventoryItemSet.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Exactly one item set returned
+    assertions:
+    - ref: res.body.data.inventoryItemSets.totalCount
+      equal: 1
+  - msg: Returned item set matches created item set
+    assertions:
+    - ref: res.body.data.inventoryItemSets.edges[].node.id
+      equal:
+        $ref: res[createItemSet].body.data.createInventoryItemSet.inventoryItemSet.id
+  - msg: Item association persisted
+    assertions:
+    - ref: res.body.data.inventoryItemSets.edges[].node.items.totalCount
+      equal: 1
+- name: Update item set
+  operation: inventory.updateInventoryItemSet
+  vars:
+    id:
+      $ref: res[createItemSet].body.data.createInventoryItemSet.inventoryItemSet.id
+    input:
+      sku: {$fake: "{{sku}}-{{nonce}}"}
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Item set updated
+    assertions:
+    - ref: res.body.data.updateInventoryItemSet.inventoryItemSet
+      nil: false
+    - ref: res.body.data.updateInventoryItemSet.inventoryItemSet.sku
+      equal: {$ref: req.body.variables.input.sku}
+- name: Delete item set
+  operation: inventory.deleteInventoryItemSet
+  vars:
+    id:
+      $ref: res[createItemSet].body.data.createInventoryItemSet.inventoryItemSet.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteInventoryItemSet.deletedID
+      equal: {$ref: "res[createItemSet].body.data.createInventoryItemSet.inventoryItemSet.id"}
+- name: Delete item
+  operation: inventory.deleteInventoryItem
+  vars:
+    id:
+      $ref: res[createItem].body.data.createInventoryItem.inventoryItem.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Deleted ID returned
+    assertions:
+    - ref: res.body.data.deleteInventoryItem.deletedID
+      equal: {$ref: "res[createItem].body.data.createInventoryItem.inventoryItem.id"}
