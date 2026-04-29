@@ -8,7 +8,6 @@ package resolvers
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	common_workflow "github.com/pyck-ai/pyck/backend/common/workflow"
 	"github.com/pyck-ai/pyck/backend/workflow/model"
@@ -24,27 +23,28 @@ func (r *mutationResolver) SetWorkflowAssignee(ctx context.Context, input model.
 		return nil, err
 	}
 
-	var assigneeID uuid.UUID
+	// Build the assignee value: nil means "unassign", non-nil means "assign to this user".
+	var assignee common_workflow.WorkflowAssignee
 	if input.AssigneeID != nil {
-		assigneeID = *input.AssigneeID
-	} else {
-		assigneeID = req.User().ID
+		s := input.AssigneeID.String()
+		assignee = &s
 	}
 
-	assigneeIDStr := assigneeID.String()
 	var updateResult any
 	if err := workflowClient.UpdateWorkflow(ctx, input.WorkflowID, input.WorkflowExecutionID,
 		common_workflow.WorkflowQueryTypeSetAssignee.String(),
 		common_workflow.WorkflowAssigneeUpdaterInput{
-			Assignee: &assigneeIDStr,
+			Assignee: assignee,
 		},
 		&updateResult,
 	); err != nil {
 		return nil, err
 	}
 
-	resp := &model.SetWorkflowAssigneeResponse{
-		Assignee: assigneeID.String(),
+	resp := &model.SetWorkflowAssigneeResponse{}
+	if assignee != nil {
+		s := input.AssigneeID.String()
+		resp.Assignee = &s
 	}
 
 	return resp, nil

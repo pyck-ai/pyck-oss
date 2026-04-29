@@ -10,9 +10,11 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
+	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 	"github.com/pyck-ai/pyck/backend/receiving"
@@ -139,7 +141,7 @@ func (r *mutationResolver) UpdateReceivingInbound(ctx context.Context, id uuid.U
 	for _, v := range input.RemoveInboundItemIDs {
 		_, err = tx.InboundItem.
 			UpdateOneID(v).
-			SetDeletedAt(time.Now()).
+			SetDeletedAt(time.Now().UTC()).
 			SetDeletedBy(req.User().ID).
 			Save(ctx)
 		if err != nil {
@@ -171,7 +173,7 @@ func (r *mutationResolver) DeleteReceivingInbound(ctx context.Context, id uuid.U
 	// Soft delete inbound
 	_, err = tx.Inbound.
 		UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -190,7 +192,7 @@ func (r *mutationResolver) DeleteReceivingInbound(ctx context.Context, id uuid.U
 	for _, v := range items {
 		_, err = tx.InboundItem.
 			UpdateOneID(v.ID).
-			SetDeletedAt(time.Now()).
+			SetDeletedAt(time.Now().UTC()).
 			SetDeletedBy(req.User().ID).
 			Save(ctx)
 		if err != nil {
@@ -295,7 +297,7 @@ func (r *mutationResolver) DeleteReceivingInboundItem(ctx context.Context, id uu
 	// Soft delete item (MutationEventHook detects soft delete, WorkflowReplyMiddleware handles reply)
 	_, err = tx.InboundItem.
 		UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(request.ForContext(ctx).User().ID).
 		Save(ctx)
 	if err != nil {
@@ -400,7 +402,7 @@ func (r *mutationResolver) DeleteReceivingInboundShipmentNotification(ctx contex
 	// Soft delete notification (MutationEventHook detects soft delete, WorkflowReplyMiddleware handles reply)
 	_, err = tx.InboundShipmentNotification.
 		UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(request.ForContext(ctx).User().ID).
 		Save(ctx)
 	if err != nil {
@@ -408,6 +410,129 @@ func (r *mutationResolver) DeleteReceivingInboundShipmentNotification(ctx contex
 	}
 
 	return &model.ReceivingInboundShipmentNotificationDeletePayload{DeletedID: &id}, nil
+}
+
+// PatchReceivingInboundData applies RFC 6902 JSON Patch operations to the inbound's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchReceivingInboundData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.ReceivingInboundOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.Inbound.Query().Where(inbound.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    inbound.Table,
+		FieldName:    inbound.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.Inbound.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.ReceivingInboundOutput{ReceivingInbound: updated}, nil
+}
+
+// PatchReceivingInboundItemData applies RFC 6902 JSON Patch operations to the inbound item's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchReceivingInboundItemData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.ReceivingInboundItemOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.InboundItem.Query().Where(inbounditem.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    inbounditem.Table,
+		FieldName:    inbounditem.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.InboundItem.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.ReceivingInboundItemOutput{ReceivingInboundItem: updated}, nil
+}
+
+// PatchReceivingInboundShipmentNotificationData applies RFC 6902 JSON Patch operations to the notification's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchReceivingInboundShipmentNotificationData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.ReceivingInboundShipmentNotificationOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.InboundShipmentNotification.Query().Where(inboundshipmentnotification.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    inboundshipmentnotification.Table,
+		FieldName:    inboundshipmentnotification.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.InboundShipmentNotification.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.ReceivingInboundShipmentNotificationOutput{ReceivingInboundShipmentNotification: updated}, nil
 }
 
 // Mutation returns receiving.MutationResolver implementation.

@@ -1,61 +1,75 @@
+---
 services:
   temporal:
     container_name: temporal
     build:
       context: ../../../
-      dockerfile: ./backend/temporal/Dockerfile.autosetup
+      dockerfile: ./backend/temporal/Dockerfile
       network: host
     restart: always
     ports:
       - 7031:7031  # Delve debug port
       - 7233:7233  # this is the public frontend port, protected by our authorizer
-      - 7234:7234  # this is the public frontend port, protected by our authorizer
-      - 7235:7235  # this is the public frontend port, protected by our authorizer
-      - 7236:7236  # this is the public frontend port, protected by our authorizer
-    networks:
-      - pyck
-    extra_hosts:
-      - "auth.local.pyck.cloud:172.30.0.100"
+      - 7236:7236  # this is the internal frontend port
     healthcheck:
       test: ["CMD", "temporal", "operator", "cluster", "health"]
-      interval: 5s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-    env_file: ../../../.env
+      interval: 30s
+      timeout: 15s
+      retries: 15
+      start_period: 60s
+    entrypoint: ["/bin/sh", "-c", "exec /etc/temporal/entrypoint.sh"]
     environment:
-      # TODO(michael): Instead of hard-coding these here, we should read them
-      # from our .env file during container startup.
-      - DB=postgres12
-      - DB_PORT=5432
-      - POSTGRES_SEEDS=db   # db host
-      - POSTGRES_USER=admin # db admin role
-      - POSTGRES_PWD=12345  # db admin password
-      - PYCK_LOG_FORMAT=console
       # Memory optimization settings
       - GOGC=100
       - GOMEMLIMIT=256MiB
+    env_file:
+      - path: ../../../config/keys/bootstrap.env
+      - path: ./../../../config/temporal/compose.env
+      - path: ../../../.env
+      - path: ../../../.env.local
+        required: false
     deploy:
       resources:
         limits:
           memory: 512M
     volumes:
+      - ./../../../:/src:ro,z
       - ./../../../config/temporal/dynamicconfig/:/etc/temporal/config/dynamicconfig/:Z
-      - ./../../keys/zitadel_certificate.crt:/etc/ssl/certs/zitadel.crt:ro,z
-      - ./../../keys/local-key.json:/data/keys/local-key.json:ro,z
+      - ./../../keys/:/data/keys/:ro,z
     depends_on:
-      db: { condition: service_healthy }
-      nats: { condition: service_healthy }
-      zitadel: { condition: service_healthy }
+      temporal-setup: { condition: service_completed_successfully }
 
-  temporal-admin:
+---
+services:
+  temporal-setup:    
+    build:
+      context: ../../../
+      dockerfile: ./backend/temporal/Dockerfile.db
+    restart: on-failure
+    environment:
+      - SKIP_SCHEMA_SETUP=false
+      - SKIP_DB_CREATE=false
+    env_file:
+      - path: ../../../config/keys/bootstrap.env
+      - path: ./../../../config/temporal/compose.env
+    depends_on:
+      db: { condition: service_healthy }      
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+---
+services:
+  temporal-admintools:
     container_name: temporal-admin
     image: temporalio/admin-tools:latest
-    networks:
-      - pyck
     environment:
       - TEMPORAL_ADDRESS=temporal:7236
       - TEMPORAL_CLI_ADDRESS=temporal:7236
+    env_file:
+      - path: ../../../config/keys/bootstrap.env
+      - path: ./../../../config/temporal/compose.env
     tty: true
     stdin_open: true
     depends_on:
@@ -65,11 +79,11 @@ services:
         limits:
           memory: 32M
 
+---
+services:
   temporal-ui:
     container_name: temporal-ui
     image: temporalio/ui:latest
-    networks:
-      - pyck
     environment:
       - TEMPORAL_ADDRESS=temporal:7236
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000

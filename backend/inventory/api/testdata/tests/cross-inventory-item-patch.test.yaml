@@ -1,0 +1,200 @@
+---
+name: "Cross - Inventory Item Patch Lifecycle"
+description: >
+  Tests JSON Patch (RFC 6902) operations on inventory items. Creates a data type
+  and item with data, updates via full overwrite, patches individual fields,
+  verifies both changes persist, then cleans up.
+steps:
+  - id: createDT
+    name: "Create data type for items"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Item Patch Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "inventoryitem"
+        jsonSchema: '{"type":"object","properties":{"weight":{"type":"number"},"fragile":{"type":"boolean"},"location":{"type":"string"},"tags":{"type":"array","items":{"type":"string"}}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: create
+    name: "Create inventory item with data"
+    operation: inventory.createInventoryItem
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        sku: {$fake: "{{uuid}}"}
+        data:
+          weight: 2.5
+          fragile: true
+          location: "Shelf-A1"
+          tags: ["electronics"]
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+      - msg: "Initial data persisted"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.data.weight
+            equal: 2.5
+          - ref: res.body.data.createInventoryItem.inventoryItem.data.fragile
+            equal: true
+
+  - id: update
+    name: "Full update via updateInventoryItem"
+    operation: inventory.updateInventoryItem
+    vars:
+      id: {$ref: "res[create].body.data.createInventoryItem.inventoryItem.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          weight: 3.0
+          fragile: false
+          location: "Shelf-B2"
+          tags: ["electronics", "heavy"]
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "All data replaced"
+        assertions:
+          - ref: res.body.data.updateInventoryItem.inventoryItem.data.weight
+            equal: 3.0
+          - ref: res.body.data.updateInventoryItem.inventoryItem.data.fragile
+            equal: false
+          - ref: res.body.data.updateInventoryItem.inventoryItem.data.location
+            equal: "Shelf-B2"
+
+  - name: "Verify update persisted"
+    operation: inventory.getInventoryItems
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Updated data persisted"
+        assertions:
+          - ref: res.body.data.inventoryItems.edges[].node.data.weight
+            equal: 3.0
+          - ref: res.body.data.inventoryItems.edges[].node.data.location
+            equal: "Shelf-B2"
+
+  - id: patch
+    name: "Patch item data - partial update"
+    operation: inventory.patchInventoryItemData
+    vars:
+      id: {$ref: "res[create].body.data.createInventoryItem.inventoryItem.id"}
+      patches:
+        - op: REPLACE
+          path: "/location"
+          value: "\"Shelf-C3\""
+        - op: REPLACE
+          path: "/fragile"
+          value: "true"
+        - op: ADD
+          path: "/tags/-"
+          value: "\"patched\""
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Location patched"
+        assertions:
+          - ref: res.body.data.patchInventoryItemData.inventoryItem.data.location
+            equal: "Shelf-C3"
+      - msg: "Fragile patched"
+        assertions:
+          - ref: res.body.data.patchInventoryItemData.inventoryItem.data.fragile
+            equal: true
+      - msg: "Weight preserved (untouched)"
+        assertions:
+          - ref: res.body.data.patchInventoryItemData.inventoryItem.data.weight
+            equal: 3.0
+
+  - name: "Verify patch persisted"
+    operation: inventory.getInventoryItems
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Patched data persisted"
+        assertions:
+          - ref: res.body.data.inventoryItems.edges[].node.data.location
+            equal: "Shelf-C3"
+          - ref: res.body.data.inventoryItems.edges[].node.data.fragile
+            equal: true
+          - ref: res.body.data.inventoryItems.edges[].node.data.weight
+            equal: 3.0
+
+  - name: "Delete inventory item"
+    operation: inventory.deleteInventoryItem
+    vars:
+      id: {$ref: "res[create].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

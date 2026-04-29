@@ -18,6 +18,7 @@ type APIClient interface {
 	UpdateFile(ctx context.Context, id string, input UpdateFileInput, interceptors ...clientv2.RequestInterceptor) (*UpdateFile, error)
 	DeleteFile(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeleteFile, error)
 	AnalyzeImageFile(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*AnalyzeImageFile, error)
+	PatchFileData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchFileData, error)
 }
 
 type Client struct {
@@ -600,6 +601,150 @@ func (t *AnalyzeImageFile_AnalyzeImageFile) GetJSONData() string {
 	return t.JSONData
 }
 
+type PatchFileData_PatchFileData struct {
+	ContentType  string         "json:\"contentType\" graphql:\"contentType\""
+	CreatedAt    time.Time      "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy    uuid.UUID      "json:\"createdBy\" graphql:\"createdBy\""
+	Data         map[string]any "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID   *uuid.UUID     "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug *string        "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt    *time.Time     "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy    *uuid.UUID     "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	Description  *string        "json:\"description,omitempty\" graphql:\"description\""
+	ID           string         "json:\"id\" graphql:\"id\""
+	Name         string         "json:\"name\" graphql:\"name\""
+	PublicAlias  *string        "json:\"publicAlias,omitempty\" graphql:\"publicAlias\""
+	PublicURL    *string        "json:\"publicURL,omitempty\" graphql:\"publicURL\""
+	Refid        uuid.UUID      "json:\"refid\" graphql:\"refid\""
+	Reftype      file.Reftype   "json:\"reftype\" graphql:\"reftype\""
+	Size         int            "json:\"size\" graphql:\"size\""
+	TenantID     uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+	URL          *string        "json:\"url,omitempty\" graphql:\"url\""
+}
+
+func (t *PatchFileData_PatchFileData) GetContentType() string {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return t.ContentType
+}
+func (t *PatchFileData_PatchFileData) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchFileData_PatchFileData) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchFileData_PatchFileData) GetData() map[string]any {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return t.Data
+}
+func (t *PatchFileData_PatchFileData) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchFileData_PatchFileData) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchFileData_PatchFileData) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchFileData_PatchFileData) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchFileData_PatchFileData) GetDescription() *string {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return t.Description
+}
+func (t *PatchFileData_PatchFileData) GetID() string {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return t.ID
+}
+func (t *PatchFileData_PatchFileData) GetName() string {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return t.Name
+}
+func (t *PatchFileData_PatchFileData) GetPublicAlias() *string {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return t.PublicAlias
+}
+func (t *PatchFileData_PatchFileData) GetPublicURL() *string {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return t.PublicURL
+}
+func (t *PatchFileData_PatchFileData) GetRefid() *uuid.UUID {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return &t.Refid
+}
+func (t *PatchFileData_PatchFileData) GetReftype() *file.Reftype {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return &t.Reftype
+}
+func (t *PatchFileData_PatchFileData) GetSize() int {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return t.Size
+}
+func (t *PatchFileData_PatchFileData) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return &t.TenantID
+}
+func (t *PatchFileData_PatchFileData) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchFileData_PatchFileData) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return t.UpdatedBy
+}
+func (t *PatchFileData_PatchFileData) GetURL() *string {
+	if t == nil {
+		t = &PatchFileData_PatchFileData{}
+	}
+	return t.URL
+}
+
 type GetFiles struct {
 	Files GetFiles_Files "json:\"files\" graphql:\"files\""
 }
@@ -664,6 +809,17 @@ func (t *AnalyzeImageFile) GetAnalyzeImageFile() *AnalyzeImageFile_AnalyzeImageF
 		t = &AnalyzeImageFile{}
 	}
 	return &t.AnalyzeImageFile
+}
+
+type PatchFileData struct {
+	PatchFileData *PatchFileData_PatchFileData "json:\"patchFileData,omitempty\" graphql:\"patchFileData\""
+}
+
+func (t *PatchFileData) GetPatchFileData() *PatchFileData_PatchFileData {
+	if t == nil {
+		t = &PatchFileData{}
+	}
+	return t.PatchFileData
 }
 
 const GetFilesDocument = `query GetFiles ($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderBy: FileOrder, $where: FileWhereInput) {
@@ -888,6 +1044,50 @@ func (c *Client) AnalyzeImageFile(ctx context.Context, id string, interceptors .
 	return &res, nil
 }
 
+const PatchFileDataDocument = `mutation PatchFileData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchFileData(id: $id, patches: $patches) {
+		contentType
+		createdAt
+		createdBy
+		data
+		dataTypeID
+		dataTypeSlug
+		deletedAt
+		deletedBy
+		description
+		id
+		name
+		publicAlias
+		publicURL
+		refid
+		reftype
+		size
+		tenantID
+		updatedAt
+		updatedBy
+		url
+	}
+}
+`
+
+func (c *Client) PatchFileData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchFileData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchFileData
+	if err := c.Client.Post(ctx, "PatchFileData", PatchFileDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 var DocumentOperationNames = map[string]string{
 	GetFilesDocument:           "GetFiles",
 	GetFileServiceInfoDocument: "GetFileServiceInfo",
@@ -895,4 +1095,5 @@ var DocumentOperationNames = map[string]string{
 	UpdateFileDocument:         "UpdateFile",
 	DeleteFileDocument:         "DeleteFile",
 	AnalyzeImageFileDocument:   "AnalyzeImageFile",
+	PatchFileDataDocument:      "PatchFileData",
 }

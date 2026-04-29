@@ -8,10 +8,14 @@ import "context"
 // query predicates in pages of pageSize, collecting every row. This avoids the
 // LimitMixin hard cap that silently truncates results when no explicit Limit is
 // set.
+//
+// An ORDER BY id ASC is appended so pagination is deterministic — without it,
+// Postgres LIMIT/OFFSET returns rows in unspecified order and pages can
+// overlap or skip rows depending on the chosen plan.
 func (_q *CustomerQuery) AllPages(ctx context.Context, pageSize int) ([]*Customer, error) {
 	var all []*Customer
 	for offset := 0; ; offset += pageSize {
-		page, err := _q.Clone().Limit(pageSize).Offset(offset).All(ctx)
+		page, err := _q.Clone().Order(Asc("id")).Limit(pageSize).Offset(offset).All(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -27,10 +31,14 @@ func (_q *CustomerQuery) AllPages(ctx context.Context, pageSize int) ([]*Custome
 // query predicates in pages of pageSize, collecting every row. This avoids the
 // LimitMixin hard cap that silently truncates results when no explicit Limit is
 // set.
+//
+// An ORDER BY id ASC is appended so pagination is deterministic — without it,
+// Postgres LIMIT/OFFSET returns rows in unspecified order and pages can
+// overlap or skip rows depending on the chosen plan.
 func (_q *EntityEventsOutboxQuery) AllPages(ctx context.Context, pageSize int) ([]*EntityEventsOutbox, error) {
 	var all []*EntityEventsOutbox
 	for offset := 0; ; offset += pageSize {
-		page, err := _q.Clone().Limit(pageSize).Offset(offset).All(ctx)
+		page, err := _q.Clone().Order(Asc("id")).Limit(pageSize).Offset(offset).All(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -46,10 +54,14 @@ func (_q *EntityEventsOutboxQuery) AllPages(ctx context.Context, pageSize int) (
 // query predicates in pages of pageSize, collecting every row. This avoids the
 // LimitMixin hard cap that silently truncates results when no explicit Limit is
 // set.
+//
+// An ORDER BY id ASC is appended so pagination is deterministic — without it,
+// Postgres LIMIT/OFFSET returns rows in unspecified order and pages can
+// overlap or skip rows depending on the chosen plan.
 func (_q *SupplierQuery) AllPages(ctx context.Context, pageSize int) ([]*Supplier, error) {
 	var all []*Supplier
 	for offset := 0; ; offset += pageSize {
-		page, err := _q.Clone().Limit(pageSize).Offset(offset).All(ctx)
+		page, err := _q.Clone().Order(Asc("id")).Limit(pageSize).Offset(offset).All(ctx)
 		if err != nil {
 			return nil, err
 		}

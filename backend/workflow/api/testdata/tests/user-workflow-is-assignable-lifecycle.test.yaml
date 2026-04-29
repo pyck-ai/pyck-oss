@@ -1,0 +1,138 @@
+---
+name: "User - Workflow IsAssignable Lifecycle"
+description: >
+  Full toggle round-trip for the pyck_workflow_is_assignable search attribute,
+  exercising the SDK's SetUpdateHandler end-to-end through the pyck gateway.
+  THIS SUITE WILL NOT WORK WITH THE DEFAULT ZITADEL LOGIN FLOW.
+steps:
+  - id: pickrun
+    name: "Pick first running assignable workflow"
+    operation: workflow.getWorkflowExecutions
+    vars:
+      first: 1
+      where:
+        isAssignable: true
+        status: "Running"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "At least one running assignable workflow exists (if this fails: enable env_pyck_token + env_pyck_tenant_id in Bruno env)"
+        assertions:
+          - ref: res.body.data.workflowExecutions.totalCount
+            greaterOrEqual: 1
+      - msg: "workflowId and runId present"
+        assertions:
+          - ref: res.body.data.workflowExecutions.edges[0].node.execution.workflowId
+            nil: false
+          - ref: res.body.data.workflowExecutions.edges[0].node.execution.id
+            nil: false
+
+  - name: "Toggle isAssignable = false"
+    operation: workflow.setWorkflowIsAssignable
+    vars:
+      input:
+        workflowId: {$ref: "res[pickrun].body.data.workflowExecutions.edges[0].node.execution.workflowId"}
+        workflowExecutionId: {$ref: "res[pickrun].body.data.workflowExecutions.edges[0].node.execution.id"}
+        isAssignable: false
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Response reflects isAssignable=false"
+        assertions:
+          - ref: res.body.data.setWorkflowIsAssignable.isAssignable
+            equal: false
+
+  - name: "Getter reflects false"
+    operation: workflow.getWorkflowIsAssignable
+    vars:
+      input:
+        workflowId: {$ref: "res[pickrun].body.data.workflowExecutions.edges[0].node.execution.workflowId"}
+        workflowExecutionId: {$ref: "res[pickrun].body.data.workflowExecutions.edges[0].node.execution.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "workflowIsAssignable returns false"
+        assertions:
+          - ref: res.body.data.workflowIsAssignable.isAssignable
+            equal: false
+
+  - name: "Filter {isAssignable:true} excludes the run"
+    operation: workflow.getWorkflowExecutions
+    vars:
+      first: 1
+      where:
+        isAssignable: true
+        workflowID: {$ref: "res[pickrun].body.data.workflowExecutions.edges[0].node.execution.workflowId"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Run is no longer in the assignable set"
+        assertions:
+          - ref: res.body.data.workflowExecutions.totalCount
+            equal: 0
+
+  - name: "Toggle isAssignable = true"
+    operation: workflow.setWorkflowIsAssignable
+    vars:
+      input:
+        workflowId: {$ref: "res[pickrun].body.data.workflowExecutions.edges[0].node.execution.workflowId"}
+        workflowExecutionId: {$ref: "res[pickrun].body.data.workflowExecutions.edges[0].node.execution.id"}
+        isAssignable: true
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Response reflects isAssignable=true"
+        assertions:
+          - ref: res.body.data.setWorkflowIsAssignable.isAssignable
+            equal: true
+
+  - name: "Filter {isAssignable:true} includes the run again"
+    operation: workflow.getWorkflowExecutions
+    vars:
+      first: 1
+      where:
+        isAssignable: true
+        workflowID: {$ref: "res[pickrun].body.data.workflowExecutions.edges[0].node.execution.workflowId"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Run is back in the assignable set"
+        assertions:
+          - ref: res.body.data.workflowExecutions.totalCount
+            equal: 1

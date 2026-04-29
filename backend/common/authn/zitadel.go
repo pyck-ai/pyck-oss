@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/env/config"
+	httputil "github.com/pyck-ai/pyck/backend/common/http"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	"github.com/pyck-ai/pyck/backend/common/memkv"
 	"github.com/pyck-ai/pyck/backend/common/services/zitadel"
@@ -158,7 +159,7 @@ func (z *ZitadelAuthProvider) HTTPMiddleware() func(http.Handler) http.Handler {
 			if token != "" {
 				auth, err := z.Authenticate(ctx, token)
 				if err != nil {
-					http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+					httputil.JSONError(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 					return
 				}
 

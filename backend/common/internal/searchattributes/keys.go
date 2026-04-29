@@ -5,11 +5,13 @@ package searchattributes
 
 // Search attribute key constants for Temporal workflows.
 const (
-	PyckDataIDKey           = "pyck_data_id"
-	PyckWorkflowAssigneeKey = "pyck_workflow_assignee"
-	PyckWorkflowNameKey     = "pyck_workflow_name"
-	PyckTenantIDKey         = "pyck_tenant_id"
-	PyckDataTypeKey         = "pyck_data_type"
-	PyckServiceKey          = "pyck_service"
-	PyckGroupByKey          = "pyck_group_by"
+	PyckDataIDKey               = "pyck_data_id"
+	PyckWorkflowAssigneeKey     = "pyck_workflow_assignee"
+	PyckWorkflowIsAssignableKey = "pyck_workflow_is_assignable"
+	PyckWorkflowNameKey         = "pyck_workflow_name"
+	PyckWorkflowTargetsKey      = "pyck_workflow_targets"
+	PyckTenantIDKey             = "pyck_tenant_id"
+	PyckDataTypeKey             = "pyck_data_type"
+	PyckServiceKey              = "pyck_service"
+	PyckGroupByKey              = "pyck_group_by"
 )

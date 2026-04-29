@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
+	"github.com/pyck-ai/pyck/backend/common/importexport"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 )
 
@@ -24,6 +25,10 @@ func (InboundItem) Annotations() []schema.Annotation {
 		entsql.Schema("receiving"),
 		entsql.Table("inbound-items"),
 		entgql.RelayConnection(),
+		entgql.Directives(importexport.Importable("",
+			importexport.WithList("receivingInboundItems"),
+			importexport.WithCreate("createReceivingInboundItem"),
+		)),
 		entgql.QueryField(),
 		entgql.Mutations(entgql.MutationCreate(), entgql.MutationUpdate()),
 	}

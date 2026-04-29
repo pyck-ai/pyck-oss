@@ -1,0 +1,331 @@
+---
+name: "Cross - Picking Order Patch Lifecycle"
+description: >
+  Tests JSON Patch (RFC 6902) operations on picking orders and order items.
+  Creates data types, order with data, and order item. Updates via full
+  overwrite, patches individual fields, verifies changes persist, then cleans up.
+steps:
+  - id: createDT
+    name: "Create data type for orders"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Order Patch Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "pickingorder"
+        jsonSchema: '{"type":"object","properties":{"zone":{"type":"string"},"priority":{"type":"integer","minimum":0},"picker":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: createItemDT
+    name: "Create data type for order items"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Order Item Patch Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "pickingorderitem"
+        jsonSchema: '{"type":"object","properties":{"bin":{"type":"string"},"picked":{"type":"boolean"},"actual_qty":{"type":"integer","minimum":0}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  # =========================================================================
+  # ORDER: create → update → verify → patch → verify
+  # =========================================================================
+  - id: create
+    name: "Create picking order with data"
+    operation: picking.createPickingOrder
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          zone: "Zone-A"
+          priority: 1
+          picker: "Alice"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Order created"
+        assertions:
+          - ref: res.body.data.createPickingOrder.pickingOrder.id
+            nil: false
+      - msg: "Data persisted"
+        assertions:
+          - ref: res.body.data.createPickingOrder.pickingOrder.data.zone
+            equal: "Zone-A"
+
+  - name: "Full update order"
+    operation: picking.updatePickingOrder
+    vars:
+      id: {$ref: "res[create].body.data.createPickingOrder.pickingOrder.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          zone: "Zone-B"
+          priority: 3
+          picker: "Bob"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "All data replaced"
+        assertions:
+          - ref: res.body.data.updatePickingOrder.pickingOrder.data.zone
+            equal: "Zone-B"
+          - ref: res.body.data.updatePickingOrder.pickingOrder.data.picker
+            equal: "Bob"
+
+  - name: "Verify order update persisted"
+    operation: picking.getPickingOrders
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Updated data persisted"
+        assertions:
+          - ref: res.body.data.pickingOrders.edges[].node.data.zone
+            equal: "Zone-B"
+          - ref: res.body.data.pickingOrders.edges[].node.data.picker
+            equal: "Bob"
+
+  - name: "Patch order data"
+    operation: picking.patchPickingOrderData
+    vars:
+      id: {$ref: "res[create].body.data.createPickingOrder.pickingOrder.id"}
+      patches:
+        - op: REPLACE
+          path: "/zone"
+          value: "\"Zone-C\""
+        - op: REPLACE
+          path: "/priority"
+          value: "5"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Zone patched"
+        assertions:
+          - ref: res.body.data.patchPickingOrderData.pickingOrder.data.zone
+            equal: "Zone-C"
+      - msg: "Priority patched"
+        assertions:
+          - ref: res.body.data.patchPickingOrderData.pickingOrder.data.priority
+            equal: 5
+      - msg: "Picker preserved"
+        assertions:
+          - ref: res.body.data.patchPickingOrderData.pickingOrder.data.picker
+            equal: "Bob"
+
+  - name: "Verify order patch persisted"
+    operation: picking.getPickingOrders
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Patched data persisted"
+        assertions:
+          - ref: res.body.data.pickingOrders.edges[].node.data.zone
+            equal: "Zone-C"
+          - ref: res.body.data.pickingOrders.edges[].node.data.priority
+            equal: 5
+          - ref: res.body.data.pickingOrders.edges[].node.data.picker
+            equal: "Bob"
+
+  # =========================================================================
+  # ORDER ITEM: create → patch → verify
+  # =========================================================================
+  - id: createItem
+    name: "Create order item with data"
+    operation: picking.createPickingOrderItem
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createItemDT].body.data.createDataType.id"}
+        orderID: {$ref: "res[create].body.data.createPickingOrder.pickingOrder.id"}
+        sku: {$fake: "{{uuid}}"}
+        quantity: 10
+        data:
+          bin: "B-01"
+          picked: false
+          actual_qty: 0
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created"
+        assertions:
+          - ref: res.body.data.createPickingOrderItem.pickingOrderItem.id
+            nil: false
+
+  - name: "Patch order item data"
+    operation: picking.patchPickingOrderItemData
+    vars:
+      id: {$ref: "res[createItem].body.data.createPickingOrderItem.pickingOrderItem.id"}
+      patches:
+        - op: REPLACE
+          path: "/picked"
+          value: "true"
+        - op: REPLACE
+          path: "/actual_qty"
+          value: "10"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Picked patched"
+        assertions:
+          - ref: res.body.data.patchPickingOrderItemData.pickingOrderItem.data.picked
+            equal: true
+      - msg: "Actual qty patched"
+        assertions:
+          - ref: res.body.data.patchPickingOrderItemData.pickingOrderItem.data.actual_qty
+            equal: 10
+      - msg: "Bin preserved"
+        assertions:
+          - ref: res.body.data.patchPickingOrderItemData.pickingOrderItem.data.bin
+            equal: "B-01"
+
+  - name: "Verify order item patch persisted"
+    operation: picking.getPickingOrderItems
+    vars:
+      where:
+        id: {$ref: "res[createItem].body.data.createPickingOrderItem.pickingOrderItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Patched item data persisted"
+        assertions:
+          - ref: res.body.data.pickingOrderItems.edges[].node.data.picked
+            equal: true
+          - ref: res.body.data.pickingOrderItems.edges[].node.data.actual_qty
+            equal: 10
+          - ref: res.body.data.pickingOrderItems.edges[].node.data.bin
+            equal: "B-01"
+
+  # =========================================================================
+  # CLEANUP
+  # =========================================================================
+  - name: "Delete order item"
+    operation: picking.deletePickingOrderItem
+    vars:
+      id: {$ref: "res[createItem].body.data.createPickingOrderItem.pickingOrderItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Delete order"
+    operation: picking.deletePickingOrder
+    vars:
+      id: {$ref: "res[create].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete item data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createItemDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete order data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

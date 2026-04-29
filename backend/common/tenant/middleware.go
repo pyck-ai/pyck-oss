@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/authn"
+	httputil "github.com/pyck-ai/pyck/backend/common/http"
 	"github.com/pyck-ai/pyck/backend/common/log"
 )
 
@@ -34,14 +35,14 @@ func (mw *Middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	tenantIDs, err := ParseHeaders(ctx, r.Header)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httputil.JSONError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	for _, tenantID := range tenantIDs {
 		if !user.HasRole(authn.ROLE_READER, tenantID) {
 			err = fmt.Errorf("%w %q", ErrNoAccessToTenantID, tenantID)
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			httputil.JSONError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}

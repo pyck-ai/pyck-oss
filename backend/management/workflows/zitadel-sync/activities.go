@@ -3,8 +3,6 @@ package zitadel_sync
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net/url"
 	"sort"
 	"strconv"
 	"sync"
@@ -26,13 +24,16 @@ import (
 )
 
 // NewActivities wires dependencies for all Zitadel sync activities.
-func NewActivities(ent *ent.Client, temporal client.Client, audience, keyFilePath, projectID string) *Activities {
+func NewActivities(ent *ent.Client, temporal client.Client, apiURL, grpcAddr, audience, keyFilePath, projectID string, tlsInsecure bool) *Activities {
 	return &Activities{
 		Ent:              ent,
 		Temporal:         temporal,
+		APIURL:           apiURL,
+		GrpcAddr:         grpcAddr,
 		Audience:         audience,
 		KeyFilePath:      keyFilePath,
 		ZitadelProjectID: projectID,
+		TlsInsecure:      tlsInsecure,
 	}
 }
 
@@ -40,16 +41,19 @@ func NewActivities(ent *ent.Client, temporal client.Client, audience, keyFilePat
 type Activities struct {
 	Ent              *ent.Client
 	Temporal         client.Client
+	APIURL           string
+	GrpcAddr         string
 	Audience         string
 	KeyFilePath      string
 	ZitadelProjectID string
+	TlsInsecure      bool
 }
 
 // FetchZitadelTenantsActivity returns all organizations from Zitadel.
 func (a *Activities) FetchZitadelTenantsActivity(ctx context.Context, _ FetchZitadelTenantsActivityInput) ([]Tenant, error) {
 	logger := activity.GetLogger(ctx)
 
-	c, err := GetZitadelClient(ctx, a.Audience, a.KeyFilePath, "")
+	c, err := GetZitadelClient(ctx, a.APIURL, a.GrpcAddr, a.Audience, a.KeyFilePath, a.TlsInsecure, "")
 	if err != nil {
 		logger.Error("failed to get Zitadel client", "err", err)
 		return nil, err
@@ -140,7 +144,7 @@ func (a *Activities) ReconcileTenantsActivity(ctx context.Context, input Reconci
 	for id, dbT := range dbTenantsMap {
 		if _, ok := zitadelTenantsMap[id]; !ok {
 			if e := tx.Tenant.Update().
-				SetDeletedAt(time.Now()).
+				SetDeletedAt(time.Now().UTC()).
 				Where(tenant.IDEQ(authn.ComputeUUID(a.Audience, dbT.ID))).
 				Exec(serviceUserCtx); e != nil {
 				logger.Error("failed to soft delete tenant", "tenant_id", dbT.ID, "name", dbT.Name, "err", e)
@@ -259,7 +263,7 @@ func (a *Activities) StartTenantSyncActivity(ctx context.Context, in StartTenant
 func (a *Activities) FetchZitadelUsersActivity(ctx context.Context, input FetchZitadelUsersActivityInput) ([]User, error) {
 	logger := activity.GetLogger(ctx)
 
-	c, err := GetZitadelClient(ctx, a.Audience, a.KeyFilePath, input.TenantID)
+	c, err := GetZitadelClient(ctx, a.APIURL, a.GrpcAddr, a.Audience, a.KeyFilePath, a.TlsInsecure, input.TenantID)
 	if err != nil {
 		logger.Error("failed to get Zitadel client", "err", err)
 		return nil, err
@@ -469,7 +473,7 @@ func (a *Activities) ReconcileUsersActivity(ctx context.Context, input Reconcile
 	for id, dbu := range dbUsersMap {
 		if _, ok := zitadelUsersMap[id]; !ok {
 			if e := tx.User.Update().
-				SetDeletedAt(time.Now()).
+				SetDeletedAt(time.Now().UTC()).
 				Where(user.And(user.IdpID(dbu.ID), user.TenantID(tenantUUID))).
 				Exec(serviceUserCtx); e != nil {
 				logger.Error("failed to soft delete user", "idp_id", dbu.ID, "username", dbu.Username, "err", e)
@@ -498,7 +502,7 @@ func (a *Activities) fetchAllOrgMetadata(ctx context.Context, orgIDs []string) m
 		return nil
 	}
 
-	c, err := GetZitadelClient(ctx, a.Audience, a.KeyFilePath, "")
+	c, err := GetZitadelClient(ctx, a.APIURL, a.GrpcAddr, a.Audience, a.KeyFilePath, a.TlsInsecure, "")
 	if err != nil {
 		logger.Error("failed to create shared Zitadel client for metadata fetch", "err", err)
 		return nil
@@ -532,28 +536,9 @@ func (a *Activities) fetchAllOrgMetadata(ctx context.Context, orgIDs []string) m
 	return results
 }
 
-// GetZitadelClient builds a Zitadel SDK client for the given audience/org.
-func GetZitadelClient(ctx context.Context, audience, keyFilePath, orgID string) (*zitadel.ZitadelSdkClient, error) {
-	// FIXME(michael): This is really just a work-around for now. It would be
-	// better to have a separate config for the API host instead of mangling the
-	// audience.
-	u, err := url.Parse(audience)
-	if err != nil {
-		return nil, fmt.Errorf("invalid Zitadel audience URL: %w", err)
-	}
-
-	if u.Port() == "" {
-		switch u.Scheme {
-		case "http":
-			u.Host = fmt.Sprintf("%s:80", u.Host)
-		case "https":
-			u.Host = fmt.Sprintf("%s:443", u.Host)
-		}
-	}
-
-	apiHost := u.Host + u.Path
-
-	return zitadel.SdkClient(ctx, audience, apiHost, keyFilePath, orgID)
+// GetZitadelClient builds a Zitadel SDK client for the given API URL and audience.
+func GetZitadelClient(ctx context.Context, apiURL, grpcAddr, audience, keyFilePath string, tlsInsecure bool, orgID string) (*zitadel.ZitadelSdkClient, error) {
+	return zitadel.SdkClient(ctx, audience, grpcAddr, apiURL, keyFilePath, orgID, tlsInsecure)
 }
 
 // paginateQuery runs a paginated Ent query builder until exhaustion.

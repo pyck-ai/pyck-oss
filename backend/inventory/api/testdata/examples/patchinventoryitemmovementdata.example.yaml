@@ -1,0 +1,27 @@
+---
+operation: PatchInventoryItemMovementData
+name: "Patch Inventory Item Movement Data"
+description: >
+  Applies RFC 6902 JSON Patch operations to the item movement's data field.
+  Only changed fields are modified; untouched fields are preserved.
+vars:
+  id: { $placeholder: "item movement id to patch" }
+  patches:
+    - op: REPLACE
+      path: "/note"
+      value: "\"Updated via patch\""
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Patched movement returned"
+    assertions:
+      - ref: res.body.data.patchInventoryItemMovementData.inventoryItemMovement
+        nil: false
+      - ref: res.body.data.patchInventoryItemMovementData.inventoryItemMovement.id
+        equal: {$ref: req.body.variables.id}

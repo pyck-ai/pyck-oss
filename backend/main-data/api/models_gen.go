@@ -10,11 +10,13 @@ type CreateCustomerInput = internalapi.CreateCustomerInput
 type CreateSupplierInput = internalapi.CreateSupplierInput
 type CustomerOrder = internalapi.CustomerOrder
 type CustomerWhereInput = internalapi.CustomerWhereInput
+type JSONPatchInput = internalapi.JSONPatchInput
 type SupplierOrder = internalapi.SupplierOrder
 type SupplierWhereInput = internalapi.SupplierWhereInput
 type UpdateCustomerInput = internalapi.UpdateCustomerInput
 type UpdateSupplierInput = internalapi.UpdateSupplierInput
 type CustomerOrderField = internalapi.CustomerOrderField
+type JSONPatchOp = internalapi.JSONPatchOp
 type JSONType = internalapi.JSONType
 type OrderDirection = internalapi.OrderDirection
 type SupplierOrderField = internalapi.SupplierOrderField
@@ -33,6 +35,8 @@ type DeleteCustomer_DeleteCustomer = internalapi.DeleteCustomer_DeleteCustomer
 type CreateSupplier_CreateSupplier = internalapi.CreateSupplier_CreateSupplier
 type UpdateSupplier_UpdateSupplier = internalapi.UpdateSupplier_UpdateSupplier
 type DeleteSupplier_DeleteSupplier = internalapi.DeleteSupplier_DeleteSupplier
+type PatchCustomerData_PatchCustomerData = internalapi.PatchCustomerData_PatchCustomerData
+type PatchSupplierData_PatchSupplierData = internalapi.PatchSupplierData_PatchSupplierData
 type GetCustomers = internalapi.GetCustomers
 type GetSuppliers = internalapi.GetSuppliers
 type GetMainDataServiceInfo = internalapi.GetMainDataServiceInfo
@@ -42,6 +46,8 @@ type DeleteCustomer = internalapi.DeleteCustomer
 type CreateSupplier = internalapi.CreateSupplier
 type UpdateSupplier = internalapi.UpdateSupplier
 type DeleteSupplier = internalapi.DeleteSupplier
+type PatchCustomerData = internalapi.PatchCustomerData
+type PatchSupplierData = internalapi.PatchSupplierData
 
 const CustomerOrderFieldTenantID = internalapi.CustomerOrderFieldTenantID
 const CustomerOrderFieldCreatedAt = internalapi.CustomerOrderFieldCreatedAt
@@ -50,6 +56,12 @@ const CustomerOrderFieldUpdatedAt = internalapi.CustomerOrderFieldUpdatedAt
 const CustomerOrderFieldUpdatedBy = internalapi.CustomerOrderFieldUpdatedBy
 const CustomerOrderFieldDeletedAt = internalapi.CustomerOrderFieldDeletedAt
 const CustomerOrderFieldDeletedBy = internalapi.CustomerOrderFieldDeletedBy
+const JSONPatchOpAdd = internalapi.JSONPatchOpAdd
+const JSONPatchOpRemove = internalapi.JSONPatchOpRemove
+const JSONPatchOpReplace = internalapi.JSONPatchOpReplace
+const JSONPatchOpMove = internalapi.JSONPatchOpMove
+const JSONPatchOpCopy = internalapi.JSONPatchOpCopy
+const JSONPatchOpTest = internalapi.JSONPatchOpTest
 const JSONTypeNumber = internalapi.JSONTypeNumber
 const JSONTypeString = internalapi.JSONTypeString
 const JSONTypeBoolean = internalapi.JSONTypeBoolean
@@ -64,6 +76,7 @@ const SupplierOrderFieldDeletedAt = internalapi.SupplierOrderFieldDeletedAt
 const SupplierOrderFieldDeletedBy = internalapi.SupplierOrderFieldDeletedBy
 
 func AllCustomerOrderField() []CustomerOrderField { return internalapi.AllCustomerOrderField }
+func AllJSONPatchOp() []JSONPatchOp               { return internalapi.AllJSONPatchOp }
 func AllJSONType() []JSONType                     { return internalapi.AllJSONType }
 func AllOrderDirection() []OrderDirection         { return internalapi.AllOrderDirection }
 func AllSupplierOrderField() []SupplierOrderField { return internalapi.AllSupplierOrderField }

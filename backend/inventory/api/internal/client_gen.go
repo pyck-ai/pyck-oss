@@ -56,6 +56,14 @@ type APIClient interface {
 	CreateReplenishmentOrderItem(ctx context.Context, input CreateReplenishmentOrderItemInput, interceptors ...clientv2.RequestInterceptor) (*CreateReplenishmentOrderItem, error)
 	UpdateReplenishmentOrderItem(ctx context.Context, id string, input UpdateReplenishmentOrderItemInput, interceptors ...clientv2.RequestInterceptor) (*UpdateReplenishmentOrderItem, error)
 	DeleteReplenishmentOrderItem(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeleteReplenishmentOrderItem, error)
+	PatchInventoryItemData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchInventoryItemData, error)
+	PatchInventoryRepositoryData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchInventoryRepositoryData, error)
+	PatchInventoryItemMovementData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchInventoryItemMovementData, error)
+	PatchInventoryRepositoryMovementData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchInventoryRepositoryMovementData, error)
+	PatchInventoryCollectionMovementData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchInventoryCollectionMovementData, error)
+	PatchInventoryItemSetData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchInventoryItemSetData, error)
+	PatchReplenishmentOrderData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchReplenishmentOrderData, error)
+	PatchReplenishmentOrderItemData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchReplenishmentOrderItemData, error)
 }
 
 type Client struct {
@@ -9123,6 +9131,1986 @@ func (t *DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem) GetWorkflows
 	return t.Workflows
 }
 
+type PatchInventoryItemData_PatchInventoryItemData_InventoryItem struct {
+	CreatedAt    time.Time      "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy    uuid.UUID      "json:\"createdBy\" graphql:\"createdBy\""
+	Data         map[string]any "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID   *uuid.UUID     "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug *string        "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt    *time.Time     "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy    *uuid.UUID     "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	ID           string         "json:\"id\" graphql:\"id\""
+	Sku          string         "json:\"sku\" graphql:\"sku\""
+	TenantID     uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchInventoryItemData_PatchInventoryItemData_InventoryItem) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData_InventoryItem{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchInventoryItemData_PatchInventoryItemData_InventoryItem) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData_InventoryItem{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchInventoryItemData_PatchInventoryItemData_InventoryItem) GetData() map[string]any {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData_InventoryItem{}
+	}
+	return t.Data
+}
+func (t *PatchInventoryItemData_PatchInventoryItemData_InventoryItem) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData_InventoryItem{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchInventoryItemData_PatchInventoryItemData_InventoryItem) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData_InventoryItem{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchInventoryItemData_PatchInventoryItemData_InventoryItem) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData_InventoryItem{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchInventoryItemData_PatchInventoryItemData_InventoryItem) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData_InventoryItem{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchInventoryItemData_PatchInventoryItemData_InventoryItem) GetID() string {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData_InventoryItem{}
+	}
+	return t.ID
+}
+func (t *PatchInventoryItemData_PatchInventoryItemData_InventoryItem) GetSku() string {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData_InventoryItem{}
+	}
+	return t.Sku
+}
+func (t *PatchInventoryItemData_PatchInventoryItemData_InventoryItem) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData_InventoryItem{}
+	}
+	return &t.TenantID
+}
+func (t *PatchInventoryItemData_PatchInventoryItemData_InventoryItem) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData_InventoryItem{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchInventoryItemData_PatchInventoryItemData_InventoryItem) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData_InventoryItem{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchInventoryItemData_PatchInventoryItemData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchInventoryItemData_PatchInventoryItemData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchInventoryItemData_PatchInventoryItemData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchInventoryItemData_PatchInventoryItemData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchInventoryItemData_PatchInventoryItemData struct {
+	InventoryItem *PatchInventoryItemData_PatchInventoryItemData_InventoryItem "json:\"inventoryItem,omitempty\" graphql:\"inventoryItem\""
+	Workflows     []*PatchInventoryItemData_PatchInventoryItemData_Workflows   "json:\"workflows,omitempty\" graphql:\"workflows\""
+}
+
+func (t *PatchInventoryItemData_PatchInventoryItemData) GetInventoryItem() *PatchInventoryItemData_PatchInventoryItemData_InventoryItem {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData{}
+	}
+	return t.InventoryItem
+}
+func (t *PatchInventoryItemData_PatchInventoryItemData) GetWorkflows() []*PatchInventoryItemData_PatchInventoryItemData_Workflows {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData{}
+	}
+	return t.Workflows
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children struct {
+	Edges      []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                                             "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children) GetEdges() []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_Edges {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children{}
+	}
+	return t.Edges
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children) GetPageInfo() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children_PageInfo {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children) GetTotalCount() int {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children{}
+	}
+	return t.TotalCount
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories struct {
+	Edges      []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                                                                 "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories) GetEdges() []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_Edges {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories{}
+	}
+	return t.Edges
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories) GetPageInfo() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories_PageInfo {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories) GetTotalCount() int {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories{}
+	}
+	return t.TotalCount
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories struct {
+	Edges      []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                                                               "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories) GetEdges() []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_Edges {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories{}
+	}
+	return t.Edges
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories) GetPageInfo() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories_PageInfo {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories) GetTotalCount() int {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories{}
+	}
+	return t.TotalCount
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories struct {
+	Edges      []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                                                                       "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories) GetEdges() []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_Edges {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories{}
+	}
+	return t.Edges
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories) GetPageInfo() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories_PageInfo {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories) GetTotalCount() int {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories{}
+	}
+	return t.TotalCount
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories struct {
+	Edges      []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                                                                   "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories) GetEdges() []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_Edges {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories{}
+	}
+	return t.Edges
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories) GetPageInfo() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories_PageInfo {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories) GetTotalCount() int {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories{}
+	}
+	return t.TotalCount
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories struct {
+	Edges      []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                                                                     "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories) GetEdges() []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_Edges {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories{}
+	}
+	return t.Edges
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories) GetPageInfo() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories_PageInfo {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories) GetTotalCount() int {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories{}
+	}
+	return t.TotalCount
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks struct {
+	Edges      []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                                                     "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks) GetEdges() []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_Edges {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks{}
+	}
+	return t.Edges
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks) GetPageInfo() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks_PageInfo {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks) GetTotalCount() int {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks{}
+	}
+	return t.TotalCount
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions struct {
+	Edges      []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                                                           "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions) GetEdges() []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_Edges {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions{}
+	}
+	return t.Edges
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions) GetPageInfo() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions_PageInfo {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions) GetTotalCount() int {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions{}
+	}
+	return t.TotalCount
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository struct {
+	Children                           PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children                           "json:\"children\" graphql:\"children\""
+	CreatedAt                          time.Time                                                                                                        "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy                          uuid.UUID                                                                                                        "json:\"createdBy\" graphql:\"createdBy\""
+	Data                               map[string]any                                                                                                   "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID                         *uuid.UUID                                                                                                       "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug                       *string                                                                                                          "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt                          *time.Time                                                                                                       "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy                          *uuid.UUID                                                                                                       "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	ID                                 string                                                                                                           "json:\"id\" graphql:\"id\""
+	ItemMovementFromRepositories       PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories       "json:\"itemMovementFromRepositories\" graphql:\"itemMovementFromRepositories\""
+	ItemMovementToRepositories         PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories         "json:\"itemMovementToRepositories\" graphql:\"itemMovementToRepositories\""
+	Layout                             *string                                                                                                          "json:\"layout,omitempty\" graphql:\"layout\""
+	LocationID                         *uuid.UUID                                                                                                       "json:\"locationID,omitempty\" graphql:\"locationID\""
+	Name                               string                                                                                                           "json:\"name\" graphql:\"name\""
+	ParentID                           *string                                                                                                          "json:\"parentID,omitempty\" graphql:\"parentID\""
+	RepositoryMovementFromRepositories PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories "json:\"repositoryMovementFromRepositories\" graphql:\"repositoryMovementFromRepositories\""
+	RepositoryMovementRepositories     PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories     "json:\"repositoryMovementRepositories\" graphql:\"repositoryMovementRepositories\""
+	RepositoryMovementToRepositories   PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories   "json:\"repositoryMovementToRepositories\" graphql:\"repositoryMovementToRepositories\""
+	RepositoryStocks                   PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks                   "json:\"repositoryStocks\" graphql:\"repositoryStocks\""
+	RepositoryTransactions             PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions             "json:\"repositoryTransactions\" graphql:\"repositoryTransactions\""
+	TenantID                           uuid.UUID                                                                                                        "json:\"tenantID\" graphql:\"tenantID\""
+	Type                               repository.Type                                                                                                  "json:\"type\" graphql:\"type\""
+	UpdatedAt                          *time.Time                                                                                                       "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy                          *uuid.UUID                                                                                                       "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+	VirtualRepo                        bool                                                                                                             "json:\"virtualRepo\" graphql:\"virtualRepo\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetChildren() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_Children {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return &t.Children
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetData() map[string]any {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return t.Data
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetID() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return t.ID
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetItemMovementFromRepositories() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementFromRepositories {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return &t.ItemMovementFromRepositories
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetItemMovementToRepositories() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_ItemMovementToRepositories {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return &t.ItemMovementToRepositories
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetLayout() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return t.Layout
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetLocationID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return t.LocationID
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetName() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return t.Name
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetParentID() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return t.ParentID
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetRepositoryMovementFromRepositories() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementFromRepositories {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return &t.RepositoryMovementFromRepositories
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetRepositoryMovementRepositories() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementRepositories {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return &t.RepositoryMovementRepositories
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetRepositoryMovementToRepositories() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryMovementToRepositories {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return &t.RepositoryMovementToRepositories
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetRepositoryStocks() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryStocks {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return &t.RepositoryStocks
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetRepositoryTransactions() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository_RepositoryTransactions {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return &t.RepositoryTransactions
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return &t.TenantID
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetType() *repository.Type {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return &t.Type
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return t.UpdatedBy
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository) GetVirtualRepo() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository{}
+	}
+	return t.VirtualRepo
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchInventoryRepositoryData_PatchInventoryRepositoryData struct {
+	InventoryRepository *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository "json:\"inventoryRepository,omitempty\" graphql:\"inventoryRepository\""
+	Workflows           []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows         "json:\"workflows,omitempty\" graphql:\"workflows\""
+}
+
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData) GetInventoryRepository() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData{}
+	}
+	return t.InventoryRepository
+}
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData) GetWorkflows() []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData{}
+	}
+	return t.Workflows
+}
+
+type PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement struct {
+	BlockedBy    *itemmovement.BlockedBy "json:\"blockedBy,omitempty\" graphql:\"blockedBy\""
+	CollectionID *uuid.UUID              "json:\"collectionID,omitempty\" graphql:\"collectionID\""
+	CreatedAt    time.Time               "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy    uuid.UUID               "json:\"createdBy\" graphql:\"createdBy\""
+	Data         map[string]any          "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID   *uuid.UUID              "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug *string                 "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt    *time.Time              "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy    *uuid.UUID              "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	Executed     bool                    "json:\"executed\" graphql:\"executed\""
+	ExecutedAt   *time.Time              "json:\"executedAt,omitempty\" graphql:\"executedAt\""
+	FromID       string                  "json:\"fromID\" graphql:\"fromID\""
+	Handler      string                  "json:\"handler\" graphql:\"handler\""
+	ID           string                  "json:\"id\" graphql:\"id\""
+	ItemID       string                  "json:\"itemID\" graphql:\"itemID\""
+	OrderID      *uuid.UUID              "json:\"orderID,omitempty\" graphql:\"orderID\""
+	Position     int                     "json:\"position\" graphql:\"position\""
+	Quantity     int                     "json:\"quantity\" graphql:\"quantity\""
+	TenantID     uuid.UUID               "json:\"tenantID\" graphql:\"tenantID\""
+	ToID         string                  "json:\"toID\" graphql:\"toID\""
+	UpdatedAt    *time.Time              "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy    *uuid.UUID              "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetBlockedBy() *itemmovement.BlockedBy {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.BlockedBy
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetCollectionID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.CollectionID
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetData() map[string]any {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.Data
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetExecuted() bool {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.Executed
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetExecutedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.ExecutedAt
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetFromID() string {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.FromID
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetHandler() string {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.Handler
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetID() string {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.ID
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetItemID() string {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.ItemID
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetOrderID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.OrderID
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetPosition() int {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.Position
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetQuantity() int {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.Quantity
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return &t.TenantID
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetToID() string {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.ToID
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchInventoryItemMovementData_PatchInventoryItemMovementData struct {
+	InventoryItemMovement *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement "json:\"inventoryItemMovement,omitempty\" graphql:\"inventoryItemMovement\""
+	Workflows             []*PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows           "json:\"workflows,omitempty\" graphql:\"workflows\""
+}
+
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData) GetInventoryItemMovement() *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData{}
+	}
+	return t.InventoryItemMovement
+}
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData) GetWorkflows() []*PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData{}
+	}
+	return t.Workflows
+}
+
+type PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement struct {
+	BlockedBy    *repositorymovement.BlockedBy "json:\"blockedBy,omitempty\" graphql:\"blockedBy\""
+	CollectionID *uuid.UUID                    "json:\"collectionID,omitempty\" graphql:\"collectionID\""
+	CreatedAt    time.Time                     "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy    uuid.UUID                     "json:\"createdBy\" graphql:\"createdBy\""
+	Data         map[string]any                "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID   *uuid.UUID                    "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug *string                       "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt    *time.Time                    "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy    *uuid.UUID                    "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	Executed     bool                          "json:\"executed\" graphql:\"executed\""
+	ExecutedAt   *time.Time                    "json:\"executedAt,omitempty\" graphql:\"executedAt\""
+	FromID       *string                       "json:\"fromID,omitempty\" graphql:\"fromID\""
+	Handler      string                        "json:\"handler\" graphql:\"handler\""
+	ID           string                        "json:\"id\" graphql:\"id\""
+	OrderID      *uuid.UUID                    "json:\"orderID,omitempty\" graphql:\"orderID\""
+	Position     int                           "json:\"position\" graphql:\"position\""
+	RepositoryID string                        "json:\"repositoryID\" graphql:\"repositoryID\""
+	TenantID     uuid.UUID                     "json:\"tenantID\" graphql:\"tenantID\""
+	ToID         string                        "json:\"toID\" graphql:\"toID\""
+	UpdatedAt    *time.Time                    "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy    *uuid.UUID                    "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetBlockedBy() *repositorymovement.BlockedBy {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.BlockedBy
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetCollectionID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.CollectionID
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetData() map[string]any {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.Data
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetExecuted() bool {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.Executed
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetExecutedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.ExecutedAt
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetFromID() *string {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.FromID
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetHandler() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.Handler
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetID() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.ID
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetOrderID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.OrderID
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetPosition() int {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.Position
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetRepositoryID() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.RepositoryID
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return &t.TenantID
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetToID() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.ToID
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData struct {
+	InventoryRepositoryMovement *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement "json:\"inventoryRepositoryMovement,omitempty\" graphql:\"inventoryRepositoryMovement\""
+	Workflows                   []*PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows                 "json:\"workflows,omitempty\" graphql:\"workflows\""
+}
+
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData) GetInventoryRepositoryMovement() *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData{}
+	}
+	return t.InventoryRepositoryMovement
+}
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData) GetWorkflows() []*PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData{}
+	}
+	return t.Workflows
+}
+
+type PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection struct {
+	CreatedAt    time.Time      "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy    uuid.UUID      "json:\"createdBy\" graphql:\"createdBy\""
+	Data         map[string]any "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID   *uuid.UUID     "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug *string        "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt    *time.Time     "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy    *uuid.UUID     "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	Handler      *string        "json:\"handler,omitempty\" graphql:\"handler\""
+	ID           string         "json:\"id\" graphql:\"id\""
+	TenantID     uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection) GetData() map[string]any {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection{}
+	}
+	return t.Data
+}
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection) GetHandler() *string {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection{}
+	}
+	return t.Handler
+}
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection) GetID() string {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection{}
+	}
+	return t.ID
+}
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection{}
+	}
+	return &t.TenantID
+}
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData struct {
+	InventoryCollection PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection "json:\"inventoryCollection\" graphql:\"inventoryCollection\""
+	Workflows           []*PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows        "json:\"workflows,omitempty\" graphql:\"workflows\""
+}
+
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData) GetInventoryCollection() *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData{}
+	}
+	return &t.InventoryCollection
+}
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData) GetWorkflows() []*PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData{}
+	}
+	return t.Workflows
+}
+
+type PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items struct {
+	Edges      []*PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                                 "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items) GetEdges() []*PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_Edges {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items{}
+	}
+	return t.Edges
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items) GetPageInfo() *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items_PageInfo {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items) GetTotalCount() int {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items{}
+	}
+	return t.TotalCount
+}
+
+type PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet struct {
+	CreatedAt    time.Time                                                                  "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy    uuid.UUID                                                                  "json:\"createdBy\" graphql:\"createdBy\""
+	Data         map[string]any                                                             "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID   *uuid.UUID                                                                 "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug *string                                                                    "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt    *time.Time                                                                 "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy    *uuid.UUID                                                                 "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	ID           string                                                                     "json:\"id\" graphql:\"id\""
+	Items        PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items "json:\"items\" graphql:\"items\""
+	Sku          string                                                                     "json:\"sku\" graphql:\"sku\""
+	TenantID     uuid.UUID                                                                  "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt    *time.Time                                                                 "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy    *uuid.UUID                                                                 "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet) GetData() map[string]any {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet{}
+	}
+	return t.Data
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet) GetID() string {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet{}
+	}
+	return t.ID
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet) GetItems() *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet_Items {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet{}
+	}
+	return &t.Items
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet) GetSku() string {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet{}
+	}
+	return t.Sku
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet{}
+	}
+	return &t.TenantID
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchInventoryItemSetData_PatchInventoryItemSetData struct {
+	InventoryItemSet *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet "json:\"inventoryItemSet,omitempty\" graphql:\"inventoryItemSet\""
+	Workflows        []*PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows      "json:\"workflows,omitempty\" graphql:\"workflows\""
+}
+
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData) GetInventoryItemSet() *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData{}
+	}
+	return t.InventoryItemSet
+}
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData) GetWorkflows() []*PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData{}
+	}
+	return t.Workflows
+}
+
+type PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems struct {
+	Edges      []*PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                                                         "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems) GetEdges() []*PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_Edges {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems{}
+	}
+	return t.Edges
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems) GetPageInfo() *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems_PageInfo {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems) GetTotalCount() int {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems{}
+	}
+	return t.TotalCount
+}
+
+type PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder struct {
+	CreatedAt               time.Time                                                                                          "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy               uuid.UUID                                                                                          "json:\"createdBy\" graphql:\"createdBy\""
+	Data                    map[string]any                                                                                     "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID              *uuid.UUID                                                                                         "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug            *string                                                                                            "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt               *time.Time                                                                                         "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy               *uuid.UUID                                                                                         "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	ID                      string                                                                                             "json:\"id\" graphql:\"id\""
+	ReplenishmentOrderItems PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems "json:\"replenishmentOrderItems\" graphql:\"replenishmentOrderItems\""
+	SupplierID              *uuid.UUID                                                                                         "json:\"supplierID,omitempty\" graphql:\"supplierID\""
+	TenantID                uuid.UUID                                                                                          "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt               *time.Time                                                                                         "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy               *uuid.UUID                                                                                         "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder) GetData() map[string]any {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder{}
+	}
+	return t.Data
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder) GetID() string {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder{}
+	}
+	return t.ID
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder) GetReplenishmentOrderItems() *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder_ReplenishmentOrderItems {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder{}
+	}
+	return &t.ReplenishmentOrderItems
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder) GetSupplierID() *uuid.UUID {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder{}
+	}
+	return t.SupplierID
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder{}
+	}
+	return &t.TenantID
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchReplenishmentOrderData_PatchReplenishmentOrderData struct {
+	ReplenishmentOrder *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder "json:\"replenishmentOrder,omitempty\" graphql:\"replenishmentOrder\""
+	Workflows          []*PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows        "json:\"workflows,omitempty\" graphql:\"workflows\""
+}
+
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData) GetReplenishmentOrder() *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData{}
+	}
+	return t.ReplenishmentOrder
+}
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData) GetWorkflows() []*PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData{}
+	}
+	return t.Workflows
+}
+
+type PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem struct {
+	CreatedAt            time.Time      "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy            uuid.UUID      "json:\"createdBy\" graphql:\"createdBy\""
+	Data                 map[string]any "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID           *uuid.UUID     "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug         *string        "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt            *time.Time     "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy            *uuid.UUID     "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	ID                   string         "json:\"id\" graphql:\"id\""
+	Quantity             int            "json:\"quantity\" graphql:\"quantity\""
+	ReplenishmentOrderID string         "json:\"replenishmentOrderID\" graphql:\"replenishmentOrderID\""
+	Sku                  string         "json:\"sku\" graphql:\"sku\""
+	TenantID             uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt            *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy            *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem) GetData() map[string]any {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem{}
+	}
+	return t.Data
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem) GetID() string {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem{}
+	}
+	return t.ID
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem) GetQuantity() int {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem{}
+	}
+	return t.Quantity
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem) GetReplenishmentOrderID() string {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem{}
+	}
+	return t.ReplenishmentOrderID
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem) GetSku() string {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem{}
+	}
+	return t.Sku
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem{}
+	}
+	return &t.TenantID
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData struct {
+	ReplenishmentOrderItem *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem "json:\"replenishmentOrderItem,omitempty\" graphql:\"replenishmentOrderItem\""
+	Workflows              []*PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows            "json:\"workflows,omitempty\" graphql:\"workflows\""
+}
+
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData) GetReplenishmentOrderItem() *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData{}
+	}
+	return t.ReplenishmentOrderItem
+}
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData) GetWorkflows() []*PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData{}
+	}
+	return t.Workflows
+}
+
 type GetInventoryCollections struct {
 	InventoryCollections GetInventoryCollections_InventoryCollections "json:\"inventoryCollections\" graphql:\"inventoryCollections\""
 }
@@ -9561,6 +11549,94 @@ func (t *DeleteReplenishmentOrderItem) GetDeleteReplenishmentOrderItem() *Delete
 		t = &DeleteReplenishmentOrderItem{}
 	}
 	return &t.DeleteReplenishmentOrderItem
+}
+
+type PatchInventoryItemData struct {
+	PatchInventoryItemData *PatchInventoryItemData_PatchInventoryItemData "json:\"patchInventoryItemData,omitempty\" graphql:\"patchInventoryItemData\""
+}
+
+func (t *PatchInventoryItemData) GetPatchInventoryItemData() *PatchInventoryItemData_PatchInventoryItemData {
+	if t == nil {
+		t = &PatchInventoryItemData{}
+	}
+	return t.PatchInventoryItemData
+}
+
+type PatchInventoryRepositoryData struct {
+	PatchInventoryRepositoryData *PatchInventoryRepositoryData_PatchInventoryRepositoryData "json:\"patchInventoryRepositoryData,omitempty\" graphql:\"patchInventoryRepositoryData\""
+}
+
+func (t *PatchInventoryRepositoryData) GetPatchInventoryRepositoryData() *PatchInventoryRepositoryData_PatchInventoryRepositoryData {
+	if t == nil {
+		t = &PatchInventoryRepositoryData{}
+	}
+	return t.PatchInventoryRepositoryData
+}
+
+type PatchInventoryItemMovementData struct {
+	PatchInventoryItemMovementData *PatchInventoryItemMovementData_PatchInventoryItemMovementData "json:\"patchInventoryItemMovementData,omitempty\" graphql:\"patchInventoryItemMovementData\""
+}
+
+func (t *PatchInventoryItemMovementData) GetPatchInventoryItemMovementData() *PatchInventoryItemMovementData_PatchInventoryItemMovementData {
+	if t == nil {
+		t = &PatchInventoryItemMovementData{}
+	}
+	return t.PatchInventoryItemMovementData
+}
+
+type PatchInventoryRepositoryMovementData struct {
+	PatchInventoryRepositoryMovementData *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData "json:\"patchInventoryRepositoryMovementData,omitempty\" graphql:\"patchInventoryRepositoryMovementData\""
+}
+
+func (t *PatchInventoryRepositoryMovementData) GetPatchInventoryRepositoryMovementData() *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData{}
+	}
+	return t.PatchInventoryRepositoryMovementData
+}
+
+type PatchInventoryCollectionMovementData struct {
+	PatchInventoryCollectionMovementData *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData "json:\"patchInventoryCollectionMovementData,omitempty\" graphql:\"patchInventoryCollectionMovementData\""
+}
+
+func (t *PatchInventoryCollectionMovementData) GetPatchInventoryCollectionMovementData() *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData{}
+	}
+	return t.PatchInventoryCollectionMovementData
+}
+
+type PatchInventoryItemSetData struct {
+	PatchInventoryItemSetData *PatchInventoryItemSetData_PatchInventoryItemSetData "json:\"patchInventoryItemSetData,omitempty\" graphql:\"patchInventoryItemSetData\""
+}
+
+func (t *PatchInventoryItemSetData) GetPatchInventoryItemSetData() *PatchInventoryItemSetData_PatchInventoryItemSetData {
+	if t == nil {
+		t = &PatchInventoryItemSetData{}
+	}
+	return t.PatchInventoryItemSetData
+}
+
+type PatchReplenishmentOrderData struct {
+	PatchReplenishmentOrderData *PatchReplenishmentOrderData_PatchReplenishmentOrderData "json:\"patchReplenishmentOrderData,omitempty\" graphql:\"patchReplenishmentOrderData\""
+}
+
+func (t *PatchReplenishmentOrderData) GetPatchReplenishmentOrderData() *PatchReplenishmentOrderData_PatchReplenishmentOrderData {
+	if t == nil {
+		t = &PatchReplenishmentOrderData{}
+	}
+	return t.PatchReplenishmentOrderData
+}
+
+type PatchReplenishmentOrderItemData struct {
+	PatchReplenishmentOrderItemData *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData "json:\"patchReplenishmentOrderItemData,omitempty\" graphql:\"patchReplenishmentOrderItemData\""
+}
+
+func (t *PatchReplenishmentOrderItemData) GetPatchReplenishmentOrderItemData() *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData{}
+	}
+	return t.PatchReplenishmentOrderItemData
 }
 
 const GetInventoryCollectionsDocument = `query GetInventoryCollections ($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderBy: InventoryCollectionOrder, $where: InventoryCollectionWhereInput) {
@@ -11890,45 +13966,543 @@ func (c *Client) DeleteReplenishmentOrderItem(ctx context.Context, id string, in
 	return &res, nil
 }
 
+const PatchInventoryItemDataDocument = `mutation PatchInventoryItemData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchInventoryItemData(id: $id, patches: $patches) {
+		inventoryItem {
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			id
+			sku
+			tenantID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchInventoryItemData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchInventoryItemData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchInventoryItemData
+	if err := c.Client.Post(ctx, "PatchInventoryItemData", PatchInventoryItemDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const PatchInventoryRepositoryDataDocument = `mutation PatchInventoryRepositoryData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchInventoryRepositoryData(id: $id, patches: $patches) {
+		inventoryRepository {
+			children {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			id
+			itemMovementFromRepositories {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			itemMovementToRepositories {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			layout
+			locationID
+			name
+			parentID
+			repositoryMovementFromRepositories {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			repositoryMovementRepositories {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			repositoryMovementToRepositories {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			repositoryStocks {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			repositoryTransactions {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			tenantID
+			type
+			updatedAt
+			updatedBy
+			virtualRepo
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchInventoryRepositoryData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchInventoryRepositoryData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchInventoryRepositoryData
+	if err := c.Client.Post(ctx, "PatchInventoryRepositoryData", PatchInventoryRepositoryDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const PatchInventoryItemMovementDataDocument = `mutation PatchInventoryItemMovementData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchInventoryItemMovementData(id: $id, patches: $patches) {
+		inventoryItemMovement {
+			blockedBy
+			collectionID
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			executed
+			executedAt
+			fromID
+			handler
+			id
+			itemID
+			orderID
+			position
+			quantity
+			tenantID
+			toID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchInventoryItemMovementData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchInventoryItemMovementData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchInventoryItemMovementData
+	if err := c.Client.Post(ctx, "PatchInventoryItemMovementData", PatchInventoryItemMovementDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const PatchInventoryRepositoryMovementDataDocument = `mutation PatchInventoryRepositoryMovementData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchInventoryRepositoryMovementData(id: $id, patches: $patches) {
+		inventoryRepositoryMovement {
+			blockedBy
+			collectionID
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			executed
+			executedAt
+			fromID
+			handler
+			id
+			orderID
+			position
+			repositoryID
+			tenantID
+			toID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchInventoryRepositoryMovementData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchInventoryRepositoryMovementData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchInventoryRepositoryMovementData
+	if err := c.Client.Post(ctx, "PatchInventoryRepositoryMovementData", PatchInventoryRepositoryMovementDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const PatchInventoryCollectionMovementDataDocument = `mutation PatchInventoryCollectionMovementData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchInventoryCollectionMovementData(id: $id, patches: $patches) {
+		inventoryCollection {
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			handler
+			id
+			tenantID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchInventoryCollectionMovementData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchInventoryCollectionMovementData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchInventoryCollectionMovementData
+	if err := c.Client.Post(ctx, "PatchInventoryCollectionMovementData", PatchInventoryCollectionMovementDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const PatchInventoryItemSetDataDocument = `mutation PatchInventoryItemSetData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchInventoryItemSetData(id: $id, patches: $patches) {
+		inventoryItemSet {
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			id
+			items {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			sku
+			tenantID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchInventoryItemSetData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchInventoryItemSetData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchInventoryItemSetData
+	if err := c.Client.Post(ctx, "PatchInventoryItemSetData", PatchInventoryItemSetDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const PatchReplenishmentOrderDataDocument = `mutation PatchReplenishmentOrderData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchReplenishmentOrderData(id: $id, patches: $patches) {
+		replenishmentOrder {
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			id
+			replenishmentOrderItems {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			supplierID
+			tenantID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchReplenishmentOrderData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchReplenishmentOrderData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchReplenishmentOrderData
+	if err := c.Client.Post(ctx, "PatchReplenishmentOrderData", PatchReplenishmentOrderDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const PatchReplenishmentOrderItemDataDocument = `mutation PatchReplenishmentOrderItemData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchReplenishmentOrderItemData(id: $id, patches: $patches) {
+		replenishmentOrderItem {
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			id
+			quantity
+			replenishmentOrderID
+			sku
+			tenantID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchReplenishmentOrderItemData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchReplenishmentOrderItemData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchReplenishmentOrderItemData
+	if err := c.Client.Post(ctx, "PatchReplenishmentOrderItemData", PatchReplenishmentOrderItemDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 var DocumentOperationNames = map[string]string{
-	GetInventoryCollectionsDocument:            "GetInventoryCollections",
-	GetInventoryItemsDocument:                  "GetInventoryItems",
-	GetItemMovementsDocument:                   "GetItemMovements",
-	GetInventoryItemSetsDocument:               "GetInventoryItemSets",
-	GetReplenishmentOrdersDocument:             "GetReplenishmentOrders",
-	GetReplenishmentOrderItemsDocument:         "GetReplenishmentOrderItems",
-	GetRepositoriesDocument:                    "GetRepositories",
-	GetRepositoryMovementsDocument:             "GetRepositoryMovements",
-	GetStocksDocument:                          "GetStocks",
-	GetTransactionsDocument:                    "GetTransactions",
-	GetInventoryServiceInfoDocument:            "GetInventoryServiceInfo",
-	GetStockTreeDocument:                       "GetStockTree",
-	CreateInventoryItemDocument:                "CreateInventoryItem",
-	UpdateInventoryItemDocument:                "UpdateInventoryItem",
-	DeleteInventoryItemDocument:                "DeleteInventoryItem",
-	CreateInventoryRepositoryDocument:          "CreateInventoryRepository",
-	UpdateInventoryRepositoryDocument:          "UpdateInventoryRepository",
-	DeleteInventoryRepositoryDocument:          "DeleteInventoryRepository",
-	CreateInventoryItemMovementDocument:        "CreateInventoryItemMovement",
-	UpdateInventoryItemMovementDocument:        "UpdateInventoryItemMovement",
-	ExecuteInventoryItemMovementDocument:       "ExecuteInventoryItemMovement",
-	DeleteInventoryItemMovementDocument:        "DeleteInventoryItemMovement",
-	CreateInventoryRepositoryMovementDocument:  "CreateInventoryRepositoryMovement",
-	UpdateInventoryRepositoryMovementDocument:  "UpdateInventoryRepositoryMovement",
-	ExecuteInventoryRepositoryMovementDocument: "ExecuteInventoryRepositoryMovement",
-	DeleteInventoryRepositoryMovementDocument:  "DeleteInventoryRepositoryMovement",
-	CreateInventoryCollectionMovementDocument:  "CreateInventoryCollectionMovement",
-	UpdateInventoryCollectionMovementDocument:  "UpdateInventoryCollectionMovement",
-	DeleteInventoryCollectionDocument:          "DeleteInventoryCollection",
-	DeleteInventoryStockDocument:               "DeleteInventoryStock",
-	RebuildInventoryStockDocument:              "RebuildInventoryStock",
-	CreateInventoryItemSetDocument:             "CreateInventoryItemSet",
-	UpdateInventoryItemSetDocument:             "UpdateInventoryItemSet",
-	DeleteInventoryItemSetDocument:             "DeleteInventoryItemSet",
-	CreateReplenishmentOrderDocument:           "CreateReplenishmentOrder",
-	UpdateReplenishmentOrderDocument:           "UpdateReplenishmentOrder",
-	DeleteReplenishmentOrderDocument:           "DeleteReplenishmentOrder",
-	CreateReplenishmentOrderItemDocument:       "CreateReplenishmentOrderItem",
-	UpdateReplenishmentOrderItemDocument:       "UpdateReplenishmentOrderItem",
-	DeleteReplenishmentOrderItemDocument:       "DeleteReplenishmentOrderItem",
+	GetInventoryCollectionsDocument:              "GetInventoryCollections",
+	GetInventoryItemsDocument:                    "GetInventoryItems",
+	GetItemMovementsDocument:                     "GetItemMovements",
+	GetInventoryItemSetsDocument:                 "GetInventoryItemSets",
+	GetReplenishmentOrdersDocument:               "GetReplenishmentOrders",
+	GetReplenishmentOrderItemsDocument:           "GetReplenishmentOrderItems",
+	GetRepositoriesDocument:                      "GetRepositories",
+	GetRepositoryMovementsDocument:               "GetRepositoryMovements",
+	GetStocksDocument:                            "GetStocks",
+	GetTransactionsDocument:                      "GetTransactions",
+	GetInventoryServiceInfoDocument:              "GetInventoryServiceInfo",
+	GetStockTreeDocument:                         "GetStockTree",
+	CreateInventoryItemDocument:                  "CreateInventoryItem",
+	UpdateInventoryItemDocument:                  "UpdateInventoryItem",
+	DeleteInventoryItemDocument:                  "DeleteInventoryItem",
+	CreateInventoryRepositoryDocument:            "CreateInventoryRepository",
+	UpdateInventoryRepositoryDocument:            "UpdateInventoryRepository",
+	DeleteInventoryRepositoryDocument:            "DeleteInventoryRepository",
+	CreateInventoryItemMovementDocument:          "CreateInventoryItemMovement",
+	UpdateInventoryItemMovementDocument:          "UpdateInventoryItemMovement",
+	ExecuteInventoryItemMovementDocument:         "ExecuteInventoryItemMovement",
+	DeleteInventoryItemMovementDocument:          "DeleteInventoryItemMovement",
+	CreateInventoryRepositoryMovementDocument:    "CreateInventoryRepositoryMovement",
+	UpdateInventoryRepositoryMovementDocument:    "UpdateInventoryRepositoryMovement",
+	ExecuteInventoryRepositoryMovementDocument:   "ExecuteInventoryRepositoryMovement",
+	DeleteInventoryRepositoryMovementDocument:    "DeleteInventoryRepositoryMovement",
+	CreateInventoryCollectionMovementDocument:    "CreateInventoryCollectionMovement",
+	UpdateInventoryCollectionMovementDocument:    "UpdateInventoryCollectionMovement",
+	DeleteInventoryCollectionDocument:            "DeleteInventoryCollection",
+	DeleteInventoryStockDocument:                 "DeleteInventoryStock",
+	RebuildInventoryStockDocument:                "RebuildInventoryStock",
+	CreateInventoryItemSetDocument:               "CreateInventoryItemSet",
+	UpdateInventoryItemSetDocument:               "UpdateInventoryItemSet",
+	DeleteInventoryItemSetDocument:               "DeleteInventoryItemSet",
+	CreateReplenishmentOrderDocument:             "CreateReplenishmentOrder",
+	UpdateReplenishmentOrderDocument:             "UpdateReplenishmentOrder",
+	DeleteReplenishmentOrderDocument:             "DeleteReplenishmentOrder",
+	CreateReplenishmentOrderItemDocument:         "CreateReplenishmentOrderItem",
+	UpdateReplenishmentOrderItemDocument:         "UpdateReplenishmentOrderItem",
+	DeleteReplenishmentOrderItemDocument:         "DeleteReplenishmentOrderItem",
+	PatchInventoryItemDataDocument:               "PatchInventoryItemData",
+	PatchInventoryRepositoryDataDocument:         "PatchInventoryRepositoryData",
+	PatchInventoryItemMovementDataDocument:       "PatchInventoryItemMovementData",
+	PatchInventoryRepositoryMovementDataDocument: "PatchInventoryRepositoryMovementData",
+	PatchInventoryCollectionMovementDataDocument: "PatchInventoryCollectionMovementData",
+	PatchInventoryItemSetDataDocument:            "PatchInventoryItemSetData",
+	PatchReplenishmentOrderDataDocument:          "PatchReplenishmentOrderData",
+	PatchReplenishmentOrderItemDataDocument:      "PatchReplenishmentOrderItemData",
 }

@@ -28,8 +28,6 @@ const (
 	defaultPageSize = 100
 	// maxPageSize is the maximum allowed page size for workflow executions.
 	maxPageSize = 1000
-	// assignableOffsetPrefix is used to distinguish offset-based cursors from Temporal page tokens.
-	assignableOffsetPrefix = "assignable_offset:"
 )
 
 // QuotedValues converts a []string into a comma-separated list of quoted strings.
@@ -52,9 +50,17 @@ func FormatPredicate(temporalField string, value any, operator string) string {
 	v := reflect.ValueOf(value)
 
 	switch v.Kind() {
-	case reflect.Ptr:
-		if !v.IsNil() && v.Elem().Kind() == reflect.String && v.Elem().String() != "" {
-			return fmt.Sprintf("%s %s %q", temporalField, operator, v.Elem().String())
+	case reflect.Pointer:
+		if v.IsNil() {
+			return ""
+		}
+		switch v.Elem().Kind() {
+		case reflect.String:
+			if s := v.Elem().String(); s != "" {
+				return fmt.Sprintf("%s %s %q", temporalField, operator, s)
+			}
+		case reflect.Bool:
+			return fmt.Sprintf("%s %s %t", temporalField, operator, v.Elem().Bool())
 		}
 	case reflect.Slice:
 		if v.Len() > 0 {
@@ -136,7 +142,10 @@ var (
 		{"ContainsFold", "CONTAINS"},
 	}
 	stringPredicatesNoFold = stringPredicates[:7]
-	timePredicates         = []predicateDef{
+	boolPredicates         = []predicateDef{
+		{"", "="},
+	}
+	timePredicates = []predicateDef{
 		{"", "="},
 		{"Neq", "!="},
 		{"In", "IN"},
@@ -145,6 +154,15 @@ var (
 		{"Gte", ">="},
 		{"Lt", "<"},
 		{"Lte", "<="},
+	}
+	// keywordListPredicates covers the operators Temporal supports against
+	// KeywordList search attributes. The bare suffix uses IN because the input
+	// is always a slice — `targets: [WEB, MOBILE]` becomes
+	// `pyck_workflow_targets IN ("WEB", "MOBILE")`. Temporal does not support
+	// CONTAINS / STARTS_WITH / ENDS_WITH on KeywordList values.
+	keywordListPredicates = []predicateDef{
+		{"", "IN"},
+		{"NotIn", "NOT IN"},
 	}
 )
 
@@ -157,6 +175,12 @@ type fieldMapping struct {
 	nullIncludesEmpty bool           // IS NULL also checks for empty string
 	isNil             *bool          // Pointer to the IsNil field on the where input
 	notNil            *bool          // Pointer to the NotNil field on the where input
+	// nullMatchesTrue causes a `*bool = true` predicate to be emitted as
+	// `(field = true OR field IS NULL)`. Used for opt-in boolean attributes
+	// where "attribute never written" is semantically equivalent to true —
+	// i.e. pyck_workflow_is_assignable, where workflows that never opted in
+	// are treated as assignable by the SDK and resolver.
+	nullMatchesTrue bool
 }
 
 // resolvePredicates uses reflection to look up where input fields by name convention
@@ -173,7 +197,7 @@ func (m fieldMapping) resolvePredicates(whereVal reflect.Value, whereType reflec
 			if strings.EqualFold(whereType.Field(j).Name, targetName) {
 				fieldVal := whereVal.Field(j)
 				if fieldVal.IsValid() && !fieldVal.IsZero() {
-					if s := FormatPredicate(m.field, fieldVal.Interface(), pd.op); s != "" {
+					if s := m.formatPredicateWithModifiers(fieldVal, pd.op); s != "" {
 						result = append(result, s)
 					}
 				}
@@ -184,6 +208,18 @@ func (m fieldMapping) resolvePredicates(whereVal reflect.Value, whereType reflec
 	}
 
 	return result
+}
+
+// formatPredicateWithModifiers emits a single predicate, applying mapping-
+// specific modifiers (today: nullMatchesTrue). Keeps FormatPredicate purely
+// syntactic; semantic overrides live here.
+func (m fieldMapping) formatPredicateWithModifiers(fieldVal reflect.Value, op string) string {
+	if m.nullMatchesTrue && fieldVal.Kind() == reflect.Pointer {
+		if b, ok := fieldVal.Interface().(*bool); ok && b != nil && *b {
+			return fmt.Sprintf("(%s %s true OR %s IS NULL)", m.field, op, m.field)
+		}
+	}
+	return FormatPredicate(m.field, fieldVal.Interface(), op)
 }
 
 // nullPredicates returns IS NULL / IS NOT NULL clauses for this field.
@@ -223,6 +259,7 @@ func buildFieldPredicates(where *model.WorkflowExecutionsWhereInput) string {
 		{field: "WorkflowType", inputPrefix: "TypeName", predicates: stringPredicates},
 		{field: "pyck_workflow_name", inputPrefix: "WorkflowName", predicates: stringPredicates},
 		{field: "pyck_workflow_assignee", inputPrefix: "Assignee", predicates: stringPredicates, isNil: where.AssigneeIsNil, notNil: where.AssigneeNotNil, nullIncludesEmpty: true},
+		{field: "pyck_workflow_is_assignable", inputPrefix: "IsAssignable", predicates: boolPredicates, nullMatchesTrue: true},
 		{field: "pyck_group_by", inputPrefix: "GroupBy", predicates: stringPredicates, isNil: where.GroupByIsNil, notNil: where.GroupByNotNil, nullIncludesEmpty: true},
 		{field: "WorkflowId", inputPrefix: "WorkflowID", predicates: stringPredicates},
 		{field: "RunId", inputPrefix: "RunID", predicates: stringPredicates},
@@ -232,6 +269,7 @@ func buildFieldPredicates(where *model.WorkflowExecutionsWhereInput) string {
 		{field: "pyck_service", inputPrefix: "Service", predicates: stringPredicates, isNil: where.ServiceIsNil, notNil: where.ServiceNotNil, nullIncludesEmpty: true},
 		{field: "pyck_data_type", inputPrefix: "DataType", predicates: stringPredicates, isNil: where.DataTypeIsNil, notNil: where.DataTypeNotNil, nullIncludesEmpty: true},
 		{field: "pyck_data_id", inputPrefix: "DataID", predicates: stringPredicatesNoFold, isNil: where.DataIDIsNil, notNil: where.DataIDNotNil, nullIncludesEmpty: true},
+		{field: "pyck_workflow_targets", inputPrefix: "Targets", predicates: keywordListPredicates},
 	}
 
 	var result []string
@@ -585,205 +623,26 @@ func (r *queryResolver) getWorkflowHistory(ctx context.Context, workflowID, runI
 	return nil, ErrWorkflowNotFound
 }
 
-// filterAssignableExecutions returns only executions whose memo contains
-// {"data": {"assignable": true}}. This replaces the previous N+1 RPC approach
-// that queried each workflow individually.
-func filterAssignableExecutions(executions []*model.WorkflowExecutionInfo) []*model.WorkflowExecutionInfo {
-	var filtered []*model.WorkflowExecutionInfo
-	for _, exec := range executions {
-		if exec.Memo != nil && exec.Memo.Data != nil {
-			if assignable, ok := exec.Memo.Data["assignable"].(bool); ok && assignable {
-				filtered = append(filtered, exec)
-			}
-		}
+// withIsAssignableTrue returns a WorkflowExecutionsWhereInput that requires
+// is_assignable == true, without mutating the caller's input. If the caller
+// already passed an IsAssignable value (true or false), it is respected —
+// this mirrors `workflowExecutions(where: {isAssignable: …})` and avoids
+// wrapping a deliberate `isAssignable: false` in an AND that would produce
+// a never-matching query.
+func withIsAssignableTrue(where *model.WorkflowExecutionsWhereInput) *model.WorkflowExecutionsWhereInput {
+	truth := true
+	if where == nil {
+		return &model.WorkflowExecutionsWhereInput{IsAssignable: &truth}
 	}
-	return filtered
-}
-
-// listAssignableWorkflowExecutionsPage fetches workflow executions and filters to only those
-// with ActivityCount > 0 in their UserDataInput (i.e., workflows that have user tasks).
-func (r *queryResolver) listAssignableWorkflowExecutionsPage(ctx context.Context, where *model.WorkflowExecutionsWhereInput, first *int, after *string, orderBy *model.WorkflowExecutionOrder) (*model.WorkflowExecutionInfoConnection, error) {
-	req := request.ForContext(ctx)
-	tenantIDs := req.TenantIDs()
-
-	pageSize := defaultPageSize
-	if first != nil && *first > 0 && *first <= maxPageSize {
-		pageSize = *first
+	if where.IsAssignable != nil {
+		return where
 	}
-
-	query := buildTemporalQuery(tenantIDs, where)
-
-	// For single tenant, use iterative over-fetching with Temporal pagination
-	if len(tenantIDs) == 1 {
-		return r.listSingleTenantAssignablePage(ctx, tenantIDs[0], query, pageSize, after, orderBy)
-	}
-
-	// For multiple tenants, fetch all, filter, sort, and paginate in memory
-	executions, err := r.listWorkflowExecutions(ctx, where, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	// Filter by memo — no RPCs needed
-	allFiltered := filterAssignableExecutions(executions)
-	totalCount := len(allFiltered)
-
-	sortExecutions(allFiltered, orderBy)
-
-	// Apply limit
-	hasNextPage := pageSize > 0 && len(allFiltered) > pageSize
-	if hasNextPage {
-		allFiltered = allFiltered[:pageSize]
-	}
-
-	edges := make([]*model.WorkflowExecutionInfoEdge, len(allFiltered))
-	for i, exec := range allFiltered {
-		edges[i] = &model.WorkflowExecutionInfoEdge{
-			Node:   exec,
-			Cursor: encodeAssignableOffset(i + 1),
-		}
-	}
-
-	var endCursor *string
-	if hasNextPage {
-		cursor := encodeAssignableOffset(pageSize)
-		endCursor = &cursor
-	}
-
-	return &model.WorkflowExecutionInfoConnection{
-		Edges: edges,
-		PageInfo: &model.WorkflowExecutionPageInfo{
-			HasNextPage:     hasNextPage,
-			HasPreviousPage: false,
-			EndCursor:       endCursor,
-		},
-		TotalCount: totalCount,
-	}, nil
-}
-
-// encodeAssignableOffset encodes an offset into a base64 cursor string.
-func encodeAssignableOffset(offset int) string {
-	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s%d", assignableOffsetPrefix, offset)))
-}
-
-// decodeAssignableOffset decodes an offset cursor. Returns 0 if the cursor is not an offset cursor.
-func decodeAssignableOffset(cursor string) (int, bool) {
-	decoded, err := base64.StdEncoding.DecodeString(cursor)
-	if err != nil {
-		return 0, false
-	}
-
-	s := string(decoded)
-	if !strings.HasPrefix(s, assignableOffsetPrefix) {
-		return 0, false
-	}
-
-	var offset int
-	if _, err := fmt.Sscanf(s[len(assignableOffsetPrefix):], "%d", &offset); err != nil {
-		return 0, false
-	}
-
-	return offset, true
-}
-
-// listSingleTenantAssignablePage fetches and filters assignable workflows for a single tenant.
-// It fetches all pages to compute an accurate totalCount, then paginates in-memory using
-// offset-based cursors.
-func (r *queryResolver) listSingleTenantAssignablePage(ctx context.Context, tenantID uuid.UUID, query string, pageSize int, after *string, orderBy *model.WorkflowExecutionOrder) (*model.WorkflowExecutionInfoConnection, error) {
-	workflowClient, err := r.workflowRouter.GetClient(ctx, tenantID.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get workflow client: %w", err)
-	}
-	if workflowClient == nil {
-		return nil, fmt.Errorf("%w for tenant %s", ErrWorkflowClientNotAvailable, tenantID)
-	}
-
-	// Decode offset from cursor if present
-	startOffset := 0
-	if after != nil && *after != "" {
-		if offset, ok := decodeAssignableOffset(*after); ok {
-			startOffset = offset
-		}
-	}
-
-	// Fetch all pages to get accurate totalCount
-	var (
-		allAssignable []*model.WorkflowExecutionInfo
-		nextPageToken []byte
-	)
-
-	for {
-		execs, newToken, err := workflowClient.ListWorkflowsPage(ctx, query, defaultPageSize, nextPageToken)
-		if err != nil {
-			return nil, err
-		}
-
-		// Convert protos to model
-		batch := make([]*model.WorkflowExecutionInfo, 0, len(execs))
-		for _, exec := range execs {
-			execInfo := model.WorkflowExecutionInfo{}
-			if err := execInfo.FromProto(exec, nil); err != nil {
-				return nil, err
-			}
-			batch = append(batch, &execInfo)
-		}
-
-		// Filter for assignable
-		allAssignable = append(allAssignable, filterAssignableExecutions(batch)...)
-
-		if len(newToken) == 0 {
-			break
-		}
-
-		nextPageToken = newToken
-	}
-
-	totalCount := len(allAssignable)
-
-	sortExecutions(allAssignable, orderBy)
-
-	// Apply offset
-	if startOffset >= len(allAssignable) {
-		return &model.WorkflowExecutionInfoConnection{
-			Edges: []*model.WorkflowExecutionInfoEdge{},
-			PageInfo: &model.WorkflowExecutionPageInfo{
-				HasNextPage:     false,
-				HasPreviousPage: startOffset > 0,
-			},
-			TotalCount: totalCount,
-		}, nil
-	}
-	allAssignable = allAssignable[startOffset:]
-
-	// Trim to page size
-	hasNextPage := len(allAssignable) > pageSize
-	if hasNextPage {
-		allAssignable = allAssignable[:pageSize]
-	}
-
-	edges := make([]*model.WorkflowExecutionInfoEdge, len(allAssignable))
-	for i, exec := range allAssignable {
-		edges[i] = &model.WorkflowExecutionInfoEdge{
-			Node:   exec,
-			Cursor: encodeAssignableOffset(startOffset + i + 1),
-		}
-	}
-
-	var endCursor *string
-	if hasNextPage {
-		cursor := encodeAssignableOffset(startOffset + pageSize)
-		endCursor = &cursor
-	}
-
-	return &model.WorkflowExecutionInfoConnection{
-		Edges: edges,
-		PageInfo: &model.WorkflowExecutionPageInfo{
-			HasNextPage:     hasNextPage,
-			HasPreviousPage: startOffset > 0,
-			EndCursor:       endCursor,
-		},
-		TotalCount: totalCount,
-	}, nil
+	// Shallow copy: avoid mutating the caller's input; the nested pointer
+	// fields (And/Or/Not slices, *string/*bool) can be shared — they are
+	// only read downstream.
+	out := *where
+	out.IsAssignable = &truth
+	return &out
 }
 
 // buildExecutionHistoryConnection creates a WorkflowExecutionHistoryConnection from histories.
@@ -806,4 +665,18 @@ func buildExecutionHistoryConnection(histories []*model.WorkflowExecutionHistory
 		},
 		TotalCount: totalCount,
 	}
+}
+
+// matchesFilter checks if an action definition matches the optional where filter.
+func matchesFilter(where *model.WorkflowActionsWhereInput, name string, enabled bool) bool {
+	if where == nil {
+		return true
+	}
+	if where.Name != nil && *where.Name != name {
+		return false
+	}
+	if where.Enabled != nil && *where.Enabled != enabled {
+		return false
+	}
+	return true
 }

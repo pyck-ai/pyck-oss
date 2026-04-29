@@ -1,0 +1,11 @@
+info:
+  name: Cross - Location Patch Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Tests JSON Patch (RFC 6902) operations on locations. Management entities can have data without a DataType, so this test creates a location with free-form data and patches it directly.
+
+
+request:
+  auth: inherit

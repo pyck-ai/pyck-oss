@@ -20,6 +20,8 @@ type APIClient interface {
 	CreateSupplier(ctx context.Context, input CreateSupplierInput, interceptors ...clientv2.RequestInterceptor) (*CreateSupplier, error)
 	UpdateSupplier(ctx context.Context, id string, input UpdateSupplierInput, interceptors ...clientv2.RequestInterceptor) (*UpdateSupplier, error)
 	DeleteSupplier(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeleteSupplier, error)
+	PatchCustomerData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchCustomerData, error)
+	PatchSupplierData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchSupplierData, error)
 }
 
 type Client struct {
@@ -706,6 +708,168 @@ func (t *DeleteSupplier_DeleteSupplier) GetDeletedID() *string {
 	return t.DeletedID
 }
 
+type PatchCustomerData_PatchCustomerData struct {
+	CreatedAt    time.Time      "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy    uuid.UUID      "json:\"createdBy\" graphql:\"createdBy\""
+	Data         map[string]any "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID   *uuid.UUID     "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug *string        "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt    *time.Time     "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy    *uuid.UUID     "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	ID           string         "json:\"id\" graphql:\"id\""
+	TenantID     uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchCustomerData_PatchCustomerData) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchCustomerData_PatchCustomerData{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchCustomerData_PatchCustomerData) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchCustomerData_PatchCustomerData{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchCustomerData_PatchCustomerData) GetData() map[string]any {
+	if t == nil {
+		t = &PatchCustomerData_PatchCustomerData{}
+	}
+	return t.Data
+}
+func (t *PatchCustomerData_PatchCustomerData) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchCustomerData_PatchCustomerData{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchCustomerData_PatchCustomerData) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchCustomerData_PatchCustomerData{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchCustomerData_PatchCustomerData) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchCustomerData_PatchCustomerData{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchCustomerData_PatchCustomerData) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchCustomerData_PatchCustomerData{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchCustomerData_PatchCustomerData) GetID() string {
+	if t == nil {
+		t = &PatchCustomerData_PatchCustomerData{}
+	}
+	return t.ID
+}
+func (t *PatchCustomerData_PatchCustomerData) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchCustomerData_PatchCustomerData{}
+	}
+	return &t.TenantID
+}
+func (t *PatchCustomerData_PatchCustomerData) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchCustomerData_PatchCustomerData{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchCustomerData_PatchCustomerData) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchCustomerData_PatchCustomerData{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchSupplierData_PatchSupplierData struct {
+	CreatedAt    time.Time      "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy    uuid.UUID      "json:\"createdBy\" graphql:\"createdBy\""
+	Data         map[string]any "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID   *uuid.UUID     "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug *string        "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt    *time.Time     "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy    *uuid.UUID     "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	ID           string         "json:\"id\" graphql:\"id\""
+	TenantID     uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchSupplierData_PatchSupplierData) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchSupplierData_PatchSupplierData{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchSupplierData_PatchSupplierData) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchSupplierData_PatchSupplierData{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchSupplierData_PatchSupplierData) GetData() map[string]any {
+	if t == nil {
+		t = &PatchSupplierData_PatchSupplierData{}
+	}
+	return t.Data
+}
+func (t *PatchSupplierData_PatchSupplierData) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchSupplierData_PatchSupplierData{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchSupplierData_PatchSupplierData) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchSupplierData_PatchSupplierData{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchSupplierData_PatchSupplierData) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchSupplierData_PatchSupplierData{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchSupplierData_PatchSupplierData) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchSupplierData_PatchSupplierData{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchSupplierData_PatchSupplierData) GetID() string {
+	if t == nil {
+		t = &PatchSupplierData_PatchSupplierData{}
+	}
+	return t.ID
+}
+func (t *PatchSupplierData_PatchSupplierData) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchSupplierData_PatchSupplierData{}
+	}
+	return &t.TenantID
+}
+func (t *PatchSupplierData_PatchSupplierData) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchSupplierData_PatchSupplierData{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchSupplierData_PatchSupplierData) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchSupplierData_PatchSupplierData{}
+	}
+	return t.UpdatedBy
+}
+
 type GetCustomers struct {
 	Customers GetCustomers_Customers "json:\"customers\" graphql:\"customers\""
 }
@@ -803,6 +967,28 @@ func (t *DeleteSupplier) GetDeleteSupplier() *DeleteSupplier_DeleteSupplier {
 		t = &DeleteSupplier{}
 	}
 	return &t.DeleteSupplier
+}
+
+type PatchCustomerData struct {
+	PatchCustomerData *PatchCustomerData_PatchCustomerData "json:\"patchCustomerData,omitempty\" graphql:\"patchCustomerData\""
+}
+
+func (t *PatchCustomerData) GetPatchCustomerData() *PatchCustomerData_PatchCustomerData {
+	if t == nil {
+		t = &PatchCustomerData{}
+	}
+	return t.PatchCustomerData
+}
+
+type PatchSupplierData struct {
+	PatchSupplierData *PatchSupplierData_PatchSupplierData "json:\"patchSupplierData,omitempty\" graphql:\"patchSupplierData\""
+}
+
+func (t *PatchSupplierData) GetPatchSupplierData() *PatchSupplierData_PatchSupplierData {
+	if t == nil {
+		t = &PatchSupplierData{}
+	}
+	return t.PatchSupplierData
 }
 
 const GetCustomersDocument = `query GetCustomers ($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderBy: CustomerOrder, $where: CustomerWhereInput) {
@@ -1116,6 +1302,76 @@ func (c *Client) DeleteSupplier(ctx context.Context, id string, interceptors ...
 	return &res, nil
 }
 
+const PatchCustomerDataDocument = `mutation PatchCustomerData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchCustomerData(id: $id, patches: $patches) {
+		createdAt
+		createdBy
+		data
+		dataTypeID
+		dataTypeSlug
+		deletedAt
+		deletedBy
+		id
+		tenantID
+		updatedAt
+		updatedBy
+	}
+}
+`
+
+func (c *Client) PatchCustomerData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchCustomerData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchCustomerData
+	if err := c.Client.Post(ctx, "PatchCustomerData", PatchCustomerDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const PatchSupplierDataDocument = `mutation PatchSupplierData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchSupplierData(id: $id, patches: $patches) {
+		createdAt
+		createdBy
+		data
+		dataTypeID
+		dataTypeSlug
+		deletedAt
+		deletedBy
+		id
+		tenantID
+		updatedAt
+		updatedBy
+	}
+}
+`
+
+func (c *Client) PatchSupplierData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchSupplierData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchSupplierData
+	if err := c.Client.Post(ctx, "PatchSupplierData", PatchSupplierDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 var DocumentOperationNames = map[string]string{
 	GetCustomersDocument:           "GetCustomers",
 	GetSuppliersDocument:           "GetSuppliers",
@@ -1126,4 +1382,6 @@ var DocumentOperationNames = map[string]string{
 	CreateSupplierDocument:         "CreateSupplier",
 	UpdateSupplierDocument:         "UpdateSupplier",
 	DeleteSupplierDocument:         "DeleteSupplier",
+	PatchCustomerDataDocument:      "PatchCustomerData",
+	PatchSupplierDataDocument:      "PatchSupplierData",
 }

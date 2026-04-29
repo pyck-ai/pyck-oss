@@ -8,10 +8,14 @@ import "context"
 // query predicates in pages of pageSize, collecting every row. This avoids the
 // LimitMixin hard cap that silently truncates results when no explicit Limit is
 // set.
+//
+// An ORDER BY id ASC is appended so pagination is deterministic — without it,
+// Postgres LIMIT/OFFSET returns rows in unspecified order and pages can
+// overlap or skip rows depending on the chosen plan.
 func (_q *EntityEventsOutboxQuery) AllPages(ctx context.Context, pageSize int) ([]*EntityEventsOutbox, error) {
 	var all []*EntityEventsOutbox
 	for offset := 0; ; offset += pageSize {
-		page, err := _q.Clone().Limit(pageSize).Offset(offset).All(ctx)
+		page, err := _q.Clone().Order(Asc("id")).Limit(pageSize).Offset(offset).All(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -27,10 +31,14 @@ func (_q *EntityEventsOutboxQuery) AllPages(ctx context.Context, pageSize int) (
 // query predicates in pages of pageSize, collecting every row. This avoids the
 // LimitMixin hard cap that silently truncates results when no explicit Limit is
 // set.
+//
+// An ORDER BY id ASC is appended so pagination is deterministic — without it,
+// Postgres LIMIT/OFFSET returns rows in unspecified order and pages can
+// overlap or skip rows depending on the chosen plan.
 func (_q *InboundQuery) AllPages(ctx context.Context, pageSize int) ([]*Inbound, error) {
 	var all []*Inbound
 	for offset := 0; ; offset += pageSize {
-		page, err := _q.Clone().Limit(pageSize).Offset(offset).All(ctx)
+		page, err := _q.Clone().Order(Asc("id")).Limit(pageSize).Offset(offset).All(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -46,10 +54,14 @@ func (_q *InboundQuery) AllPages(ctx context.Context, pageSize int) ([]*Inbound,
 // query predicates in pages of pageSize, collecting every row. This avoids the
 // LimitMixin hard cap that silently truncates results when no explicit Limit is
 // set.
+//
+// An ORDER BY id ASC is appended so pagination is deterministic — without it,
+// Postgres LIMIT/OFFSET returns rows in unspecified order and pages can
+// overlap or skip rows depending on the chosen plan.
 func (_q *InboundItemQuery) AllPages(ctx context.Context, pageSize int) ([]*InboundItem, error) {
 	var all []*InboundItem
 	for offset := 0; ; offset += pageSize {
-		page, err := _q.Clone().Limit(pageSize).Offset(offset).All(ctx)
+		page, err := _q.Clone().Order(Asc("id")).Limit(pageSize).Offset(offset).All(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -65,10 +77,14 @@ func (_q *InboundItemQuery) AllPages(ctx context.Context, pageSize int) ([]*Inbo
 // query predicates in pages of pageSize, collecting every row. This avoids the
 // LimitMixin hard cap that silently truncates results when no explicit Limit is
 // set.
+//
+// An ORDER BY id ASC is appended so pagination is deterministic — without it,
+// Postgres LIMIT/OFFSET returns rows in unspecified order and pages can
+// overlap or skip rows depending on the chosen plan.
 func (_q *InboundShipmentNotificationQuery) AllPages(ctx context.Context, pageSize int) ([]*InboundShipmentNotification, error) {
 	var all []*InboundShipmentNotification
 	for offset := 0; ; offset += pageSize {
-		page, err := _q.Clone().Limit(pageSize).Offset(offset).All(ctx)
+		page, err := _q.Clone().Order(Asc("id")).Limit(pageSize).Offset(offset).All(ctx)
 		if err != nil {
 			return nil, err
 		}

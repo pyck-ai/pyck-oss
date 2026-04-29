@@ -1,0 +1,11 @@
+info:
+  name: Cross - Customer Patch Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Tests JSON Patch (RFC 6902) operations on customers. Creates a data type and customer with data, updates via full overwrite, patches individual fields, verifies changes persist, then cleans up.
+
+
+request:
+  auth: inherit

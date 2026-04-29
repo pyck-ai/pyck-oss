@@ -1,0 +1,193 @@
+---
+name: "Cross - File Patch Lifecycle"
+description: >
+  Tests JSON Patch (RFC 6902) operations on files. Creates a data type and
+  file with data, updates via full overwrite, patches individual fields,
+  verifies changes persist, then cleans up.
+steps:
+  - id: createDT
+    name: "Create data type for files"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "File Patch Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "file"
+        jsonSchema: '{"type":"object","properties":{"category":{"type":"string"},"confidential":{"type":"boolean"},"version":{"type":"integer","minimum":1}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: create
+    name: "Create file with data"
+    operation: file.createFile
+    vars:
+      input:
+        name: "patch-test.pdf"
+        refid: {$fake: uuid}
+        reftype: supplier
+        contentType: "application/pdf"
+        size: 1024
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          category: "invoice"
+          confidential: false
+          version: 1
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "File created"
+        assertions:
+          - ref: res.body.data.createFile.id
+            nil: false
+
+  - id: update
+    name: "Full update via updateFile"
+    operation: file.updateFile
+    vars:
+      id: {$ref: "res[create].body.data.createFile.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          category: "receipt"
+          confidential: true
+          version: 2
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "All data replaced"
+        assertions:
+          - ref: res.body.data.updateFile.data.category
+            equal: "receipt"
+          - ref: res.body.data.updateFile.data.confidential
+            equal: true
+          - ref: res.body.data.updateFile.data.version
+            equal: 2
+
+  - name: "Verify update persisted"
+    operation: file.getFiles
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createFile.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Updated data persisted"
+        assertions:
+          - ref: res.body.data.files.edges[].node.data.category
+            equal: "receipt"
+          - ref: res.body.data.files.edges[].node.data.confidential
+            equal: true
+
+  - id: patch
+    name: "Patch file data - partial update"
+    operation: file.patchFileData
+    vars:
+      id: {$ref: "res[create].body.data.createFile.id"}
+      patches:
+        - op: REPLACE
+          path: "/version"
+          value: "3"
+        - op: REPLACE
+          path: "/confidential"
+          value: "false"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Version patched"
+        assertions:
+          - ref: res.body.data.patchFileData.data.version
+            equal: 3
+      - msg: "Confidential patched"
+        assertions:
+          - ref: res.body.data.patchFileData.data.confidential
+            equal: false
+      - msg: "Category preserved (untouched)"
+        assertions:
+          - ref: res.body.data.patchFileData.data.category
+            equal: "receipt"
+
+  - name: "Verify patch persisted"
+    operation: file.getFiles
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createFile.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Patched data persisted"
+        assertions:
+          - ref: res.body.data.files.edges[].node.data.version
+            equal: 3
+          - ref: res.body.data.files.edges[].node.data.confidential
+            equal: false
+          - ref: res.body.data.files.edges[].node.data.category
+            equal: "receipt"
+
+  - name: "Delete file"
+    operation: file.deleteFile
+    vars:
+      id: {$ref: "res[create].body.data.createFile.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

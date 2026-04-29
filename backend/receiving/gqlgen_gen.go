@@ -17,6 +17,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/99designs/gqlgen/plugin/federation/fedruntime"
 	"github.com/google/uuid"
+	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/receiving/ent/gen"
 	"github.com/pyck-ai/pyck/backend/receiving/model"
 	gqlparser "github.com/vektah/gqlparser/v2"
@@ -63,15 +64,18 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CreateReceivingInbound                     func(childComplexity int, input model.CreateReceivingInboundWithItemsInput) int
-		CreateReceivingInboundItem                 func(childComplexity int, input gen.CreateReceivingInboundItemInput) int
-		CreateReceivingInboundShipmentNotification func(childComplexity int, input gen.CreateReceivingInboundShipmentNotificationInput) int
-		DeleteReceivingInbound                     func(childComplexity int, id uuid.UUID) int
-		DeleteReceivingInboundItem                 func(childComplexity int, id uuid.UUID) int
-		DeleteReceivingInboundShipmentNotification func(childComplexity int, id uuid.UUID) int
-		UpdateReceivingInbound                     func(childComplexity int, id uuid.UUID, input gen.UpdateReceivingInboundInput) int
-		UpdateReceivingInboundItem                 func(childComplexity int, id uuid.UUID, input gen.UpdateReceivingInboundItemInput) int
-		UpdateReceivingInboundShipmentNotification func(childComplexity int, id uuid.UUID, input gen.UpdateReceivingInboundShipmentNotificationInput) int
+		CreateReceivingInbound                        func(childComplexity int, input model.CreateReceivingInboundWithItemsInput) int
+		CreateReceivingInboundItem                    func(childComplexity int, input gen.CreateReceivingInboundItemInput) int
+		CreateReceivingInboundShipmentNotification    func(childComplexity int, input gen.CreateReceivingInboundShipmentNotificationInput) int
+		DeleteReceivingInbound                        func(childComplexity int, id uuid.UUID) int
+		DeleteReceivingInboundItem                    func(childComplexity int, id uuid.UUID) int
+		DeleteReceivingInboundShipmentNotification    func(childComplexity int, id uuid.UUID) int
+		PatchReceivingInboundData                     func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		PatchReceivingInboundItemData                 func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		PatchReceivingInboundShipmentNotificationData func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		UpdateReceivingInbound                        func(childComplexity int, id uuid.UUID, input gen.UpdateReceivingInboundInput) int
+		UpdateReceivingInboundItem                    func(childComplexity int, id uuid.UUID, input gen.UpdateReceivingInboundItemInput) int
+		UpdateReceivingInboundShipmentNotification    func(childComplexity int, id uuid.UUID, input gen.UpdateReceivingInboundShipmentNotificationInput) int
 	}
 
 	PageInfo struct {
@@ -237,6 +241,9 @@ type MutationResolver interface {
 	CreateReceivingInboundShipmentNotification(ctx context.Context, input gen.CreateReceivingInboundShipmentNotificationInput) (*model.ReceivingInboundShipmentNotificationOutput, error)
 	UpdateReceivingInboundShipmentNotification(ctx context.Context, id uuid.UUID, input gen.UpdateReceivingInboundShipmentNotificationInput) (*model.ReceivingInboundShipmentNotificationOutput, error)
 	DeleteReceivingInboundShipmentNotification(ctx context.Context, id uuid.UUID) (*model.ReceivingInboundShipmentNotificationDeletePayload, error)
+	PatchReceivingInboundData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.ReceivingInboundOutput, error)
+	PatchReceivingInboundItemData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.ReceivingInboundItemOutput, error)
+	PatchReceivingInboundShipmentNotificationData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.ReceivingInboundShipmentNotificationOutput, error)
 }
 type QueryResolver interface {
 	Node(ctx context.Context, id uuid.UUID) (gen.Noder, error)
@@ -437,6 +444,39 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.DeleteReceivingInboundShipmentNotification(childComplexity, args["id"].(uuid.UUID)), true
+	case "Mutation.patchReceivingInboundData":
+		if e.ComplexityRoot.Mutation.PatchReceivingInboundData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchReceivingInboundData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchReceivingInboundData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
+	case "Mutation.patchReceivingInboundItemData":
+		if e.ComplexityRoot.Mutation.PatchReceivingInboundItemData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchReceivingInboundItemData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchReceivingInboundItemData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
+	case "Mutation.patchReceivingInboundShipmentNotificationData":
+		if e.ComplexityRoot.Mutation.PatchReceivingInboundShipmentNotificationData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchReceivingInboundShipmentNotificationData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchReceivingInboundShipmentNotificationData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
 	case "Mutation.updateReceivingInbound":
 		if e.ComplexityRoot.Mutation.UpdateReceivingInbound == nil {
 			break
@@ -1075,6 +1115,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputCreateReceivingInboundShipmentNotificationInput,
 		ec.unmarshalInputCreateReceivingInboundWithItemsInput,
 		ec.unmarshalInputEntityEventsOutboxWhereInput,
+		ec.unmarshalInputJSONPatchInput,
 		ec.unmarshalInputReceivingInboundItemOrder,
 		ec.unmarshalInputReceivingInboundItemWhereInput,
 		ec.unmarshalInputReceivingInboundOrder,
@@ -1158,7 +1199,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "graph/ent.graphql" "graph/inbound.graphql" "graph/inbounditem.graphql" "graph/inboundshipmentnotification.graphql" "graph/mutations.graphql" "graph/serviceinfo.graphql" "graph/temporalworkflow.graphql"
+//go:embed "graph/ent.graphql" "graph/inbound.graphql" "graph/inbounditem.graphql" "graph/inboundshipmentnotification.graphql" "graph/jsonpatch.graphql" "graph/mutations.graphql" "graph/serviceinfo.graphql" "graph/temporalworkflow.graphql"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -1174,6 +1215,7 @@ var sources = []*ast.Source{
 	{Name: "graph/inbound.graphql", Input: sourceData("graph/inbound.graphql"), BuiltIn: false},
 	{Name: "graph/inbounditem.graphql", Input: sourceData("graph/inbounditem.graphql"), BuiltIn: false},
 	{Name: "graph/inboundshipmentnotification.graphql", Input: sourceData("graph/inboundshipmentnotification.graphql"), BuiltIn: false},
+	{Name: "graph/jsonpatch.graphql", Input: sourceData("graph/jsonpatch.graphql"), BuiltIn: false},
 	{Name: "graph/mutations.graphql", Input: sourceData("graph/mutations.graphql"), BuiltIn: false},
 	{Name: "graph/serviceinfo.graphql", Input: sourceData("graph/serviceinfo.graphql"), BuiltIn: false},
 	{Name: "graph/temporalworkflow.graphql", Input: sourceData("graph/temporalworkflow.graphql"), BuiltIn: false},
@@ -1307,6 +1349,54 @@ func (ec *executionContext) field_Mutation_deleteReceivingInbound_args(ctx conte
 		return nil, err
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchReceivingInboundData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchReceivingInboundItemData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchReceivingInboundShipmentNotificationData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
 	return args, nil
 }
 
@@ -2475,6 +2565,147 @@ func (ec *executionContext) fieldContext_Mutation_deleteReceivingInboundShipment
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_deleteReceivingInboundShipmentNotification_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchReceivingInboundData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchReceivingInboundData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchReceivingInboundData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOReceivingInboundOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋreceivingᚋmodelᚐReceivingInboundOutput,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchReceivingInboundData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "receivingInbound":
+				return ec.fieldContext_ReceivingInboundOutput_receivingInbound(ctx, field)
+			case "workflows":
+				return ec.fieldContext_ReceivingInboundOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ReceivingInboundOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchReceivingInboundData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchReceivingInboundItemData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchReceivingInboundItemData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchReceivingInboundItemData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOReceivingInboundItemOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋreceivingᚋmodelᚐReceivingInboundItemOutput,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchReceivingInboundItemData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "receivingInboundItem":
+				return ec.fieldContext_ReceivingInboundItemOutput_receivingInboundItem(ctx, field)
+			case "workflows":
+				return ec.fieldContext_ReceivingInboundItemOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ReceivingInboundItemOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchReceivingInboundItemData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchReceivingInboundShipmentNotificationData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchReceivingInboundShipmentNotificationData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchReceivingInboundShipmentNotificationData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOReceivingInboundShipmentNotificationOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋreceivingᚋmodelᚐReceivingInboundShipmentNotificationOutput,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchReceivingInboundShipmentNotificationData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "receivingInboundShipmentNotification":
+				return ec.fieldContext_ReceivingInboundShipmentNotificationOutput_receivingInboundShipmentNotification(ctx, field)
+			case "workflows":
+				return ec.fieldContext_ReceivingInboundShipmentNotificationOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ReceivingInboundShipmentNotificationOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchReceivingInboundShipmentNotificationData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -8443,6 +8674,57 @@ func (ec *executionContext) unmarshalInputEntityEventsOutboxWhereInput(ctx conte
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputJSONPatchInput(ctx context.Context, obj any) (jsonpatch.JSONPatchInput, error) {
+	var it jsonpatch.JSONPatchInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"op", "path", "value", "from"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "op":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("op"))
+			data, err := ec.unmarshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Op = data
+		case "path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("path"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Path = data
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		case "from":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("from"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.From = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputReceivingInboundItemOrder(ctx context.Context, obj any) (gen.ReceivingInboundItemOrder, error) {
 	var it gen.ReceivingInboundItemOrder
 	if obj == nil {
@@ -11361,6 +11643,18 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "patchReceivingInboundData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchReceivingInboundData(ctx, field)
+			})
+		case "patchReceivingInboundItemData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchReceivingInboundItemData(ctx, field)
+			})
+		case "patchReceivingInboundShipmentNotificationData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchReceivingInboundShipmentNotificationData(ctx, field)
+			})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -13140,6 +13434,36 @@ func (ec *executionContext) marshalNInt2int64(ctx context.Context, sel ast.Selec
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ(ctx context.Context, v any) ([]*jsonpatch.JSONPatchInput, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*jsonpatch.JSONPatchInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNJSONPatchInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNJSONPatchInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInput(ctx context.Context, v any) (*jsonpatch.JSONPatchInput, error) {
+	res, err := ec.unmarshalInputJSONPatchInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx context.Context, v any) (jsonpatch.JSONPatchOp, error) {
+	var res jsonpatch.JSONPatchOp
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx context.Context, sel ast.SelectionSet, v jsonpatch.JSONPatchOp) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNMap2map(ctx context.Context, v any) (map[string]any, error) {

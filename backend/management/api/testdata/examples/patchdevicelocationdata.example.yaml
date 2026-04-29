@@ -1,0 +1,30 @@
+---
+operation: PatchDeviceLocationData
+name: "Patch Device Location Data"
+description: >
+  Applies RFC 6902 JSON Patch operations to the device location assignment's
+  data field. Only changed fields are modified; untouched fields are preserved.
+vars:
+  id: { $placeholder: "device location id to patch" }
+  patches:
+    - op: REPLACE
+      path: "/priority"
+      value: "\"high\""
+    - op: ADD
+      path: "/note"
+      value: "\"Moved to urgent area\""
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Patched device location returned"
+    assertions:
+      - ref: res.body.data.patchDeviceLocationData.DeviceLocation
+        nil: false
+      - ref: res.body.data.patchDeviceLocationData.DeviceLocation.id
+        equal: {$ref: req.body.variables.id}

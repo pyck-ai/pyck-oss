@@ -396,3 +396,105 @@ mutation DeleteReceivingInboundShipmentNotification($id: ID!) {
   }
 }
 
+
+mutation PatchReceivingInboundData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchReceivingInboundData(id: $id, patches: $patches) {
+    receivingInbound {
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      id
+      inboundItems {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      inboundShipmentNotifications {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      orderID
+      supplierID
+      tenantID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+
+
+mutation PatchReceivingInboundItemData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchReceivingInboundItemData(id: $id, patches: $patches) {
+    receivingInboundItem {
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      id
+      inboundID
+      quantity
+      sku
+      tenantID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+
+
+mutation PatchReceivingInboundShipmentNotificationData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchReceivingInboundShipmentNotificationData(id: $id, patches: $patches) {
+    receivingInboundShipmentNotification {
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      id
+      inboundID
+      tenantID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+

@@ -133,6 +133,41 @@ func TestFormatPredicate(t *testing.T) {
 			operator:      "NOT IN",
 			expected:      `ExecutionStatus NOT IN ("COMPLETED", "FAILED")`,
 		},
+		{
+			name:          "WorkflowTarget enum slice with IN operator",
+			temporalField: "pyck_workflow_targets",
+			value:         []model.WorkflowTarget{model.WorkflowTargetWeb, model.WorkflowTargetMobile},
+			operator:      "IN",
+			expected:      `pyck_workflow_targets IN ("WEB", "MOBILE")`,
+		},
+		{
+			name:          "WorkflowTarget enum slice with NOT IN operator",
+			temporalField: "pyck_workflow_targets",
+			value:         []model.WorkflowTarget{model.WorkflowTargetSetup},
+			operator:      "NOT IN",
+			expected:      `pyck_workflow_targets NOT IN ("SETUP")`,
+		},
+		{
+			name:          "bool pointer true",
+			temporalField: "pyck_workflow_is_assignable",
+			value:         boolPtr(true),
+			operator:      "=",
+			expected:      `pyck_workflow_is_assignable = true`,
+		},
+		{
+			name:          "bool pointer false",
+			temporalField: "pyck_workflow_is_assignable",
+			value:         boolPtr(false),
+			operator:      "=",
+			expected:      `pyck_workflow_is_assignable = false`,
+		},
+		{
+			name:          "nil bool pointer - empty result",
+			temporalField: "pyck_workflow_is_assignable",
+			value:         (*bool)(nil),
+			operator:      "=",
+			expected:      "",
+		},
 	}
 
 	for _, tt := range tests {
@@ -284,6 +319,33 @@ func TestBuildWhereClause(t *testing.T) {
 			expected: `((pyck_workflow_assignee IS NULL OR pyck_workflow_assignee = "") OR NOT (pyck_workflow_assignee = "user-123"))`,
 		},
 		{
+			// true matches explicit-true OR absent-attribute — workflows
+			// that never opted in via WorkflowIsAssignableSetter are
+			// considered assignable by default (mirrors SDK semantics).
+			name: "is_assignable true predicate (null-matches-true)",
+			where: &model.WorkflowExecutionsWhereInput{
+				IsAssignable: boolPtr(true),
+			},
+			expected: `(pyck_workflow_is_assignable = true OR pyck_workflow_is_assignable IS NULL)`,
+		},
+		{
+			// false matches only workflows that explicitly wrote false.
+			// Absent-attribute is treated as true (see previous case).
+			name: "is_assignable false predicate (explicit only)",
+			where: &model.WorkflowExecutionsWhereInput{
+				IsAssignable: boolPtr(false),
+			},
+			expected: `pyck_workflow_is_assignable = false`,
+		},
+		{
+			name: "is_assignable combined with other filters",
+			where: &model.WorkflowExecutionsWhereInput{
+				Status:       stringPtr("Running"),
+				IsAssignable: boolPtr(true),
+			},
+			expected: `(pyck_workflow_is_assignable = true OR pyck_workflow_is_assignable IS NULL) AND ExecutionStatus = "Running"`,
+		},
+		{
 			name: "OR with empty branches ignored",
 			where: &model.WorkflowExecutionsWhereInput{
 				Or: []*model.WorkflowExecutionsWhereInput{
@@ -325,6 +387,28 @@ func TestBuildWhereClause(t *testing.T) {
 				WorkflowNameContainsFold: stringPtr("pick"),
 			},
 			expected: `pyck_workflow_name CONTAINS "pick"`,
+		},
+		{
+			name: "Targets emits IN against pyck_workflow_targets",
+			where: &model.WorkflowExecutionsWhereInput{
+				Targets: []model.WorkflowTarget{model.WorkflowTargetWeb, model.WorkflowTargetMobile},
+			},
+			expected: `pyck_workflow_targets IN ("WEB", "MOBILE")`,
+		},
+		{
+			name: "TargetsNotIn emits NOT IN against pyck_workflow_targets",
+			where: &model.WorkflowExecutionsWhereInput{
+				TargetsNotIn: []model.WorkflowTarget{model.WorkflowTargetSetup},
+			},
+			expected: `pyck_workflow_targets NOT IN ("SETUP")`,
+		},
+		{
+			name: "Targets combines with status",
+			where: &model.WorkflowExecutionsWhereInput{
+				Status:  stringPtr("Running"),
+				Targets: []model.WorkflowTarget{model.WorkflowTargetWeb},
+			},
+			expected: `ExecutionStatus = "Running" AND pyck_workflow_targets IN ("WEB")`,
 		},
 	}
 

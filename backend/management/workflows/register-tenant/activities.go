@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -236,26 +235,7 @@ func (*Activities) AddUserGrantActivity(ctx context.Context, input addUserGrantI
 }
 
 func getZitadelClient(ctx context.Context, orgId string) (*zitadel.ZitadelSdkClient, error) {
-	// FIXME(michael): This is really just a work-around for now. It would be
-	// better to have a separate config for the API host instead of mangling the
-	// audience.
-	u, err := url.Parse(core.Config.ZitadelAudience)
-	if err != nil {
-		return nil, fmt.Errorf("invalid Zitadel audience URL: %w", err)
-	}
-
-	if u.Port() == "" {
-		switch u.Scheme {
-		case "http":
-			u.Host = fmt.Sprintf("%s:80", u.Host)
-		case "https":
-			u.Host = fmt.Sprintf("%s:443", u.Host)
-		}
-	}
-
-	apiHost := u.Host + u.Path
-
-	return zitadel.SdkClient(ctx, core.Config.ZitadelAudience, apiHost, core.Config.ZitadelServiceKeyPath, orgId)
+	return zitadel.SdkClient(ctx, core.Config.ZitadelAudience, core.Config.ZitadelGrpcAddr, core.Config.ZitadelOAuthURL, core.Config.ZitadelServiceKeyPath, orgId, core.Config.ZitadelTlsInsecure)
 }
 
 func isAlreadyExistsError(err error) bool {
@@ -356,7 +336,7 @@ func (a *Activities) DeleteTenantFromDbActivity(ctx context.Context, input Delet
 	tenantID := a.nsGetter.GetTenantID(input.OrganizationID)
 	serviceUserCtx := authn.Context(ctx, authn.SystemUser())
 
-	err := a.entClient.Tenant.UpdateOneID(tenantID).SetDeletedAt(time.Now()).Exec(serviceUserCtx)
+	err := a.entClient.Tenant.UpdateOneID(tenantID).SetDeletedAt(time.Now().UTC()).Exec(serviceUserCtx)
 	if ent.IsNotFound(err) {
 		return nil
 	}

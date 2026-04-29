@@ -1,0 +1,29 @@
+---
+operation: GetWorkflowActions
+name: "Get Workflow Actions"
+description: >
+  Returns available queries and updates for a workflow execution,
+  with an enabled flag indicating whether each action is currently callable.
+vars:
+  input:
+    workflowId: { $placeholder: "workflow execution ID" }
+    workflowExecutionId: { $placeholder: "run ID" }
+  where:
+    enabled: true
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Queries returned"
+    assertions:
+      - ref: res.body.data.workflowActions.queries
+        nil: false
+  - msg: "Updates returned"
+    assertions:
+      - ref: res.body.data.workflowActions.updates
+        nil: false

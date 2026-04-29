@@ -2,6 +2,7 @@ package resolvers_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	testresolver "github.com/pyck-ai/pyck/backend/common/test/resolver"
@@ -403,6 +404,7 @@ func TestRepository_Delete(t *testing.T) {
 		deleted, err := te.Ent.Repository.Get(te.ctxWithDeleted(userA), repo.ID)
 		require.NoError(t, err)
 		assert.False(t, deleted.DeletedAt.IsZero())
+		assert.Equal(t, time.UTC, deleted.DeletedAt.Location(), "deleted_at should be in UTC")
 
 		te.assertEvents(ctx, Delete("repository", repo.ID))
 	})

@@ -1,0 +1,31 @@
+---
+operation: PatchInventoryItemData
+name: "Patch Inventory Item Data"
+description: >
+  Applies RFC 6902 JSON Patch operations to the inventory item's data field.
+  Only changed fields are modified; untouched fields are preserved.
+  See https://datatracker.ietf.org/doc/html/rfc6902 for the specification.
+vars:
+  id: { $placeholder: "inventory item id to patch" }
+  patches:
+    - op: REPLACE
+      path: "/location"
+      value: "\"Shelf-C3\""
+    - op: REPLACE
+      path: "/fragile"
+      value: "true"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Patched item returned"
+    assertions:
+      - ref: res.body.data.patchInventoryItemData.inventoryItem
+        nil: false
+      - ref: res.body.data.patchInventoryItemData.inventoryItem.id
+        equal: {$ref: req.body.variables.id}

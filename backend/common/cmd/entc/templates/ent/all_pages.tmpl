@@ -9,10 +9,14 @@
 // query predicates in pages of pageSize, collecting every row. This avoids the
 // LimitMixin hard cap that silently truncates results when no explicit Limit is
 // set.
+//
+// An ORDER BY id ASC is appended so pagination is deterministic — without it,
+// Postgres LIMIT/OFFSET returns rows in unspecified order and pages can
+// overlap or skip rows depending on the chosen plan.
 func ({{ $node.QueryReceiver }} *{{ $node.QueryName }}) AllPages(ctx context.Context, pageSize int) ([]*{{ $node.Name }}, error) {
 	var all []*{{ $node.Name }}
 	for offset := 0; ; offset += pageSize {
-		page, err := {{ $node.QueryReceiver }}.Clone().Limit(pageSize).Offset(offset).All(ctx)
+		page, err := {{ $node.QueryReceiver }}.Clone().Order(Asc("id")).Limit(pageSize).Offset(offset).All(ctx)
 		if err != nil {
 			return nil, err
 		}

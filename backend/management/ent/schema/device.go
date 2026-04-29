@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
+	"github.com/pyck-ai/pyck/backend/common/importexport"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 )
 
@@ -26,6 +27,11 @@ func (Device) Annotations() []schema.Annotation {
 		entgql.RelayConnection(),
 		entgql.QueryField(),
 		entgql.Mutations(entgql.MutationCreate(), entgql.MutationUpdate()),
+		entgql.Directives(importexport.Importable("name",
+			importexport.WithList("devices"),
+			importexport.WithCreate("createDevice"),
+			importexport.WithUpdate("updateDevice"),
+		)),
 	}
 }
 

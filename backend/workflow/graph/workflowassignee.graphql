@@ -26,5 +26,5 @@ input SetWorkflowAssigneeInput {
 }
 
 type SetWorkflowAssigneeResponse {
-  assignee: String!
+  assignee: String
 }

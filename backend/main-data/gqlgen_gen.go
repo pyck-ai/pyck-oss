@@ -17,6 +17,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/99designs/gqlgen/plugin/federation/fedruntime"
 	"github.com/google/uuid"
+	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/main-data/ent/gen"
 	"github.com/pyck-ai/pyck/backend/main-data/model"
 	gqlparser "github.com/vektah/gqlparser/v2"
@@ -97,12 +98,14 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CreateCustomer func(childComplexity int, input gen.CreateCustomerInput) int
-		CreateSupplier func(childComplexity int, input gen.CreateSupplierInput) int
-		DeleteCustomer func(childComplexity int, id uuid.UUID) int
-		DeleteSupplier func(childComplexity int, id uuid.UUID) int
-		UpdateCustomer func(childComplexity int, id uuid.UUID, input gen.UpdateCustomerInput) int
-		UpdateSupplier func(childComplexity int, id uuid.UUID, input gen.UpdateSupplierInput) int
+		CreateCustomer    func(childComplexity int, input gen.CreateCustomerInput) int
+		CreateSupplier    func(childComplexity int, input gen.CreateSupplierInput) int
+		DeleteCustomer    func(childComplexity int, id uuid.UUID) int
+		DeleteSupplier    func(childComplexity int, id uuid.UUID) int
+		PatchCustomerData func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		PatchSupplierData func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		UpdateCustomer    func(childComplexity int, id uuid.UUID, input gen.UpdateCustomerInput) int
+		UpdateSupplier    func(childComplexity int, id uuid.UUID, input gen.UpdateSupplierInput) int
 	}
 
 	PageInfo struct {
@@ -172,6 +175,8 @@ type MutationResolver interface {
 	CreateSupplier(ctx context.Context, input gen.CreateSupplierInput) (*gen.Supplier, error)
 	UpdateSupplier(ctx context.Context, id uuid.UUID, input gen.UpdateSupplierInput) (*gen.Supplier, error)
 	DeleteSupplier(ctx context.Context, id uuid.UUID) (*model.SupplierDeletePayload, error)
+	PatchCustomerData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*gen.Customer, error)
+	PatchSupplierData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*gen.Supplier, error)
 }
 type QueryResolver interface {
 	Node(ctx context.Context, id uuid.UUID) (gen.Noder, error)
@@ -472,6 +477,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.DeleteSupplier(childComplexity, args["id"].(uuid.UUID)), true
+	case "Mutation.patchCustomerData":
+		if e.ComplexityRoot.Mutation.PatchCustomerData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchCustomerData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchCustomerData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
+	case "Mutation.patchSupplierData":
+		if e.ComplexityRoot.Mutation.PatchSupplierData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchSupplierData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchSupplierData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
 	case "Mutation.updateCustomer":
 		if e.ComplexityRoot.Mutation.UpdateCustomer == nil {
 			break
@@ -728,6 +755,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputCustomerOrder,
 		ec.unmarshalInputCustomerWhereInput,
 		ec.unmarshalInputEntityEventsOutboxWhereInput,
+		ec.unmarshalInputJSONPatchInput,
 		ec.unmarshalInputSupplierOrder,
 		ec.unmarshalInputSupplierWhereInput,
 		ec.unmarshalInputUpdateCustomerInput,
@@ -806,7 +834,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "graph/customer.graphql" "graph/ent.graphql" "graph/mutations.graphql" "graph/serviceinfo.graphql" "graph/supplier.graphql"
+//go:embed "graph/customer.graphql" "graph/ent.graphql" "graph/jsonpatch.graphql" "graph/mutations.graphql" "graph/serviceinfo.graphql" "graph/supplier.graphql"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -820,6 +848,7 @@ func sourceData(filename string) string {
 var sources = []*ast.Source{
 	{Name: "graph/customer.graphql", Input: sourceData("graph/customer.graphql"), BuiltIn: false},
 	{Name: "graph/ent.graphql", Input: sourceData("graph/ent.graphql"), BuiltIn: false},
+	{Name: "graph/jsonpatch.graphql", Input: sourceData("graph/jsonpatch.graphql"), BuiltIn: false},
 	{Name: "graph/mutations.graphql", Input: sourceData("graph/mutations.graphql"), BuiltIn: false},
 	{Name: "graph/serviceinfo.graphql", Input: sourceData("graph/serviceinfo.graphql"), BuiltIn: false},
 	{Name: "graph/supplier.graphql", Input: sourceData("graph/supplier.graphql"), BuiltIn: false},
@@ -963,6 +992,38 @@ func (ec *executionContext) field_Mutation_deleteSupplier_args(ctx context.Conte
 		return nil, err
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchCustomerData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchSupplierData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
 	return args, nil
 }
 
@@ -2608,6 +2669,136 @@ func (ec *executionContext) fieldContext_Mutation_deleteSupplier(ctx context.Con
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_deleteSupplier_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchCustomerData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchCustomerData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchCustomerData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOCustomer2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmainᚑdataᚋentᚋgenᚐCustomer,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchCustomerData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Customer_id(ctx, field)
+			case "tenantID":
+				return ec.fieldContext_Customer_tenantID(ctx, field)
+			case "dataTypeID":
+				return ec.fieldContext_Customer_dataTypeID(ctx, field)
+			case "dataTypeSlug":
+				return ec.fieldContext_Customer_dataTypeSlug(ctx, field)
+			case "data":
+				return ec.fieldContext_Customer_data(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Customer_createdAt(ctx, field)
+			case "createdBy":
+				return ec.fieldContext_Customer_createdBy(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Customer_updatedAt(ctx, field)
+			case "updatedBy":
+				return ec.fieldContext_Customer_updatedBy(ctx, field)
+			case "deletedAt":
+				return ec.fieldContext_Customer_deletedAt(ctx, field)
+			case "deletedBy":
+				return ec.fieldContext_Customer_deletedBy(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Customer", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchCustomerData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchSupplierData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchSupplierData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchSupplierData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOSupplier2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmainᚑdataᚋentᚋgenᚐSupplier,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchSupplierData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Supplier_id(ctx, field)
+			case "tenantID":
+				return ec.fieldContext_Supplier_tenantID(ctx, field)
+			case "dataTypeID":
+				return ec.fieldContext_Supplier_dataTypeID(ctx, field)
+			case "dataTypeSlug":
+				return ec.fieldContext_Supplier_dataTypeSlug(ctx, field)
+			case "data":
+				return ec.fieldContext_Supplier_data(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Supplier_createdAt(ctx, field)
+			case "createdBy":
+				return ec.fieldContext_Supplier_createdBy(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Supplier_updatedAt(ctx, field)
+			case "updatedBy":
+				return ec.fieldContext_Supplier_updatedBy(ctx, field)
+			case "deletedAt":
+				return ec.fieldContext_Supplier_deletedAt(ctx, field)
+			case "deletedBy":
+				return ec.fieldContext_Supplier_deletedBy(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Supplier", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchSupplierData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -6993,6 +7184,57 @@ func (ec *executionContext) unmarshalInputEntityEventsOutboxWhereInput(ctx conte
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputJSONPatchInput(ctx context.Context, obj any) (jsonpatch.JSONPatchInput, error) {
+	var it jsonpatch.JSONPatchInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"op", "path", "value", "from"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "op":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("op"))
+			data, err := ec.unmarshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Op = data
+		case "path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("path"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Path = data
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		case "from":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("from"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.From = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputSupplierOrder(ctx context.Context, obj any) (gen.SupplierOrder, error) {
 	var it gen.SupplierOrder
 	if obj == nil {
@@ -8271,6 +8513,14 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "patchCustomerData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchCustomerData(ctx, field)
+			})
+		case "patchSupplierData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchSupplierData(ctx, field)
+			})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9310,6 +9560,36 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ(ctx context.Context, v any) ([]*jsonpatch.JSONPatchInput, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*jsonpatch.JSONPatchInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNJSONPatchInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNJSONPatchInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInput(ctx context.Context, v any) (*jsonpatch.JSONPatchInput, error) {
+	res, err := ec.unmarshalInputJSONPatchInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx context.Context, v any) (jsonpatch.JSONPatchOp, error) {
+	var res jsonpatch.JSONPatchOp
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx context.Context, sel ast.SelectionSet, v jsonpatch.JSONPatchOp) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNMap2map(ctx context.Context, v any) (map[string]any, error) {

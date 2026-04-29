@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	stdlog "log"
 	"net"
 	nethttp "net/http"
 	"strconv"
@@ -16,9 +17,9 @@ import (
 	"github.com/nats-io/nats.go/micro"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/pyck-ai/pyck/backend/bootstrap/pkg/bootstrap"
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/db"
-	"github.com/pyck-ai/pyck/backend/common/env/config"
 	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/pyck-ai/pyck/backend/common/feature"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
@@ -40,6 +41,7 @@ import (
 	ent "github.com/pyck-ai/pyck/backend/management/ent/gen"
 	entdatatype "github.com/pyck-ai/pyck/backend/management/ent/gen/datatype"
 	"github.com/pyck-ai/pyck/backend/management/github"
+	mgmthandlers "github.com/pyck-ai/pyck/backend/management/handlers"
 	"github.com/pyck-ai/pyck/backend/management/resolvers"
 	"github.com/pyck-ai/pyck/backend/management/service"
 	"github.com/pyck-ai/pyck/backend/management/webhooks"
@@ -48,8 +50,7 @@ import (
 )
 
 const (
-	serviceName              = "management"
-	defaultTemporalNamespace = "default"
+	serviceName = "management"
 )
 
 func main() {
@@ -57,29 +58,67 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Set up default logger
-	ctx, _ = log.SetupLogger(ctx, serviceName, config.LogConfig{})
-
-	// Bootstrap
-	if isBootstrapMode() {
-		runBootstrap(ctx)
-		return
-	}
-
-	// Load configuration
-	if err := core.LoadEnv(); err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed to load configuration")
+	// Load minimal configuration needed for bootstrap (LogConfig, DbConfig, bootstrap flags).
+	// The full configuration cannot be loaded yet because required env vars
+	// (PYCK_SERVICE_TOKEN, PYCK_ZITADEL_ORG_ID, etc.) may not exist until
+	// after the bootstrap process exports them.
+	if err := core.LoadBootstrapEnv(); err != nil {
+		stdlog.Fatalf("failed to load bootstrap configuration: %v", err)
 		return
 	}
 
 	// Configure logger
-	ctx, _ = log.SetupLogger(ctx, serviceName, core.Config.LogConfig)
+	ctx, _ = log.SetupLogger(ctx, serviceName, core.BootstrapConfig.LogConfig)
 
 	log.ForContext(ctx).Info().
-		Any("config", core.Config).
+		Any("config", core.BootstrapConfig).
 		Msg("starting...")
+
+	// Bootstrap
+	if core.BootstrapConfig.BootstrapEnabled || isBootstrapMode() {
+		bootstrapLogger := log.ForContext(ctx).
+			With().
+			Str("module", core.BootstrapConfig.BootstrapModule.String()).
+			Logger()
+
+		sctx := log.Context(ctx, bootstrapLogger)
+
+		bootstrapLogger.Info().Msg("Running in bootstrap mode")
+
+		// start the bootstrapping process
+		if err := bootstrap.Bootstrap(sctx, core.BootstrapConfig.DbConfig, core.BootstrapConfig.BootstrapModule); err != nil {
+			bootstrapLogger.Fatal().
+				Err(err).
+				Msg("Failed during bootstrap")
+			return
+		}
+
+		// if we're only bootstrapping, we can exit
+		if core.BootstrapConfig.BootstrapOnly {
+			bootstrapLogger.Info().Msg("Exit after bootstrapping")
+			return
+		}
+
+		bootstrapLogger.Info().Msg("Continue after bootstrapping")
+	}
+
+	// Load full configuration from ENV — bootstrap may have created new secrets
+	if err := core.LoadEnv(); err != nil {
+		log.ForContext(ctx).Fatal().Err(err).Msg("failed to load configuration")
+		return
+	}
+
+	// Re-initialize logger with full configuration
+	ctx, _ = log.SetupLogger(ctx, serviceName, core.Config.LogConfig)
+
+	// Set up database
+	pgxDriver, err := db.NewPostgresMultiDriver(serviceName, core.Config.DbConfig)
+	if err != nil {
+		log.ForContext(ctx).Fatal().
+			Err(err).
+			Msg("failed setting up database driver")
+		return
+	}
 
 	// Set up tracer
 	tracer, err := otel.SetupTracer(serviceName, core.Config.EnvironmentName, &core.Config.OTelConfig)
@@ -95,15 +134,7 @@ func main() {
 	zitadelClient := zitadel.NewClient(core.Config.ZitadelConfig)
 	authProvider := authn.NewZitadelAuthProvider(zitadelClient, core.Config.ZitadelConfig)
 
-	// Set up database
-	pgxDriver, err := db.NewPostgresMultiDriver(serviceName, core.Config.DbConfig)
-	if err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed setting up database driver")
-		return
-	}
-
+	// run migrations
 	ctx = db.WithMaxRetries(ctx, core.Config.TxRetries)
 
 	if err = db.RunMigrations(
@@ -118,6 +149,7 @@ func main() {
 		return
 	}
 
+	// set up ent
 	dbClient := ent.NewClient(
 		ent.Driver(pgxDriver),
 		ent.Log(logadapter.EntLogAdapter(*log.ForContext(ctx))),
@@ -266,7 +298,7 @@ func main() {
 
 	temporalWorker.RegisterTenantWorkflow(dbClient, nsGetter)
 	temporalWorker.RegisterGenerateJsonSchemaWorkflow()
-	temporalWorker.RegisterZitadelSyncWorkflow(dbClient, core.Config.ZitadelAudience, core.Config.ZitadelServiceKeyPath, core.Config.ZitadelProjectId)
+	temporalWorker.RegisterZitadelSyncWorkflow(dbClient, core.Config.ZitadelOAuthURL, core.Config.ZitadelGrpcAddr, core.Config.ZitadelAudience, core.Config.ZitadelServiceKeyPath, core.Config.ZitadelProjectId, core.Config.ZitadelTlsInsecure)
 
 	err = temporalWorker.Start()
 	if err != nil {
@@ -285,19 +317,6 @@ func main() {
 	} else {
 		log.ForContext(ctx).Info().Dur("every", zitadelSyncEvery).Msg("orchestrator schedule ensured")
 	}
-
-	// Set up default RBAC roles
-	// TODO(michael): why so late and why would one NOT want to sync system roles?
-	// if core.Config.BootstrapEnabled {
-	// 	log.Logger(ctx).Info().Msg("Running bootstrap service to ensure system roles")
-	// 	err := bootstrap.RunBootstrap(serviceUserCtx, client)
-	// 	if err != nil {
-	// 		log.Logger(ctx).Error().
-	// Err(err).
-	// Msg("Bootstrap service failed")
-	// 		return
-	// 	}
-	// }
 
 	// Set up NATS auth service
 	natsAuthService, err := nats.NewAuthService(ctx, serviceName, core.Config.NatsStreamName, authProvider, core.Config.NatsAuthKeySeed)
@@ -378,6 +397,7 @@ func main() {
 	httpRouter.Handle("/query", gqlHandler)
 	httpRouter.Handle("/metrics", promhttp.Handler())
 	httpRouter.Handle("/health", handlers.NewHealthCheckHandler(db.NewDbHealthChecker(pgxDriver.DB(), entdatatype.Table)))
+	httpRouter.Handle("/static/settings.json", mgmthandlers.NewSettingsHandler(core.Config.FrontendConfig))
 	httpRouter.Mount("/github", github.Router(core.Config.GithubClientID, core.Config.GithubClientSecret))
 	httpRouter.Mount("/webhook", webhooks.Router(temporalClient, zitadelsync.TenantSyncTaskQueue))
 

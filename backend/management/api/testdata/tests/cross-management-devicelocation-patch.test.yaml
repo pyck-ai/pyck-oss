@@ -1,0 +1,208 @@
+---
+name: "Cross - DeviceLocation Patch Lifecycle"
+description: >
+  Tests JSON Patch (RFC 6902) operations on device location assignments.
+  Creates a location and device (without data), assigns the device to the
+  location with data, patches the assignment data, verifies persistence,
+  then cleans up.
+steps:
+  - id: createDT
+    name: "Create data type for device locations"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "DevLoc Assignment Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "devicelocation"
+        jsonSchema: '{"type":"object","properties":{"assigned_by":{"type":"string"},"priority":{"type":"string"},"note":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: createLocation
+    name: "Create location (no data)"
+    operation: management.createLocation
+    vars:
+      input:
+        name: {$fake: "{{productname}}-{{nonce}}"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Location created"
+        assertions:
+          - ref: res.body.data.createLocation.location.id
+            nil: false
+
+  - id: createDevice
+    name: "Create device (no data)"
+    operation: management.createDevice
+    vars:
+      input:
+        name: {$fake: "{{productname}}-{{nonce}}"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Device created"
+        assertions:
+          - ref: res.body.data.createDevice.device.id
+            nil: false
+
+  - id: assign
+    name: "Assign device to location with data"
+    operation: management.setDeviceLocation
+    vars:
+      input:
+        deviceID: {$ref: "res[createDevice].body.data.createDevice.device.id"}
+        locationID: {$ref: "res[createLocation].body.data.createLocation.location.id"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          assigned_by: "admin"
+          priority: "normal"
+          note: "Initial assignment"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Device location created"
+        assertions:
+          - ref: res.body.data.setDeviceLocation.DeviceLocation.id
+            nil: false
+
+  - name: "Patch device location data"
+    operation: management.patchDeviceLocationData
+    vars:
+      id: {$ref: "res[assign].body.data.setDeviceLocation.DeviceLocation.id"}
+      patches:
+        - op: REPLACE
+          path: "/priority"
+          value: "\"high\""
+        - op: REPLACE
+          path: "/note"
+          value: "\"Moved to urgent area\""
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Priority patched"
+        assertions:
+          - ref: res.body.data.patchDeviceLocationData.DeviceLocation.data.priority
+            equal: "high"
+      - msg: "Note patched"
+        assertions:
+          - ref: res.body.data.patchDeviceLocationData.DeviceLocation.data.note
+            equal: "Moved to urgent area"
+      - msg: "Assigned_by preserved"
+        assertions:
+          - ref: res.body.data.patchDeviceLocationData.DeviceLocation.data.assigned_by
+            equal: "admin"
+
+  - name: "Verify patch persisted"
+    operation: management.getDeviceLocations
+    vars:
+      where:
+        id: {$ref: "res[assign].body.data.setDeviceLocation.DeviceLocation.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Patched data persisted"
+        assertions:
+          - ref: res.body.data.deviceLocations.edges[].node.data.priority
+            equal: "high"
+          - ref: res.body.data.deviceLocations.edges[].node.data.note
+            equal: "Moved to urgent area"
+          - ref: res.body.data.deviceLocations.edges[].node.data.assigned_by
+            equal: "admin"
+
+  - name: "Unset device location"
+    operation: management.unsetDeviceLocation
+    vars:
+      id: {$ref: "res[assign].body.data.setDeviceLocation.DeviceLocation.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Delete device"
+    operation: management.deleteDevice
+    vars:
+      id: {$ref: "res[createDevice].body.data.createDevice.device.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Delete location"
+    operation: management.deleteLocation
+    vars:
+      id: {$ref: "res[createLocation].body.data.createLocation.location.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

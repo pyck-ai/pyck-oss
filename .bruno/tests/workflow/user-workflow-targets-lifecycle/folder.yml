@@ -1,0 +1,11 @@
+info:
+  name: User - Workflow Targets Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Full round-trip of the pyck_workflow_targets KeywordList search attribute on a running TargetsExample workflow. Sets targets, verifies via the getter, verifies via the targets-IN filter, then replaces the targets and verifies the new value matches. Requires at least one running TargetsExample execution in the target tenant, and a tenant-scoped PAT in env_pyck_token / env_pyck_tenant_id.
+
+
+request:
+  auth: inherit

@@ -2,6 +2,7 @@ name: local
 variables:
   - secret: true
     name: env_pyck_token
+    disabled: true
   - name: env_pyck_tenant_id
     value: all
     disabled: true
@@ -39,3 +40,7 @@ variables:
     value: "{{env_baseurl}}:8089"
   - name: env_baseurl_workflow_query
     value: "{{env_baseurl_workflow}}/query"
+  - name: env_zitadel_url
+    value: http://localhost:8080
+  - name: env_zitadel_client_id
+    value: "365822077778853893"

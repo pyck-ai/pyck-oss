@@ -294,6 +294,25 @@ func (c *Client) SignalWorkflow(ctx context.Context, workflowID, runID, signalNa
 	return c.temporal.SignalWorkflow(ctx, workflowID, runID, signalName, arg)
 }
 
+// CancelWorkflow requests graceful cancellation of a running workflow execution.
+//
+// The target workflow receives a cancellation signal on its context and can
+// run cleanup (e.g. via workflow.NewDisconnectedContext) before terminating.
+// For immediate, forceful termination without cleanup, use TerminateWorkflow.
+//
+// This method is safe for concurrent use.
+func (c *Client) CancelWorkflow(ctx context.Context, workflowID, runID string) error {
+	if workflowID == "" {
+		return ErrInvalidWorkflowID
+	}
+
+	if runID == "" {
+		return ErrInvalidWorkflowRunID
+	}
+
+	return c.temporal.CancelWorkflow(ctx, workflowID, runID)
+}
+
 // UpdateWorkflow sends an update to a running workflow execution.
 //
 // The result is unmarshaled into the value pointed to by result. If the
@@ -375,6 +394,19 @@ func (c *Client) AwaitNextUserDataInput(ctx context.Context, workflowID, runID s
 	}
 
 	return &input, nil
+}
+
+// GetWorkflowActions queries the available actions from a workflow execution.
+// Returns which queries and updates are registered and whether each is
+// currently enabled. This method is safe for concurrent use.
+func (c *Client) GetWorkflowActions(ctx context.Context, workflowID, runID string) (*AvailableActions, error) {
+	var result AvailableActions
+
+	if err := c.QueryWorkflow(ctx, workflowID, runID, WorkflowQueryTypeGetAvailableActions.String(), nil, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }
 
 // Close closes the workflow client and releases any resources.

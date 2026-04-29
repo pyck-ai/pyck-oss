@@ -9,8 +9,10 @@ import (
 type CreateFileInput = internalapi.CreateFileInput
 type FileOrder = internalapi.FileOrder
 type FileWhereInput = internalapi.FileWhereInput
+type JSONPatchInput = internalapi.JSONPatchInput
 type UpdateFileInput = internalapi.UpdateFileInput
 type FileOrderField = internalapi.FileOrderField
+type JSONPatchOp = internalapi.JSONPatchOp
 type JSONType = internalapi.JSONType
 type OrderDirection = internalapi.OrderDirection
 type GetFiles_Files_PageInfo = internalapi.GetFiles_Files_PageInfo
@@ -23,12 +25,14 @@ type CreateFile_CreateFile = internalapi.CreateFile_CreateFile
 type UpdateFile_UpdateFile = internalapi.UpdateFile_UpdateFile
 type DeleteFile_DeleteFile = internalapi.DeleteFile_DeleteFile
 type AnalyzeImageFile_AnalyzeImageFile = internalapi.AnalyzeImageFile_AnalyzeImageFile
+type PatchFileData_PatchFileData = internalapi.PatchFileData_PatchFileData
 type GetFiles = internalapi.GetFiles
 type GetFileServiceInfo = internalapi.GetFileServiceInfo
 type CreateFile = internalapi.CreateFile
 type UpdateFile = internalapi.UpdateFile
 type DeleteFile = internalapi.DeleteFile
 type AnalyzeImageFile = internalapi.AnalyzeImageFile
+type PatchFileData = internalapi.PatchFileData
 
 const FileOrderFieldTenantID = internalapi.FileOrderFieldTenantID
 const FileOrderFieldCreatedAt = internalapi.FileOrderFieldCreatedAt
@@ -43,6 +47,12 @@ const FileOrderFieldName = internalapi.FileOrderFieldName
 const FileOrderFieldSize = internalapi.FileOrderFieldSize
 const FileOrderFieldContentType = internalapi.FileOrderFieldContentType
 const FileOrderFieldPublicAlias = internalapi.FileOrderFieldPublicAlias
+const JSONPatchOpAdd = internalapi.JSONPatchOpAdd
+const JSONPatchOpRemove = internalapi.JSONPatchOpRemove
+const JSONPatchOpReplace = internalapi.JSONPatchOpReplace
+const JSONPatchOpMove = internalapi.JSONPatchOpMove
+const JSONPatchOpCopy = internalapi.JSONPatchOpCopy
+const JSONPatchOpTest = internalapi.JSONPatchOpTest
 const JSONTypeNumber = internalapi.JSONTypeNumber
 const JSONTypeString = internalapi.JSONTypeString
 const JSONTypeBoolean = internalapi.JSONTypeBoolean
@@ -50,5 +60,6 @@ const OrderDirectionAsc = internalapi.OrderDirectionAsc
 const OrderDirectionDesc = internalapi.OrderDirectionDesc
 
 func AllFileOrderField() []FileOrderField { return internalapi.AllFileOrderField }
+func AllJSONPatchOp() []JSONPatchOp       { return internalapi.AllJSONPatchOp }
 func AllJSONType() []JSONType             { return internalapi.AllJSONType }
 func AllOrderDirection() []OrderDirection { return internalapi.AllOrderDirection }

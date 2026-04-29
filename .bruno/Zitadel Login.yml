@@ -35,6 +35,7 @@ graphql:
     flow: authorization_code
     authorizationUrl: "{{env_zitadel_url}}/oauth/v2/authorize"
     accessTokenUrl: "{{env_zitadel_url}}/oauth/v2/token"
+    callbackUrl: https://oauth.usebruno.com/callback
     credentials:
       clientId: "{{env_zitadel_client_id}}"
       placement: basic_auth_header
@@ -44,12 +45,18 @@ graphql:
       id: pyck
       placement:
         header: Bearer
+      source: access_token
     settings:
       autoFetchToken: true
       autoRefreshToken: false
 
 runtime:
   scripts:
+    - type: after-response
+      code: |-
+        const body = res.getBody();
+        const tenantId = body.data.me.Tenants[0].ID;
+        bru.setEnvVar("env_pyck_tenant_id", tenantId);
     - type: tests
       code: |-
         test("Request is successful", function() {

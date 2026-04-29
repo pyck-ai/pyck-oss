@@ -45,6 +45,12 @@ models:
   Map:
     model:
       - github.com/99designs/gqlgen/graphql.Map
+  JSONPatchOp:
+    model:
+      - github.com/pyck-ai/pyck/backend/common/jsonpatch.JSONPatchOp
+  JSONPatchInput:
+    model:
+      - github.com/pyck-ai/pyck/backend/common/jsonpatch.JSONPatchInput
   Node:
     model:
       - github.com/pyck-ai/pyck/backend/file/ent/gen.Noder

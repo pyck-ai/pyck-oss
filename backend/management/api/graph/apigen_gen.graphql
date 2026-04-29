@@ -1893,3 +1893,115 @@ mutation CheckOutUserDevice($input: CheckOutUserDeviceInput!) {
   }
 }
 
+
+mutation PatchLocationData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchLocationData(id: $id, patches: $patches) {
+    location {
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      deviceLocationsLocation {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      id
+      name
+      tenantID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+
+
+mutation PatchDeviceData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchDeviceData(id: $id, patches: $patches) {
+    device {
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      deviceLocationsDevice {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      deviceUsersDevice {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      id
+      name
+      tenantID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+
+
+mutation PatchDeviceLocationData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchDeviceLocationData(id: $id, patches: $patches) {
+    DeviceLocation {
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      deviceID
+      id
+      locationID
+      tenantID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+

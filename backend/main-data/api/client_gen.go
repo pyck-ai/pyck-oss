@@ -52,6 +52,8 @@ type Client interface {
 	CreateSupplier(ctx context.Context, input CreateSupplierArgs) (*CreateSupplier, error)
 	UpdateSupplier(ctx context.Context, input UpdateSupplierArgs) (*UpdateSupplier, error)
 	DeleteSupplier(ctx context.Context, input DeleteSupplierArgs) (*DeleteSupplier, error)
+	PatchCustomerData(ctx context.Context, input PatchCustomerDataArgs) (*PatchCustomerData, error)
+	PatchSupplierData(ctx context.Context, input PatchSupplierDataArgs) (*PatchSupplierData, error)
 }
 
 type client struct {
@@ -153,4 +155,24 @@ type DeleteSupplierArgs struct {
 
 func (c *client) DeleteSupplier(ctx context.Context, input DeleteSupplierArgs) (*DeleteSupplier, error) {
 	return c.api.DeleteSupplier(ctx, input.Id)
+}
+
+// PatchCustomerDataArgs is a sparse struct for PatchCustomerData parameters
+type PatchCustomerDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchCustomerData(ctx context.Context, input PatchCustomerDataArgs) (*PatchCustomerData, error) {
+	return c.api.PatchCustomerData(ctx, input.Id, input.Patches)
+}
+
+// PatchSupplierDataArgs is a sparse struct for PatchSupplierData parameters
+type PatchSupplierDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchSupplierData(ctx context.Context, input PatchSupplierDataArgs) (*PatchSupplierData, error) {
+	return c.api.PatchSupplierData(ctx, input.Id, input.Patches)
 }

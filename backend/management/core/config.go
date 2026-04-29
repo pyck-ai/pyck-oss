@@ -6,10 +6,25 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pyck-ai/pyck/backend/bootstrap/pkg/bootstrap"
 	"github.com/pyck-ai/pyck/backend/common/env"
 	envconfig "github.com/pyck-ai/pyck/backend/common/env/config"
 	"github.com/pyck-ai/pyck/backend/common/otel"
 )
+
+// FrontendConfig holds environment variables for the frontend settings endpoint.
+type FrontendConfig struct {
+	AppURL      string `env:"PYCK_FRONTEND_APP_URL" envDefault:"http://localhost:3000"`
+	AuthURL     string `env:"PYCK_FRONTEND_AUTH_URL" envDefault:"http://localhost:8080"`
+	Environment string `env:"PYCK_FRONTEND_ENVIRONMENT" envDefault:"development"`
+	ClientID    string `env:"PYCK_FRONTEND_CLIENT_ID"`
+	RedirectURI string `env:"PYCK_FRONTEND_REDIRECT_URI" envDefault:"http://localhost:3000/auth/oauth2/callback/zitadel"`
+	Debug       bool   `env:"PYCK_FRONTEND_DEBUG" envDefault:"true"`
+	Features    string `env:"PYCK_FRONTEND_FEATURES" envDefault:"{}"`
+	Version     string `env:"PYCK_FRONTEND_VERSION" envDefault:"unknown"`
+	OtelURL     string `env:"PYCK_FRONTEND_OTEL_URL"`
+	OtelKey     string `env:"PYCK_FRONTEND_OTEL_INGEST_KEY"`
+}
 
 type config struct {
 	envconfig.DbConfig
@@ -23,6 +38,8 @@ type config struct {
 	envconfig.ServiceInstanceConfig
 	envconfig.TemporalConfig
 	envconfig.ZitadelConfig
+
+	FrontendConfig
 
 	otel.OTelConfig
 
@@ -39,6 +56,7 @@ type config struct {
 	GithubClientSecret string `env:"PYCK_GITHUB_CLIENT_SECRET" json:"-"`
 
 	BootstrapEnabled bool `env:"PYCK_BOOTSTRAP_ENABLED" envDefault:"true"`
+	BootstrapOnly    bool `env:"PYCK_BOOTSTRAP_ONLY" envDefault:"true"`
 
 	FrontendBaseURL string `env:"PYCK_FRONTEND_BASE_URL"`
 
@@ -54,10 +72,12 @@ type config struct {
 }
 
 type bootstrapConfig struct {
-	envconfig.EnvironmentConfig
-	envconfig.ServiceInstanceConfig
-	envconfig.TemporalConfig
-	envconfig.TemporalBootstrapConfig
+	envconfig.DbConfig
+	envconfig.LogConfig
+
+	BootstrapEnabled bool                      `env:"PYCK_BOOTSTRAP_ENABLED" envDefault:"true"`
+	BootstrapOnly    bool                      `env:"PYCK_BOOTSTRAP_ONLY" envDefault:"true"`
+	BootstrapModule  bootstrap.BootstrapModule `env:"PYCK_BOOTSTRAP_MODULE"`
 }
 
 // TODO(michael): Expose this via context instead of global variable. This would

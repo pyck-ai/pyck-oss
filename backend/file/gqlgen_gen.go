@@ -17,6 +17,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/99designs/gqlgen/plugin/federation/fedruntime"
 	"github.com/google/uuid"
+	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/file/ent/gen"
 	"github.com/pyck-ai/pyck/backend/file/ent/gen/file"
 	"github.com/pyck-ai/pyck/backend/file/model"
@@ -138,6 +139,7 @@ type ComplexityRoot struct {
 		AnalyzeImageFile func(childComplexity int, id uuid.UUID) int
 		CreateFile       func(childComplexity int, input gen.CreateFileInput) int
 		DeleteFile       func(childComplexity int, id uuid.UUID) int
+		PatchFileData    func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
 		UpdateFile       func(childComplexity int, id uuid.UUID, input gen.UpdateFileInput) int
 	}
 
@@ -199,6 +201,7 @@ type MutationResolver interface {
 	UpdateFile(ctx context.Context, id uuid.UUID, input gen.UpdateFileInput) (*gen.File, error)
 	DeleteFile(ctx context.Context, id uuid.UUID) (*model.FileDeletePayload, error)
 	AnalyzeImageFile(ctx context.Context, id uuid.UUID) (*model.ImageAnalysisResponse, error)
+	PatchFileData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*gen.File, error)
 }
 type QueryResolver interface {
 	Node(ctx context.Context, id uuid.UUID) (gen.Noder, error)
@@ -638,6 +641,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.DeleteFile(childComplexity, args["id"].(uuid.UUID)), true
+	case "Mutation.patchFileData":
+		if e.ComplexityRoot.Mutation.PatchFileData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchFileData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchFileData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
 	case "Mutation.updateFile":
 		if e.ComplexityRoot.Mutation.UpdateFile == nil {
 			break
@@ -804,6 +818,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputEntityEventsOutboxWhereInput,
 		ec.unmarshalInputFileOrder,
 		ec.unmarshalInputFileWhereInput,
+		ec.unmarshalInputJSONPatchInput,
 		ec.unmarshalInputUpdateFileInput,
 	)
 	first := true
@@ -879,7 +894,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "graph/ent.graphql" "graph/file.graphql" "graph/filetypes.graphql" "graph/mutations.graphql" "graph/serviceinfo.graphql"
+//go:embed "graph/ent.graphql" "graph/file.graphql" "graph/filetypes.graphql" "graph/jsonpatch.graphql" "graph/mutations.graphql" "graph/serviceinfo.graphql"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -894,6 +909,7 @@ var sources = []*ast.Source{
 	{Name: "graph/ent.graphql", Input: sourceData("graph/ent.graphql"), BuiltIn: false},
 	{Name: "graph/file.graphql", Input: sourceData("graph/file.graphql"), BuiltIn: false},
 	{Name: "graph/filetypes.graphql", Input: sourceData("graph/filetypes.graphql"), BuiltIn: false},
+	{Name: "graph/jsonpatch.graphql", Input: sourceData("graph/jsonpatch.graphql"), BuiltIn: false},
 	{Name: "graph/mutations.graphql", Input: sourceData("graph/mutations.graphql"), BuiltIn: false},
 	{Name: "graph/serviceinfo.graphql", Input: sourceData("graph/serviceinfo.graphql"), BuiltIn: false},
 	{Name: "federation/directives.graphql", Input: `
@@ -1073,6 +1089,22 @@ func (ec *executionContext) field_Mutation_deleteFile_args(ctx context.Context, 
 		return nil, err
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchFileData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
 	return args, nil
 }
 
@@ -3392,6 +3424,89 @@ func (ec *executionContext) fieldContext_Mutation_analyzeImageFile(ctx context.C
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_analyzeImageFile_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchFileData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchFileData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchFileData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOFile2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋfileᚋentᚋgenᚐFile,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchFileData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_File_id(ctx, field)
+			case "tenantID":
+				return ec.fieldContext_File_tenantID(ctx, field)
+			case "dataTypeID":
+				return ec.fieldContext_File_dataTypeID(ctx, field)
+			case "dataTypeSlug":
+				return ec.fieldContext_File_dataTypeSlug(ctx, field)
+			case "data":
+				return ec.fieldContext_File_data(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_File_createdAt(ctx, field)
+			case "createdBy":
+				return ec.fieldContext_File_createdBy(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_File_updatedAt(ctx, field)
+			case "updatedBy":
+				return ec.fieldContext_File_updatedBy(ctx, field)
+			case "deletedAt":
+				return ec.fieldContext_File_deletedAt(ctx, field)
+			case "deletedBy":
+				return ec.fieldContext_File_deletedBy(ctx, field)
+			case "refid":
+				return ec.fieldContext_File_refid(ctx, field)
+			case "reftype":
+				return ec.fieldContext_File_reftype(ctx, field)
+			case "description":
+				return ec.fieldContext_File_description(ctx, field)
+			case "name":
+				return ec.fieldContext_File_name(ctx, field)
+			case "size":
+				return ec.fieldContext_File_size(ctx, field)
+			case "contentType":
+				return ec.fieldContext_File_contentType(ctx, field)
+			case "publicAlias":
+				return ec.fieldContext_File_publicAlias(ctx, field)
+			case "url":
+				return ec.fieldContext_File_url(ctx, field)
+			case "publicURL":
+				return ec.fieldContext_File_publicURL(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type File", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchFileData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -8032,6 +8147,57 @@ func (ec *executionContext) unmarshalInputFileWhereInput(ctx context.Context, ob
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputJSONPatchInput(ctx context.Context, obj any) (jsonpatch.JSONPatchInput, error) {
+	var it jsonpatch.JSONPatchInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"op", "path", "value", "from"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "op":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("op"))
+			data, err := ec.unmarshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Op = data
+		case "path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("path"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Path = data
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		case "from":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("from"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.From = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputUpdateFileInput(ctx context.Context, obj any) (gen.UpdateFileInput, error) {
 	var it gen.UpdateFileInput
 	if obj == nil {
@@ -9011,6 +9177,10 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "patchFileData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchFileData(ctx, field)
+			})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10023,6 +10193,36 @@ func (ec *executionContext) marshalNInventoryItem2ᚖgithubᚗcomᚋpyckᚑaiᚋ
 		return graphql.Null
 	}
 	return ec._InventoryItem(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ(ctx context.Context, v any) ([]*jsonpatch.JSONPatchInput, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*jsonpatch.JSONPatchInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNJSONPatchInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNJSONPatchInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInput(ctx context.Context, v any) (*jsonpatch.JSONPatchInput, error) {
+	res, err := ec.unmarshalInputJSONPatchInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx context.Context, v any) (jsonpatch.JSONPatchOp, error) {
+	var res jsonpatch.JSONPatchOp
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx context.Context, sel ast.SelectionSet, v jsonpatch.JSONPatchOp) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNMap2map(ctx context.Context, v any) (map[string]any, error) {

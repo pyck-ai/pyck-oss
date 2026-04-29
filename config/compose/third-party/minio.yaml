@@ -33,8 +33,6 @@ services:
       MINIO_API_REQUESTS_DEADLINE: 30s  # Request timeout
       MINIO_STORAGE_CLASS_RRS: EC:0  # Disable erasure coding for single node
       MINIO_LOG_LEVEL: ERROR  # Reduce logging overhead
-    networks:
-      - pyck
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 5s

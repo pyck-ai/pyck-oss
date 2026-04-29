@@ -79,6 +79,9 @@ var (
 				{{- if ne .Where.AssigneeNotNil nil }}
 				assigneeNotNil: {{.Where.AssigneeNotNil}}
 				{{- end }}
+				{{- if ne .Where.IsAssignable nil }}
+				isAssignable: {{.Where.IsAssignable}}
+				{{- end }}
 				{{- if .Where.StartTime }}
 				startTime: "{{.Where.StartTime}}"
 				{{- end }}
@@ -168,6 +171,12 @@ var (
 				{{- end }}
 				{{- if ne .Where.DataIdNotNil nil }}
 				dataIdNotNil: {{.Where.DataIdNotNil}}
+				{{- end }}
+				{{- if .Where.Targets }}
+				targets: [{{range $i, $v := .Where.Targets}}{{if $i}}, {{end}}{{$v}}{{end}}]
+				{{- end }}
+				{{- if .Where.TargetsNotIn }}
+				targetsNotIn: [{{range $i, $v := .Where.TargetsNotIn}}{{if $i}}, {{end}}{{$v}}{{end}}]
 				{{- end }}
 			}
 			{{- end }}
@@ -293,6 +302,7 @@ type workflowExecutionsWhereInput struct {
 	AssigneeNeq          *string
 	AssigneeIsNil        *bool
 	AssigneeNotNil       *bool
+	IsAssignable         *bool
 	StartTime            *string
 	StartTimeGt          *string
 	StartTimeGte         *string
@@ -323,6 +333,8 @@ type workflowExecutionsWhereInput struct {
 	DataIdHasSuffix      *string
 	DataIdIsNil          *bool
 	DataIdNotNil         *bool
+	Targets              []string
+	TargetsNotIn         []string
 }
 
 type workflowExecutionOrderInput struct {
@@ -528,6 +540,74 @@ func TestWorkflowExecutions_StatusFilters(t *testing.T) {
 	})
 
 	assert.Equal(t, fmt.Sprintf(`pyck_tenant_id IN (%q) AND ExecutionStatus IN ("RUNNING", "PENDING")`, userA.TenantID.String()), capturedQuery)
+}
+
+// =============================================================================
+// WORKFLOW TARGETS FILTER TESTS
+// =============================================================================
+
+func TestWorkflowExecutions_TargetsFilter(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		where          *workflowExecutionsWhereInput
+		expectContains []string
+	}{
+		{
+			name:           "single target → IN",
+			where:          &workflowExecutionsWhereInput{Targets: []string{"WEB"}},
+			expectContains: []string{`pyck_workflow_targets IN ("WEB")`},
+		},
+		{
+			name:           "multiple targets → IN with all",
+			where:          &workflowExecutionsWhereInput{Targets: []string{"WEB", "MOBILE"}},
+			expectContains: []string{`pyck_workflow_targets IN ("WEB", "MOBILE")`},
+		},
+		{
+			name:           "targetsNotIn → NOT IN",
+			where:          &workflowExecutionsWhereInput{TargetsNotIn: []string{"SETUP"}},
+			expectContains: []string{`pyck_workflow_targets NOT IN ("SETUP")`},
+		},
+		{
+			name: "targets combined with status",
+			where: &workflowExecutionsWhereInput{
+				Status:  stringPtr("RUNNING"),
+				Targets: []string{"WEB"},
+			},
+			expectContains: []string{
+				`ExecutionStatus = "RUNNING"`,
+				`pyck_workflow_targets IN ("WEB")`,
+				" AND ",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			te := setupWithMockWorkflow(t)
+			defer te.Close(t)
+			ctx := te.ctx(userA)
+
+			var capturedQuery string
+			te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+				capturedQuery = request.GetQuery()
+				return &workflowservice.ListWorkflowExecutionsResponse{
+					Executions: []*workflowpb.WorkflowExecutionInfo{},
+				}, nil
+			}
+
+			execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+				"Where": tt.where,
+			})
+
+			for _, expected := range tt.expectContains {
+				assert.Contains(t, capturedQuery, expected, "captured query: %s", capturedQuery)
+			}
+		})
+	}
 }
 
 // =============================================================================
@@ -1193,139 +1273,87 @@ func TestWorkflowExecutions_MultiTenantAggregation(t *testing.T) {
 // ASSIGNABLE WORKFLOW EXECUTIONS TESTS
 // =============================================================================
 
-func TestAssignableWorkflowExecutions_TotalCountReturnsAllAssignable(t *testing.T) {
+func TestWorkflowExecutions_IsAssignableFilter(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		value    *bool
+		expected string
+	}{
+		{
+			// true matches explicit-true OR absent-attribute.
+			name:     "isAssignable=true (null-matches-true) appended to Temporal query",
+			value:    boolPtr(true),
+			expected: "(pyck_workflow_is_assignable = true OR pyck_workflow_is_assignable IS NULL)",
+		},
+		{
+			// false matches only explicit-false.
+			name:     "isAssignable=false appended to Temporal query",
+			value:    boolPtr(false),
+			expected: "pyck_workflow_is_assignable = false",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			te := setupWithMockWorkflow(t)
+			defer te.Close(t)
+			ctx := te.ctx(userA)
+
+			var capturedQuery string
+			te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+				capturedQuery = request.GetQuery()
+				return &workflowservice.ListWorkflowExecutionsResponse{
+					Executions: []*workflowpb.WorkflowExecutionInfo{},
+				}, nil
+			}
+
+			execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+				"Where": &workflowExecutionsWhereInput{IsAssignable: tt.value},
+			})
+
+			assert.Equal(t,
+				fmt.Sprintf(`pyck_tenant_id IN (%q) AND %s`, userA.TenantID.String(), tt.expected),
+				capturedQuery)
+		})
+	}
+}
+
+func TestAssignableWorkflowExecutions_InjectsIsAssignableFilter(t *testing.T) {
 	t.Parallel()
 	te := setupWithMockWorkflow(t)
 	defer te.Close(t)
 	ctx := te.ctx(userA)
 
-	// Create 5 workflows: 3 assignable (with memo data.assignable=true), 2 not assignable
-	assignableMemo := makeAssignableMemo(t, true)
-	nonAssignableMemo := makeAssignableMemo(t, false)
-
-	allExecutions := []*workflowpb.WorkflowExecutionInfo{
-		{Execution: &common.WorkflowExecution{WorkflowId: "wf-1", RunId: "run-1"}, Type: &common.WorkflowType{Name: "TestWorkflow"}, Memo: assignableMemo},
-		{Execution: &common.WorkflowExecution{WorkflowId: "wf-2", RunId: "run-2"}, Type: &common.WorkflowType{Name: "TestWorkflow"}, Memo: nonAssignableMemo},
-		{Execution: &common.WorkflowExecution{WorkflowId: "wf-3", RunId: "run-3"}, Type: &common.WorkflowType{Name: "TestWorkflow"}, Memo: assignableMemo},
-		{Execution: &common.WorkflowExecution{WorkflowId: "wf-4", RunId: "run-4"}, Type: &common.WorkflowType{Name: "TestWorkflow"}, Memo: assignableMemo},
-		{Execution: &common.WorkflowExecution{WorkflowId: "wf-5", RunId: "run-5"}, Type: &common.WorkflowType{Name: "TestWorkflow"}, Memo: nonAssignableMemo},
-	}
-
+	var capturedQuery string
 	te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+		capturedQuery = request.GetQuery()
 		return &workflowservice.ListWorkflowExecutionsResponse{
-			Executions: allExecutions,
+			Executions: []*workflowpb.WorkflowExecutionInfo{},
 		}, nil
 	}
 
-	data := execOK[assignableWorkflowExecutionsData](te, ctx, assignableWorkflowExecutionsQuery, map[string]any{
-		"First": 2,
-	})
+	execOK[assignableWorkflowExecutionsData](te, ctx, assignableWorkflowExecutionsQuery, nil)
 
-	require.NotNil(t, data.AssignableWorkflowExecutions)
-	assert.Equal(t, 3, data.AssignableWorkflowExecutions.TotalCount, "TotalCount should be total assignable count, not page count")
-	assert.Len(t, data.AssignableWorkflowExecutions.Edges, 2, "Should return only requested page size")
-	assert.True(t, data.AssignableWorkflowExecutions.PageInfo.HasNextPage, "Should have next page when more assignable exist")
-	assert.NotNil(t, data.AssignableWorkflowExecutions.PageInfo.EndCursor, "EndCursor must be set when hasNextPage is true")
-
-	// Use endCursor to fetch the next page
-	data2 := execOK[assignableWorkflowExecutionsData](te, ctx, assignableWorkflowExecutionsQuery, map[string]any{
-		"First": 2,
-		"After": *data.AssignableWorkflowExecutions.PageInfo.EndCursor,
-	})
-
-	require.NotNil(t, data2.AssignableWorkflowExecutions)
-	assert.Equal(t, 3, data2.AssignableWorkflowExecutions.TotalCount, "TotalCount should remain the same on page 2")
-	assert.Len(t, data2.AssignableWorkflowExecutions.Edges, 1, "Page 2 should have remaining 1 item")
-	assert.False(t, data2.AssignableWorkflowExecutions.PageInfo.HasNextPage, "No more pages after last item")
-	assert.True(t, data2.AssignableWorkflowExecutions.PageInfo.HasPreviousPage, "Should indicate there is a previous page")
+	assert.Contains(t, capturedQuery, "(pyck_workflow_is_assignable = true OR pyck_workflow_is_assignable IS NULL)",
+		"assignableWorkflowExecutions must inject the null-matches-true is_assignable filter into the Temporal query")
+	assert.Contains(t, capturedQuery, fmt.Sprintf(`pyck_tenant_id IN (%q)`, userA.TenantID.String()),
+		"tenant filter must still be applied")
 }
 
-func TestAssignableWorkflowExecutions_TotalCountAcrossPages(t *testing.T) {
+func TestAssignableWorkflowExecutions_DelegatesToWorkflowExecutions(t *testing.T) {
 	t.Parallel()
 	te := setupWithMockWorkflow(t)
 	defer te.Close(t)
 	ctx := te.ctx(userA)
-
-	// Simulate Temporal returning results across multiple pages
-	// Page 1: 3 workflows (2 assignable)
-	// Page 2: 3 workflows (1 assignable)
-	// Total assignable = 3, but we request first=2
-	assignableMemo := makeAssignableMemo(t, true)
-	nonAssignableMemo := makeAssignableMemo(t, false)
-
-	callCount := 0
-	te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
-		callCount++
-		switch callCount {
-		case 1:
-			return &workflowservice.ListWorkflowExecutionsResponse{
-				Executions: []*workflowpb.WorkflowExecutionInfo{
-					{Execution: &common.WorkflowExecution{WorkflowId: "wf-1", RunId: "run-1"}, Type: &common.WorkflowType{Name: "TestWorkflow"}, Memo: assignableMemo},
-					{Execution: &common.WorkflowExecution{WorkflowId: "wf-2", RunId: "run-2"}, Type: &common.WorkflowType{Name: "TestWorkflow"}, Memo: nonAssignableMemo},
-					{Execution: &common.WorkflowExecution{WorkflowId: "wf-3", RunId: "run-3"}, Type: &common.WorkflowType{Name: "TestWorkflow"}, Memo: assignableMemo},
-				},
-				NextPageToken: []byte("page-2-token"),
-			}, nil
-		default:
-			return &workflowservice.ListWorkflowExecutionsResponse{
-				Executions: []*workflowpb.WorkflowExecutionInfo{
-					{Execution: &common.WorkflowExecution{WorkflowId: "wf-4", RunId: "run-4"}, Type: &common.WorkflowType{Name: "TestWorkflow"}, Memo: nonAssignableMemo},
-					{Execution: &common.WorkflowExecution{WorkflowId: "wf-5", RunId: "run-5"}, Type: &common.WorkflowType{Name: "TestWorkflow"}, Memo: assignableMemo},
-					{Execution: &common.WorkflowExecution{WorkflowId: "wf-6", RunId: "run-6"}, Type: &common.WorkflowType{Name: "TestWorkflow"}, Memo: nonAssignableMemo},
-				},
-			}, nil
-		}
-	}
-
-	data := execOK[assignableWorkflowExecutionsData](te, ctx, assignableWorkflowExecutionsQuery, map[string]any{
-		"First": 2,
-	})
-
-	require.NotNil(t, data.AssignableWorkflowExecutions)
-	assert.Equal(t, 3, data.AssignableWorkflowExecutions.TotalCount, "TotalCount should reflect all assignable across all pages")
-	assert.Len(t, data.AssignableWorkflowExecutions.Edges, 2, "Should return only requested page size")
-	assert.True(t, data.AssignableWorkflowExecutions.PageInfo.HasNextPage, "Should have next page")
-	assert.NotNil(t, data.AssignableWorkflowExecutions.PageInfo.EndCursor, "EndCursor must be set when hasNextPage is true")
-}
-
-func TestAssignableWorkflowExecutions_NoAssignable(t *testing.T) {
-	t.Parallel()
-	te := setupWithMockWorkflow(t)
-	defer te.Close(t)
-	ctx := te.ctx(userA)
-
-	nonAssignableMemo := makeAssignableMemo(t, false)
 
 	te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
 		return &workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflowpb.WorkflowExecutionInfo{
-				{Execution: &common.WorkflowExecution{WorkflowId: "wf-1", RunId: "run-1"}, Type: &common.WorkflowType{Name: "TestWorkflow"}, Memo: nonAssignableMemo},
+				{Execution: &common.WorkflowExecution{WorkflowId: "wf-1", RunId: "run-1"}, Type: &common.WorkflowType{Name: "TestWorkflow"}},
 				{Execution: &common.WorkflowExecution{WorkflowId: "wf-2", RunId: "run-2"}, Type: &common.WorkflowType{Name: "TestWorkflow"}},
-			},
-		}, nil
-	}
-
-	data := execOK[assignableWorkflowExecutionsData](te, ctx, assignableWorkflowExecutionsQuery, nil)
-
-	require.NotNil(t, data.AssignableWorkflowExecutions)
-	assert.Equal(t, 0, data.AssignableWorkflowExecutions.TotalCount)
-	assert.Empty(t, data.AssignableWorkflowExecutions.Edges)
-	assert.False(t, data.AssignableWorkflowExecutions.PageInfo.HasNextPage)
-}
-
-func TestAssignableWorkflowExecutions_AllFitInOnePage(t *testing.T) {
-	t.Parallel()
-	te := setupWithMockWorkflow(t)
-	defer te.Close(t)
-	ctx := te.ctx(userA)
-
-	assignableMemo := makeAssignableMemo(t, true)
-
-	te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
-		return &workflowservice.ListWorkflowExecutionsResponse{
-			Executions: []*workflowpb.WorkflowExecutionInfo{
-				{Execution: &common.WorkflowExecution{WorkflowId: "wf-1", RunId: "run-1"}, Type: &common.WorkflowType{Name: "TestWorkflow"}, Memo: assignableMemo},
-				{Execution: &common.WorkflowExecution{WorkflowId: "wf-2", RunId: "run-2"}, Type: &common.WorkflowType{Name: "TestWorkflow"}, Memo: assignableMemo},
 			},
 		}, nil
 	}
@@ -1335,8 +1363,28 @@ func TestAssignableWorkflowExecutions_AllFitInOnePage(t *testing.T) {
 	})
 
 	require.NotNil(t, data.AssignableWorkflowExecutions)
-	assert.Equal(t, 2, data.AssignableWorkflowExecutions.TotalCount, "TotalCount should equal edge count when all fit in one page")
+	assert.Equal(t, 2, data.AssignableWorkflowExecutions.TotalCount)
 	assert.Len(t, data.AssignableWorkflowExecutions.Edges, 2)
+	assert.False(t, data.AssignableWorkflowExecutions.PageInfo.HasNextPage)
+}
+
+func TestAssignableWorkflowExecutions_EmptyResult(t *testing.T) {
+	t.Parallel()
+	te := setupWithMockWorkflow(t)
+	defer te.Close(t)
+	ctx := te.ctx(userA)
+
+	te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+		return &workflowservice.ListWorkflowExecutionsResponse{
+			Executions: []*workflowpb.WorkflowExecutionInfo{},
+		}, nil
+	}
+
+	data := execOK[assignableWorkflowExecutionsData](te, ctx, assignableWorkflowExecutionsQuery, nil)
+
+	require.NotNil(t, data.AssignableWorkflowExecutions)
+	assert.Equal(t, 0, data.AssignableWorkflowExecutions.TotalCount)
+	assert.Empty(t, data.AssignableWorkflowExecutions.Edges)
 	assert.False(t, data.AssignableWorkflowExecutions.PageInfo.HasNextPage)
 }
 

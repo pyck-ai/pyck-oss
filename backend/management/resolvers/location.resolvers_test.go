@@ -2,6 +2,7 @@ package resolvers_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -268,6 +269,7 @@ func TestLocation_Delete(t *testing.T) {
 		deleted, err := te.Ent.Location.Get(te.ctxWithDeleted(userA), loc.ID)
 		require.NoError(t, err)
 		assert.NotNil(t, deleted.DeletedAt)
+		assert.Equal(t, time.UTC, deleted.DeletedAt.Location(), "deleted_at should be in UTC")
 
 		te.assertEvents(ctx, Delete("location", loc.ID))
 	})

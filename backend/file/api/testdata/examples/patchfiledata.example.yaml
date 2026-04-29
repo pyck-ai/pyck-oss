@@ -1,0 +1,31 @@
+---
+operation: PatchFileData
+name: "Patch File Data"
+description: >
+  Applies RFC 6902 JSON Patch operations to the file's data field.
+  Only changed fields are modified; untouched fields are preserved.
+  See https://datatracker.ietf.org/doc/html/rfc6902 for the specification.
+vars:
+  id: { $placeholder: "file id to patch" }
+  patches:
+    - op: REPLACE
+      path: "/category"
+      value: "\"receipt\""
+    - op: REPLACE
+      path: "/version"
+      value: "3"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Patched file returned"
+    assertions:
+      - ref: res.body.data.patchFileData
+        nil: false
+      - ref: res.body.data.patchFileData.id
+        equal: {$ref: req.body.variables.id}

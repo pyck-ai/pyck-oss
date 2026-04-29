@@ -1,6 +1,6 @@
 services:
   main-data:
-    container_name: main-data
+    container_name: pyck-maindata
     build:
       context: ../../../
       dockerfile: ./backend/Dockerfile
@@ -9,27 +9,21 @@ services:
         - SERVICE_PORT=8081
       network: host
     restart: always
-    env_file: ../../../.env
-    environment:
-      - PYCK_LOG_FORMAT=console
+    env_file:
+      - path: ../../../config/keys/bootstrap.env
+      - path: ../../../.env
+      - path: ../../../.env.local
+        required: false
     volumes:
+      - ./../../../:/src:ro,z
       - ./../../../backend/main-data/ent/migrate/migrations/:/app/main-data/ent/migrate/migrations/:z
-      - ./../../keys/zitadel_certificate.crt:/etc/ssl/certs/zitadel.crt:ro,z
-      - ./../../keys/local-key.json:/data/keys/local-key.json:ro,z
+      - ./../../keys/:/data/keys/:ro,z
     ports:
       - "7081:7081"
       - "8081:8081"
-    networks:
-      - pyck
-    extra_hosts:
-      - "auth.local.pyck.cloud:172.30.0.100"
     depends_on:
-      db: { condition: service_healthy }
       gateway: { condition: service_healthy }
       management: { condition: service_healthy }
-      nats: { condition: service_healthy }
-      temporal: { condition: service_healthy }
-      zitadel: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "8081"]
       interval: 5s

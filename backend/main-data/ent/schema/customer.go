@@ -10,6 +10,7 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
+	"github.com/pyck-ai/pyck/backend/common/importexport"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 )
 
@@ -30,7 +31,10 @@ func (Customer) Annotations() []schema.Annotation {
 		entsql.Schema("main-data"),
 		entsql.Table("customers"),
 		entgql.RelayConnection(),
-		entgql.Directives(keyDirective),
+		entgql.Directives(keyDirective, importexport.Importable("",
+			importexport.WithList("customers"),
+			importexport.WithCreate("createCustomer"),
+		)),
 		entgql.QueryField(),
 		entgql.Mutations(entgql.MutationCreate(), entgql.MutationUpdate()),
 	}

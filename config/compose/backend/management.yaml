@@ -1,6 +1,6 @@
 services:
   management:
-    container_name: management
+    container_name: pyck-management
     build:
       context: ../../../
       dockerfile: ./backend/Dockerfile
@@ -8,27 +8,24 @@ services:
         - SERVICE_NAME=management
         - SERVICE_PORT=8082
       network: host
-    restart: always
-    env_file: ../../../.env
+    restart: on-failure
     environment:
-      - PYCK_LOG_FORMAT=console
+      - PYCK_BOOTSTRAP_TIMEOUT=10m
+      - PYCK_BOOTSTRAP_ENABLED=true
+      - PYCK_BOOTSTRAP_ONLY=false
+      - PYCK_BOOTSTRAP_MODULE=temporal
+    env_file:
+      - path: ../../../config/keys/bootstrap.env
+      - path: ../../../.env
+      - path: ../../../.env.local
+        required: false
     volumes:
+      - ./../../../:/src:ro,z
       - ./../../../backend/management/ent/migrate/migrations/:/app/management/ent/migrate/migrations/:z
-      - ./../../keys/zitadel_certificate.crt:/etc/ssl/certs/zitadel.crt:ro,z
-      - ./../../keys/local-key.json:/data/keys/local-key.json:ro,z
-      - ./../../keys/zitadel-admin-sa.json:/data/keys/zitadel-admin-sa.json:ro,z
+      - ./../../keys/:/data/keys/:ro,z
     ports:
       - "7082:7082"
       - "8082:8082"
-    networks:
-      - pyck
-    extra_hosts:
-      - "auth.local.pyck.cloud:172.30.0.100"
-    depends_on:
-      db: { condition: service_healthy }
-      nats: { condition: service_healthy }
-      temporal: { condition: service_healthy }
-      zitadel: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "8082"]
       interval: 5s
@@ -39,3 +36,5 @@ services:
       resources:
         limits:
           memory: 128M
+    depends_on:
+      temporal: { condition: service_healthy }

@@ -2,6 +2,7 @@ package resolvers_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -115,6 +116,12 @@ func TestExecuteRepositoryMovement(t *testing.T) {
 		})
 
 		assert.True(t, data.ExecuteInventoryRepositoryMovement.InventoryRepositoryMovement.Executed)
+
+		// Verify executed_at is set and in UTC
+		executed, err := te.Ent.RepositoryMovement.Get(ctx, movement.ID)
+		require.NoError(t, err)
+		require.NotNil(t, executed.ExecutedAt, "executed_at should be set after execution")
+		assert.Equal(t, time.UTC, executed.ExecutedAt.Location(), "executed_at should be in UTC")
 
 		// Verify repository was moved correctly
 		repoData := execOK[queryRepositoriesForExecMovementData](te, ctx, queryRepositoriesForExecMovement, nil)

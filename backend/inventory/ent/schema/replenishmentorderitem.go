@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
+	"github.com/pyck-ai/pyck/backend/common/importexport"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -32,7 +33,10 @@ func (ReplenishmentOrderItem) Annotations() []schema.Annotation {
 		entsql.Schema("inventory"),
 		entsql.Table("replenishment_order_items"),
 		entgql.RelayConnection(),
-		entgql.Directives(keyDirective),
+		entgql.Directives(keyDirective, importexport.Importable("",
+			importexport.WithList("replenishmentOrderItems"),
+			importexport.WithCreate("createReplenishmentOrderItem"),
+		)),
 		entgql.QueryField(),
 		entgql.Mutations(entgql.MutationCreate(), entgql.MutationUpdate()),
 	}

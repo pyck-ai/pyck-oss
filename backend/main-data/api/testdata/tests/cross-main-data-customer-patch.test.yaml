@@ -1,0 +1,383 @@
+---
+name: "Cross - Main Data Patch Lifecycle"
+description: >
+  Tests JSON Patch (RFC 6902) operations on customers and suppliers. Creates
+  data types, entities with data, updates via full overwrite, patches individual
+  fields, verifies changes persist, then cleans up.
+steps:
+  - id: createDT
+    name: "Create data type for customers"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Customer Patch Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"company":{"type":"string"},"tier":{"type":"string"},"contacts":{"type":"integer","minimum":0}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: createSupplierDT
+    name: "Create data type for suppliers"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Supplier Patch Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "supplier"
+        jsonSchema: '{"type":"object","properties":{"region":{"type":"string"},"rating":{"type":"integer","minimum":1,"maximum":5},"active":{"type":"boolean"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  # =========================================================================
+  # CUSTOMER: create → update → verify → patch → verify
+  # =========================================================================
+  - id: createCustomer
+    name: "Create customer with data"
+    operation: main-data.createCustomer
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          company: "Acme Corp"
+          tier: "gold"
+          contacts: 3
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Customer created"
+        assertions:
+          - ref: res.body.data.createCustomer.id
+            nil: false
+      - msg: "Data persisted"
+        assertions:
+          - ref: res.body.data.createCustomer.data.company
+            equal: "Acme Corp"
+          - ref: res.body.data.createCustomer.data.tier
+            equal: "gold"
+
+  - name: "Full update customer"
+    operation: main-data.updateCustomer
+    vars:
+      id: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          company: "Acme Inc"
+          tier: "platinum"
+          contacts: 5
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "All data replaced"
+        assertions:
+          - ref: res.body.data.updateCustomer.data.company
+            equal: "Acme Inc"
+          - ref: res.body.data.updateCustomer.data.tier
+            equal: "platinum"
+
+  - name: "Verify customer update persisted"
+    operation: main-data.getCustomers
+    vars:
+      where:
+        id: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Updated data persisted"
+        assertions:
+          - ref: res.body.data.customers.edges[].node.data.company
+            equal: "Acme Inc"
+          - ref: res.body.data.customers.edges[].node.data.tier
+            equal: "platinum"
+
+  - name: "Patch customer data"
+    operation: main-data.patchCustomerData
+    vars:
+      id: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+      patches:
+        - op: REPLACE
+          path: "/tier"
+          value: "\"diamond\""
+        - op: REPLACE
+          path: "/contacts"
+          value: "10"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Tier patched"
+        assertions:
+          - ref: res.body.data.patchCustomerData.data.tier
+            equal: "diamond"
+      - msg: "Contacts patched"
+        assertions:
+          - ref: res.body.data.patchCustomerData.data.contacts
+            equal: 10
+      - msg: "Company preserved"
+        assertions:
+          - ref: res.body.data.patchCustomerData.data.company
+            equal: "Acme Inc"
+
+  - name: "Verify customer patch persisted"
+    operation: main-data.getCustomers
+    vars:
+      where:
+        id: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Patched data persisted"
+        assertions:
+          - ref: res.body.data.customers.edges[].node.data.tier
+            equal: "diamond"
+          - ref: res.body.data.customers.edges[].node.data.contacts
+            equal: 10
+          - ref: res.body.data.customers.edges[].node.data.company
+            equal: "Acme Inc"
+
+  # =========================================================================
+  # SUPPLIER: create → update → verify → patch → verify
+  # =========================================================================
+  - id: createSupplier
+    name: "Create supplier with data"
+    operation: main-data.createSupplier
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createSupplierDT].body.data.createDataType.id"}
+        data:
+          region: "EU"
+          rating: 3
+          active: true
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Supplier created"
+        assertions:
+          - ref: res.body.data.createSupplier.id
+            nil: false
+      - msg: "Data persisted"
+        assertions:
+          - ref: res.body.data.createSupplier.data.region
+            equal: "EU"
+          - ref: res.body.data.createSupplier.data.rating
+            equal: 3
+
+  - name: "Full update supplier"
+    operation: main-data.updateSupplier
+    vars:
+      id: {$ref: "res[createSupplier].body.data.createSupplier.id"}
+      input:
+        dataTypeID: {$ref: "res[createSupplierDT].body.data.createDataType.id"}
+        data:
+          region: "APAC"
+          rating: 4
+          active: true
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "All data replaced"
+        assertions:
+          - ref: res.body.data.updateSupplier.data.region
+            equal: "APAC"
+          - ref: res.body.data.updateSupplier.data.rating
+            equal: 4
+
+  - name: "Verify supplier update persisted"
+    operation: main-data.getSuppliers
+    vars:
+      where:
+        id: {$ref: "res[createSupplier].body.data.createSupplier.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Updated data persisted"
+        assertions:
+          - ref: res.body.data.suppliers.edges[].node.data.region
+            equal: "APAC"
+          - ref: res.body.data.suppliers.edges[].node.data.rating
+            equal: 4
+
+  - name: "Patch supplier data"
+    operation: main-data.patchSupplierData
+    vars:
+      id: {$ref: "res[createSupplier].body.data.createSupplier.id"}
+      patches:
+        - op: REPLACE
+          path: "/rating"
+          value: "5"
+        - op: REPLACE
+          path: "/active"
+          value: "false"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Rating patched"
+        assertions:
+          - ref: res.body.data.patchSupplierData.data.rating
+            equal: 5
+      - msg: "Active patched"
+        assertions:
+          - ref: res.body.data.patchSupplierData.data.active
+            equal: false
+      - msg: "Region preserved"
+        assertions:
+          - ref: res.body.data.patchSupplierData.data.region
+            equal: "APAC"
+
+  - name: "Verify supplier patch persisted"
+    operation: main-data.getSuppliers
+    vars:
+      where:
+        id: {$ref: "res[createSupplier].body.data.createSupplier.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Patched data persisted"
+        assertions:
+          - ref: res.body.data.suppliers.edges[].node.data.rating
+            equal: 5
+          - ref: res.body.data.suppliers.edges[].node.data.active
+            equal: false
+          - ref: res.body.data.suppliers.edges[].node.data.region
+            equal: "APAC"
+
+  # =========================================================================
+  # CLEANUP
+  # =========================================================================
+  - name: "Delete customer"
+    operation: main-data.deleteCustomer
+    vars:
+      id: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Delete supplier"
+    operation: main-data.deleteSupplier
+    vars:
+      id: {$ref: "res[createSupplier].body.data.createSupplier.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete customer data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete supplier data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createSupplierDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

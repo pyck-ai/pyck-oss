@@ -18,9 +18,7 @@ extend type Query {
 
   """
   List assignable workflow executions with pagination support.
-  Returns only workflows that have user tasks (ActivityCount > 0 in UserDataInput).
-  Workflows without user task handlers or with no pending activities are excluded.
-  Uses the same pagination interface as workflowExecutions.
+  Shorthand for `workflowExecutions(where: {isAssignable: true})`.
   """
   assignableWorkflowExecutions(
     """Filter criteria for workflow executions."""
@@ -31,7 +29,7 @@ extend type Query {
     after: String
     """Ordering options for the returned list."""
     orderBy: WorkflowExecutionOrder
-  ): WorkflowExecutionInfoConnection!
+  ): WorkflowExecutionInfoConnection! @deprecated(reason: "Use workflowExecutions(where: {isAssignable: true}) instead. This wrapper will be removed in a future release.")
 
   """
   Fetch workflow history for executions matching filter criteria.
@@ -89,6 +87,21 @@ input WorkflowExecutionsWhereInput {
   assigneeHasSuffix: String
   assigneeEqualFold: String
   assigneeContainsFold: String
+  """
+  is_assignable field predicate. Matches the pyck_workflow_is_assignable
+  Temporal search attribute.
+
+  Absent-attribute semantics (default-true):
+    - `isAssignable: true` matches workflows with the attribute set to true
+      OR not set at all. Workflows that never opted in (e.g. those not
+      calling workflowsdk.SetupDefaults with WorkflowIsAssignableSetter)
+      are considered assignable by default.
+    - `isAssignable: false` matches only workflows that explicitly wrote
+      the attribute as false.
+    - omit the field to not filter on assignability at all.
+
+  """
+  isAssignable: Boolean
   """
   group_by field predicates
   """
@@ -205,6 +218,12 @@ input WorkflowExecutionsWhereInput {
   dataIdContainsFold: String
   dataIdIsNil: Boolean
   dataIdNotNil: Boolean
+  """
+  targets field predicates (KeywordList — matches if the workflow's targets
+  list contains any element of the supplied set; targetsNotIn excludes them).
+  """
+  targets: [WorkflowTarget!]
+  targetsNotIn: [WorkflowTarget!]
 }
 
 """
@@ -440,6 +459,7 @@ type WorkflowEvent {
 extend type Mutation {
   registerWorkflow(input: RegisterWorkflowWithSignalsInput!): Workflow
   deleteWorkflow(id: ID!): WorkflowDeletePayload!
+  cancelWorkflow(input: CancelWorkflowInput!): CancelWorkflowPayload!
 }
 
 input RegisterWorkflowWithSignalsInput {
@@ -460,6 +480,16 @@ input RegisterWorkflowSignalInput {
 
 type WorkflowDeletePayload {
   deletedID: ID
+}
+
+input CancelWorkflowInput {
+  workflowID: String!
+  workflowRunID: String!
+}
+
+type CancelWorkflowPayload {
+  workflowID: String!
+  workflowRunID: String!
 }
 
 extend input WorkflowWhereInput {

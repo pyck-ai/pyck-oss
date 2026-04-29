@@ -57,6 +57,9 @@ type Client interface {
 	CreatePickingOutboundShipmentNotification(ctx context.Context, input CreatePickingOutboundShipmentNotificationArgs) (*CreatePickingOutboundShipmentNotification, error)
 	UpdatePickingOutboundShipmentNotification(ctx context.Context, input UpdatePickingOutboundShipmentNotificationArgs) (*UpdatePickingOutboundShipmentNotification, error)
 	DeletePickingOutboundShipmentNotification(ctx context.Context, input DeletePickingOutboundShipmentNotificationArgs) (*DeletePickingOutboundShipmentNotification, error)
+	PatchPickingOrderData(ctx context.Context, input PatchPickingOrderDataArgs) (*PatchPickingOrderData, error)
+	PatchPickingOrderItemData(ctx context.Context, input PatchPickingOrderItemDataArgs) (*PatchPickingOrderItemData, error)
+	PatchPickingOutboundShipmentNotificationData(ctx context.Context, input PatchPickingOutboundShipmentNotificationDataArgs) (*PatchPickingOutboundShipmentNotificationData, error)
 }
 
 type client struct {
@@ -200,4 +203,34 @@ type DeletePickingOutboundShipmentNotificationArgs struct {
 
 func (c *client) DeletePickingOutboundShipmentNotification(ctx context.Context, input DeletePickingOutboundShipmentNotificationArgs) (*DeletePickingOutboundShipmentNotification, error) {
 	return c.api.DeletePickingOutboundShipmentNotification(ctx, input.Id)
+}
+
+// PatchPickingOrderDataArgs is a sparse struct for PatchPickingOrderData parameters
+type PatchPickingOrderDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchPickingOrderData(ctx context.Context, input PatchPickingOrderDataArgs) (*PatchPickingOrderData, error) {
+	return c.api.PatchPickingOrderData(ctx, input.Id, input.Patches)
+}
+
+// PatchPickingOrderItemDataArgs is a sparse struct for PatchPickingOrderItemData parameters
+type PatchPickingOrderItemDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchPickingOrderItemData(ctx context.Context, input PatchPickingOrderItemDataArgs) (*PatchPickingOrderItemData, error) {
+	return c.api.PatchPickingOrderItemData(ctx, input.Id, input.Patches)
+}
+
+// PatchPickingOutboundShipmentNotificationDataArgs is a sparse struct for PatchPickingOutboundShipmentNotificationData parameters
+type PatchPickingOutboundShipmentNotificationDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchPickingOutboundShipmentNotificationData(ctx context.Context, input PatchPickingOutboundShipmentNotificationDataArgs) (*PatchPickingOutboundShipmentNotificationData, error) {
+	return c.api.PatchPickingOutboundShipmentNotificationData(ctx, input.Id, input.Patches)
 }

@@ -25,6 +25,9 @@ type APIClient interface {
 	CreatePickingOutboundShipmentNotification(ctx context.Context, input CreatePickingOutboundShipmentNotificationInput, interceptors ...clientv2.RequestInterceptor) (*CreatePickingOutboundShipmentNotification, error)
 	UpdatePickingOutboundShipmentNotification(ctx context.Context, id string, input UpdatePickingOutboundShipmentNotificationInput, interceptors ...clientv2.RequestInterceptor) (*UpdatePickingOutboundShipmentNotification, error)
 	DeletePickingOutboundShipmentNotification(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeletePickingOutboundShipmentNotification, error)
+	PatchPickingOrderData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchPickingOrderData, error)
+	PatchPickingOrderItemData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchPickingOrderItemData, error)
+	PatchPickingOutboundShipmentNotificationData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchPickingOutboundShipmentNotificationData, error)
 }
 
 type Client struct {
@@ -2153,6 +2156,563 @@ func (t *DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipment
 	return t.Workflows
 }
 
+type PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems struct {
+	Edges      []*PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                          "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems) GetEdges() []*PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_Edges {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems{}
+	}
+	return t.Edges
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems) GetPageInfo() *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems_PageInfo {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems) GetTotalCount() int {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems{}
+	}
+	return t.TotalCount
+}
+
+type PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications struct {
+	Edges      []*PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                                             "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications) GetEdges() []*PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_Edges {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications{}
+	}
+	return t.Edges
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications) GetPageInfo() *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications_PageInfo {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications) GetTotalCount() int {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications{}
+	}
+	return t.TotalCount
+}
+
+type PatchPickingOrderData_PatchPickingOrderData_PickingOrder struct {
+	CreatedAt                     time.Time                                                                              "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy                     uuid.UUID                                                                              "json:\"createdBy\" graphql:\"createdBy\""
+	CustomerID                    uuid.UUID                                                                              "json:\"customerID\" graphql:\"customerID\""
+	Data                          map[string]any                                                                         "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID                    *uuid.UUID                                                                             "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug                  *string                                                                                "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt                     *time.Time                                                                             "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy                     *uuid.UUID                                                                             "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	ID                            string                                                                                 "json:\"id\" graphql:\"id\""
+	OrderItems                    PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems                    "json:\"orderItems\" graphql:\"orderItems\""
+	OutboundShipmentNotifications PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications "json:\"outboundShipmentNotifications\" graphql:\"outboundShipmentNotifications\""
+	TenantID                      uuid.UUID                                                                              "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt                     *time.Time                                                                             "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy                     *uuid.UUID                                                                             "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder) GetCustomerID() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder{}
+	}
+	return &t.CustomerID
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder) GetData() map[string]any {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder{}
+	}
+	return t.Data
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder) GetID() string {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder{}
+	}
+	return t.ID
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder) GetOrderItems() *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OrderItems {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder{}
+	}
+	return &t.OrderItems
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder) GetOutboundShipmentNotifications() *PatchPickingOrderData_PatchPickingOrderData_PickingOrder_OutboundShipmentNotifications {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder{}
+	}
+	return &t.OutboundShipmentNotifications
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder{}
+	}
+	return &t.TenantID
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_PickingOrder{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchPickingOrderData_PatchPickingOrderData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchPickingOrderData_PatchPickingOrderData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchPickingOrderData_PatchPickingOrderData struct {
+	PickingOrder *PatchPickingOrderData_PatchPickingOrderData_PickingOrder "json:\"pickingOrder,omitempty\" graphql:\"pickingOrder\""
+	Workflows    []*PatchPickingOrderData_PatchPickingOrderData_Workflows  "json:\"workflows,omitempty\" graphql:\"workflows\""
+}
+
+func (t *PatchPickingOrderData_PatchPickingOrderData) GetPickingOrder() *PatchPickingOrderData_PatchPickingOrderData_PickingOrder {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData{}
+	}
+	return t.PickingOrder
+}
+func (t *PatchPickingOrderData_PatchPickingOrderData) GetWorkflows() []*PatchPickingOrderData_PatchPickingOrderData_Workflows {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData{}
+	}
+	return t.Workflows
+}
+
+type PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem struct {
+	CreatedAt    time.Time      "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy    uuid.UUID      "json:\"createdBy\" graphql:\"createdBy\""
+	Data         map[string]any "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID   *uuid.UUID     "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug *string        "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt    *time.Time     "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy    *uuid.UUID     "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	ID           string         "json:\"id\" graphql:\"id\""
+	OrderID      string         "json:\"orderID\" graphql:\"orderID\""
+	Quantity     int            "json:\"quantity\" graphql:\"quantity\""
+	Sku          string         "json:\"sku\" graphql:\"sku\""
+	TenantID     uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem) GetData() map[string]any {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem{}
+	}
+	return t.Data
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem) GetID() string {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem{}
+	}
+	return t.ID
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem) GetOrderID() string {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem{}
+	}
+	return t.OrderID
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem) GetQuantity() int {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem{}
+	}
+	return t.Quantity
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem) GetSku() string {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem{}
+	}
+	return t.Sku
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem{}
+	}
+	return &t.TenantID
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchPickingOrderItemData_PatchPickingOrderItemData struct {
+	PickingOrderItem *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem "json:\"pickingOrderItem,omitempty\" graphql:\"pickingOrderItem\""
+	Workflows        []*PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows      "json:\"workflows,omitempty\" graphql:\"workflows\""
+}
+
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData) GetPickingOrderItem() *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData{}
+	}
+	return t.PickingOrderItem
+}
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData) GetWorkflows() []*PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData{}
+	}
+	return t.Workflows
+}
+
+type PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification struct {
+	CreatedAt    time.Time      "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy    uuid.UUID      "json:\"createdBy\" graphql:\"createdBy\""
+	Data         map[string]any "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID   *uuid.UUID     "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug *string        "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt    *time.Time     "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy    *uuid.UUID     "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	ID           string         "json:\"id\" graphql:\"id\""
+	OrderID      string         "json:\"orderID\" graphql:\"orderID\""
+	TenantID     uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification) GetData() map[string]any {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification{}
+	}
+	return t.Data
+}
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification) GetID() string {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification{}
+	}
+	return t.ID
+}
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification) GetOrderID() string {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification{}
+	}
+	return t.OrderID
+}
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification{}
+	}
+	return &t.TenantID
+}
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData struct {
+	PickingOutboundShipmentNotification *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification "json:\"pickingOutboundShipmentNotification,omitempty\" graphql:\"pickingOutboundShipmentNotification\""
+	Workflows                           []*PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows                         "json:\"workflows,omitempty\" graphql:\"workflows\""
+}
+
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData) GetPickingOutboundShipmentNotification() *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData{}
+	}
+	return t.PickingOutboundShipmentNotification
+}
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData) GetWorkflows() []*PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData{}
+	}
+	return t.Workflows
+}
+
 type GetPickingOrders struct {
 	PickingOrders GetPickingOrders_PickingOrders "json:\"pickingOrders\" graphql:\"pickingOrders\""
 }
@@ -2294,6 +2854,39 @@ func (t *DeletePickingOutboundShipmentNotification) GetDeletePickingOutboundShip
 		t = &DeletePickingOutboundShipmentNotification{}
 	}
 	return &t.DeletePickingOutboundShipmentNotification
+}
+
+type PatchPickingOrderData struct {
+	PatchPickingOrderData *PatchPickingOrderData_PatchPickingOrderData "json:\"patchPickingOrderData,omitempty\" graphql:\"patchPickingOrderData\""
+}
+
+func (t *PatchPickingOrderData) GetPatchPickingOrderData() *PatchPickingOrderData_PatchPickingOrderData {
+	if t == nil {
+		t = &PatchPickingOrderData{}
+	}
+	return t.PatchPickingOrderData
+}
+
+type PatchPickingOrderItemData struct {
+	PatchPickingOrderItemData *PatchPickingOrderItemData_PatchPickingOrderItemData "json:\"patchPickingOrderItemData,omitempty\" graphql:\"patchPickingOrderItemData\""
+}
+
+func (t *PatchPickingOrderItemData) GetPatchPickingOrderItemData() *PatchPickingOrderItemData_PatchPickingOrderItemData {
+	if t == nil {
+		t = &PatchPickingOrderItemData{}
+	}
+	return t.PatchPickingOrderItemData
+}
+
+type PatchPickingOutboundShipmentNotificationData struct {
+	PatchPickingOutboundShipmentNotificationData *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData "json:\"patchPickingOutboundShipmentNotificationData,omitempty\" graphql:\"patchPickingOutboundShipmentNotificationData\""
+}
+
+func (t *PatchPickingOutboundShipmentNotificationData) GetPatchPickingOutboundShipmentNotificationData() *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData{}
+	}
+	return t.PatchPickingOutboundShipmentNotificationData
 }
 
 const GetPickingOrdersDocument = `query GetPickingOrders ($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderBy: PickingOrderOrder, $where: PickingOrderWhereInput) {
@@ -2925,18 +3518,176 @@ func (c *Client) DeletePickingOutboundShipmentNotification(ctx context.Context, 
 	return &res, nil
 }
 
+const PatchPickingOrderDataDocument = `mutation PatchPickingOrderData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchPickingOrderData(id: $id, patches: $patches) {
+		pickingOrder {
+			createdAt
+			createdBy
+			customerID
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			id
+			orderItems {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			outboundShipmentNotifications {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			tenantID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchPickingOrderData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchPickingOrderData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchPickingOrderData
+	if err := c.Client.Post(ctx, "PatchPickingOrderData", PatchPickingOrderDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const PatchPickingOrderItemDataDocument = `mutation PatchPickingOrderItemData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchPickingOrderItemData(id: $id, patches: $patches) {
+		pickingOrderItem {
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			id
+			orderID
+			quantity
+			sku
+			tenantID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchPickingOrderItemData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchPickingOrderItemData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchPickingOrderItemData
+	if err := c.Client.Post(ctx, "PatchPickingOrderItemData", PatchPickingOrderItemDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const PatchPickingOutboundShipmentNotificationDataDocument = `mutation PatchPickingOutboundShipmentNotificationData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchPickingOutboundShipmentNotificationData(id: $id, patches: $patches) {
+		pickingOutboundShipmentNotification {
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			id
+			orderID
+			tenantID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchPickingOutboundShipmentNotificationData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchPickingOutboundShipmentNotificationData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchPickingOutboundShipmentNotificationData
+	if err := c.Client.Post(ctx, "PatchPickingOutboundShipmentNotificationData", PatchPickingOutboundShipmentNotificationDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 var DocumentOperationNames = map[string]string{
-	GetPickingOrdersDocument:                          "GetPickingOrders",
-	GetPickingOrderItemsDocument:                      "GetPickingOrderItems",
-	GetPickingOutboundShipmentNotificationsDocument:   "GetPickingOutboundShipmentNotifications",
-	GetPickingServiceInfoDocument:                     "GetPickingServiceInfo",
-	CreatePickingOrderDocument:                        "CreatePickingOrder",
-	UpdatePickingOrderDocument:                        "UpdatePickingOrder",
-	DeletePickingOrderDocument:                        "DeletePickingOrder",
-	CreatePickingOrderItemDocument:                    "CreatePickingOrderItem",
-	UpdatePickingOrderItemDocument:                    "UpdatePickingOrderItem",
-	DeletePickingOrderItemDocument:                    "DeletePickingOrderItem",
-	CreatePickingOutboundShipmentNotificationDocument: "CreatePickingOutboundShipmentNotification",
-	UpdatePickingOutboundShipmentNotificationDocument: "UpdatePickingOutboundShipmentNotification",
-	DeletePickingOutboundShipmentNotificationDocument: "DeletePickingOutboundShipmentNotification",
+	GetPickingOrdersDocument:                             "GetPickingOrders",
+	GetPickingOrderItemsDocument:                         "GetPickingOrderItems",
+	GetPickingOutboundShipmentNotificationsDocument:      "GetPickingOutboundShipmentNotifications",
+	GetPickingServiceInfoDocument:                        "GetPickingServiceInfo",
+	CreatePickingOrderDocument:                           "CreatePickingOrder",
+	UpdatePickingOrderDocument:                           "UpdatePickingOrder",
+	DeletePickingOrderDocument:                           "DeletePickingOrder",
+	CreatePickingOrderItemDocument:                       "CreatePickingOrderItem",
+	UpdatePickingOrderItemDocument:                       "UpdatePickingOrderItem",
+	DeletePickingOrderItemDocument:                       "DeletePickingOrderItem",
+	CreatePickingOutboundShipmentNotificationDocument:    "CreatePickingOutboundShipmentNotification",
+	UpdatePickingOutboundShipmentNotificationDocument:    "UpdatePickingOutboundShipmentNotification",
+	DeletePickingOutboundShipmentNotificationDocument:    "DeletePickingOutboundShipmentNotification",
+	PatchPickingOrderDataDocument:                        "PatchPickingOrderData",
+	PatchPickingOrderItemDataDocument:                    "PatchPickingOrderItemData",
+	PatchPickingOutboundShipmentNotificationDataDocument: "PatchPickingOutboundShipmentNotificationData",
 }

@@ -15,18 +15,13 @@ import (
 	"github.com/pyck-ai/pyck/backend/management/ent/gen"
 	generatejsonschema "github.com/pyck-ai/pyck/backend/management/workflows/generate-json-schema"
 	registertenant "github.com/pyck-ai/pyck/backend/management/workflows/register-tenant"
-	temporalsetup "github.com/pyck-ai/pyck/backend/management/workflows/temporal-setup"
-	zitadelsetup "github.com/pyck-ai/pyck/backend/management/workflows/zitadel-setup"
 	zitadelsync "github.com/pyck-ai/pyck/backend/management/workflows/zitadel-sync"
 )
 
 const (
-	TemporalBootstrapTaskQueue  = "pyck-bootstrap-task-queue"
 	TemporalManagementTaskQueue = "pyck-management-task-queue"
 
 	RegisterTenantWorkflow     = "RegisterTenantWorkflow"
-	ZitadelSetupWorkflow       = "ZitadelSetupWorkflow"
-	TemporalSetupWorkflow      = "TemporalSetupWorkflow"
 	GenerateJsonSchemaWorkflow = "GenerateJsonSchemaWorkflow"
 	ZitadelSyncWorkflow        = "ZitadelSyncWorkflow"
 	TenantSyncWorkflow         = "TenantSyncWorkflow"
@@ -102,41 +97,6 @@ func (tw *TemporalWorker) RegisterTenantWorkflow(entClient *gen.Client, nsGetter
 	tw.temporalWorker.RegisterActivity(registertenant.NewActivities(tw.resolver, entClient, tw.cli, nsGetter))
 }
 
-func (tw *TemporalWorker) RegisterZitadelSetupWorkflow() {
-	zitadelSetupWorkflowOptions := workflow.RegisterOptions{
-		Name: ZitadelSetupWorkflow,
-	}
-	tw.temporalWorker.RegisterWorkflowWithOptions(zitadelsetup.ZitadelSetupWorkflow, zitadelSetupWorkflowOptions)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.WaitForHostReachable)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.GetOrgID)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.AddOrgDomainSuffixPattern)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.CreateUser)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.SetUserAsAdmin)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.AddProject)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.AddProjectRoles)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.AddAppToProject)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.AddJsonAppKey)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.AddServiceUser)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.AddServiceUserToken)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.AddServiceGrantForProject)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.AddUserGrant)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.AddOrganization)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.AddProjectGrant)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.EnableFeaturesActions)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.AddOrUpdateActionTarget)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.AddExecutionsOnTarget)
-	tw.temporalWorker.RegisterActivity(zitadelsetup.CreateK8sSecrets)
-}
-
-func (tw *TemporalWorker) RegisterTemporalSetupWorkflow() {
-	temporalSetupWorkflowOptions := workflow.RegisterOptions{
-		Name: TemporalSetupWorkflow,
-	}
-
-	tw.temporalWorker.RegisterWorkflowWithOptions(temporalsetup.TemporalSetupWorkflow, temporalSetupWorkflowOptions)
-	tw.temporalWorker.RegisterActivity(temporalsetup.AddSearchAttributes)
-}
-
 func (tw *TemporalWorker) RegisterGenerateJsonSchemaWorkflow() {
 	generateJsonSchemaWorkflowOptions := workflow.RegisterOptions{
 		Name: GenerateJsonSchemaWorkflow,
@@ -148,7 +108,7 @@ func (tw *TemporalWorker) RegisterGenerateJsonSchemaWorkflow() {
 
 // RegisterZitadelSyncWorkflow registers the Zitadel sync orchestrator, per-tenant sync workflow,
 // and all related activities using the Activities object (no closures).
-func (tw *TemporalWorker) RegisterZitadelSyncWorkflow(entClient *gen.Client, audience, keyFilePath, zitadelProjectID string) {
+func (tw *TemporalWorker) RegisterZitadelSyncWorkflow(entClient *gen.Client, apiURL, grpcAddr, audience, keyFilePath, zitadelProjectID string, tlsInsecure bool) {
 	// Orchestrator workflow (runs on management worker)
 	tw.temporalWorker.RegisterWorkflowWithOptions(
 		zitadelsync.ZitadelSyncWorkflow,
@@ -156,7 +116,7 @@ func (tw *TemporalWorker) RegisterZitadelSyncWorkflow(entClient *gen.Client, aud
 	)
 
 	// Activities object with DI for both workers
-	acts := zitadelsync.NewActivities(entClient, tw.cli, audience, keyFilePath, zitadelProjectID)
+	acts := zitadelsync.NewActivities(entClient, tw.cli, apiURL, grpcAddr, audience, keyFilePath, zitadelProjectID, tlsInsecure)
 
 	// Orchestrator activities (tenants + schedules) — keep names stable for determinism
 	tw.temporalWorker.RegisterActivityWithOptions(

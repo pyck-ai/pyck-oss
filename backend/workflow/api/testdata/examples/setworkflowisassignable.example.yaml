@@ -1,0 +1,26 @@
+---
+operation: SetWorkflowIsAssignable
+name: "Set Workflow IsAssignable"
+description: >
+  Toggles the assignability flag on a running workflow execution by sending a
+  Temporal update. The value is persisted to the pyck_workflow_is_assignable
+  search attribute, which controls whether the workflow appears in
+  assignableWorkflowExecutions queries.
+vars:
+  input:
+    workflowID: {$placeholder: "workflow execution ID"}
+    workflowExecutionID: {$placeholder: "run ID"}
+    isAssignable: false
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Response echoes the new value"
+    assertions:
+      - ref: res.body.data.setWorkflowIsAssignable.isAssignable
+        equal: {$ref: req.body.variables.input.isAssignable}

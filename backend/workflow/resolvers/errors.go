@@ -16,4 +16,6 @@ var (
 	ErrDuplicateSignalSubscription = errors.New("duplicate signal subscription")
 	ErrWorkflowNotFound            = errors.New("workflow not found")
 	ErrWorkflowClientNotAvailable  = errors.New("workflow client not available")
+	ErrInvalidWorkflowID           = errors.New("invalid workflow id")
+	ErrInvalidWorkflowExecutionID  = errors.New("invalid workflow execution id")
 )

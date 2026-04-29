@@ -1,13 +1,21 @@
 federation_version: "2"
 subgraphs:
+  receiving:
+    routing_url: http://localhost:8087/query
+    schema:
+      file: ./receiving.graphql
   file:
     routing_url: http://localhost:8088/query
     schema:
       file: ./file.graphql
-  inventory:
-    routing_url: http://localhost:8084/query
+  workflow:
+    routing_url: http://localhost:8089/query
     schema:
-      file: ./inventory.graphql
+      file: ./workflow.graphql
+  picking:
+    routing_url: http://localhost:8086/query
+    schema:
+      file: ./picking.graphql
   maindata:
     routing_url: http://localhost:8081/query
     schema:
@@ -16,15 +24,7 @@ subgraphs:
     routing_url: http://localhost:8082/query
     schema:
       file: ./management.graphql
-  picking:
-    routing_url: http://localhost:8086/query
+  inventory:
+    routing_url: http://localhost:8084/query
     schema:
-      file: ./picking.graphql
-  receiving:
-    routing_url: http://localhost:8087/query
-    schema:
-      file: ./receiving.graphql
-  workflow:
-    routing_url: http://localhost:8089/query
-    schema:
-      file: ./workflow.graphql
+      file: ./inventory.graphql

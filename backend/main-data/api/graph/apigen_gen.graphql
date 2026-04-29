@@ -149,3 +149,37 @@ mutation DeleteSupplier($id: ID!) {
   }
 }
 
+
+mutation PatchCustomerData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchCustomerData(id: $id, patches: $patches) {
+    createdAt
+    createdBy
+    data
+    dataTypeID
+    dataTypeSlug
+    deletedAt
+    deletedBy
+    id
+    tenantID
+    updatedAt
+    updatedBy
+  }
+}
+
+
+mutation PatchSupplierData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchSupplierData(id: $id, patches: $patches) {
+    createdAt
+    createdBy
+    data
+    dataTypeID
+    dataTypeSlug
+    deletedAt
+    deletedBy
+    id
+    tenantID
+    updatedAt
+    updatedBy
+  }
+}
+

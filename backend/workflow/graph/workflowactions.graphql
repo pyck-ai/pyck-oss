@@ -1,0 +1,27 @@
+extend type Query {
+  workflowActions(
+    input: GetWorkflowActionsInput!
+    where: WorkflowActionsWhereInput
+  ): GetWorkflowActionsResponse!
+}
+
+input GetWorkflowActionsInput {
+  workflowId: String!
+  workflowExecutionId: String!
+}
+
+input WorkflowActionsWhereInput {
+  name: String
+  enabled: Boolean
+}
+
+type GetWorkflowActionsResponse {
+  queries: [ActionDefinition!]!
+  updates: [ActionDefinition!]!
+}
+
+type ActionDefinition {
+  name: String!
+  description: String
+  enabled: Boolean!
+}

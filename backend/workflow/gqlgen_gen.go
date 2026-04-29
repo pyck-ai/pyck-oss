@@ -43,6 +43,17 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	ActionDefinition struct {
+		Description func(childComplexity int) int
+		Enabled     func(childComplexity int) int
+		Name        func(childComplexity int) int
+	}
+
+	CancelWorkflowPayload struct {
+		WorkflowID    func(childComplexity int) int
+		WorkflowRunID func(childComplexity int) int
+	}
+
 	CurrentUserDataInput struct {
 		ActivityCount func(childComplexity int) int
 		ActivityIndex func(childComplexity int) int
@@ -69,15 +80,31 @@ type ComplexityRoot struct {
 		WithReply     func(childComplexity int) int
 	}
 
+	GetWorkflowActionsResponse struct {
+		Queries func(childComplexity int) int
+		Updates func(childComplexity int) int
+	}
+
 	GetWorkflowAssigneeResponse struct {
 		Assignee func(childComplexity int) int
 	}
 
+	GetWorkflowIsAssignableResponse struct {
+		IsAssignable func(childComplexity int) int
+	}
+
+	GetWorkflowTargetsResponse struct {
+		Targets func(childComplexity int) int
+	}
+
 	Mutation struct {
+		CancelWorkflow          func(childComplexity int, input model.CancelWorkflowInput) int
 		DeleteWorkflow          func(childComplexity int, id uuid.UUID) int
 		EnsureTemporalNamespace func(childComplexity int) int
 		RegisterWorkflow        func(childComplexity int, input model.RegisterWorkflowWithSignalsInput) int
 		SetWorkflowAssignee     func(childComplexity int, input model.SetWorkflowAssigneeInput) int
+		SetWorkflowIsAssignable func(childComplexity int, input model.SetWorkflowIsAssignableInput) int
+		SetWorkflowTargets      func(childComplexity int, input model.SetWorkflowTargetsInput) int
 		SubmitUserDataInput     func(childComplexity int, input model.SubmitUserDataInputInput) int
 	}
 
@@ -93,11 +120,14 @@ type ComplexityRoot struct {
 		CurrentUserDataInput         func(childComplexity int, input model.UserDataInputQueryInput) int
 		Node                         func(childComplexity int, id uuid.UUID) int
 		Nodes                        func(childComplexity int, ids []uuid.UUID) int
+		WorkflowActions              func(childComplexity int, input model.GetWorkflowActionsInput, where *model.WorkflowActionsWhereInput) int
 		WorkflowAssignee             func(childComplexity int, input model.GetWorkflowAssigneeInput) int
 		WorkflowExecutions           func(childComplexity int, where *model.WorkflowExecutionsWhereInput, first *int, after *string, orderBy *model.WorkflowExecutionOrder) int
 		WorkflowHistory              func(childComplexity int, where model.WorkflowExecutionsWhereInput, limit *int) int
+		WorkflowIsAssignable         func(childComplexity int, input model.GetWorkflowIsAssignableInput) int
 		WorkflowServiceInfo          func(childComplexity int) int
 		WorkflowSignals              func(childComplexity int, after *entgql.Cursor[uuid.UUID], first *int, before *entgql.Cursor[uuid.UUID], last *int, orderBy *gen.WorkflowSignalOrder, where *gen.WorkflowSignalWhereInput) int
+		WorkflowTargets              func(childComplexity int, input model.GetWorkflowTargetsInput) int
 		Workflows                    func(childComplexity int, after *entgql.Cursor[uuid.UUID], first *int, before *entgql.Cursor[uuid.UUID], last *int, orderBy *gen.WorkflowOrder, where *gen.WorkflowWhereInput) int
 		__resolve__service           func(childComplexity int) int
 	}
@@ -109,6 +139,14 @@ type ComplexityRoot struct {
 
 	SetWorkflowAssigneeResponse struct {
 		Assignee func(childComplexity int) int
+	}
+
+	SetWorkflowIsAssignableResponse struct {
+		IsAssignable func(childComplexity int) int
+	}
+
+	SetWorkflowTargetsResponse struct {
+		Targets func(childComplexity int) int
 	}
 
 	SubmitUserDataInputResponse struct {
@@ -287,7 +325,10 @@ type MutationResolver interface {
 	SubmitUserDataInput(ctx context.Context, input model.SubmitUserDataInputInput) (*model.SubmitUserDataInputResponse, error)
 	RegisterWorkflow(ctx context.Context, input model.RegisterWorkflowWithSignalsInput) (*gen.Workflow, error)
 	DeleteWorkflow(ctx context.Context, id uuid.UUID) (*model.WorkflowDeletePayload, error)
+	CancelWorkflow(ctx context.Context, input model.CancelWorkflowInput) (*model.CancelWorkflowPayload, error)
 	SetWorkflowAssignee(ctx context.Context, input model.SetWorkflowAssigneeInput) (*model.SetWorkflowAssigneeResponse, error)
+	SetWorkflowIsAssignable(ctx context.Context, input model.SetWorkflowIsAssignableInput) (*model.SetWorkflowIsAssignableResponse, error)
+	SetWorkflowTargets(ctx context.Context, input model.SetWorkflowTargetsInput) (*model.SetWorkflowTargetsResponse, error)
 }
 type QueryResolver interface {
 	Node(ctx context.Context, id uuid.UUID) (gen.Noder, error)
@@ -299,7 +340,10 @@ type QueryResolver interface {
 	WorkflowExecutions(ctx context.Context, where *model.WorkflowExecutionsWhereInput, first *int, after *string, orderBy *model.WorkflowExecutionOrder) (*model.WorkflowExecutionInfoConnection, error)
 	AssignableWorkflowExecutions(ctx context.Context, where *model.WorkflowExecutionsWhereInput, first *int, after *string, orderBy *model.WorkflowExecutionOrder) (*model.WorkflowExecutionInfoConnection, error)
 	WorkflowHistory(ctx context.Context, where model.WorkflowExecutionsWhereInput, limit *int) (*model.WorkflowExecutionHistoryConnection, error)
+	WorkflowActions(ctx context.Context, input model.GetWorkflowActionsInput, where *model.WorkflowActionsWhereInput) (*model.GetWorkflowActionsResponse, error)
 	WorkflowAssignee(ctx context.Context, input model.GetWorkflowAssigneeInput) (*model.GetWorkflowAssigneeResponse, error)
+	WorkflowIsAssignable(ctx context.Context, input model.GetWorkflowIsAssignableInput) (*model.GetWorkflowIsAssignableResponse, error)
+	WorkflowTargets(ctx context.Context, input model.GetWorkflowTargetsInput) (*model.GetWorkflowTargetsResponse, error)
 }
 
 type WorkflowWhereInputResolver interface {
@@ -322,6 +366,38 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	ec := newExecutionContext(nil, e, nil)
 	_ = ec
 	switch typeName + "." + field {
+
+	case "ActionDefinition.description":
+		if e.ComplexityRoot.ActionDefinition.Description == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ActionDefinition.Description(childComplexity), true
+	case "ActionDefinition.enabled":
+		if e.ComplexityRoot.ActionDefinition.Enabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ActionDefinition.Enabled(childComplexity), true
+	case "ActionDefinition.name":
+		if e.ComplexityRoot.ActionDefinition.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ActionDefinition.Name(childComplexity), true
+
+	case "CancelWorkflowPayload.workflowID":
+		if e.ComplexityRoot.CancelWorkflowPayload.WorkflowID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CancelWorkflowPayload.WorkflowID(childComplexity), true
+	case "CancelWorkflowPayload.workflowRunID":
+		if e.ComplexityRoot.CancelWorkflowPayload.WorkflowRunID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CancelWorkflowPayload.WorkflowRunID(childComplexity), true
 
 	case "CurrentUserDataInput.activityCount":
 		if e.ComplexityRoot.CurrentUserDataInput.ActivityCount == nil {
@@ -445,6 +521,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.EntityEventsOutbox.WithReply(childComplexity), true
 
+	case "GetWorkflowActionsResponse.queries":
+		if e.ComplexityRoot.GetWorkflowActionsResponse.Queries == nil {
+			break
+		}
+
+		return e.ComplexityRoot.GetWorkflowActionsResponse.Queries(childComplexity), true
+	case "GetWorkflowActionsResponse.updates":
+		if e.ComplexityRoot.GetWorkflowActionsResponse.Updates == nil {
+			break
+		}
+
+		return e.ComplexityRoot.GetWorkflowActionsResponse.Updates(childComplexity), true
+
 	case "GetWorkflowAssigneeResponse.assignee":
 		if e.ComplexityRoot.GetWorkflowAssigneeResponse.Assignee == nil {
 			break
@@ -452,6 +541,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.GetWorkflowAssigneeResponse.Assignee(childComplexity), true
 
+	case "GetWorkflowIsAssignableResponse.isAssignable":
+		if e.ComplexityRoot.GetWorkflowIsAssignableResponse.IsAssignable == nil {
+			break
+		}
+
+		return e.ComplexityRoot.GetWorkflowIsAssignableResponse.IsAssignable(childComplexity), true
+
+	case "GetWorkflowTargetsResponse.targets":
+		if e.ComplexityRoot.GetWorkflowTargetsResponse.Targets == nil {
+			break
+		}
+
+		return e.ComplexityRoot.GetWorkflowTargetsResponse.Targets(childComplexity), true
+
+	case "Mutation.cancelWorkflow":
+		if e.ComplexityRoot.Mutation.CancelWorkflow == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_cancelWorkflow_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CancelWorkflow(childComplexity, args["input"].(model.CancelWorkflowInput)), true
 	case "Mutation.deleteWorkflow":
 		if e.ComplexityRoot.Mutation.DeleteWorkflow == nil {
 			break
@@ -491,6 +605,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.SetWorkflowAssignee(childComplexity, args["input"].(model.SetWorkflowAssigneeInput)), true
+	case "Mutation.setWorkflowIsAssignable":
+		if e.ComplexityRoot.Mutation.SetWorkflowIsAssignable == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_setWorkflowIsAssignable_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.SetWorkflowIsAssignable(childComplexity, args["input"].(model.SetWorkflowIsAssignableInput)), true
+	case "Mutation.setWorkflowTargets":
+		if e.ComplexityRoot.Mutation.SetWorkflowTargets == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_setWorkflowTargets_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.SetWorkflowTargets(childComplexity, args["input"].(model.SetWorkflowTargetsInput)), true
 	case "Mutation.submitUserDataInput":
 		if e.ComplexityRoot.Mutation.SubmitUserDataInput == nil {
 			break
@@ -573,6 +709,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Nodes(childComplexity, args["ids"].([]uuid.UUID)), true
+	case "Query.workflowActions":
+		if e.ComplexityRoot.Query.WorkflowActions == nil {
+			break
+		}
+
+		args, err := ec.field_Query_workflowActions_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.WorkflowActions(childComplexity, args["input"].(model.GetWorkflowActionsInput), args["where"].(*model.WorkflowActionsWhereInput)), true
 	case "Query.workflowAssignee":
 		if e.ComplexityRoot.Query.WorkflowAssignee == nil {
 			break
@@ -606,6 +753,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.WorkflowHistory(childComplexity, args["where"].(model.WorkflowExecutionsWhereInput), args["limit"].(*int)), true
+	case "Query.workflowIsAssignable":
+		if e.ComplexityRoot.Query.WorkflowIsAssignable == nil {
+			break
+		}
+
+		args, err := ec.field_Query_workflowIsAssignable_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.WorkflowIsAssignable(childComplexity, args["input"].(model.GetWorkflowIsAssignableInput)), true
 	case "Query.workflowServiceInfo":
 		if e.ComplexityRoot.Query.WorkflowServiceInfo == nil {
 			break
@@ -623,6 +781,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.WorkflowSignals(childComplexity, args["after"].(*entgql.Cursor[uuid.UUID]), args["first"].(*int), args["before"].(*entgql.Cursor[uuid.UUID]), args["last"].(*int), args["orderBy"].(*gen.WorkflowSignalOrder), args["where"].(*gen.WorkflowSignalWhereInput)), true
+	case "Query.workflowTargets":
+		if e.ComplexityRoot.Query.WorkflowTargets == nil {
+			break
+		}
+
+		args, err := ec.field_Query_workflowTargets_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.WorkflowTargets(childComplexity, args["input"].(model.GetWorkflowTargetsInput)), true
 	case "Query.workflows":
 		if e.ComplexityRoot.Query.Workflows == nil {
 			break
@@ -660,6 +829,20 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.SetWorkflowAssigneeResponse.Assignee(childComplexity), true
+
+	case "SetWorkflowIsAssignableResponse.isAssignable":
+		if e.ComplexityRoot.SetWorkflowIsAssignableResponse.IsAssignable == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SetWorkflowIsAssignableResponse.IsAssignable(childComplexity), true
+
+	case "SetWorkflowTargetsResponse.targets":
+		if e.ComplexityRoot.SetWorkflowTargetsResponse.Targets == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SetWorkflowTargetsResponse.Targets(childComplexity), true
 
 	case "SubmitUserDataInputResponse.result":
 		if e.ComplexityRoot.SubmitUserDataInputResponse.Result == nil {
@@ -1286,17 +1469,24 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := newExecutionContext(opCtx, e, make(chan graphql.DeferredResult))
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputCancelWorkflowInput,
 		ec.unmarshalInputCreateWorkflowInput,
 		ec.unmarshalInputCreateWorkflowSignalInput,
 		ec.unmarshalInputEntityEventsOutboxWhereInput,
+		ec.unmarshalInputGetWorkflowActionsInput,
 		ec.unmarshalInputGetWorkflowAssigneeInput,
+		ec.unmarshalInputGetWorkflowIsAssignableInput,
+		ec.unmarshalInputGetWorkflowTargetsInput,
 		ec.unmarshalInputRegisterWorkflowSignalInput,
 		ec.unmarshalInputRegisterWorkflowWithSignalsInput,
 		ec.unmarshalInputSetWorkflowAssigneeInput,
+		ec.unmarshalInputSetWorkflowIsAssignableInput,
+		ec.unmarshalInputSetWorkflowTargetsInput,
 		ec.unmarshalInputSubmitUserDataInputInput,
 		ec.unmarshalInputUpdateWorkflowInput,
 		ec.unmarshalInputUpdateWorkflowSignalInput,
 		ec.unmarshalInputUserDataInputQueryInput,
+		ec.unmarshalInputWorkflowActionsWhereInput,
 		ec.unmarshalInputWorkflowExecutionOrder,
 		ec.unmarshalInputWorkflowExecutionsWhereInput,
 		ec.unmarshalInputWorkflowOrder,
@@ -1377,7 +1567,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "graph/ent.graphql" "graph/namespace.graphql" "graph/scalars.graphql" "graph/serviceinfo.graphql" "graph/temporal.graphql" "graph/userdatainput.graphql" "graph/workflow.graphql" "graph/workflowassignee.graphql"
+//go:embed "graph/ent.graphql" "graph/namespace.graphql" "graph/scalars.graphql" "graph/serviceinfo.graphql" "graph/temporal.graphql" "graph/userdatainput.graphql" "graph/workflow.graphql" "graph/workflowactions.graphql" "graph/workflowassignee.graphql" "graph/workflowisassignable.graphql" "graph/workflowtargets.graphql"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -1396,7 +1586,10 @@ var sources = []*ast.Source{
 	{Name: "graph/temporal.graphql", Input: sourceData("graph/temporal.graphql"), BuiltIn: false},
 	{Name: "graph/userdatainput.graphql", Input: sourceData("graph/userdatainput.graphql"), BuiltIn: false},
 	{Name: "graph/workflow.graphql", Input: sourceData("graph/workflow.graphql"), BuiltIn: false},
+	{Name: "graph/workflowactions.graphql", Input: sourceData("graph/workflowactions.graphql"), BuiltIn: false},
 	{Name: "graph/workflowassignee.graphql", Input: sourceData("graph/workflowassignee.graphql"), BuiltIn: false},
+	{Name: "graph/workflowisassignable.graphql", Input: sourceData("graph/workflowisassignable.graphql"), BuiltIn: false},
+	{Name: "graph/workflowtargets.graphql", Input: sourceData("graph/workflowtargets.graphql"), BuiltIn: false},
 	{Name: "federation/directives.graphql", Input: `
 	directive @authenticated on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
 	directive @composeDirective(name: String!) repeatable on SCHEMA
@@ -1464,6 +1657,17 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
 // region    ***************************** args.gotpl *****************************
 
+func (ec *executionContext) field_Mutation_cancelWorkflow_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCancelWorkflowInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐCancelWorkflowInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_deleteWorkflow_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1490,6 +1694,28 @@ func (ec *executionContext) field_Mutation_setWorkflowAssignee_args(ctx context.
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNSetWorkflowAssigneeInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐSetWorkflowAssigneeInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_setWorkflowIsAssignable_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNSetWorkflowIsAssignableInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐSetWorkflowIsAssignableInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_setWorkflowTargets_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNSetWorkflowTargetsInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐSetWorkflowTargetsInput)
 	if err != nil {
 		return nil, err
 	}
@@ -1578,6 +1804,22 @@ func (ec *executionContext) field_Query_nodes_args(ctx context.Context, rawArgs 
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_workflowActions_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNGetWorkflowActionsInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowActionsInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "where", ec.unmarshalOWorkflowActionsWhereInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowActionsWhereInput)
+	if err != nil {
+		return nil, err
+	}
+	args["where"] = arg1
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_workflowAssignee_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1631,6 +1873,17 @@ func (ec *executionContext) field_Query_workflowHistory_args(ctx context.Context
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_workflowIsAssignable_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNGetWorkflowIsAssignableInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowIsAssignableInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_workflowSignals_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1664,6 +1917,17 @@ func (ec *executionContext) field_Query_workflowSignals_args(ctx context.Context
 		return nil, err
 	}
 	args["where"] = arg5
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_workflowTargets_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNGetWorkflowTargetsInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowTargetsInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
 	return args, nil
 }
 
@@ -1790,6 +2054,151 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 // endregion ************************** directives.gotpl **************************
 
 // region    **************************** field.gotpl *****************************
+
+func (ec *executionContext) _ActionDefinition_name(ctx context.Context, field graphql.CollectedField, obj *model.ActionDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ActionDefinition_name,
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ActionDefinition_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ActionDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ActionDefinition_description(ctx context.Context, field graphql.CollectedField, obj *model.ActionDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ActionDefinition_description,
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_ActionDefinition_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ActionDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ActionDefinition_enabled(ctx context.Context, field graphql.CollectedField, obj *model.ActionDefinition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ActionDefinition_enabled,
+		func(ctx context.Context) (any, error) {
+			return obj.Enabled, nil
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ActionDefinition_enabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ActionDefinition",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CancelWorkflowPayload_workflowID(ctx context.Context, field graphql.CollectedField, obj *model.CancelWorkflowPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CancelWorkflowPayload_workflowID,
+		func(ctx context.Context) (any, error) {
+			return obj.WorkflowID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_CancelWorkflowPayload_workflowID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CancelWorkflowPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CancelWorkflowPayload_workflowRunID(ctx context.Context, field graphql.CollectedField, obj *model.CancelWorkflowPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CancelWorkflowPayload_workflowRunID,
+		func(ctx context.Context) (any, error) {
+			return obj.WorkflowRunID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_CancelWorkflowPayload_workflowRunID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CancelWorkflowPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
 
 func (ec *executionContext) _CurrentUserDataInput_activityIndex(ctx context.Context, field graphql.CollectedField, obj *model.CurrentUserDataInput) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
@@ -2377,6 +2786,80 @@ func (ec *executionContext) fieldContext_EntityEventsOutbox_tenantID(_ context.C
 	return fc, nil
 }
 
+func (ec *executionContext) _GetWorkflowActionsResponse_queries(ctx context.Context, field graphql.CollectedField, obj *model.GetWorkflowActionsResponse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_GetWorkflowActionsResponse_queries,
+		func(ctx context.Context) (any, error) {
+			return obj.Queries, nil
+		},
+		nil,
+		ec.marshalNActionDefinition2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐActionDefinitionᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_GetWorkflowActionsResponse_queries(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GetWorkflowActionsResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext_ActionDefinition_name(ctx, field)
+			case "description":
+				return ec.fieldContext_ActionDefinition_description(ctx, field)
+			case "enabled":
+				return ec.fieldContext_ActionDefinition_enabled(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ActionDefinition", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GetWorkflowActionsResponse_updates(ctx context.Context, field graphql.CollectedField, obj *model.GetWorkflowActionsResponse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_GetWorkflowActionsResponse_updates,
+		func(ctx context.Context) (any, error) {
+			return obj.Updates, nil
+		},
+		nil,
+		ec.marshalNActionDefinition2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐActionDefinitionᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_GetWorkflowActionsResponse_updates(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GetWorkflowActionsResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext_ActionDefinition_name(ctx, field)
+			case "description":
+				return ec.fieldContext_ActionDefinition_description(ctx, field)
+			case "enabled":
+				return ec.fieldContext_ActionDefinition_enabled(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ActionDefinition", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _GetWorkflowAssigneeResponse_assignee(ctx context.Context, field graphql.CollectedField, obj *model.GetWorkflowAssigneeResponse) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2401,6 +2884,64 @@ func (ec *executionContext) fieldContext_GetWorkflowAssigneeResponse_assignee(_ 
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GetWorkflowIsAssignableResponse_isAssignable(ctx context.Context, field graphql.CollectedField, obj *model.GetWorkflowIsAssignableResponse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_GetWorkflowIsAssignableResponse_isAssignable,
+		func(ctx context.Context) (any, error) {
+			return obj.IsAssignable, nil
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_GetWorkflowIsAssignableResponse_isAssignable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GetWorkflowIsAssignableResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GetWorkflowTargetsResponse_targets(ctx context.Context, field graphql.CollectedField, obj *model.GetWorkflowTargetsResponse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_GetWorkflowTargetsResponse_targets,
+		func(ctx context.Context) (any, error) {
+			return obj.Targets, nil
+		},
+		nil,
+		ec.marshalNWorkflowTarget2ᚕgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTargetᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_GetWorkflowTargetsResponse_targets(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GetWorkflowTargetsResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type WorkflowTarget does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2598,6 +3139,53 @@ func (ec *executionContext) fieldContext_Mutation_deleteWorkflow(ctx context.Con
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_cancelWorkflow(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_cancelWorkflow,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CancelWorkflow(ctx, fc.Args["input"].(model.CancelWorkflowInput))
+		},
+		nil,
+		ec.marshalNCancelWorkflowPayload2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐCancelWorkflowPayload,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_cancelWorkflow(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "workflowID":
+				return ec.fieldContext_CancelWorkflowPayload_workflowID(ctx, field)
+			case "workflowRunID":
+				return ec.fieldContext_CancelWorkflowPayload_workflowRunID(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CancelWorkflowPayload", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_cancelWorkflow_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_setWorkflowAssignee(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2637,6 +3225,96 @@ func (ec *executionContext) fieldContext_Mutation_setWorkflowAssignee(ctx contex
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_setWorkflowAssignee_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_setWorkflowIsAssignable(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_setWorkflowIsAssignable,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().SetWorkflowIsAssignable(ctx, fc.Args["input"].(model.SetWorkflowIsAssignableInput))
+		},
+		nil,
+		ec.marshalOSetWorkflowIsAssignableResponse2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐSetWorkflowIsAssignableResponse,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_setWorkflowIsAssignable(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "isAssignable":
+				return ec.fieldContext_SetWorkflowIsAssignableResponse_isAssignable(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type SetWorkflowIsAssignableResponse", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_setWorkflowIsAssignable_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_setWorkflowTargets(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_setWorkflowTargets,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().SetWorkflowTargets(ctx, fc.Args["input"].(model.SetWorkflowTargetsInput))
+		},
+		nil,
+		ec.marshalOSetWorkflowTargetsResponse2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐSetWorkflowTargetsResponse,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_setWorkflowTargets(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "targets":
+				return ec.fieldContext_SetWorkflowTargetsResponse_targets(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type SetWorkflowTargetsResponse", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_setWorkflowTargets_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -3174,6 +3852,53 @@ func (ec *executionContext) fieldContext_Query_workflowHistory(ctx context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_workflowActions(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_workflowActions,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().WorkflowActions(ctx, fc.Args["input"].(model.GetWorkflowActionsInput), fc.Args["where"].(*model.WorkflowActionsWhereInput))
+		},
+		nil,
+		ec.marshalNGetWorkflowActionsResponse2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowActionsResponse,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_workflowActions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "queries":
+				return ec.fieldContext_GetWorkflowActionsResponse_queries(ctx, field)
+			case "updates":
+				return ec.fieldContext_GetWorkflowActionsResponse_updates(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type GetWorkflowActionsResponse", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_workflowActions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_workflowAssignee(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3213,6 +3938,96 @@ func (ec *executionContext) fieldContext_Query_workflowAssignee(ctx context.Cont
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_workflowAssignee_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_workflowIsAssignable(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_workflowIsAssignable,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().WorkflowIsAssignable(ctx, fc.Args["input"].(model.GetWorkflowIsAssignableInput))
+		},
+		nil,
+		ec.marshalNGetWorkflowIsAssignableResponse2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowIsAssignableResponse,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_workflowIsAssignable(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "isAssignable":
+				return ec.fieldContext_GetWorkflowIsAssignableResponse_isAssignable(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type GetWorkflowIsAssignableResponse", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_workflowIsAssignable_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_workflowTargets(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_workflowTargets,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().WorkflowTargets(ctx, fc.Args["input"].(model.GetWorkflowTargetsInput))
+		},
+		nil,
+		ec.marshalNGetWorkflowTargetsResponse2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowTargetsResponse,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_workflowTargets(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "targets":
+				return ec.fieldContext_GetWorkflowTargetsResponse_targets(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type GetWorkflowTargetsResponse", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_workflowTargets_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -3428,9 +4243,9 @@ func (ec *executionContext) _SetWorkflowAssigneeResponse_assignee(ctx context.Co
 			return obj.Assignee, nil
 		},
 		nil,
-		ec.marshalNString2string,
+		ec.marshalOString2ᚖstring,
 		true,
-		true,
+		false,
 	)
 }
 
@@ -3442,6 +4257,64 @@ func (ec *executionContext) fieldContext_SetWorkflowAssigneeResponse_assignee(_ 
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _SetWorkflowIsAssignableResponse_isAssignable(ctx context.Context, field graphql.CollectedField, obj *model.SetWorkflowIsAssignableResponse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_SetWorkflowIsAssignableResponse_isAssignable,
+		func(ctx context.Context) (any, error) {
+			return obj.IsAssignable, nil
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_SetWorkflowIsAssignableResponse_isAssignable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "SetWorkflowIsAssignableResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _SetWorkflowTargetsResponse_targets(ctx context.Context, field graphql.CollectedField, obj *model.SetWorkflowTargetsResponse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_SetWorkflowTargetsResponse_targets,
+		func(ctx context.Context) (any, error) {
+			return obj.Targets, nil
+		},
+		nil,
+		ec.marshalNWorkflowTarget2ᚕgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTargetᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_SetWorkflowTargetsResponse_targets(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "SetWorkflowTargetsResponse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type WorkflowTarget does not have child fields")
 		},
 	}
 	return fc, nil
@@ -8015,6 +8888,43 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputCancelWorkflowInput(ctx context.Context, obj any) (model.CancelWorkflowInput, error) {
+	var it model.CancelWorkflowInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"workflowID", "workflowRunID"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "workflowID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workflowID"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.WorkflowID = data
+		case "workflowRunID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workflowRunID"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.WorkflowRunID = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputCreateWorkflowInput(ctx context.Context, obj any) (gen.CreateWorkflowInput, error) {
 	var it gen.CreateWorkflowInput
 	if obj == nil {
@@ -9176,8 +10086,119 @@ func (ec *executionContext) unmarshalInputEntityEventsOutboxWhereInput(ctx conte
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputGetWorkflowActionsInput(ctx context.Context, obj any) (model.GetWorkflowActionsInput, error) {
+	var it model.GetWorkflowActionsInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"workflowId", "workflowExecutionId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "workflowId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workflowId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.WorkflowID = data
+		case "workflowExecutionId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workflowExecutionId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.WorkflowExecutionID = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputGetWorkflowAssigneeInput(ctx context.Context, obj any) (model.GetWorkflowAssigneeInput, error) {
 	var it model.GetWorkflowAssigneeInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"workflowId", "workflowExecutionId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "workflowId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workflowId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.WorkflowID = data
+		case "workflowExecutionId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workflowExecutionId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.WorkflowExecutionID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputGetWorkflowIsAssignableInput(ctx context.Context, obj any) (model.GetWorkflowIsAssignableInput, error) {
+	var it model.GetWorkflowIsAssignableInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"workflowId", "workflowExecutionId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "workflowId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workflowId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.WorkflowID = data
+		case "workflowExecutionId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workflowExecutionId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.WorkflowExecutionID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputGetWorkflowTargetsInput(ctx context.Context, obj any) (model.GetWorkflowTargetsInput, error) {
+	var it model.GetWorkflowTargetsInput
 	if obj == nil {
 		return it, nil
 	}
@@ -9368,6 +10389,94 @@ func (ec *executionContext) unmarshalInputSetWorkflowAssigneeInput(ctx context.C
 				return it, err
 			}
 			it.AssigneeID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputSetWorkflowIsAssignableInput(ctx context.Context, obj any) (model.SetWorkflowIsAssignableInput, error) {
+	var it model.SetWorkflowIsAssignableInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"workflowId", "workflowExecutionId", "isAssignable"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "workflowId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workflowId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.WorkflowID = data
+		case "workflowExecutionId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workflowExecutionId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.WorkflowExecutionID = data
+		case "isAssignable":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("isAssignable"))
+			data, err := ec.unmarshalNBoolean2bool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.IsAssignable = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputSetWorkflowTargetsInput(ctx context.Context, obj any) (model.SetWorkflowTargetsInput, error) {
+	var it model.SetWorkflowTargetsInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"workflowId", "workflowExecutionId", "targets"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "workflowId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workflowId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.WorkflowID = data
+		case "workflowExecutionId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workflowExecutionId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.WorkflowExecutionID = data
+		case "targets":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("targets"))
+			data, err := ec.unmarshalNWorkflowTarget2ᚕgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTargetᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Targets = data
 		}
 	}
 	return it, nil
@@ -9626,6 +10735,43 @@ func (ec *executionContext) unmarshalInputUserDataInputQueryInput(ctx context.Co
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputWorkflowActionsWhereInput(ctx context.Context, obj any) (model.WorkflowActionsWhereInput, error) {
+	var it model.WorkflowActionsWhereInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name", "enabled"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "enabled":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("enabled"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Enabled = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputWorkflowExecutionOrder(ctx context.Context, obj any) (model.WorkflowExecutionOrder, error) {
 	var it model.WorkflowExecutionOrder
 	if obj == nil {
@@ -9681,7 +10827,7 @@ func (ec *executionContext) unmarshalInputWorkflowExecutionsWhereInput(ctx conte
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"not", "and", "or", "typeName", "typeNameNEQ", "typeNameIn", "typeNameNotIn", "typeNameContains", "typeNameHasPrefix", "typeNameHasSuffix", "typeNameEqualFold", "typeNameContainsFold", "workflowName", "workflowNameNEQ", "workflowNameIn", "workflowNameNotIn", "workflowNameContains", "workflowNameHasPrefix", "workflowNameHasSuffix", "workflowNameEqualFold", "workflowNameContainsFold", "assignee", "assigneeNEQ", "assigneeIn", "assigneeNotIn", "assigneeIsNil", "assigneeNotNil", "assigneeContains", "assigneeHasPrefix", "assigneeHasSuffix", "assigneeEqualFold", "assigneeContainsFold", "groupBy", "groupByNEQ", "groupByIn", "groupByNotIn", "groupByIsNil", "groupByNotNil", "groupByContains", "groupByHasPrefix", "groupByHasSuffix", "groupByEqualFold", "groupByContainsFold", "workflowID", "workflowIDNEQ", "workflowIDIn", "workflowIDNotIn", "workflowIDContains", "workflowIDHasPrefix", "workflowIDHasSuffix", "workflowIDEqualFold", "workflowIDContainsFold", "runID", "runIDNEQ", "runIDIn", "runIDNotIn", "runIDContains", "runIDHasPrefix", "runIDHasSuffix", "runIDEqualFold", "runIDContainsFold", "status", "statusNEQ", "statusIn", "statusNotIn", "statusContains", "statusHasPrefix", "statusHasSuffix", "statusEqualFold", "statusContainsFold", "startTime", "startTimeNEQ", "startTimeIn", "startTimeNotIn", "startTimeGT", "startTimeGTE", "startTimeLT", "startTimeLTE", "closeTime", "closeTimeNEQ", "closeTimeIn", "closeTimeNotIn", "closeTimeGT", "closeTimeGTE", "closeTimeLT", "closeTimeLTE", "closeTimeIsNil", "closeTimeNotNil", "service", "serviceNEQ", "serviceIn", "serviceNotIn", "serviceContains", "serviceHasPrefix", "serviceHasSuffix", "serviceEqualFold", "serviceContainsFold", "serviceIsNil", "serviceNotNil", "dataType", "dataTypeNEQ", "dataTypeIn", "dataTypeNotIn", "dataTypeContains", "dataTypeHasPrefix", "dataTypeHasSuffix", "dataTypeEqualFold", "dataTypeContainsFold", "dataTypeIsNil", "dataTypeNotNil", "dataId", "dataIdNEQ", "dataIdIn", "dataIdNotIn", "dataIdContains", "dataIdHasPrefix", "dataIdHasSuffix", "dataIdEqualFold", "dataIdContainsFold", "dataIdIsNil", "dataIdNotNil"}
+	fieldsInOrder := [...]string{"not", "and", "or", "typeName", "typeNameNEQ", "typeNameIn", "typeNameNotIn", "typeNameContains", "typeNameHasPrefix", "typeNameHasSuffix", "typeNameEqualFold", "typeNameContainsFold", "workflowName", "workflowNameNEQ", "workflowNameIn", "workflowNameNotIn", "workflowNameContains", "workflowNameHasPrefix", "workflowNameHasSuffix", "workflowNameEqualFold", "workflowNameContainsFold", "assignee", "assigneeNEQ", "assigneeIn", "assigneeNotIn", "assigneeIsNil", "assigneeNotNil", "assigneeContains", "assigneeHasPrefix", "assigneeHasSuffix", "assigneeEqualFold", "assigneeContainsFold", "isAssignable", "groupBy", "groupByNEQ", "groupByIn", "groupByNotIn", "groupByIsNil", "groupByNotNil", "groupByContains", "groupByHasPrefix", "groupByHasSuffix", "groupByEqualFold", "groupByContainsFold", "workflowID", "workflowIDNEQ", "workflowIDIn", "workflowIDNotIn", "workflowIDContains", "workflowIDHasPrefix", "workflowIDHasSuffix", "workflowIDEqualFold", "workflowIDContainsFold", "runID", "runIDNEQ", "runIDIn", "runIDNotIn", "runIDContains", "runIDHasPrefix", "runIDHasSuffix", "runIDEqualFold", "runIDContainsFold", "status", "statusNEQ", "statusIn", "statusNotIn", "statusContains", "statusHasPrefix", "statusHasSuffix", "statusEqualFold", "statusContainsFold", "startTime", "startTimeNEQ", "startTimeIn", "startTimeNotIn", "startTimeGT", "startTimeGTE", "startTimeLT", "startTimeLTE", "closeTime", "closeTimeNEQ", "closeTimeIn", "closeTimeNotIn", "closeTimeGT", "closeTimeGTE", "closeTimeLT", "closeTimeLTE", "closeTimeIsNil", "closeTimeNotNil", "service", "serviceNEQ", "serviceIn", "serviceNotIn", "serviceContains", "serviceHasPrefix", "serviceHasSuffix", "serviceEqualFold", "serviceContainsFold", "serviceIsNil", "serviceNotNil", "dataType", "dataTypeNEQ", "dataTypeIn", "dataTypeNotIn", "dataTypeContains", "dataTypeHasPrefix", "dataTypeHasSuffix", "dataTypeEqualFold", "dataTypeContainsFold", "dataTypeIsNil", "dataTypeNotNil", "dataId", "dataIdNEQ", "dataIdIn", "dataIdNotIn", "dataIdContains", "dataIdHasPrefix", "dataIdHasSuffix", "dataIdEqualFold", "dataIdContainsFold", "dataIdIsNil", "dataIdNotNil", "targets", "targetsNotIn"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -9912,6 +11058,13 @@ func (ec *executionContext) unmarshalInputWorkflowExecutionsWhereInput(ctx conte
 				return it, err
 			}
 			it.AssigneeContainsFold = data
+		case "isAssignable":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("isAssignable"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.IsAssignable = data
 		case "groupBy":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("groupBy"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -10535,6 +11688,20 @@ func (ec *executionContext) unmarshalInputWorkflowExecutionsWhereInput(ctx conte
 				return it, err
 			}
 			it.DataIDNotNil = data
+		case "targets":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("targets"))
+			data, err := ec.unmarshalOWorkflowTarget2ᚕgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTargetᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Targets = data
+		case "targetsNotIn":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("targetsNotIn"))
+			data, err := ec.unmarshalOWorkflowTarget2ᚕgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTargetᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TargetsNotIn = data
 		}
 	}
 	return it, nil
@@ -12280,6 +13447,96 @@ func (ec *executionContext) _Node(ctx context.Context, sel ast.SelectionSet, obj
 
 // region    **************************** object.gotpl ****************************
 
+var actionDefinitionImplementors = []string{"ActionDefinition"}
+
+func (ec *executionContext) _ActionDefinition(ctx context.Context, sel ast.SelectionSet, obj *model.ActionDefinition) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, actionDefinitionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ActionDefinition")
+		case "name":
+			out.Values[i] = ec._ActionDefinition_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "description":
+			out.Values[i] = ec._ActionDefinition_description(ctx, field, obj)
+		case "enabled":
+			out.Values[i] = ec._ActionDefinition_enabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var cancelWorkflowPayloadImplementors = []string{"CancelWorkflowPayload"}
+
+func (ec *executionContext) _CancelWorkflowPayload(ctx context.Context, sel ast.SelectionSet, obj *model.CancelWorkflowPayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, cancelWorkflowPayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CancelWorkflowPayload")
+		case "workflowID":
+			out.Values[i] = ec._CancelWorkflowPayload_workflowID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "workflowRunID":
+			out.Values[i] = ec._CancelWorkflowPayload_workflowRunID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var currentUserDataInputImplementors = []string{"CurrentUserDataInput"}
 
 func (ec *executionContext) _CurrentUserDataInput(ctx context.Context, sel ast.SelectionSet, obj *model.CurrentUserDataInput) graphql.Marshaler {
@@ -12412,6 +13669,50 @@ func (ec *executionContext) _EntityEventsOutbox(ctx context.Context, sel ast.Sel
 	return out
 }
 
+var getWorkflowActionsResponseImplementors = []string{"GetWorkflowActionsResponse"}
+
+func (ec *executionContext) _GetWorkflowActionsResponse(ctx context.Context, sel ast.SelectionSet, obj *model.GetWorkflowActionsResponse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, getWorkflowActionsResponseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("GetWorkflowActionsResponse")
+		case "queries":
+			out.Values[i] = ec._GetWorkflowActionsResponse_queries(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updates":
+			out.Values[i] = ec._GetWorkflowActionsResponse_updates(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var getWorkflowAssigneeResponseImplementors = []string{"GetWorkflowAssigneeResponse"}
 
 func (ec *executionContext) _GetWorkflowAssigneeResponse(ctx context.Context, sel ast.SelectionSet, obj *model.GetWorkflowAssigneeResponse) graphql.Marshaler {
@@ -12425,6 +13726,84 @@ func (ec *executionContext) _GetWorkflowAssigneeResponse(ctx context.Context, se
 			out.Values[i] = graphql.MarshalString("GetWorkflowAssigneeResponse")
 		case "assignee":
 			out.Values[i] = ec._GetWorkflowAssigneeResponse_assignee(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var getWorkflowIsAssignableResponseImplementors = []string{"GetWorkflowIsAssignableResponse"}
+
+func (ec *executionContext) _GetWorkflowIsAssignableResponse(ctx context.Context, sel ast.SelectionSet, obj *model.GetWorkflowIsAssignableResponse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, getWorkflowIsAssignableResponseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("GetWorkflowIsAssignableResponse")
+		case "isAssignable":
+			out.Values[i] = ec._GetWorkflowIsAssignableResponse_isAssignable(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var getWorkflowTargetsResponseImplementors = []string{"GetWorkflowTargetsResponse"}
+
+func (ec *executionContext) _GetWorkflowTargetsResponse(ctx context.Context, sel ast.SelectionSet, obj *model.GetWorkflowTargetsResponse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, getWorkflowTargetsResponseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("GetWorkflowTargetsResponse")
+		case "targets":
+			out.Values[i] = ec._GetWorkflowTargetsResponse_targets(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -12495,9 +13874,24 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "cancelWorkflow":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_cancelWorkflow(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "setWorkflowAssignee":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_setWorkflowAssignee(ctx, field)
+			})
+		case "setWorkflowIsAssignable":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_setWorkflowIsAssignable(ctx, field)
+			})
+		case "setWorkflowTargets":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_setWorkflowTargets(ctx, field)
 			})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -12781,6 +14175,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "workflowActions":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_workflowActions(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "workflowAssignee":
 			field := field
 
@@ -12791,6 +14207,50 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_workflowAssignee(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "workflowIsAssignable":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_workflowIsAssignable(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "workflowTargets":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_workflowTargets(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -12910,6 +14370,81 @@ func (ec *executionContext) _SetWorkflowAssigneeResponse(ctx context.Context, se
 			out.Values[i] = graphql.MarshalString("SetWorkflowAssigneeResponse")
 		case "assignee":
 			out.Values[i] = ec._SetWorkflowAssigneeResponse_assignee(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var setWorkflowIsAssignableResponseImplementors = []string{"SetWorkflowIsAssignableResponse"}
+
+func (ec *executionContext) _SetWorkflowIsAssignableResponse(ctx context.Context, sel ast.SelectionSet, obj *model.SetWorkflowIsAssignableResponse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, setWorkflowIsAssignableResponseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SetWorkflowIsAssignableResponse")
+		case "isAssignable":
+			out.Values[i] = ec._SetWorkflowIsAssignableResponse_isAssignable(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var setWorkflowTargetsResponseImplementors = []string{"SetWorkflowTargetsResponse"}
+
+func (ec *executionContext) _SetWorkflowTargetsResponse(ctx context.Context, sel ast.SelectionSet, obj *model.SetWorkflowTargetsResponse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, setWorkflowTargetsResponseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SetWorkflowTargetsResponse")
+		case "targets":
+			out.Values[i] = ec._SetWorkflowTargetsResponse_targets(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -14522,6 +16057,32 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
+func (ec *executionContext) marshalNActionDefinition2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐActionDefinitionᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ActionDefinition) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNActionDefinition2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐActionDefinition(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNActionDefinition2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐActionDefinition(ctx context.Context, sel ast.SelectionSet, v *model.ActionDefinition) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ActionDefinition(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNAny2interface(ctx context.Context, v any) (any, error) {
 	res, err := graphql.UnmarshalAny(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -14560,6 +16121,25 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
+func (ec *executionContext) unmarshalNCancelWorkflowInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐCancelWorkflowInput(ctx context.Context, v any) (model.CancelWorkflowInput, error) {
+	res, err := ec.unmarshalInputCancelWorkflowInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNCancelWorkflowPayload2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐCancelWorkflowPayload(ctx context.Context, sel ast.SelectionSet, v model.CancelWorkflowPayload) graphql.Marshaler {
+	return ec._CancelWorkflowPayload(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNCancelWorkflowPayload2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐCancelWorkflowPayload(ctx context.Context, sel ast.SelectionSet, v *model.CancelWorkflowPayload) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._CancelWorkflowPayload(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNCursor2entgoᚗioᚋcontribᚋentgqlᚐCursor(ctx context.Context, v any) (entgql.Cursor[uuid.UUID], error) {
 	var res entgql.Cursor[uuid.UUID]
 	err := res.UnmarshalGQL(v)
@@ -14591,6 +16171,25 @@ func (ec *executionContext) marshalNFieldSet2string(ctx context.Context, sel ast
 	return res
 }
 
+func (ec *executionContext) unmarshalNGetWorkflowActionsInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowActionsInput(ctx context.Context, v any) (model.GetWorkflowActionsInput, error) {
+	res, err := ec.unmarshalInputGetWorkflowActionsInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNGetWorkflowActionsResponse2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowActionsResponse(ctx context.Context, sel ast.SelectionSet, v model.GetWorkflowActionsResponse) graphql.Marshaler {
+	return ec._GetWorkflowActionsResponse(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNGetWorkflowActionsResponse2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowActionsResponse(ctx context.Context, sel ast.SelectionSet, v *model.GetWorkflowActionsResponse) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._GetWorkflowActionsResponse(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNGetWorkflowAssigneeInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowAssigneeInput(ctx context.Context, v any) (model.GetWorkflowAssigneeInput, error) {
 	res, err := ec.unmarshalInputGetWorkflowAssigneeInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -14608,6 +16207,44 @@ func (ec *executionContext) marshalNGetWorkflowAssigneeResponse2ᚖgithubᚗcom�
 		return graphql.Null
 	}
 	return ec._GetWorkflowAssigneeResponse(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNGetWorkflowIsAssignableInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowIsAssignableInput(ctx context.Context, v any) (model.GetWorkflowIsAssignableInput, error) {
+	res, err := ec.unmarshalInputGetWorkflowIsAssignableInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNGetWorkflowIsAssignableResponse2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowIsAssignableResponse(ctx context.Context, sel ast.SelectionSet, v model.GetWorkflowIsAssignableResponse) graphql.Marshaler {
+	return ec._GetWorkflowIsAssignableResponse(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNGetWorkflowIsAssignableResponse2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowIsAssignableResponse(ctx context.Context, sel ast.SelectionSet, v *model.GetWorkflowIsAssignableResponse) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._GetWorkflowIsAssignableResponse(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNGetWorkflowTargetsInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowTargetsInput(ctx context.Context, v any) (model.GetWorkflowTargetsInput, error) {
+	res, err := ec.unmarshalInputGetWorkflowTargetsInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNGetWorkflowTargetsResponse2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowTargetsResponse(ctx context.Context, sel ast.SelectionSet, v model.GetWorkflowTargetsResponse) graphql.Marshaler {
+	return ec._GetWorkflowTargetsResponse(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNGetWorkflowTargetsResponse2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐGetWorkflowTargetsResponse(ctx context.Context, sel ast.SelectionSet, v *model.GetWorkflowTargetsResponse) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._GetWorkflowTargetsResponse(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx context.Context, v any) (uuid.UUID, error) {
@@ -14744,6 +16381,16 @@ func (ec *executionContext) marshalNServiceInfo2ᚖgithubᚗcomᚋpyckᚑaiᚋpy
 
 func (ec *executionContext) unmarshalNSetWorkflowAssigneeInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐSetWorkflowAssigneeInput(ctx context.Context, v any) (model.SetWorkflowAssigneeInput, error) {
 	res, err := ec.unmarshalInputSetWorkflowAssigneeInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNSetWorkflowIsAssignableInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐSetWorkflowIsAssignableInput(ctx context.Context, v any) (model.SetWorkflowIsAssignableInput, error) {
+	res, err := ec.unmarshalInputSetWorkflowIsAssignableInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNSetWorkflowTargetsInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐSetWorkflowTargetsInput(ctx context.Context, v any) (model.SetWorkflowTargetsInput, error) {
+	res, err := ec.unmarshalInputSetWorkflowTargetsInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -15112,6 +16759,47 @@ func (ec *executionContext) marshalNWorkflowSignalType2githubᚗcomᚋpyckᚑai�
 func (ec *executionContext) unmarshalNWorkflowSignalWhereInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋentᚋgenᚐWorkflowSignalWhereInput(ctx context.Context, v any) (*gen.WorkflowSignalWhereInput, error) {
 	res, err := ec.unmarshalInputWorkflowSignalWhereInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNWorkflowTarget2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTarget(ctx context.Context, v any) (model.WorkflowTarget, error) {
+	var res model.WorkflowTarget
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNWorkflowTarget2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTarget(ctx context.Context, sel ast.SelectionSet, v model.WorkflowTarget) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNWorkflowTarget2ᚕgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTargetᚄ(ctx context.Context, v any) ([]model.WorkflowTarget, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]model.WorkflowTarget, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNWorkflowTarget2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTarget(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNWorkflowTarget2ᚕgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTargetᚄ(ctx context.Context, sel ast.SelectionSet, v []model.WorkflowTarget) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNWorkflowTarget2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTarget(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalNWorkflowType2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowType(ctx context.Context, sel ast.SelectionSet, v *model.WorkflowType) graphql.Marshaler {
@@ -15697,6 +17385,20 @@ func (ec *executionContext) marshalOSetWorkflowAssigneeResponse2ᚖgithubᚗcom�
 	return ec._SetWorkflowAssigneeResponse(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalOSetWorkflowIsAssignableResponse2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐSetWorkflowIsAssignableResponse(ctx context.Context, sel ast.SelectionSet, v *model.SetWorkflowIsAssignableResponse) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._SetWorkflowIsAssignableResponse(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOSetWorkflowTargetsResponse2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐSetWorkflowTargetsResponse(ctx context.Context, sel ast.SelectionSet, v *model.SetWorkflowTargetsResponse) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._SetWorkflowTargetsResponse(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalOString2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalString(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -15927,6 +17629,14 @@ func (ec *executionContext) marshalOWorkflow2ᚖgithubᚗcomᚋpyckᚑaiᚋpyck�
 	return ec._Workflow(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalOWorkflowActionsWhereInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowActionsWhereInput(ctx context.Context, v any) (*model.WorkflowActionsWhereInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputWorkflowActionsWhereInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) marshalOWorkflowEdge2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋentᚋgenᚐWorkflowEdge(ctx context.Context, sel ast.SelectionSet, v []*gen.WorkflowEdge) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -16147,6 +17857,43 @@ func (ec *executionContext) unmarshalOWorkflowSignalWhereInput2ᚖgithubᚗcom�
 	}
 	res, err := ec.unmarshalInputWorkflowSignalWhereInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOWorkflowTarget2ᚕgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTargetᚄ(ctx context.Context, v any) ([]model.WorkflowTarget, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]model.WorkflowTarget, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNWorkflowTarget2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTarget(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOWorkflowTarget2ᚕgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTargetᚄ(ctx context.Context, sel ast.SelectionSet, v []model.WorkflowTarget) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNWorkflowTarget2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTarget(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalOWorkflowUpdateType2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowUpdateType(ctx context.Context, sel ast.SelectionSet, v *model.WorkflowUpdateType) graphql.Marshaler {

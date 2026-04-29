@@ -21,6 +21,11 @@ resolver:
   package: resolvers
   filename_template: "{name}.resolvers.go"
 
+# @pyckImportable is used at code generation time by importgen, not at runtime.
+directives:
+  pyckImportable:
+    skip_runtime: true
+
 omit_gqlgen_version_in_file_notice: true
 
 skip_validation: false
@@ -47,6 +52,12 @@ models:
   Map:
     model:
       - github.com/99designs/gqlgen/graphql.Map
+  JSONPatchOp:
+    model:
+      - github.com/pyck-ai/pyck/backend/common/jsonpatch.JSONPatchOp
+  JSONPatchInput:
+    model:
+      - github.com/pyck-ai/pyck/backend/common/jsonpatch.JSONPatchInput
   Node:
     model:
       - github.com/pyck-ai/pyck/backend/picking/ent/gen.Noder

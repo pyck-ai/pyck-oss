@@ -1,0 +1,94 @@
+// =============================================================================
+// All base entities in dependency order — no external ID references needed
+// =============================================================================
+
+// NOTE: RepositoryMovement and ItemMovement are registered as importable but
+// their resolvers have additional business logic validation (repository existence
+// checks within tenant context) that makes standalone import unreliable.
+// These entities are tested via export only (they can be created via
+// CollectionMovement operations in normal workflows).
+
+// DataTypes (must come first — referenced by everything via dataTypeSlug)
+{"__typename": "DataType", "name": "Default Location", "slug": "default-location", "entity": "Location", "default": true, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"address\":{\"type\":\"string\"},\"floor\":{\"type\":\"integer\"},\"zone\":{\"type\":\"string\"}}}"}
+{"__typename": "DataType", "name": "Default Device", "slug": "default-device", "entity": "Device", "default": true, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"model\":{\"type\":\"string\"},\"serialNumber\":{\"type\":\"string\"},\"firmwareVersion\":{\"type\":\"string\"}}}"}
+{"__typename": "DataType", "name": "Default Repository", "slug": "default-repository", "entity": "Repository", "default": true, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"zone\":{\"type\":\"string\"},\"aisle\":{\"type\":\"string\"},\"level\":{\"type\":\"integer\"}}}"}
+{"__typename": "DataType", "name": "Cold Storage Repository", "slug": "cold-storage-repository", "entity": "Repository", "default": false, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"zone\":{\"type\":\"string\"},\"temperatureMin\":{\"type\":\"number\"},\"temperatureMax\":{\"type\":\"number\"}}}"}
+{"__typename": "DataType", "name": "Default InventoryItem", "slug": "default-inventory-item", "entity": "InventoryItem", "default": true, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"weight\":{\"type\":\"number\"},\"dimensions\":{\"type\":\"string\"},\"material\":{\"type\":\"string\"}}}"}
+{"__typename": "DataType", "name": "Fragile InventoryItem", "slug": "fragile-inventory-item", "entity": "InventoryItem", "default": false, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"weight\":{\"type\":\"number\"},\"fragility\":{\"type\":\"string\"},\"handlingNotes\":{\"type\":\"string\"}}}"}
+{"__typename": "DataType", "name": "Default InventoryItemSet", "slug": "default-inventory-item-set", "entity": "InventoryItemSet", "default": true, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"description\":{\"type\":\"string\"}}}"}
+{"__typename": "DataType", "name": "Default Customer", "slug": "default-customer", "entity": "Customer", "default": true, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"code\":{\"type\":\"string\"},\"address\":{\"type\":\"string\"}}}"}
+{"__typename": "DataType", "name": "Default Supplier", "slug": "default-supplier", "entity": "Supplier", "default": true, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"code\":{\"type\":\"string\"},\"address\":{\"type\":\"string\"}}}"}
+
+// Locations
+{"__typename": "Location", "name": "Warehouse Alpha", "dataTypeSlug": "default-location", "data": {"address": "100 Alpha Industrial Park", "floor": 1, "zone": "A"}}
+{"__typename": "Location", "name": "Warehouse Beta", "dataTypeSlug": "default-location", "data": {"address": "200 Beta Commerce Blvd", "floor": 1, "zone": "B"}}
+{"__typename": "Location", "name": "Warehouse Gamma", "dataTypeSlug": "default-location", "data": {"address": "300 Gamma Logistics Way", "floor": 1, "zone": "C"}}
+{"__typename": "Location", "name": "Cold Storage Facility", "dataTypeSlug": "default-location", "data": {"address": "400 Cold Chain Ave", "floor": 0, "zone": "COLD"}}
+{"__typename": "Location", "name": "Receiving Dock A", "dataTypeSlug": "default-location", "data": {"address": "100 Alpha Industrial Park", "floor": 0, "zone": "RECV-A"}}
+{"__typename": "Location", "name": "Shipping Bay 1", "dataTypeSlug": "default-location", "data": {"address": "100 Alpha Industrial Park", "floor": 0, "zone": "SHIP-1"}}
+
+// Devices
+{"__typename": "Device", "name": "Scanner-Alpha-001", "dataTypeSlug": "default-device", "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}, "data": {"model": "Zebra TC72", "serialNumber": "SN-A001", "firmwareVersion": "v3.2.1"}}
+{"__typename": "Device", "name": "Scanner-Beta-001", "dataTypeSlug": "default-device", "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Beta"}}, "data": {"model": "Honeywell CT60", "serialNumber": "SN-B001", "firmwareVersion": "v2.5.0"}}
+{"__typename": "Device", "name": "Forklift-Terminal-001", "dataTypeSlug": "default-device", "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}, "data": {"model": "Zebra VC8300", "serialNumber": "SN-FT001", "firmwareVersion": "v4.1.0"}}
+
+// DeviceLocations (create-only)
+{"__typename": "DeviceLocation", "deviceID": {"$ref": {"__typename": "Device", "name": "Scanner-Alpha-001"}}, "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}}
+{"__typename": "DeviceLocation", "deviceID": {"$ref": {"__typename": "Device", "name": "Scanner-Beta-001"}}, "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Beta"}}}
+{"__typename": "DeviceLocation", "deviceID": {"$ref": {"__typename": "Device", "name": "Forklift-Terminal-001"}}, "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}}
+
+// Repositories (hierarchy)
+{"__typename": "Repository", "name": "Warehouse-Alpha-Main", "dataTypeSlug": "default-repository", "type": "static", "virtualRepo": false, "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}, "data": {"zone": "A", "aisle": "MAIN", "level": 0}}
+{"__typename": "Repository", "name": "Alpha-Aisle-1", "dataTypeSlug": "default-repository", "type": "static", "virtualRepo": false, "parentID": {"$ref": {"__typename": "Repository", "name": "Warehouse-Alpha-Main"}}, "data": {"zone": "A", "aisle": "1", "level": 0}}
+{"__typename": "Repository", "name": "Alpha-A1-Shelf-1", "dataTypeSlug": "default-repository", "type": "static", "virtualRepo": false, "parentID": {"$ref": {"__typename": "Repository", "name": "Alpha-Aisle-1"}}, "data": {"zone": "A", "aisle": "1", "level": 1}}
+{"__typename": "Repository", "name": "Staging-Area-Alpha", "dataTypeSlug": "default-repository", "type": "static", "virtualRepo": false, "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}, "data": {"zone": "A", "aisle": "STAGING", "level": 0}}
+{"__typename": "Repository", "name": "Pick-Cart-001", "dataTypeSlug": "default-repository", "type": "dynamic", "virtualRepo": false, "data": {"zone": "MOBILE", "aisle": "", "level": 0}}
+
+// Inventory Items
+{"__typename": "InventoryItem", "sku": "BOLT-M8-50", "dataTypeSlug": "default-inventory-item", "data": {"weight": 0.025, "dimensions": "M8x50mm", "material": "steel"}}
+{"__typename": "InventoryItem", "sku": "NUT-M8-HEX", "dataTypeSlug": "default-inventory-item", "data": {"weight": 0.008, "dimensions": "M8 hex", "material": "steel"}}
+{"__typename": "InventoryItem", "sku": "WASHER-M8-FLAT", "dataTypeSlug": "default-inventory-item", "data": {"weight": 0.003, "dimensions": "M8 flat", "material": "steel"}}
+{"__typename": "InventoryItem", "sku": "BEARING-6205", "dataTypeSlug": "default-inventory-item", "data": {"weight": 0.12, "dimensions": "25x52x15mm", "material": "chrome steel"}}
+{"__typename": "InventoryItem", "sku": "SENSOR-TEMP-PT100", "dataTypeSlug": "default-inventory-item", "data": {"weight": 0.05, "dimensions": "6x50mm probe", "material": "platinum"}}
+
+// Item Sets
+{"__typename": "InventoryItemSet", "dataTypeSlug": "default-inventory-item-set", "sku": "SET-FASTENER-M8", "data": {"description": "M8 fastener kit"}, "itemIDs": [{"$ref": {"__typename": "InventoryItem", "sku": "BOLT-M8-50"}}, {"$ref": {"__typename": "InventoryItem", "sku": "NUT-M8-HEX"}}, {"$ref": {"__typename": "InventoryItem", "sku": "WASHER-M8-FLAT"}}]}
+
+// Customers (create-only, tagged with $refid for order references)
+{"__typename": "Customer", "$refid": "customer-acme", "dataTypeSlug": "default-customer", "data": {"name": "Acme Manufacturing", "code": "ACME-001", "address": "123 Industrial Blvd"}}
+{"__typename": "Customer", "$refid": "customer-global", "dataTypeSlug": "default-customer", "data": {"name": "Global Parts Inc", "code": "GLOB-002", "address": "456 Commerce Ave"}}
+
+// Suppliers (create-only, tagged with $refid for order references)
+{"__typename": "Supplier", "$refid": "supplier-fastbolt", "dataTypeSlug": "default-supplier", "data": {"name": "FastBolt Supply Co", "code": "FBSC-001", "address": "100 Supplier Lane"}}
+{"__typename": "Supplier", "$refid": "supplier-precision", "dataTypeSlug": "default-supplier", "data": {"name": "PrecisionParts Ltd", "code": "PPLT-002", "address": "200 Parts Blvd"}}
+
+// =============================================================================
+// Orders — reference Customer/Supplier via $refid aliases (single-pass import)
+// =============================================================================
+
+// Picking Orders (create-only, inline items via WithItemsInput)
+{"__typename": "PickingOrder", "$refid": "order-acme-1", "customerID": {"$ref": "customer-acme"}, "orderItems": [{"sku": "BOLT-M8-50", "quantity": 100}, {"sku": "NUT-M8-HEX", "quantity": 100}, {"sku": "WASHER-M8-FLAT", "quantity": 100}]}
+{"__typename": "PickingOrder", "customerID": {"$ref": "customer-global"}, "orderItems": [{"sku": "BEARING-6205", "quantity": 10}, {"sku": "SENSOR-TEMP-PT100", "quantity": 5}]}
+
+// Replenishment Orders (create-only, inline items via WithItemsInput)
+{"__typename": "ReplenishmentOrder", "$refid": "replen-fastbolt-1", "supplierID": {"$ref": "supplier-fastbolt"}, "items": [{"sku": "BOLT-M8-50", "quantity": 500}, {"sku": "NUT-M8-HEX", "quantity": 500}]}
+{"__typename": "ReplenishmentOrder", "supplierID": {"$ref": "supplier-precision"}, "items": [{"sku": "BEARING-6205", "quantity": 50}]}
+
+// Receiving Inbounds (create-only, inline items via WithItemsInput)
+{"__typename": "ReceivingInbound", "$refid": "inbound-fastbolt-1", "supplierID": {"$ref": "supplier-fastbolt"}, "inboundItems": [{"sku": "BOLT-M8-50", "quantity": 500}, {"sku": "NUT-M8-HEX", "quantity": 500}]}
+{"__typename": "ReceivingInbound", "supplierID": {"$ref": "supplier-precision"}, "inboundItems": [{"sku": "BEARING-6205", "quantity": 50}]}
+
+// =============================================================================
+// Standalone order items + movements — reference orders via $refid aliases
+// =============================================================================
+
+// Standalone order items (reference parent order by $refid alias)
+{"__typename": "PickingOrderItem", "orderID": {"$ref": "order-acme-1"}, "sku": "STANDALONE-PICK-001", "quantity": 7}
+{"__typename": "ReplenishmentOrderItem", "replenishmentorderID": {"$ref": "replen-fastbolt-1"}, "sku": "STANDALONE-REPL-001", "quantity": 25}
+{"__typename": "ReceivingInboundItem", "inboundID": {"$ref": "inbound-fastbolt-1"}, "sku": "STANDALONE-RECV-001", "quantity": 15}
+
+// RepositoryMovement (move a child repo that has a parent)
+{"__typename": "RepositoryMovement", "repositoryID": {"$ref": {"__typename": "Repository", "name": "Alpha-A1-Shelf-1"}}, "toID": {"$ref": {"__typename": "Repository", "name": "Staging-Area-Alpha"}}, "handler": "integration-test"}
+
+// ItemMovement (requires stock — expected to fail in tests)
+{"__typename": "ItemMovement", "itemID": {"$ref": {"__typename": "InventoryItem", "sku": "BOLT-M8-50"}}, "fromID": {"$ref": {"__typename": "Repository", "name": "Alpha-A1-Shelf-1"}}, "toID": {"$ref": {"__typename": "Repository", "name": "Staging-Area-Alpha"}}, "quantity": 10, "handler": "integration-test"}

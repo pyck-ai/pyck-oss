@@ -11,11 +11,13 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
+	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
@@ -165,7 +167,7 @@ func (r *mutationResolver) DeleteInventoryItem(ctx context.Context, id uuid.UUID
 
 	_, err = tx.Item.
 		UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -329,7 +331,7 @@ func (r *mutationResolver) DeleteInventoryRepository(ctx context.Context, id uui
 
 	_, err = tx.Repository.
 		UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -545,7 +547,7 @@ func (r *mutationResolver) ExecuteInventoryItemMovement(ctx context.Context, id 
 	itemMovement, err := tx.ItemMovement.
 		UpdateOneID(id).
 		SetExecuted(true).
-		SetExecutedAt(time.Now()).
+		SetExecutedAt(time.Now().UTC()).
 		Save(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed updating itemMovement: %w", err)
@@ -579,14 +581,10 @@ func (r *mutationResolver) ExecuteInventoryItemMovement(ctx context.Context, id 
 	// Create stock map. This map will contain all future Stock inserts
 	stockMap := make(map[uuid.UUID]ent.Stock, 0)
 
-	// Calculate stockMap for parents of the 'from' repository
-	err = r.inventoryStockService.CalculateRepositoryStockMap(ctx, tx, currentMovementValues.ItemID, currentMovementValues.FromID, -1*itemMovement.Quantity, stockMap, true)
-	if err != nil {
-		return nil, fmt.Errorf("failed calculating stock map: %w", err)
-	}
-
-	// Calculate stockMap for parents of the 'to' repository
-	err = r.inventoryStockService.CalculateRepositoryStockMap(ctx, tx, currentMovementValues.ItemID, currentMovementValues.ToID, itemMovement.Quantity, stockMap, true)
+	// Apply both FROM and TO walks in a single pass; validation is deferred so
+	// that net-zero deltas through a common ancestor of FROM and TO do not
+	// raise a spurious underflow (#1159).
+	err = r.inventoryStockService.ApplyItemMovementStockDelta(ctx, tx, currentMovementValues.ItemID, currentMovementValues.FromID, currentMovementValues.ToID, itemMovement.Quantity, stockMap, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed calculating stock map: %w", err)
 	}
@@ -695,7 +693,7 @@ func (r *mutationResolver) DeleteInventoryItemMovement(ctx context.Context, id u
 	}
 
 	_, err = tx.ItemMovement.UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -949,7 +947,7 @@ func (r *mutationResolver) ExecuteInventoryRepositoryMovement(ctx context.Contex
 	repositoryMovement, err := tx.RepositoryMovement.
 		UpdateOneID(id).
 		SetExecuted(true).
-		SetExecutedAt(time.Now()).
+		SetExecutedAt(time.Now().UTC()).
 		Save(ctx)
 
 	repoToBeMoved, err := tx.Repository.Get(ctx, currentMovementValues.RepositoryID)
@@ -976,16 +974,11 @@ func (r *mutationResolver) ExecuteInventoryRepositoryMovement(ctx context.Contex
 		// Create stock map. This map will contain all future Stock inserts
 		stockMap := make(map[uuid.UUID]ent.Stock, 0)
 
-		// Calculate stockMap for parents of the 'from' repository
-		// Use ownStock=false because items are not directly in the parent, they're in the moving repository
-		err = r.inventoryStockService.CalculateRepositoryStockMap(ctx, tx, itemID, currentMovementValues.FromID, -1*itemRecord.Quantity, stockMap, false)
-		if err != nil {
-			return nil, fmt.Errorf("failed calculating stock map: %w", err)
-		}
-
-		// Calculate stockMap for parents of the 'to' repository
-		// Use ownStock=false because items are not directly in the parent, they're in the moving repository
-		err = r.inventoryStockService.CalculateRepositoryStockMap(ctx, tx, itemID, currentMovementValues.ToID, itemRecord.Quantity, stockMap, false)
+		// Apply both FROM and TO walks in a single pass; validation is deferred
+		// to avoid spurious underflow on common ancestors of FROM and TO (#1159).
+		// Use ownStock=false because items are not directly in the parent, they're
+		// in the moving repository.
+		err = r.inventoryStockService.ApplyItemMovementStockDelta(ctx, tx, itemID, currentMovementValues.FromID, currentMovementValues.ToID, itemRecord.Quantity, stockMap, false)
 		if err != nil {
 			return nil, fmt.Errorf("failed calculating stock map: %w", err)
 		}
@@ -1142,7 +1135,7 @@ func (r *mutationResolver) DeleteInventoryRepositoryMovement(ctx context.Context
 
 	_, err = tx.RepositoryMovement.
 		UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -1264,7 +1257,7 @@ func (r *mutationResolver) CreateInventoryCollectionMovement(ctx context.Context
 		SetNillableDataTypeID(resolvedDataTypeID).
 		SetData(input.Data).
 		SetTenantID(req.MutationTenantID()).
-		SetCreatedAt(time.Now())
+		SetCreatedAt(time.Now().UTC())
 
 	if input.Handler != nil && *input.Handler != "" {
 		movement.SetHandler(*input.Handler)
@@ -1499,7 +1492,7 @@ func (r *mutationResolver) DeleteInventoryCollection(ctx context.Context, id uui
 	}
 
 	_, err = tx.Collection_Movement.UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -1831,7 +1824,7 @@ func (r *mutationResolver) DeleteInventoryItemSet(ctx context.Context, id uuid.U
 	req := request.ForContext(ctx)
 
 	_, err = tx.ItemSet.UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -1992,7 +1985,7 @@ func (r *mutationResolver) DeleteReplenishmentOrder(ctx context.Context, id uuid
 	}
 
 	_, err = tx.ReplenishmentOrder.UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -2012,7 +2005,7 @@ func (r *mutationResolver) DeleteReplenishmentOrder(ctx context.Context, id uuid
 	for _, v := range items {
 		_, err = tx.ReplenishmentOrderItem.
 			UpdateOneID(v.ID).
-			SetDeletedAt(time.Now()).
+			SetDeletedAt(time.Now().UTC()).
 			SetDeletedBy(req.User().ID).
 			Save(ctx)
 		if err != nil {
@@ -2113,7 +2106,7 @@ func (r *mutationResolver) DeleteReplenishmentOrderItem(ctx context.Context, id 
 	req := request.ForContext(ctx)
 
 	_, err = tx.ReplenishmentOrderItem.UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -2124,6 +2117,334 @@ func (r *mutationResolver) DeleteReplenishmentOrderItem(ctx context.Context, id 
 	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
+}
+
+// PatchInventoryItemData applies RFC 6902 JSON Patch operations to the item's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchInventoryItemData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.InventoryItemOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.Item.Query().Where(entitem.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    entitem.Table,
+		FieldName:    entitem.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.Item.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.InventoryItemOutput{InventoryItem: updated}, nil
+}
+
+// PatchInventoryRepositoryData applies RFC 6902 JSON Patch operations to the repository's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchInventoryRepositoryData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.InventoryRepositoryOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.Repository.Query().Where(repository.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    repository.Table,
+		FieldName:    repository.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.Repository.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.InventoryRepositoryOutput{InventoryRepository: updated}, nil
+}
+
+// PatchInventoryItemMovementData applies RFC 6902 JSON Patch operations to the item movement's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchInventoryItemMovementData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.InventoryItemMovementOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.ItemMovement.Query().Where(itemmovement.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    itemmovement.Table,
+		FieldName:    itemmovement.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.ItemMovement.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.InventoryItemMovementOutput{InventoryItemMovement: updated}, nil
+}
+
+// PatchInventoryRepositoryMovementData applies RFC 6902 JSON Patch operations to the repository movement's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchInventoryRepositoryMovementData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.InventoryRepositoryMovementOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.RepositoryMovement.Query().Where(repositorymovement.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    repositorymovement.Table,
+		FieldName:    repositorymovement.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.RepositoryMovement.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.InventoryRepositoryMovementOutput{InventoryRepositoryMovement: updated}, nil
+}
+
+// PatchInventoryCollectionMovementData applies RFC 6902 JSON Patch operations to the collection movement's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchInventoryCollectionMovementData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.UpdateCollectionMovementOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.Collection_Movement.Query().Where(collection_movement.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    collection_movement.Table,
+		FieldName:    collection_movement.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.Collection_Movement.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.UpdateCollectionMovementOutput{InventoryCollection: updated}, nil
+}
+
+// PatchInventoryItemSetData applies RFC 6902 JSON Patch operations to the item set's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchInventoryItemSetData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.InventoryItemSetOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.ItemSet.Query().Where(itemset.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    itemset.Table,
+		FieldName:    itemset.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.ItemSet.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.InventoryItemSetOutput{InventoryItemSet: updated}, nil
+}
+
+// PatchReplenishmentOrderData applies RFC 6902 JSON Patch operations to the replenishment order's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchReplenishmentOrderData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.ReplenishmentOrderOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.ReplenishmentOrder.Query().Where(replenishmentorder.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    replenishmentorder.Table,
+		FieldName:    replenishmentorder.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.ReplenishmentOrder.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.ReplenishmentOrderOutput{ReplenishmentOrder: updated}, nil
+}
+
+// PatchReplenishmentOrderItemData applies RFC 6902 JSON Patch operations to the replenishment order item's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchReplenishmentOrderItemData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.ReplenishmentOrderItemOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.ReplenishmentOrderItem.Query().Where(replenishmentorderitem.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    replenishmentorderitem.Table,
+		FieldName:    replenishmentorderitem.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.ReplenishmentOrderItem.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.ReplenishmentOrderItemOutput{ReplenishmentOrderItem: updated}, nil
 }
 
 // Mutation returns m.MutationResolver implementation.

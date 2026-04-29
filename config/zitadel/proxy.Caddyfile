@@ -1,0 +1,19 @@
+{
+	auto_https off
+	servers {
+		protocols h1 h2c
+	}
+}
+
+:8080 {
+	request_header Host "localhost:8080"
+	reverse_proxy zitadel:8080 {
+		transport http {
+			versions h2c 2
+		}
+	}
+}
+
+:3000 {
+	reverse_proxy zitadel-login:3000
+}

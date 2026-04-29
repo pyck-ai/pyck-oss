@@ -20,8 +20,8 @@ directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on
 
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
-type AccessPolicy implements NodeDataType
-  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
+type AccessPolicy implements Node
+  @join__implements(graph: MANAGEMENT, interface: "Node")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -227,8 +227,30 @@ input AccessPolicyWhereInput
   hasRoleWith: [RoleWhereInput!]
 }
 
+type ActionDefinition
+  @join__type(graph: WORKFLOW)
+{
+  name: String!
+  description: String
+  enabled: Boolean!
+}
+
 scalar Any
   @join__type(graph: WORKFLOW)
+
+input CancelWorkflowInput
+  @join__type(graph: WORKFLOW)
+{
+  workflowID: String!
+  workflowRunID: String!
+}
+
+type CancelWorkflowPayload
+  @join__type(graph: WORKFLOW)
+{
+  workflowID: String!
+  workflowRunID: String!
+}
 
 input CheckInUserDeviceInput
   @join__type(graph: MANAGEMENT)
@@ -1053,8 +1075,8 @@ input DataBoolInput
   value: Boolean
 }
 
-type DataType implements NodeDataType
-  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
+type DataType implements Node
+  @join__implements(graph: MANAGEMENT, interface: "Node")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -1318,8 +1340,8 @@ input DataTypeWhereInput
   entityContainsFold: String
 }
 
-type Device implements NodeDataType
-  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
+type Device implements Node
+  @join__implements(graph: MANAGEMENT, interface: "Node")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -1410,8 +1432,8 @@ type DeviceEdge
   cursor: Cursor!
 }
 
-type DeviceLocation implements NodeDataType
-  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
+type DeviceLocation implements Node
+  @join__implements(graph: MANAGEMENT, interface: "Node")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -1667,8 +1689,8 @@ type DeviceOutput
   workflows: [TemporalWorkflow!]!
 }
 
-type DeviceUser implements NodeDataType
-  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
+type DeviceUser implements Node
+  @join__implements(graph: MANAGEMENT, interface: "Node")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -2000,14 +2022,14 @@ input DeviceWhereInput
   DataContains: [String!]
 }
 
-type EntityEventsOutbox implements NodeFile & NodeInventory & Node & NodeDataType & NodePicking & NodeReceiving & NodeWorkflow
-  @join__implements(graph: FILE, interface: "NodeFile")
-  @join__implements(graph: INVENTORY, interface: "NodeInventory")
+type EntityEventsOutbox implements Node
+  @join__implements(graph: FILE, interface: "Node")
+  @join__implements(graph: INVENTORY, interface: "Node")
   @join__implements(graph: MAINDATA, interface: "Node")
-  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
-  @join__implements(graph: PICKING, interface: "NodePicking")
-  @join__implements(graph: RECEIVING, interface: "NodeReceiving")
-  @join__implements(graph: WORKFLOW, interface: "NodeWorkflow")
+  @join__implements(graph: MANAGEMENT, interface: "Node")
+  @join__implements(graph: PICKING, interface: "Node")
+  @join__implements(graph: RECEIVING, interface: "Node")
+  @join__implements(graph: WORKFLOW, interface: "Node")
   @join__type(graph: FILE)
   @join__type(graph: INVENTORY)
   @join__type(graph: MAINDATA)
@@ -2027,6 +2049,10 @@ type EntityEventsOutbox implements NodeFile & NodeInventory & Node & NodeDataTyp
   retryCount: Int!
   lastError: String
   deadAt: Time
+  nextRetryAt: Time
+  entityType: String
+  entityID: UUID
+  tenantID: UUID
 }
 
 """
@@ -2162,10 +2188,63 @@ input EntityEventsOutboxWhereInput
   deadAtLTE: Time
   deadAtIsNil: Boolean
   deadAtNotNil: Boolean
+
+  """next_retry_at field predicates"""
+  nextRetryAt: Time
+  nextRetryAtNEQ: Time
+  nextRetryAtIn: [Time!]
+  nextRetryAtNotIn: [Time!]
+  nextRetryAtGT: Time
+  nextRetryAtGTE: Time
+  nextRetryAtLT: Time
+  nextRetryAtLTE: Time
+  nextRetryAtIsNil: Boolean
+  nextRetryAtNotNil: Boolean
+
+  """entity_type field predicates"""
+  entityType: String
+  entityTypeNEQ: String
+  entityTypeIn: [String!]
+  entityTypeNotIn: [String!]
+  entityTypeGT: String
+  entityTypeGTE: String
+  entityTypeLT: String
+  entityTypeLTE: String
+  entityTypeContains: String
+  entityTypeHasPrefix: String
+  entityTypeHasSuffix: String
+  entityTypeIsNil: Boolean
+  entityTypeNotNil: Boolean
+  entityTypeEqualFold: String
+  entityTypeContainsFold: String
+
+  """entity_id field predicates"""
+  entityID: UUID
+  entityIDNEQ: UUID
+  entityIDIn: [UUID!]
+  entityIDNotIn: [UUID!]
+  entityIDGT: UUID
+  entityIDGTE: UUID
+  entityIDLT: UUID
+  entityIDLTE: UUID
+  entityIDIsNil: Boolean
+  entityIDNotNil: Boolean
+
+  """tenant_id field predicates"""
+  tenantID: UUID
+  tenantIDNEQ: UUID
+  tenantIDIn: [UUID!]
+  tenantIDNotIn: [UUID!]
+  tenantIDGT: UUID
+  tenantIDGTE: UUID
+  tenantIDLT: UUID
+  tenantIDLTE: UUID
+  tenantIDIsNil: Boolean
+  tenantIDNotNil: Boolean
 }
 
-type Event implements NodeDataType
-  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
+type Event implements Node
+  @join__implements(graph: MANAGEMENT, interface: "Node")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -2349,8 +2428,8 @@ input EventWhereInput
   descriptionContainsFold: String
 }
 
-type File implements NodeFile
-  @join__implements(graph: FILE, interface: "NodeFile")
+type File implements Node
+  @join__implements(graph: FILE, interface: "Node")
   @join__type(graph: FILE, key: "id")
 {
   id: ID!
@@ -2682,6 +2761,20 @@ type GetPreSignedUploadUrlPayload
   url: String
 }
 
+input GetWorkflowActionsInput
+  @join__type(graph: WORKFLOW)
+{
+  workflowId: String!
+  workflowExecutionId: String!
+}
+
+type GetWorkflowActionsResponse
+  @join__type(graph: WORKFLOW)
+{
+  queries: [ActionDefinition!]!
+  updates: [ActionDefinition!]!
+}
+
 input GetWorkflowAssigneeInput
   @join__type(graph: WORKFLOW)
 {
@@ -2695,8 +2788,34 @@ type GetWorkflowAssigneeResponse
   assignee: String!
 }
 
-type Group implements NodeDataType
-  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
+input GetWorkflowIsAssignableInput
+  @join__type(graph: WORKFLOW)
+{
+  workflowId: String!
+  workflowExecutionId: String!
+}
+
+type GetWorkflowIsAssignableResponse
+  @join__type(graph: WORKFLOW)
+{
+  isAssignable: Boolean!
+}
+
+input GetWorkflowTargetsInput
+  @join__type(graph: WORKFLOW)
+{
+  workflowId: String!
+  workflowExecutionId: String!
+}
+
+type GetWorkflowTargetsResponse
+  @join__type(graph: WORKFLOW)
+{
+  targets: [WorkflowTarget!]!
+}
+
+type Group implements Node
+  @join__implements(graph: MANAGEMENT, interface: "Node")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -2932,8 +3051,8 @@ type ImageAnalysisResponse
   jsonData: String!
 }
 
-type InventoryCollection implements NodeInventory
-  @join__implements(graph: INVENTORY, interface: "NodeInventory")
+type InventoryCollection implements Node
+  @join__implements(graph: INVENTORY, interface: "Node")
   @join__type(graph: INVENTORY)
 {
   id: ID!
@@ -3139,8 +3258,8 @@ input InventoryCollectionWhereInput
   DataContains: [String!]
 }
 
-type InventoryItem implements NodeInventory
-  @join__implements(graph: INVENTORY, interface: "NodeInventory")
+type InventoryItem implements Node
+  @join__implements(graph: INVENTORY, interface: "Node")
   @join__type(graph: FILE, key: "id")
   @join__type(graph: INVENTORY, key: "sku")
 {
@@ -3247,8 +3366,8 @@ type InventoryItemOutput
   workflows: [TemporalWorkflow]
 }
 
-type InventoryItemSet implements NodeInventory
-  @join__implements(graph: INVENTORY, interface: "NodeInventory")
+type InventoryItemSet implements Node
+  @join__implements(graph: INVENTORY, interface: "Node")
   @join__type(graph: INVENTORY)
 {
   id: ID!
@@ -3652,8 +3771,8 @@ type InventoryRepositoryOutput
   workflows: [TemporalWorkflow]
 }
 
-type ItemMovement implements NodeInventory
-  @join__implements(graph: INVENTORY, interface: "NodeInventory")
+type ItemMovement implements Node
+  @join__implements(graph: INVENTORY, interface: "Node")
   @join__type(graph: INVENTORY)
 {
   id: ID!
@@ -4004,6 +4123,83 @@ enum join__Graph {
   WORKFLOW @join__graph(name: "workflow", url: "http://localhost:8089/query")
 }
 
+"""
+A single RFC 6902 JSON Patch operation.
+See: https://datatracker.ietf.org/doc/html/rfc6902
+
+Path uses JSON Pointer syntax (RFC 6901):
+- "/name" targets the field "name"
+- "/address/city" targets a nested field
+- "/tags/0" targets an array element by index
+- "/tags/-" appends to an array (ADD only)
+
+Value must be a JSON-encoded string:
+- String: "\"Alice\""
+- Number: "42"
+- Object: "{\"key\": \"value\"}"
+- Array: "[1, 2, 3]"
+- Boolean: "true"
+- Null: "null"
+
+Examples:
+  { op: ADD, path: "/address/city", value: "\"NYC\"" }
+  { op: REMOVE, path: "/oldField" }
+  { op: REPLACE, path: "/quantity", value: "100" }
+  { op: MOVE, from: "/temp", path: "/permanent" }
+  { op: TEST, path: "/version", value: "\"1.0\"" }
+"""
+input JSONPatchInput
+  @join__type(graph: FILE)
+  @join__type(graph: INVENTORY)
+  @join__type(graph: MAINDATA)
+  @join__type(graph: MANAGEMENT)
+  @join__type(graph: PICKING)
+  @join__type(graph: RECEIVING)
+{
+  """The operation to perform."""
+  op: JSONPatchOp!
+
+  """JSON Pointer (RFC 6901) to the target location."""
+  path: String!
+
+  """JSON-encoded value (required for ADD, REPLACE, TEST)."""
+  value: String
+
+  """Source JSON Pointer for MOVE and COPY operations."""
+  from: String
+}
+
+"""
+RFC 6902 JSON Patch operation type.
+See: https://datatracker.ietf.org/doc/html/rfc6902
+"""
+enum JSONPatchOp
+  @join__type(graph: FILE)
+  @join__type(graph: INVENTORY)
+  @join__type(graph: MAINDATA)
+  @join__type(graph: MANAGEMENT)
+  @join__type(graph: PICKING)
+  @join__type(graph: RECEIVING)
+{
+  """Insert or set a value at the target path."""
+  ADD @join__enumValue(graph: FILE) @join__enumValue(graph: INVENTORY) @join__enumValue(graph: MAINDATA) @join__enumValue(graph: MANAGEMENT) @join__enumValue(graph: PICKING) @join__enumValue(graph: RECEIVING)
+
+  """Delete the value at the target path."""
+  REMOVE @join__enumValue(graph: FILE) @join__enumValue(graph: INVENTORY) @join__enumValue(graph: MAINDATA) @join__enumValue(graph: MANAGEMENT) @join__enumValue(graph: PICKING) @join__enumValue(graph: RECEIVING)
+
+  """Update an existing value at the target path."""
+  REPLACE @join__enumValue(graph: FILE) @join__enumValue(graph: INVENTORY) @join__enumValue(graph: MAINDATA) @join__enumValue(graph: MANAGEMENT) @join__enumValue(graph: PICKING) @join__enumValue(graph: RECEIVING)
+
+  """Move a value from one path to another (requires from)."""
+  MOVE @join__enumValue(graph: FILE) @join__enumValue(graph: INVENTORY) @join__enumValue(graph: MAINDATA) @join__enumValue(graph: MANAGEMENT) @join__enumValue(graph: PICKING) @join__enumValue(graph: RECEIVING)
+
+  """Copy a value from one path to another (requires from)."""
+  COPY @join__enumValue(graph: FILE) @join__enumValue(graph: INVENTORY) @join__enumValue(graph: MAINDATA) @join__enumValue(graph: MANAGEMENT) @join__enumValue(graph: PICKING) @join__enumValue(graph: RECEIVING)
+
+  """Assert a value equals the expected; fails the entire patch if not."""
+  TEST @join__enumValue(graph: FILE) @join__enumValue(graph: INVENTORY) @join__enumValue(graph: MAINDATA) @join__enumValue(graph: MANAGEMENT) @join__enumValue(graph: PICKING) @join__enumValue(graph: RECEIVING)
+}
+
 """JSON type for casting extracted JSONB values during ordering."""
 enum JSONType
   @join__type(graph: FILE)
@@ -4024,8 +4220,8 @@ enum JSONType
   BOOLEAN @join__enumValue(graph: FILE) @join__enumValue(graph: INVENTORY) @join__enumValue(graph: MAINDATA) @join__enumValue(graph: MANAGEMENT) @join__enumValue(graph: PICKING) @join__enumValue(graph: RECEIVING) @join__enumValue(graph: WORKFLOW)
 }
 
-type KeyValue implements NodeDataType
-  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
+type KeyValue implements Node
+  @join__implements(graph: MANAGEMENT, interface: "Node")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -4252,8 +4448,8 @@ enum link__Purpose {
   EXECUTION
 }
 
-type Location implements NodeDataType
-  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
+type Location implements Node
+  @join__implements(graph: MANAGEMENT, interface: "Node")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -4512,6 +4708,9 @@ type Mutation
   updateFile(id: ID!, input: UpdateFileInput!): File @join__field(graph: FILE)
   deleteFile(id: ID!): FileDeletePayload! @join__field(graph: FILE)
   analyzeImageFile(id: ID!): ImageAnalysisResponse! @join__field(graph: FILE)
+
+  """Apply RFC 6902 JSON Patch operations to the file's data field."""
+  patchFileData(id: ID!, patches: [JSONPatchInput!]!): File @join__field(graph: FILE)
   createInventoryItem(input: CreateInventoryItemInput!): InventoryItemOutput @join__field(graph: INVENTORY)
   updateInventoryItem(id: ID!, input: UpdateInventoryItemInput!): InventoryItemOutput @join__field(graph: INVENTORY)
   deleteInventoryItem(id: ID!): InventoryItemDeletePayload! @join__field(graph: INVENTORY)
@@ -4540,12 +4739,52 @@ type Mutation
   createReplenishmentOrderItem(input: CreateReplenishmentOrderItemInput!): ReplenishmentOrderItemOutput @join__field(graph: INVENTORY)
   updateReplenishmentOrderItem(id: ID!, input: UpdateReplenishmentOrderItemInput!): ReplenishmentOrderItemOutput @join__field(graph: INVENTORY)
   deleteReplenishmentOrderItem(id: ID!): ReplenishmentOrderItemDeletePayload! @join__field(graph: INVENTORY)
+
+  """Apply RFC 6902 JSON Patch operations to the item's data field."""
+  patchInventoryItemData(id: ID!, patches: [JSONPatchInput!]!): InventoryItemOutput @join__field(graph: INVENTORY)
+
+  """Apply RFC 6902 JSON Patch operations to the repository's data field."""
+  patchInventoryRepositoryData(id: ID!, patches: [JSONPatchInput!]!): InventoryRepositoryOutput @join__field(graph: INVENTORY)
+
+  """
+  Apply RFC 6902 JSON Patch operations to the item movement's data field.
+  """
+  patchInventoryItemMovementData(id: ID!, patches: [JSONPatchInput!]!): InventoryItemMovementOutput @join__field(graph: INVENTORY)
+
+  """
+  Apply RFC 6902 JSON Patch operations to the repository movement's data field.
+  """
+  patchInventoryRepositoryMovementData(id: ID!, patches: [JSONPatchInput!]!): InventoryRepositoryMovementOutput @join__field(graph: INVENTORY)
+
+  """
+  Apply RFC 6902 JSON Patch operations to the collection movement's data field.
+  """
+  patchInventoryCollectionMovementData(id: ID!, patches: [JSONPatchInput!]!): UpdateCollectionMovementOutput @join__field(graph: INVENTORY)
+
+  """Apply RFC 6902 JSON Patch operations to the item set's data field."""
+  patchInventoryItemSetData(id: ID!, patches: [JSONPatchInput!]!): InventoryItemSetOutput @join__field(graph: INVENTORY)
+
+  """
+  Apply RFC 6902 JSON Patch operations to the replenishment order's data field.
+  """
+  patchReplenishmentOrderData(id: ID!, patches: [JSONPatchInput!]!): ReplenishmentOrderOutput @join__field(graph: INVENTORY)
+
+  """
+  Apply RFC 6902 JSON Patch operations to the replenishment order item's data field.
+  """
+  patchReplenishmentOrderItemData(id: ID!, patches: [JSONPatchInput!]!): ReplenishmentOrderItemOutput @join__field(graph: INVENTORY)
   createCustomer(input: CreateCustomerInput!): Customer @join__field(graph: MAINDATA)
   updateCustomer(id: ID!, input: UpdateCustomerInput!): Customer @join__field(graph: MAINDATA)
   deleteCustomer(id: ID!): CustomerDeletePayload! @join__field(graph: MAINDATA)
   createSupplier(input: CreateSupplierInput!): Supplier @join__field(graph: MAINDATA)
   updateSupplier(id: ID!, input: UpdateSupplierInput!): Supplier @join__field(graph: MAINDATA)
   deleteSupplier(id: ID!): SupplierDeletePayload! @join__field(graph: MAINDATA)
+
+  """Apply RFC 6902 JSON Patch operations to the customer's data field."""
+  patchCustomerData(id: ID!, patches: [JSONPatchInput!]!): Customer @join__field(graph: MAINDATA)
+
+  """Apply RFC 6902 JSON Patch operations to the supplier's data field."""
+  patchSupplierData(id: ID!, patches: [JSONPatchInput!]!): Supplier @join__field(graph: MAINDATA)
   createDataType(input: CreateDataTypeInput!): DataType @join__field(graph: MANAGEMENT)
   updateDataType(id: ID!, input: UpdateDataTypeInput!): DataType @join__field(graph: MANAGEMENT)
   deleteDataType(id: ID!): DataTypeDeletePayload! @join__field(graph: MANAGEMENT)
@@ -4579,6 +4818,17 @@ type Mutation
   unsetDeviceLocation(id: ID!): DeviceLocationDeletePayload! @join__field(graph: MANAGEMENT)
   checkInUserDevice(input: CheckInUserDeviceInput!): CheckInUserDeviceOutput! @join__field(graph: MANAGEMENT)
   checkOutUserDevice(input: CheckOutUserDeviceInput!): CheckOutUserDeviceOutput! @join__field(graph: MANAGEMENT)
+
+  """Apply RFC 6902 JSON Patch operations to the location's data field."""
+  patchLocationData(id: ID!, patches: [JSONPatchInput!]!): LocationOutput! @join__field(graph: MANAGEMENT)
+
+  """Apply RFC 6902 JSON Patch operations to the device's data field."""
+  patchDeviceData(id: ID!, patches: [JSONPatchInput!]!): DeviceOutput! @join__field(graph: MANAGEMENT)
+
+  """
+  Apply RFC 6902 JSON Patch operations to the device location's data field.
+  """
+  patchDeviceLocationData(id: ID!, patches: [JSONPatchInput!]!): DeviceLocationOutput! @join__field(graph: MANAGEMENT)
   createPickingOrder(input: CreatePickingOrderWithItemsInput!): PickingOrderOutput @join__field(graph: PICKING)
   updatePickingOrder(id: ID!, input: UpdatePickingOrderInput!): PickingOrderOutput @join__field(graph: PICKING)
   deletePickingOrder(id: ID!): PickingOrderDeletePayload! @join__field(graph: PICKING)
@@ -4588,6 +4838,21 @@ type Mutation
   createPickingOutboundShipmentNotification(input: CreatePickingOutboundShipmentNotificationInput!): PickingOutboundShipmentNotificationOutput @join__field(graph: PICKING)
   updatePickingOutboundShipmentNotification(id: ID!, input: UpdatePickingOutboundShipmentNotificationInput!): PickingOutboundShipmentNotificationOutput @join__field(graph: PICKING)
   deletePickingOutboundShipmentNotification(id: ID!): PickingOutboundShipmentNotificationDeletePayload! @join__field(graph: PICKING)
+
+  """
+  Apply RFC 6902 JSON Patch operations to the picking order's data field.
+  """
+  patchPickingOrderData(id: ID!, patches: [JSONPatchInput!]!): PickingOrderOutput @join__field(graph: PICKING)
+
+  """
+  Apply RFC 6902 JSON Patch operations to the picking order item's data field.
+  """
+  patchPickingOrderItemData(id: ID!, patches: [JSONPatchInput!]!): PickingOrderItemOutput @join__field(graph: PICKING)
+
+  """
+  Apply RFC 6902 JSON Patch operations to the picking outbound shipment notification's data field.
+  """
+  patchPickingOutboundShipmentNotificationData(id: ID!, patches: [JSONPatchInput!]!): PickingOutboundShipmentNotificationOutput @join__field(graph: PICKING)
   createReceivingInbound(input: CreateReceivingInboundWithItemsInput!): ReceivingInboundOutput @join__field(graph: RECEIVING)
   updateReceivingInbound(id: ID!, input: UpdateReceivingInboundInput!): ReceivingInboundOutput @join__field(graph: RECEIVING)
   deleteReceivingInbound(id: ID!): ReceivingInboundDeletePayload! @join__field(graph: RECEIVING)
@@ -4597,11 +4862,40 @@ type Mutation
   createReceivingInboundShipmentNotification(input: CreateReceivingInboundShipmentNotificationInput!): ReceivingInboundShipmentNotificationOutput @join__field(graph: RECEIVING)
   updateReceivingInboundShipmentNotification(id: ID!, input: UpdateReceivingInboundShipmentNotificationInput!): ReceivingInboundShipmentNotificationOutput @join__field(graph: RECEIVING)
   deleteReceivingInboundShipmentNotification(id: ID!): ReceivingInboundShipmentNotificationDeletePayload! @join__field(graph: RECEIVING)
+
+  """Apply RFC 6902 JSON Patch operations to the inbound's data field."""
+  patchReceivingInboundData(id: ID!, patches: [JSONPatchInput!]!): ReceivingInboundOutput @join__field(graph: RECEIVING)
+
+  """Apply RFC 6902 JSON Patch operations to the inbound item's data field."""
+  patchReceivingInboundItemData(id: ID!, patches: [JSONPatchInput!]!): ReceivingInboundItemOutput @join__field(graph: RECEIVING)
+
+  """
+  Apply RFC 6902 JSON Patch operations to the receiving inbound shipment notification's data field.
+  """
+  patchReceivingInboundShipmentNotificationData(id: ID!, patches: [JSONPatchInput!]!): ReceivingInboundShipmentNotificationOutput @join__field(graph: RECEIVING)
   ensureTemporalNamespace: Boolean! @join__field(graph: WORKFLOW)
   submitUserDataInput(input: SubmitUserDataInputInput!): SubmitUserDataInputResponse! @join__field(graph: WORKFLOW)
-  setWorkflowAssignee(input: SetWorkflowAssigneeInput!): SetWorkflowAssigneeResponse @join__field(graph: WORKFLOW)
   registerWorkflow(input: RegisterWorkflowWithSignalsInput!): Workflow @join__field(graph: WORKFLOW)
   deleteWorkflow(id: ID!): WorkflowDeletePayload! @join__field(graph: WORKFLOW)
+  cancelWorkflow(input: CancelWorkflowInput!): CancelWorkflowPayload! @join__field(graph: WORKFLOW)
+  setWorkflowAssignee(input: SetWorkflowAssigneeInput!): SetWorkflowAssigneeResponse @join__field(graph: WORKFLOW)
+
+  """
+  Toggle the `pyck_workflow_is_assignable` search attribute on a running
+  workflow execution. The workflow must be running and must have been
+  registered with a `WorkflowIsAssignableSetter` handler via
+  `workflowsdk.SetupDefaults`; otherwise Temporal returns
+  "no update handler registered".
+  """
+  setWorkflowIsAssignable(input: SetWorkflowIsAssignableInput!): SetWorkflowIsAssignableResponse @join__field(graph: WORKFLOW)
+
+  """
+  Replace the target surfaces of a running workflow execution. Requires the
+  workflow's state to implement the WorkflowTargetsSetter SDK interface.
+  Passing an empty list clears the search attribute so the workflow no longer
+  matches any targets-based filter.
+  """
+  setWorkflowTargets(input: SetWorkflowTargetsInput!): SetWorkflowTargetsResponse @join__field(graph: WORKFLOW)
 }
 
 """
@@ -4609,72 +4903,12 @@ An object with an ID.
 Follows the [Relay Global Object Identification Specification](https://relay.dev/graphql/objectidentification.htm)
 """
 interface Node
-  @join__type(graph: MAINDATA)
-{
-  """The id of the object."""
-  id: ID!
-}
-
-"""
-An object with an ID.
-Follows the [Relay Global Object Identification Specification](https://relay.dev/graphql/objectidentification.htm)
-"""
-interface NodeDataType
-  @join__type(graph: MANAGEMENT)
-{
-  """The id of the object."""
-  id: ID!
-}
-
-"""
-An object with an ID.
-Follows the [Relay Global Object Identification Specification](https://relay.dev/graphql/objectidentification.htm)
-"""
-interface NodeFile
   @join__type(graph: FILE)
-{
-  """The id of the object."""
-  id: ID!
-}
-
-"""
-An object with an ID.
-Follows the [Relay Global Object Identification Specification](https://relay.dev/graphql/objectidentification.htm)
-"""
-interface NodeInventory
   @join__type(graph: INVENTORY)
-{
-  """The id of the object."""
-  id: ID!
-}
-
-"""
-An object with an ID.
-Follows the [Relay Global Object Identification Specification](https://relay.dev/graphql/objectidentification.htm)
-"""
-interface NodePicking
+  @join__type(graph: MAINDATA)
+  @join__type(graph: MANAGEMENT)
   @join__type(graph: PICKING)
-{
-  """The id of the object."""
-  id: ID!
-}
-
-"""
-An object with an ID.
-Follows the [Relay Global Object Identification Specification](https://relay.dev/graphql/objectidentification.htm)
-"""
-interface NodeReceiving
   @join__type(graph: RECEIVING)
-{
-  """The id of the object."""
-  id: ID!
-}
-
-"""
-An object with an ID.
-Follows the [Relay Global Object Identification Specification](https://relay.dev/graphql/objectidentification.htm)
-"""
-interface NodeWorkflow
   @join__type(graph: WORKFLOW)
 {
   """The id of the object."""
@@ -4726,8 +4960,8 @@ type PageInfo
   endCursor: Cursor
 }
 
-type PickingOrder implements NodePicking
-  @join__implements(graph: PICKING, interface: "NodePicking")
+type PickingOrder implements Node
+  @join__implements(graph: PICKING, interface: "Node")
   @join__type(graph: FILE, key: "id")
   @join__type(graph: PICKING, key: "id")
 {
@@ -4824,8 +5058,8 @@ type PickingOrderEdge
   cursor: Cursor!
 }
 
-type PickingOrderItem implements NodePicking
-  @join__implements(graph: PICKING, interface: "NodePicking")
+type PickingOrderItem implements Node
+  @join__implements(graph: PICKING, interface: "Node")
   @join__type(graph: INVENTORY, key: "sku")
   @join__type(graph: PICKING, key: "sku")
 {
@@ -5453,13 +5687,13 @@ type Query
   nodeFile(
     """ID of the object."""
     id: ID!
-  ): NodeFile @join__field(graph: FILE)
+  ): Node @join__field(graph: FILE)
 
   """Lookup nodes by a list of IDs."""
   nodesFile(
     """The list of node IDs."""
     ids: [ID!]!
-  ): [NodeFile]! @join__field(graph: FILE)
+  ): [Node]! @join__field(graph: FILE)
   files(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor
@@ -5487,13 +5721,13 @@ type Query
   nodeInventory(
     """ID of the object."""
     id: ID!
-  ): NodeInventory @join__field(graph: INVENTORY)
+  ): Node @join__field(graph: INVENTORY)
 
   """Lookup nodes by a list of IDs."""
   nodesInventory(
     """The list of node IDs."""
     ids: [ID!]!
-  ): [NodeInventory]! @join__field(graph: INVENTORY)
+  ): [Node]! @join__field(graph: INVENTORY)
   inventoryCollections(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor
@@ -5778,13 +6012,13 @@ type Query
   nodeDataType(
     """ID of the object."""
     id: ID!
-  ): NodeDataType @join__field(graph: MANAGEMENT)
+  ): Node @join__field(graph: MANAGEMENT)
 
   """Lookup nodes by a list of IDs."""
   nodesDataType(
     """The list of node IDs."""
     ids: [ID!]!
-  ): [NodeDataType]! @join__field(graph: MANAGEMENT)
+  ): [Node]! @join__field(graph: MANAGEMENT)
   accessPolicies(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor
@@ -6054,13 +6288,13 @@ type Query
   nodePicking(
     """ID of the object."""
     id: ID!
-  ): NodePicking @join__field(graph: PICKING)
+  ): Node @join__field(graph: PICKING)
 
   """Lookup nodes by a list of IDs."""
   nodesPicking(
     """The list of node IDs."""
     ids: [ID!]!
-  ): [NodePicking]! @join__field(graph: PICKING)
+  ): [Node]! @join__field(graph: PICKING)
   pickingOrders(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor
@@ -6134,13 +6368,13 @@ type Query
   nodeReceiving(
     """ID of the object."""
     id: ID!
-  ): NodeReceiving @join__field(graph: RECEIVING)
+  ): Node @join__field(graph: RECEIVING)
 
   """Lookup nodes by a list of IDs."""
   nodesReceiving(
     """The list of node IDs."""
     ids: [ID!]!
-  ): [NodeReceiving]! @join__field(graph: RECEIVING)
+  ): [Node]! @join__field(graph: RECEIVING)
   receivingInbounds(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor
@@ -6218,13 +6452,13 @@ type Query
   nodeWorkflow(
     """ID of the object."""
     id: ID!
-  ): NodeWorkflow @join__field(graph: WORKFLOW)
+  ): Node @join__field(graph: WORKFLOW)
 
   """Lookup nodes by a list of IDs."""
   nodesWorkflow(
     """The list of node IDs."""
     ids: [ID!]!
-  ): [NodeWorkflow]! @join__field(graph: WORKFLOW)
+  ): [Node]! @join__field(graph: WORKFLOW)
   workflows(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor
@@ -6269,7 +6503,6 @@ type Query
   ): WorkflowSignalConnection! @join__field(graph: WORKFLOW)
   workflowServiceInfo: ServiceInfo! @join__field(graph: WORKFLOW)
   currentUserDataInput(input: UserDataInputQueryInput!): CurrentUserDataInput @join__field(graph: WORKFLOW)
-  workflowAssignee(input: GetWorkflowAssigneeInput!): GetWorkflowAssigneeResponse! @join__field(graph: WORKFLOW)
 
   """
   List workflow executions with pagination support.
@@ -6295,9 +6528,7 @@ type Query
 
   """
   List assignable workflow executions with pagination support.
-  Returns only workflows that have user tasks (ActivityCount > 0 in UserDataInput).
-  Workflows without user task handlers or with no pending activities are excluded.
-  Uses the same pagination interface as workflowExecutions.
+  Shorthand for `workflowExecutions(where: {isAssignable: true})`.
   """
   assignableWorkflowExecutions(
     """Filter criteria for workflow executions."""
@@ -6311,7 +6542,7 @@ type Query
 
     """Ordering options for the returned list."""
     orderBy: WorkflowExecutionOrder
-  ): WorkflowExecutionInfoConnection! @join__field(graph: WORKFLOW)
+  ): WorkflowExecutionInfoConnection! @join__field(graph: WORKFLOW) @deprecated(reason: "Use workflowExecutions(where: {isAssignable: true}) instead. This wrapper will be removed in a future release.")
 
   """
   Fetch workflow history for executions matching filter criteria.
@@ -6328,6 +6559,24 @@ type Query
     """
     limit: Int
   ): WorkflowExecutionHistoryConnection! @join__field(graph: WORKFLOW)
+  workflowActions(input: GetWorkflowActionsInput!, where: WorkflowActionsWhereInput): GetWorkflowActionsResponse! @join__field(graph: WORKFLOW)
+  workflowAssignee(input: GetWorkflowAssigneeInput!): GetWorkflowAssigneeResponse! @join__field(graph: WORKFLOW)
+
+  """
+  Returns whether the given workflow execution is currently assignable.
+  
+  Reads the `pyck_workflow_is_assignable` Temporal search attribute on the
+  execution. Workflows that never wrote the attribute are treated as
+  assignable (returns `true`) — matching the SDK's default behaviour for
+  workflows that didn't opt in via `workflowsdk.WorkflowIsAssignableSetter`.
+  """
+  workflowIsAssignable(input: GetWorkflowIsAssignableInput!): GetWorkflowIsAssignableResponse! @join__field(graph: WORKFLOW)
+
+  """
+  Read the current target surfaces of a single workflow execution. Returns an
+  empty list when the workflow has not declared any targets.
+  """
+  workflowTargets(input: GetWorkflowTargetsInput!): GetWorkflowTargetsResponse! @join__field(graph: WORKFLOW)
 }
 
 type RebuildStockOutput
@@ -6336,8 +6585,8 @@ type RebuildStockOutput
   success: Boolean!
 }
 
-type ReceivingInbound implements NodeReceiving
-  @join__implements(graph: RECEIVING, interface: "NodeReceiving")
+type ReceivingInbound implements Node
+  @join__implements(graph: RECEIVING, interface: "Node")
   @join__type(graph: RECEIVING)
 {
   id: ID!
@@ -6437,8 +6686,8 @@ type ReceivingInboundEdge
   cursor: Cursor!
 }
 
-type ReceivingInboundItem implements NodeReceiving
-  @join__implements(graph: RECEIVING, interface: "NodeReceiving")
+type ReceivingInboundItem implements Node
+  @join__implements(graph: RECEIVING, interface: "Node")
   @join__type(graph: RECEIVING)
 {
   id: ID!
@@ -7110,8 +7359,8 @@ input RegisterWorkflowWithSignalsInput
   signals: [RegisterWorkflowSignalInput!]
 }
 
-type ReplenishmentOrder implements NodeInventory
-  @join__implements(graph: INVENTORY, interface: "NodeInventory")
+type ReplenishmentOrder implements Node
+  @join__implements(graph: INVENTORY, interface: "Node")
   @join__type(graph: INVENTORY)
 {
   id: ID!
@@ -7185,8 +7434,8 @@ type ReplenishmentOrderEdge
   cursor: Cursor!
 }
 
-type ReplenishmentOrderItem implements NodeInventory
-  @join__implements(graph: INVENTORY, interface: "NodeInventory")
+type ReplenishmentOrderItem implements Node
+  @join__implements(graph: INVENTORY, interface: "Node")
   @join__type(graph: INVENTORY, key: "id")
 {
   id: ID!
@@ -7585,8 +7834,8 @@ input ReplenishmentOrderWhereInput
   DataContains: [String!]
 }
 
-type Repository implements NodeInventory
-  @join__implements(graph: INVENTORY, interface: "NodeInventory")
+type Repository implements Node
+  @join__implements(graph: INVENTORY, interface: "Node")
   @join__type(graph: FILE, key: "id")
   @join__type(graph: INVENTORY, key: "id")
 {
@@ -7816,8 +8065,8 @@ type RepositoryEdge
   cursor: Cursor!
 }
 
-type RepositoryMovement implements NodeInventory
-  @join__implements(graph: INVENTORY, interface: "NodeInventory")
+type RepositoryMovement implements Node
+  @join__implements(graph: INVENTORY, interface: "Node")
   @join__type(graph: INVENTORY)
 {
   id: ID!
@@ -8422,8 +8671,8 @@ input RepositoryWhereInput
   DataContainsBool: DataBoolInput
 }
 
-type Role implements NodeDataType
-  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
+type Role implements Node
+  @join__implements(graph: MANAGEMENT, interface: "Node")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -8726,11 +8975,39 @@ input SetWorkflowAssigneeInput
 type SetWorkflowAssigneeResponse
   @join__type(graph: WORKFLOW)
 {
-  assignee: String!
+  assignee: String
 }
 
-type Stock implements NodeInventory
-  @join__implements(graph: INVENTORY, interface: "NodeInventory")
+input SetWorkflowIsAssignableInput
+  @join__type(graph: WORKFLOW)
+{
+  workflowId: String!
+  workflowExecutionId: String!
+  isAssignable: Boolean!
+}
+
+type SetWorkflowIsAssignableResponse
+  @join__type(graph: WORKFLOW)
+{
+  isAssignable: Boolean!
+}
+
+input SetWorkflowTargetsInput
+  @join__type(graph: WORKFLOW)
+{
+  workflowId: String!
+  workflowExecutionId: String!
+  targets: [WorkflowTarget!]!
+}
+
+type SetWorkflowTargetsResponse
+  @join__type(graph: WORKFLOW)
+{
+  targets: [WorkflowTarget!]!
+}
+
+type Stock implements Node
+  @join__implements(graph: INVENTORY, interface: "Node")
   @join__type(graph: INVENTORY)
 {
   id: ID!
@@ -9217,8 +9494,8 @@ type TemporalWorkflow
   runID: String!
 }
 
-type Tenant implements NodeDataType
-  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
+type Tenant implements Node
+  @join__implements(graph: MANAGEMENT, interface: "Node")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -9451,8 +9728,8 @@ scalar Time
   @join__type(graph: RECEIVING)
   @join__type(graph: WORKFLOW)
 
-type Transaction implements NodeInventory
-  @join__implements(graph: INVENTORY, interface: "NodeInventory")
+type Transaction implements Node
+  @join__implements(graph: INVENTORY, interface: "Node")
   @join__type(graph: INVENTORY)
 {
   id: ID!
@@ -9791,8 +10068,8 @@ input UpdateFileInput
   reftype: FileReftype
   description: String
   clearDescription: Boolean
-  alias: String
-  clearAlias: Boolean
+  publicAlias: String
+  clearPublicAlias: Boolean
 }
 
 """
@@ -10239,8 +10516,8 @@ input UpdateWorkflowSignalInput
   workflowID: ID
 }
 
-type User implements NodeDataType
-  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
+type User implements Node
+  @join__implements(graph: MANAGEMENT, interface: "Node")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -10601,8 +10878,8 @@ scalar UUID
   @join__type(graph: RECEIVING)
   @join__type(graph: WORKFLOW)
 
-type Workflow implements NodeWorkflow
-  @join__implements(graph: WORKFLOW, interface: "NodeWorkflow")
+type Workflow implements Node
+  @join__implements(graph: WORKFLOW, interface: "Node")
   @join__type(graph: WORKFLOW)
 {
   id: ID!
@@ -10639,6 +10916,13 @@ type Workflow implements NodeWorkflow
     """Filtering options for WorkflowSignals returned from the connection."""
     where: WorkflowSignalWhereInput
   ): WorkflowSignalConnection!
+}
+
+input WorkflowActionsWhereInput
+  @join__type(graph: WORKFLOW)
+{
+  name: String
+  enabled: Boolean
 }
 
 """A connection to a list of items."""
@@ -10916,6 +11200,21 @@ input WorkflowExecutionsWhereInput
   assigneeEqualFold: String
   assigneeContainsFold: String
 
+  """
+  is_assignable field predicate. Matches the pyck_workflow_is_assignable
+  Temporal search attribute.
+  
+  Absent-attribute semantics (default-true):
+    - `isAssignable: true` matches workflows with the attribute set to true
+      OR not set at all. Workflows that never opted in (e.g. those not
+      calling workflowsdk.SetupDefaults with WorkflowIsAssignableSetter)
+      are considered assignable by default.
+    - `isAssignable: false` matches only workflows that explicitly wrote
+      the attribute as false.
+    - omit the field to not filter on assignability at all.
+  """
+  isAssignable: Boolean
+
   """group_by field predicates"""
   groupBy: String
   groupByNEQ: String
@@ -11022,6 +11321,13 @@ input WorkflowExecutionsWhereInput
   dataIdContainsFold: String
   dataIdIsNil: Boolean
   dataIdNotNil: Boolean
+
+  """
+  targets field predicates (KeywordList — matches if the workflow's targets
+  list contains any element of the supplied set; targetsNotIn excludes them).
+  """
+  targets: [WorkflowTarget!]
+  targetsNotIn: [WorkflowTarget!]
 }
 
 type WorkflowMemo
@@ -11081,8 +11387,8 @@ type WorkflowPageInfo
   endCursor: String
 }
 
-type WorkflowSignal implements NodeWorkflow
-  @join__implements(graph: WORKFLOW, interface: "NodeWorkflow")
+type WorkflowSignal implements Node
+  @join__implements(graph: WORKFLOW, interface: "Node")
   @join__type(graph: WORKFLOW)
 {
   id: ID!
@@ -11309,6 +11615,20 @@ input WorkflowSignalWhereInput
   """workflow edge predicates"""
   hasWorkflow: Boolean
   hasWorkflowWith: [WorkflowWhereInput!]
+}
+
+"""
+Client surfaces a workflow can target. Used as values of the
+pyck_workflow_targets KeywordList search attribute. A workflow may declare
+zero, one, or multiple targets — and queries can filter on any subset via the
+`targets` and `targetsNotIn` predicates on WorkflowExecutionsWhereInput.
+"""
+enum WorkflowTarget
+  @join__type(graph: WORKFLOW)
+{
+  WEB @join__enumValue(graph: WORKFLOW)
+  MOBILE @join__enumValue(graph: WORKFLOW)
+  SETUP @join__enumValue(graph: WORKFLOW)
 }
 
 type WorkflowType

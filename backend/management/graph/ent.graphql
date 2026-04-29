@@ -1,5 +1,9 @@
 directive @goField(forceResolver: Boolean, name: String, omittable: Boolean) on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 directive @goModel(model: String, models: [String!], forceGenerate: Boolean) on OBJECT | INPUT_OBJECT | SCALAR | ENUM | INTERFACE | UNION
+"""
+Marks an entity as importable/exportable via the generic import mechanism.
+"""
+directive @pyckImportable(identityField: String!, list: String!, create: String!, update: String) on OBJECT
 type AccessPolicy implements Node {
   id: ID!
   createdAt: Time!
@@ -350,7 +354,7 @@ Define a Relay Cursor type:
 https://relay.dev/graphql/connections.htm#sec-Cursor
 """
 scalar Cursor
-type DataType implements Node {
+type DataType implements Node @pyckImportable(identityField: "name", list: "dataTypes", create: "createDataType", update: "updateDataType") {
   id: ID!
   tenantID: UUID!
   createdAt: Time!
@@ -623,7 +627,7 @@ input DataTypeWhereInput {
   entityEqualFold: String
   entityContainsFold: String
 }
-type Device implements Node {
+type Device implements Node @pyckImportable(identityField: "name", list: "devices", create: "createDevice", update: "updateDevice") {
   id: ID!
   tenantID: UUID!
   dataTypeID: UUID
@@ -729,7 +733,7 @@ type DeviceEdge {
   """
   cursor: Cursor!
 }
-type DeviceLocation implements Node {
+type DeviceLocation implements Node @pyckImportable(identityField: "", list: "deviceLocations", create: "setDeviceLocation", update: "") {
   id: ID!
   tenantID: UUID!
   dataTypeID: UUID
@@ -2229,7 +2233,7 @@ input KeyValueWhereInput {
   nameEqualFold: String
   nameContainsFold: String
 }
-type Location implements Node {
+type Location implements Node @pyckImportable(identityField: "name", list: "locations", create: "createLocation", update: "updateLocation") {
   id: ID!
   tenantID: UUID!
   dataTypeID: UUID

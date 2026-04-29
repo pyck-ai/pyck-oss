@@ -1,0 +1,31 @@
+---
+operation: PatchPickingOrderData
+name: "Patch Picking Order Data"
+description: >
+  Applies RFC 6902 JSON Patch operations to the picking order's data field.
+  Only changed fields are modified; untouched fields are preserved.
+  See https://datatracker.ietf.org/doc/html/rfc6902 for the specification.
+vars:
+  id: { $placeholder: "picking order id to patch" }
+  patches:
+    - op: REPLACE
+      path: "/zone"
+      value: "\"Zone-C\""
+    - op: REPLACE
+      path: "/priority"
+      value: "5"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Patched order returned"
+    assertions:
+      - ref: res.body.data.patchPickingOrderData.pickingOrder
+        nil: false
+      - ref: res.body.data.patchPickingOrderData.pickingOrder.id
+        equal: {$ref: req.body.variables.id}

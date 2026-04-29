@@ -1,21 +1,41 @@
 package resolvers_test
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/converter"
 
 	_ "github.com/mattn/go-sqlite3"
 
+	"github.com/pyck-ai/pyck/backend/common/feature"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 )
+
+// mockEncodedValue implements converter.EncodedValue for testing QueryWorkflow responses.
+type mockEncodedValue struct {
+	data any
+}
+
+func (m *mockEncodedValue) HasValue() bool { return m.data != nil }
+
+func (m *mockEncodedValue) Get(valuePtr interface{}) error {
+	b, err := json.Marshal(m.data)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, valuePtr)
+}
 
 // =============================================================================
 // GRAPHQL TEMPLATES
@@ -71,6 +91,13 @@ var (
 	deleteWorkflow = resolver.ParseTemplate(`mutation {
 		deleteWorkflow(id: "{{.ID}}") {
 			deletedID
+		}
+	}`)
+
+	cancelWorkflow = resolver.ParseTemplate(`mutation {
+		cancelWorkflow(input: { workflowID: "{{.WorkflowID}}", workflowRunID: "{{.WorkflowRunID}}" }) {
+			workflowID
+			workflowRunID
 		}
 	}`)
 
@@ -140,6 +167,35 @@ var (
 		}
 	}`)
 
+	unsetAssignee = resolver.ParseTemplate(`mutation {
+		setWorkflowAssignee(input: {
+			workflowId: "{{.WorkflowID}}",
+			workflowExecutionId: "{{.WorkflowRunID}}"
+		}) {
+			assignee
+		}
+	}`)
+
+	getWorkflowActions = resolver.ParseTemplate(`query {
+		workflowActions(input: {
+			workflowId: "{{.WorkflowID}}",
+			workflowExecutionId: "{{.WorkflowRunID}}"
+		}) {
+			queries { name enabled }
+			updates { name enabled }
+		}
+	}`)
+
+	getWorkflowActionsFiltered = resolver.ParseTemplate(`query {
+		workflowActions(input: {
+			workflowId: "{{.WorkflowID}}",
+			workflowExecutionId: "{{.WorkflowRunID}}"
+		}, where: { enabled: true }) {
+			queries { name enabled }
+			updates { name enabled }
+		}
+	}`)
+
 	queryWorkflowsJSONOrder = resolver.ParseTemplate(`query {
 		workflows(
 			first: {{or .First 100}},
@@ -167,6 +223,7 @@ type workflowNode struct {
 	Name       string
 	DataTypeID uuid.UUID
 	Data       map[string]any
+	CreatedAt  string
 }
 
 type registerWorkflowData struct {
@@ -175,6 +232,13 @@ type registerWorkflowData struct {
 
 type deleteWorkflowData struct {
 	DeleteWorkflow struct{ DeletedID uuid.UUID }
+}
+
+type cancelWorkflowData struct {
+	CancelWorkflow struct {
+		WorkflowID    string
+		WorkflowRunID string
+	}
 }
 
 type queryWorkflowsData struct {
@@ -191,7 +255,20 @@ type queryWorkflowsData struct {
 }
 
 type setAssigneeData struct {
-	SetWorkflowAssignee struct{ Assignee string }
+	SetWorkflowAssignee struct{ Assignee *string }
+}
+
+type workflowActionsData struct {
+	WorkflowActions struct {
+		Queries []struct {
+			Name    string
+			Enabled bool
+		}
+		Updates []struct {
+			Name    string
+			Enabled bool
+		}
+	}
 }
 
 // =============================================================================
@@ -254,6 +331,10 @@ func TestWorkflowRegister(t *testing.T) {
 		assert.Equal(t, "testWorkflow", data.RegisterWorkflow.Name)
 		assert.Equal(t, itemDataTypeID, data.RegisterWorkflow.DataTypeID)
 		assert.NotEqual(t, uuid.Nil, data.RegisterWorkflow.ID)
+
+		// Verify GraphQL API returns UTC timestamps (suffix "Z", not local offset)
+		assert.True(t, strings.HasSuffix(data.RegisterWorkflow.CreatedAt, "Z"),
+			"GraphQL createdAt should be in UTC (got %s)", data.RegisterWorkflow.CreatedAt)
 
 		te.assertEvents(ctx, Create("workflow", data.RegisterWorkflow.ID))
 	})
@@ -576,7 +657,94 @@ func TestWorkflowDelete(t *testing.T) {
 		})
 
 		assert.Equal(t, createData.RegisterWorkflow.ID, deleteData.DeleteWorkflow.DeletedID)
+
+		// Verify deleted_at is set and in UTC
+		ctxWithDeleted := feature.Context(ctx, feature.FEATURE_SHOW_DELETED)
+		deleted, err := te.Ent.Workflow.Get(ctxWithDeleted, createData.RegisterWorkflow.ID)
+		require.NoError(t, err)
+		assert.False(t, deleted.DeletedAt.IsZero(), "deleted_at should be set")
+		assert.Equal(t, time.UTC, deleted.DeletedAt.Location(), "deleted_at should be in UTC")
+
 		te.assertEvents(ctx, Delete("workflow", createData.RegisterWorkflow.ID))
+	})
+}
+
+func TestCancelWorkflow(t *testing.T) {
+	t.Parallel()
+
+	t.Run("invalid workflowID", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		execErr(te, ctx, cancelWorkflow, map[string]any{
+			"WorkflowID":    "",
+			"WorkflowRunID": "test-run-id",
+		}, "invalid WorkflowID")
+	})
+
+	t.Run("invalid workflowRunID", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		execErr(te, ctx, cancelWorkflow, map[string]any{
+			"WorkflowID":    "test-workflow-id",
+			"WorkflowRunID": "",
+		}, "invalid WorkflowRunID")
+	})
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		const (
+			workflowID    = "test-workflow"
+			workflowRunID = "test-run"
+		)
+
+		var (
+			called        bool
+			capturedID    string
+			capturedRunID string
+		)
+		te.MockTemporalClient.CancelWorkflowFunc = func(_ context.Context, id, runID string) error {
+			called = true
+			capturedID = id
+			capturedRunID = runID
+			return nil
+		}
+
+		data := execOK[cancelWorkflowData](te, ctx, cancelWorkflow, map[string]any{
+			"WorkflowID":    workflowID,
+			"WorkflowRunID": workflowRunID,
+		})
+
+		assert.True(t, called, "CancelWorkflow should be invoked on the Temporal client")
+		assert.Equal(t, workflowID, capturedID)
+		assert.Equal(t, workflowRunID, capturedRunID)
+		assert.Equal(t, workflowID, data.CancelWorkflow.WorkflowID)
+		assert.Equal(t, workflowRunID, data.CancelWorkflow.WorkflowRunID)
+	})
+
+	t.Run("temporal error propagates", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		te.MockTemporalClient.CancelWorkflowFunc = func(_ context.Context, _, _ string) error {
+			return fmt.Errorf("cancel failed")
+		}
+
+		execErr(te, ctx, cancelWorkflow, map[string]any{
+			"WorkflowID":    "test-workflow",
+			"WorkflowRunID": "test-run",
+		}, "cancel failed")
 	})
 }
 
@@ -726,7 +894,9 @@ func TestSetAssignee(t *testing.T) {
 			"AssigneeID":    assigneeID,
 		})
 
-		assert.Equal(t, assigneeID.String(), data.SetWorkflowAssignee.Assignee,
+		require.NotNil(t, data.SetWorkflowAssignee.Assignee,
+			"Response assignee should not be nil")
+		assert.Equal(t, assigneeID.String(), *data.SetWorkflowAssignee.Assignee,
 			"Response should contain the assignee ID that was set")
 	})
 
@@ -747,7 +917,8 @@ func TestSetAssignee(t *testing.T) {
 			"AssigneeID":    firstAssigneeID,
 		})
 
-		assert.Equal(t, firstAssigneeID.String(), data1.SetWorkflowAssignee.Assignee)
+		require.NotNil(t, data1.SetWorkflowAssignee.Assignee)
+		assert.Equal(t, firstAssigneeID.String(), *data1.SetWorkflowAssignee.Assignee)
 
 		// Update to second assignee
 		secondAssigneeID := uuid.New()
@@ -757,8 +928,27 @@ func TestSetAssignee(t *testing.T) {
 			"AssigneeID":    secondAssigneeID,
 		})
 
-		assert.Equal(t, secondAssigneeID.String(), data2.SetWorkflowAssignee.Assignee,
+		require.NotNil(t, data2.SetWorkflowAssignee.Assignee)
+		assert.Equal(t, secondAssigneeID.String(), *data2.SetWorkflowAssignee.Assignee,
 			"Second update should return the new assignee ID")
+	})
+
+	t.Run("unassign with nil assigneeID", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		workflowID := "test-workflow-unassign"
+		workflowRunID := "test-run-unassign"
+
+		data := execOK[setAssigneeData](te, ctx, unsetAssignee, map[string]any{
+			"WorkflowID":    workflowID,
+			"WorkflowRunID": workflowRunID,
+		})
+
+		assert.Nil(t, data.SetWorkflowAssignee.Assignee,
+			"Response assignee should be nil when unassigning")
 	})
 
 	t.Run("concurrency", func(t *testing.T) {
@@ -808,7 +998,9 @@ func TestSetAssignee(t *testing.T) {
 			res := <-results
 			require.NoError(t, res.err, "SetAssignee should not return HTTP error")
 			require.Empty(t, res.response.Errors, "SetAssignee should succeed: %v", res.response.Errors)
-			assert.Equal(t, res.assigneeID, res.response.Data.SetWorkflowAssignee.Assignee,
+			require.NotNil(t, res.response.Data.SetWorkflowAssignee.Assignee,
+				"Response assignee should not be nil")
+			assert.Equal(t, res.assigneeID, *res.response.Data.SetWorkflowAssignee.Assignee,
 				"Response assignee must match the request's assigneeID (no race condition)")
 
 			receivedIDs[res.assigneeID] = true
@@ -817,6 +1009,110 @@ func TestSetAssignee(t *testing.T) {
 		// Verify all requests got their own unique response (no mixing)
 		assert.Len(t, receivedIDs, numConcurrent,
 			"Each request should get its own assignee back (no cross-contamination)")
+	})
+}
+
+// =============================================================================
+// WORKFLOW ACTIONS TESTS
+// =============================================================================
+
+func TestWorkflowActions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("invalid workflowID", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		execErr(te, ctx, getWorkflowActions, map[string]any{
+			"WorkflowID":    "",
+			"WorkflowRunID": "test-run-id",
+		}, "invalid WorkflowID")
+	})
+
+	t.Run("invalid workflowRunID", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		execErr(te, ctx, getWorkflowActions, map[string]any{
+			"WorkflowID":    "test-workflow-id",
+			"WorkflowRunID": "",
+		}, "invalid WorkflowRunID")
+	})
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		workflowID := "test-actions-workflow"
+		workflowRunID := "test-actions-run"
+
+		// Mock QueryWorkflow to return AvailableActions
+		te.MockTemporalClient.QueryWorkflowFunc = func(ctx context.Context, wfID, runID, queryType string, args ...interface{}) (converter.EncodedValue, error) {
+			return &mockEncodedValue{data: map[string]any{
+				"queries": []any{
+					map[string]any{"name": "GetState", "enabled": true},
+					map[string]any{"name": "SetAssignee", "enabled": false},
+				},
+				"updates": []any{
+					map[string]any{"name": "AwaitUserDataInput", "enabled": true},
+				},
+			}}, nil
+		}
+
+		data := execOK[workflowActionsData](te, ctx, getWorkflowActions, map[string]any{
+			"WorkflowID":    workflowID,
+			"WorkflowRunID": workflowRunID,
+		})
+
+		assert.Len(t, data.WorkflowActions.Queries, 2)
+		assert.Equal(t, "GetState", data.WorkflowActions.Queries[0].Name)
+		assert.True(t, data.WorkflowActions.Queries[0].Enabled)
+		assert.Equal(t, "SetAssignee", data.WorkflowActions.Queries[1].Name)
+		assert.False(t, data.WorkflowActions.Queries[1].Enabled)
+
+		assert.Len(t, data.WorkflowActions.Updates, 1)
+		assert.Equal(t, "AwaitUserDataInput", data.WorkflowActions.Updates[0].Name)
+		assert.True(t, data.WorkflowActions.Updates[0].Enabled)
+	})
+
+	t.Run("where filter enabled only", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		workflowID := "test-actions-filter"
+		workflowRunID := "test-actions-filter-run"
+
+		te.MockTemporalClient.QueryWorkflowFunc = func(ctx context.Context, wfID, runID, queryType string, args ...interface{}) (converter.EncodedValue, error) {
+			return &mockEncodedValue{data: map[string]any{
+				"queries": []any{
+					map[string]any{"name": "GetState", "enabled": true},
+					map[string]any{"name": "SetAssignee", "enabled": false},
+				},
+				"updates": []any{
+					map[string]any{"name": "AwaitUserDataInput", "enabled": true},
+				},
+			}}, nil
+		}
+
+		data := execOK[workflowActionsData](te, ctx, getWorkflowActionsFiltered, map[string]any{
+			"WorkflowID":    workflowID,
+			"WorkflowRunID": workflowRunID,
+		})
+
+		// Only enabled actions should be returned
+		assert.Len(t, data.WorkflowActions.Queries, 1)
+		assert.Equal(t, "GetState", data.WorkflowActions.Queries[0].Name)
+		assert.True(t, data.WorkflowActions.Queries[0].Enabled)
+
+		assert.Len(t, data.WorkflowActions.Updates, 1)
 	})
 }
 

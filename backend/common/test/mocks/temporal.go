@@ -283,6 +283,12 @@ type SimpleMockTemporalClient struct {
 
 	// ListWorkflowFunc allows tests to customize ListWorkflow behavior
 	ListWorkflowFunc func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error)
+
+	// QueryWorkflowFunc allows tests to customize QueryWorkflow behavior
+	QueryWorkflowFunc func(ctx context.Context, workflowID, runID, queryType string, args ...interface{}) (converter.EncodedValue, error)
+
+	// CancelWorkflowFunc allows tests to customize CancelWorkflow behavior
+	CancelWorkflowFunc func(ctx context.Context, workflowID, runID string) error
 }
 
 // NewSimpleMockTemporalClient creates a new SimpleMockTemporalClient.
@@ -330,6 +336,25 @@ func (m *SimpleMockTemporalClient) ListWorkflow(ctx context.Context, request *wo
 	return &workflowservice.ListWorkflowExecutionsResponse{
 		Executions: []*workflowpb.WorkflowExecutionInfo{},
 	}, nil
+}
+
+// QueryWorkflow implements a customizable mock for QueryWorkflow.
+// If QueryWorkflowFunc is set, it will be called. Otherwise returns an empty encoded value.
+func (m *SimpleMockTemporalClient) QueryWorkflow(ctx context.Context, workflowID, runID, queryType string, args ...interface{}) (converter.EncodedValue, error) {
+	if m.QueryWorkflowFunc != nil {
+		return m.QueryWorkflowFunc(ctx, workflowID, runID, queryType, args...)
+	}
+	// Default: return nil encoded value (will cause "no result" on Get)
+	return nil, nil
+}
+
+// CancelWorkflow implements a customizable mock for CancelWorkflow.
+// If CancelWorkflowFunc is set, it will be called. Otherwise returns nil (success).
+func (m *SimpleMockTemporalClient) CancelWorkflow(ctx context.Context, workflowID, runID string) error {
+	if m.CancelWorkflowFunc != nil {
+		return m.CancelWorkflowFunc(ctx, workflowID, runID)
+	}
+	return nil
 }
 
 // GetWorkflowHistory returns an empty history iterator for SimpleMockTemporalClient.

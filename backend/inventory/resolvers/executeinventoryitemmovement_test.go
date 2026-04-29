@@ -1,10 +1,13 @@
 package resolvers_test
 
 import (
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	_ "github.com/mattn/go-sqlite3"
 
@@ -112,6 +115,19 @@ func TestExecuteItemMovement(t *testing.T) {
 		})
 
 		assert.True(t, data.ExecuteInventoryItemMovement.InventoryItemMovement.Executed)
+
+		// Verify executed_at is set and in UTC
+		executed, err := te.Ent.ItemMovement.Get(ctx, movement.ID)
+		require.NoError(t, err)
+		require.NotNil(t, executed.ExecutedAt, "executed_at should be set after execution")
+		assert.Equal(t, time.UTC, executed.ExecutedAt.Location(), "executed_at should be in UTC")
+
+		// Verify GraphQL API returns executedAt in UTC format (suffix "Z")
+		qData := execOK[queryItemMovementsData](te, ctx, queryItemMovements, nil)
+		require.NotEmpty(t, qData.ItemMovements.Edges)
+		require.NotNil(t, qData.ItemMovements.Edges[0].Node.ExecutedAt)
+		assert.True(t, strings.HasSuffix(*qData.ItemMovements.Edges[0].Node.ExecutedAt, "Z"),
+			"GraphQL executedAt should be in UTC (got %s)", *qData.ItemMovements.Edges[0].Node.ExecutedAt)
 
 		// Verify transactions were created
 		txData := execOK[transactionsData](te, ctx, queryTransactions, nil)

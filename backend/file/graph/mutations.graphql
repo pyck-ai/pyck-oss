@@ -5,6 +5,9 @@ type Mutation {
   deleteFile(id: ID!): FileDeletePayload!
 
   analyzeImageFile(id: ID!): ImageAnalysisResponse!
+
+  """Apply RFC 6902 JSON Patch operations to the file's data field."""
+  patchFileData(id: ID!, patches: [JSONPatchInput!]!): File
 }
 
 scalar UUID

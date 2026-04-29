@@ -1,6 +1,6 @@
 name: pyck
 
-include: 
+include:
   - config/compose/third-party/db.yaml
   - config/compose/third-party/gateway.yaml
   - config/compose/third-party/jaeger.yaml
@@ -9,6 +9,7 @@ include:
   - config/compose/third-party/temporal.yaml
   - config/compose/third-party/zitadel.yaml
 
+  - config/compose/backend/bootstrap.yaml
   - config/compose/backend/file.yaml
   - config/compose/backend/inventory.yaml
   - config/compose/backend/main-data.yaml
@@ -19,10 +20,3 @@ include:
 volumes:
   go_cache: {}
   go_modcache: {}
-
-networks:
-  pyck:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.30.0.0/16

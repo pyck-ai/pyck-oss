@@ -17,6 +17,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/99designs/gqlgen/plugin/federation/fedruntime"
 	"github.com/google/uuid"
+	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/itemmovement"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
@@ -273,34 +274,42 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CreateInventoryCollectionMovement  func(childComplexity int, input model.CreateCollectionMovementInput) int
-		CreateInventoryItem                func(childComplexity int, input gen.CreateInventoryItemInput) int
-		CreateInventoryItemMovement        func(childComplexity int, input gen.CreateItemMovementInput) int
-		CreateInventoryItemSet             func(childComplexity int, input gen.CreateInventoryItemSetInput) int
-		CreateInventoryRepository          func(childComplexity int, input gen.CreateRepositoryInput) int
-		CreateInventoryRepositoryMovement  func(childComplexity int, input gen.CreateRepositoryMovementInput) int
-		CreateReplenishmentOrder           func(childComplexity int, input model.CreateReplenishmentOrderWithItemsInput) int
-		CreateReplenishmentOrderItem       func(childComplexity int, input gen.CreateReplenishmentOrderItemInput) int
-		DeleteInventoryCollection          func(childComplexity int, id uuid.UUID) int
-		DeleteInventoryItem                func(childComplexity int, id uuid.UUID) int
-		DeleteInventoryItemMovement        func(childComplexity int, id uuid.UUID) int
-		DeleteInventoryItemSet             func(childComplexity int, id uuid.UUID) int
-		DeleteInventoryRepository          func(childComplexity int, id uuid.UUID) int
-		DeleteInventoryRepositoryMovement  func(childComplexity int, id uuid.UUID) int
-		DeleteInventoryStock               func(childComplexity int, input model.ClearVirtualStockInput) int
-		DeleteReplenishmentOrder           func(childComplexity int, id uuid.UUID) int
-		DeleteReplenishmentOrderItem       func(childComplexity int, id uuid.UUID) int
-		ExecuteInventoryItemMovement       func(childComplexity int, id uuid.UUID) int
-		ExecuteInventoryRepositoryMovement func(childComplexity int, id uuid.UUID) int
-		RebuildInventoryStock              func(childComplexity int) int
-		UpdateInventoryCollectionMovement  func(childComplexity int, id uuid.UUID, input gen.UpdateInventoryCollectionInput) int
-		UpdateInventoryItem                func(childComplexity int, id uuid.UUID, input gen.UpdateInventoryItemInput) int
-		UpdateInventoryItemMovement        func(childComplexity int, id uuid.UUID, input gen.UpdateItemMovementInput) int
-		UpdateInventoryItemSet             func(childComplexity int, id uuid.UUID, input gen.UpdateInventoryItemSetInput) int
-		UpdateInventoryRepository          func(childComplexity int, id uuid.UUID, input gen.UpdateRepositoryInput) int
-		UpdateInventoryRepositoryMovement  func(childComplexity int, id uuid.UUID, input gen.UpdateRepositoryMovementInput) int
-		UpdateReplenishmentOrder           func(childComplexity int, id uuid.UUID, input gen.UpdateReplenishmentOrderInput) int
-		UpdateReplenishmentOrderItem       func(childComplexity int, id uuid.UUID, input gen.UpdateReplenishmentOrderItemInput) int
+		CreateInventoryCollectionMovement    func(childComplexity int, input model.CreateCollectionMovementInput) int
+		CreateInventoryItem                  func(childComplexity int, input gen.CreateInventoryItemInput) int
+		CreateInventoryItemMovement          func(childComplexity int, input gen.CreateItemMovementInput) int
+		CreateInventoryItemSet               func(childComplexity int, input gen.CreateInventoryItemSetInput) int
+		CreateInventoryRepository            func(childComplexity int, input gen.CreateRepositoryInput) int
+		CreateInventoryRepositoryMovement    func(childComplexity int, input gen.CreateRepositoryMovementInput) int
+		CreateReplenishmentOrder             func(childComplexity int, input model.CreateReplenishmentOrderWithItemsInput) int
+		CreateReplenishmentOrderItem         func(childComplexity int, input gen.CreateReplenishmentOrderItemInput) int
+		DeleteInventoryCollection            func(childComplexity int, id uuid.UUID) int
+		DeleteInventoryItem                  func(childComplexity int, id uuid.UUID) int
+		DeleteInventoryItemMovement          func(childComplexity int, id uuid.UUID) int
+		DeleteInventoryItemSet               func(childComplexity int, id uuid.UUID) int
+		DeleteInventoryRepository            func(childComplexity int, id uuid.UUID) int
+		DeleteInventoryRepositoryMovement    func(childComplexity int, id uuid.UUID) int
+		DeleteInventoryStock                 func(childComplexity int, input model.ClearVirtualStockInput) int
+		DeleteReplenishmentOrder             func(childComplexity int, id uuid.UUID) int
+		DeleteReplenishmentOrderItem         func(childComplexity int, id uuid.UUID) int
+		ExecuteInventoryItemMovement         func(childComplexity int, id uuid.UUID) int
+		ExecuteInventoryRepositoryMovement   func(childComplexity int, id uuid.UUID) int
+		PatchInventoryCollectionMovementData func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		PatchInventoryItemData               func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		PatchInventoryItemMovementData       func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		PatchInventoryItemSetData            func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		PatchInventoryRepositoryData         func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		PatchInventoryRepositoryMovementData func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		PatchReplenishmentOrderData          func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		PatchReplenishmentOrderItemData      func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		RebuildInventoryStock                func(childComplexity int) int
+		UpdateInventoryCollectionMovement    func(childComplexity int, id uuid.UUID, input gen.UpdateInventoryCollectionInput) int
+		UpdateInventoryItem                  func(childComplexity int, id uuid.UUID, input gen.UpdateInventoryItemInput) int
+		UpdateInventoryItemMovement          func(childComplexity int, id uuid.UUID, input gen.UpdateItemMovementInput) int
+		UpdateInventoryItemSet               func(childComplexity int, id uuid.UUID, input gen.UpdateInventoryItemSetInput) int
+		UpdateInventoryRepository            func(childComplexity int, id uuid.UUID, input gen.UpdateRepositoryInput) int
+		UpdateInventoryRepositoryMovement    func(childComplexity int, id uuid.UUID, input gen.UpdateRepositoryMovementInput) int
+		UpdateReplenishmentOrder             func(childComplexity int, id uuid.UUID, input gen.UpdateReplenishmentOrderInput) int
+		UpdateReplenishmentOrderItem         func(childComplexity int, id uuid.UUID, input gen.UpdateReplenishmentOrderItemInput) int
 	}
 
 	PageInfo struct {
@@ -642,6 +651,14 @@ type MutationResolver interface {
 	CreateReplenishmentOrderItem(ctx context.Context, input gen.CreateReplenishmentOrderItemInput) (*model.ReplenishmentOrderItemOutput, error)
 	UpdateReplenishmentOrderItem(ctx context.Context, id uuid.UUID, input gen.UpdateReplenishmentOrderItemInput) (*model.ReplenishmentOrderItemOutput, error)
 	DeleteReplenishmentOrderItem(ctx context.Context, id uuid.UUID) (*model.ReplenishmentOrderItemDeletePayload, error)
+	PatchInventoryItemData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.InventoryItemOutput, error)
+	PatchInventoryRepositoryData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.InventoryRepositoryOutput, error)
+	PatchInventoryItemMovementData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.InventoryItemMovementOutput, error)
+	PatchInventoryRepositoryMovementData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.InventoryRepositoryMovementOutput, error)
+	PatchInventoryCollectionMovementData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.UpdateCollectionMovementOutput, error)
+	PatchInventoryItemSetData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.InventoryItemSetOutput, error)
+	PatchReplenishmentOrderData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.ReplenishmentOrderOutput, error)
+	PatchReplenishmentOrderItemData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.ReplenishmentOrderItemOutput, error)
 }
 type QueryResolver interface {
 	Node(ctx context.Context, id uuid.UUID) (gen.Noder, error)
@@ -1788,6 +1805,94 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.ExecuteInventoryRepositoryMovement(childComplexity, args["id"].(uuid.UUID)), true
+	case "Mutation.patchInventoryCollectionMovementData":
+		if e.ComplexityRoot.Mutation.PatchInventoryCollectionMovementData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchInventoryCollectionMovementData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchInventoryCollectionMovementData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
+	case "Mutation.patchInventoryItemData":
+		if e.ComplexityRoot.Mutation.PatchInventoryItemData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchInventoryItemData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchInventoryItemData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
+	case "Mutation.patchInventoryItemMovementData":
+		if e.ComplexityRoot.Mutation.PatchInventoryItemMovementData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchInventoryItemMovementData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchInventoryItemMovementData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
+	case "Mutation.patchInventoryItemSetData":
+		if e.ComplexityRoot.Mutation.PatchInventoryItemSetData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchInventoryItemSetData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchInventoryItemSetData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
+	case "Mutation.patchInventoryRepositoryData":
+		if e.ComplexityRoot.Mutation.PatchInventoryRepositoryData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchInventoryRepositoryData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchInventoryRepositoryData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
+	case "Mutation.patchInventoryRepositoryMovementData":
+		if e.ComplexityRoot.Mutation.PatchInventoryRepositoryMovementData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchInventoryRepositoryMovementData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchInventoryRepositoryMovementData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
+	case "Mutation.patchReplenishmentOrderData":
+		if e.ComplexityRoot.Mutation.PatchReplenishmentOrderData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchReplenishmentOrderData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchReplenishmentOrderData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
+	case "Mutation.patchReplenishmentOrderItemData":
+		if e.ComplexityRoot.Mutation.PatchReplenishmentOrderItemData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchReplenishmentOrderItemData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchReplenishmentOrderItemData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
 	case "Mutation.rebuildInventoryStock":
 		if e.ComplexityRoot.Mutation.RebuildInventoryStock == nil {
 			break
@@ -3235,6 +3340,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputInventoryItemWhereInput,
 		ec.unmarshalInputItemMovementOrder,
 		ec.unmarshalInputItemMovementWhereInput,
+		ec.unmarshalInputJSONPatchInput,
 		ec.unmarshalInputReplenishmentOrderItemOrder,
 		ec.unmarshalInputReplenishmentOrderItemWhereInput,
 		ec.unmarshalInputReplenishmentOrderOrder,
@@ -3329,7 +3435,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "graph/collectionmovement.graphql" "graph/ent.graphql" "graph/item.graphql" "graph/itemmovement.graphql" "graph/itemset.graphql" "graph/mutations.graphql" "graph/pickingorderitem.graphql" "graph/replenishmentorder.graphql" "graph/repository.graphql" "graph/repositorymovement.graphql" "graph/serviceinfo.graphql" "graph/stock.graphql" "graph/temporalworkflow.graphql"
+//go:embed "graph/collectionmovement.graphql" "graph/ent.graphql" "graph/item.graphql" "graph/itemmovement.graphql" "graph/itemset.graphql" "graph/jsonpatch.graphql" "graph/mutations.graphql" "graph/pickingorderitem.graphql" "graph/replenishmentorder.graphql" "graph/repository.graphql" "graph/repositorymovement.graphql" "graph/serviceinfo.graphql" "graph/stock.graphql" "graph/temporalworkflow.graphql"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -3346,6 +3452,7 @@ var sources = []*ast.Source{
 	{Name: "graph/item.graphql", Input: sourceData("graph/item.graphql"), BuiltIn: false},
 	{Name: "graph/itemmovement.graphql", Input: sourceData("graph/itemmovement.graphql"), BuiltIn: false},
 	{Name: "graph/itemset.graphql", Input: sourceData("graph/itemset.graphql"), BuiltIn: false},
+	{Name: "graph/jsonpatch.graphql", Input: sourceData("graph/jsonpatch.graphql"), BuiltIn: false},
 	{Name: "graph/mutations.graphql", Input: sourceData("graph/mutations.graphql"), BuiltIn: false},
 	{Name: "graph/pickingorderitem.graphql", Input: sourceData("graph/pickingorderitem.graphql"), BuiltIn: false},
 	{Name: "graph/replenishmentorder.graphql", Input: sourceData("graph/replenishmentorder.graphql"), BuiltIn: false},
@@ -3719,6 +3826,134 @@ func (ec *executionContext) field_Mutation_executeInventoryRepositoryMovement_ar
 		return nil, err
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchInventoryCollectionMovementData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchInventoryItemData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchInventoryItemMovementData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchInventoryItemSetData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchInventoryRepositoryData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchInventoryRepositoryMovementData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchReplenishmentOrderData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchReplenishmentOrderItemData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
 	return args, nil
 }
 
@@ -10828,6 +11063,382 @@ func (ec *executionContext) fieldContext_Mutation_deleteReplenishmentOrderItem(c
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_deleteReplenishmentOrderItem_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchInventoryItemData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchInventoryItemData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchInventoryItemData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOInventoryItemOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋinventoryᚋmodelᚐInventoryItemOutput,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchInventoryItemData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "inventoryItem":
+				return ec.fieldContext_InventoryItemOutput_inventoryItem(ctx, field)
+			case "workflows":
+				return ec.fieldContext_InventoryItemOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type InventoryItemOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchInventoryItemData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchInventoryRepositoryData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchInventoryRepositoryData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchInventoryRepositoryData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOInventoryRepositoryOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋinventoryᚋmodelᚐInventoryRepositoryOutput,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchInventoryRepositoryData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "inventoryRepository":
+				return ec.fieldContext_InventoryRepositoryOutput_inventoryRepository(ctx, field)
+			case "workflows":
+				return ec.fieldContext_InventoryRepositoryOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type InventoryRepositoryOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchInventoryRepositoryData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchInventoryItemMovementData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchInventoryItemMovementData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchInventoryItemMovementData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOInventoryItemMovementOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋinventoryᚋmodelᚐInventoryItemMovementOutput,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchInventoryItemMovementData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "inventoryItemMovement":
+				return ec.fieldContext_InventoryItemMovementOutput_inventoryItemMovement(ctx, field)
+			case "workflows":
+				return ec.fieldContext_InventoryItemMovementOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type InventoryItemMovementOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchInventoryItemMovementData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchInventoryRepositoryMovementData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchInventoryRepositoryMovementData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchInventoryRepositoryMovementData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOInventoryRepositoryMovementOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋinventoryᚋmodelᚐInventoryRepositoryMovementOutput,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchInventoryRepositoryMovementData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "inventoryRepositoryMovement":
+				return ec.fieldContext_InventoryRepositoryMovementOutput_inventoryRepositoryMovement(ctx, field)
+			case "workflows":
+				return ec.fieldContext_InventoryRepositoryMovementOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type InventoryRepositoryMovementOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchInventoryRepositoryMovementData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchInventoryCollectionMovementData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchInventoryCollectionMovementData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchInventoryCollectionMovementData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOUpdateCollectionMovementOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋinventoryᚋmodelᚐUpdateCollectionMovementOutput,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchInventoryCollectionMovementData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "inventoryCollection":
+				return ec.fieldContext_UpdateCollectionMovementOutput_inventoryCollection(ctx, field)
+			case "workflows":
+				return ec.fieldContext_UpdateCollectionMovementOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type UpdateCollectionMovementOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchInventoryCollectionMovementData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchInventoryItemSetData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchInventoryItemSetData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchInventoryItemSetData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOInventoryItemSetOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋinventoryᚋmodelᚐInventoryItemSetOutput,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchInventoryItemSetData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "inventoryItemSet":
+				return ec.fieldContext_InventoryItemSetOutput_inventoryItemSet(ctx, field)
+			case "workflows":
+				return ec.fieldContext_InventoryItemSetOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type InventoryItemSetOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchInventoryItemSetData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchReplenishmentOrderData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchReplenishmentOrderData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchReplenishmentOrderData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOReplenishmentOrderOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋinventoryᚋmodelᚐReplenishmentOrderOutput,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchReplenishmentOrderData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "replenishmentOrder":
+				return ec.fieldContext_ReplenishmentOrderOutput_replenishmentOrder(ctx, field)
+			case "workflows":
+				return ec.fieldContext_ReplenishmentOrderOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ReplenishmentOrderOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchReplenishmentOrderData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchReplenishmentOrderItemData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchReplenishmentOrderItemData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchReplenishmentOrderItemData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOReplenishmentOrderItemOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋinventoryᚋmodelᚐReplenishmentOrderItemOutput,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchReplenishmentOrderItemData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "replenishmentOrderItem":
+				return ec.fieldContext_ReplenishmentOrderItemOutput_replenishmentOrderItem(ctx, field)
+			case "workflows":
+				return ec.fieldContext_ReplenishmentOrderItemOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ReplenishmentOrderItemOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchReplenishmentOrderItemData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -25121,6 +25732,57 @@ func (ec *executionContext) unmarshalInputItemMovementWhereInput(ctx context.Con
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputJSONPatchInput(ctx context.Context, obj any) (jsonpatch.JSONPatchInput, error) {
+	var it jsonpatch.JSONPatchInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"op", "path", "value", "from"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "op":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("op"))
+			data, err := ec.unmarshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Op = data
+		case "path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("path"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Path = data
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		case "from":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("from"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.From = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputReplenishmentOrderItemOrder(ctx context.Context, obj any) (gen.ReplenishmentOrderItemOrder, error) {
 	var it gen.ReplenishmentOrderItemOrder
 	if obj == nil {
@@ -33677,6 +34339,38 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "patchInventoryItemData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchInventoryItemData(ctx, field)
+			})
+		case "patchInventoryRepositoryData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchInventoryRepositoryData(ctx, field)
+			})
+		case "patchInventoryItemMovementData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchInventoryItemMovementData(ctx, field)
+			})
+		case "patchInventoryRepositoryMovementData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchInventoryRepositoryMovementData(ctx, field)
+			})
+		case "patchInventoryCollectionMovementData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchInventoryCollectionMovementData(ctx, field)
+			})
+		case "patchInventoryItemSetData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchInventoryItemSetData(ctx, field)
+			})
+		case "patchReplenishmentOrderData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchReplenishmentOrderData(ctx, field)
+			})
+		case "patchReplenishmentOrderItemData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchReplenishmentOrderItemData(ctx, field)
+			})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -37222,6 +37916,36 @@ func (ec *executionContext) marshalNItemMovementConnection2ᚖgithubᚗcomᚋpyc
 func (ec *executionContext) unmarshalNItemMovementWhereInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋinventoryᚋentᚋgenᚐItemMovementWhereInput(ctx context.Context, v any) (*gen.ItemMovementWhereInput, error) {
 	res, err := ec.unmarshalInputItemMovementWhereInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ(ctx context.Context, v any) ([]*jsonpatch.JSONPatchInput, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*jsonpatch.JSONPatchInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNJSONPatchInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNJSONPatchInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInput(ctx context.Context, v any) (*jsonpatch.JSONPatchInput, error) {
+	res, err := ec.unmarshalInputJSONPatchInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx context.Context, v any) (jsonpatch.JSONPatchOp, error) {
+	var res jsonpatch.JSONPatchOp
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx context.Context, sel ast.SelectionSet, v jsonpatch.JSONPatchOp) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNMap2map(ctx context.Context, v any) (map[string]any, error) {

@@ -406,11 +406,16 @@ function main() {
   if [[ -z "$expected_go_version" ]]; then
     log "ℹ️  No go version specified in go.work -- skipping checks..."
   else
-    log "Expected Go version: $expected_go_version"
-    
+    # Dockerfiles pin only the major.minor (e.g. 1.25) so we float onto
+    # the latest patch from the base image; go.mod/go.work use the full
+    # canonical form because the Go toolchain rewrites it that way.
+    local expected_go_minor="${expected_go_version%.*}"
+
+    log "Expected Go version: $expected_go_version (Dockerfiles: $expected_go_minor)"
+
     verify_go_version "$expected_go_version"
-    verify_docker_golang_version "$expected_go_version"
-    verify_docker_goarg_version "$expected_go_version"
+    verify_docker_golang_version "$expected_go_minor"
+    verify_docker_goarg_version "$expected_go_minor"
   fi
 
   # Handle fix/dry-run mode
@@ -428,9 +433,10 @@ function main() {
         fixes=()
         
         if [[ -n "$expected_go_version" ]]; then
+          local expected_go_minor="${expected_go_version%.*}"
           verify_go_version "$expected_go_version"
-          verify_docker_golang_version "$expected_go_version"
-          verify_docker_goarg_version "$expected_go_version"
+          verify_docker_golang_version "$expected_go_minor"
+          verify_docker_goarg_version "$expected_go_minor"
         fi
         if [[ -n "$expected_toolchain_version" ]]; then
           verify_toolchain_version "$expected_toolchain_version"

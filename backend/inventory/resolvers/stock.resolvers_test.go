@@ -441,7 +441,7 @@ func TestGetStockTree(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 
 		// Record a time between the two movements.
-		midTime := time.Now()
+		midTime := time.Now().UTC()
 
 		time.Sleep(50 * time.Millisecond)
 
@@ -521,7 +521,7 @@ func TestStocks_TimeFilter(t *testing.T) {
 
 		// Ensure the second movement gets a strictly later created_at / UUIDv7.
 		time.Sleep(50 * time.Millisecond)
-		midTime := time.Now()
+		midTime := time.Now().UTC()
 		time.Sleep(50 * time.Millisecond)
 
 		// Move 5 more, execute.

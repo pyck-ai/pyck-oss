@@ -17,8 +17,7 @@ services:
       - ./../../../backend/:/app/:ro,z
       - ./../../../backend/file/.var/debug/:/tmp/debug/:Z
       - ./../../../backend/file/ent/migrate/migrations/:/app/file/ent/migrate/migrations/:z
-      - ./../../keys/zitadel_certificate.crt:/etc/ssl/certs/zitadel.crt:ro,z
-      - ./../../keys/local-key.json:/data/keys/local-key.json:ro,z
+      - ./../../keys/:/data/keys/:ro,z
     environment:
       - PYCK_LOG_FORMAT=console
       - PYCK_OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318

@@ -17,6 +17,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/99designs/gqlgen/plugin/federation/fedruntime"
 	"github.com/google/uuid"
+	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen"
 	"github.com/pyck-ai/pyck/backend/management/model"
 	gqlparser "github.com/vektah/gqlparser/v2"
@@ -368,39 +369,42 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CheckInUserDevice   func(childComplexity int, input model.CheckInUserDeviceInput) int
-		CheckOutUserDevice  func(childComplexity int, input model.CheckOutUserDeviceInput) int
-		CreateDataType      func(childComplexity int, input gen.CreateDataTypeInput) int
-		CreateDevice        func(childComplexity int, input gen.CreateDeviceInput) int
-		CreateEvent         func(childComplexity int, input model.CreateEventInput) int
-		CreateGroup         func(childComplexity int, input gen.CreateGroupInput) int
-		CreateLocation      func(childComplexity int, input gen.CreateLocationInput) int
-		CreatePolicy        func(childComplexity int, input gen.CreateAccessPolicyInput) int
-		CreateRole          func(childComplexity int, input gen.CreateRoleInput) int
-		CreateUser          func(childComplexity int, input gen.CreateUserInput) int
-		DeleteDataType      func(childComplexity int, id uuid.UUID) int
-		DeleteDevice        func(childComplexity int, id uuid.UUID) int
-		DeleteEvent         func(childComplexity int, id uuid.UUID) int
-		DeleteGroup         func(childComplexity int, id uuid.UUID) int
-		DeleteKeyValue      func(childComplexity int, id uuid.UUID) int
-		DeleteLocation      func(childComplexity int, id uuid.UUID) int
-		DeletePolicy        func(childComplexity int, id uuid.UUID) int
-		DeleteRole          func(childComplexity int, id uuid.UUID) int
-		DeleteUser          func(childComplexity int, id uuid.UUID) int
-		GenerateJSONSchema  func(childComplexity int, jsonData string) int
-		RegisterTenant      func(childComplexity int, input model.RegisterTenantInput) int
-		SendCustomEvent     func(childComplexity int, input model.SendCustomEventInput) int
-		SetDeviceLocation   func(childComplexity int, input gen.CreateDeviceLocationInput) int
-		SetKeyValue         func(childComplexity int, input model.SetKeyValueInput) int
-		UnsetDeviceLocation func(childComplexity int, id uuid.UUID) int
-		UpdateDataType      func(childComplexity int, id uuid.UUID, input gen.UpdateDataTypeInput) int
-		UpdateDevice        func(childComplexity int, id uuid.UUID, input gen.UpdateDeviceInput) int
-		UpdateEvent         func(childComplexity int, id uuid.UUID, input model.UpdateEventInput) int
-		UpdateGroup         func(childComplexity int, id uuid.UUID, input gen.UpdateGroupInput) int
-		UpdateLocation      func(childComplexity int, id uuid.UUID, input gen.UpdateLocationInput) int
-		UpdatePolicy        func(childComplexity int, id uuid.UUID, input gen.UpdateAccessPolicyInput) int
-		UpdateRole          func(childComplexity int, id uuid.UUID, input gen.UpdateRoleInput) int
-		UpdateUser          func(childComplexity int, id uuid.UUID, input gen.UpdateUserInput) int
+		CheckInUserDevice       func(childComplexity int, input model.CheckInUserDeviceInput) int
+		CheckOutUserDevice      func(childComplexity int, input model.CheckOutUserDeviceInput) int
+		CreateDataType          func(childComplexity int, input gen.CreateDataTypeInput) int
+		CreateDevice            func(childComplexity int, input gen.CreateDeviceInput) int
+		CreateEvent             func(childComplexity int, input model.CreateEventInput) int
+		CreateGroup             func(childComplexity int, input gen.CreateGroupInput) int
+		CreateLocation          func(childComplexity int, input gen.CreateLocationInput) int
+		CreatePolicy            func(childComplexity int, input gen.CreateAccessPolicyInput) int
+		CreateRole              func(childComplexity int, input gen.CreateRoleInput) int
+		CreateUser              func(childComplexity int, input gen.CreateUserInput) int
+		DeleteDataType          func(childComplexity int, id uuid.UUID) int
+		DeleteDevice            func(childComplexity int, id uuid.UUID) int
+		DeleteEvent             func(childComplexity int, id uuid.UUID) int
+		DeleteGroup             func(childComplexity int, id uuid.UUID) int
+		DeleteKeyValue          func(childComplexity int, id uuid.UUID) int
+		DeleteLocation          func(childComplexity int, id uuid.UUID) int
+		DeletePolicy            func(childComplexity int, id uuid.UUID) int
+		DeleteRole              func(childComplexity int, id uuid.UUID) int
+		DeleteUser              func(childComplexity int, id uuid.UUID) int
+		GenerateJSONSchema      func(childComplexity int, jsonData string) int
+		PatchDeviceData         func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		PatchDeviceLocationData func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		PatchLocationData       func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		RegisterTenant          func(childComplexity int, input model.RegisterTenantInput) int
+		SendCustomEvent         func(childComplexity int, input model.SendCustomEventInput) int
+		SetDeviceLocation       func(childComplexity int, input gen.CreateDeviceLocationInput) int
+		SetKeyValue             func(childComplexity int, input model.SetKeyValueInput) int
+		UnsetDeviceLocation     func(childComplexity int, id uuid.UUID) int
+		UpdateDataType          func(childComplexity int, id uuid.UUID, input gen.UpdateDataTypeInput) int
+		UpdateDevice            func(childComplexity int, id uuid.UUID, input gen.UpdateDeviceInput) int
+		UpdateEvent             func(childComplexity int, id uuid.UUID, input model.UpdateEventInput) int
+		UpdateGroup             func(childComplexity int, id uuid.UUID, input gen.UpdateGroupInput) int
+		UpdateLocation          func(childComplexity int, id uuid.UUID, input gen.UpdateLocationInput) int
+		UpdatePolicy            func(childComplexity int, id uuid.UUID, input gen.UpdateAccessPolicyInput) int
+		UpdateRole              func(childComplexity int, id uuid.UUID, input gen.UpdateRoleInput) int
+		UpdateUser              func(childComplexity int, id uuid.UUID, input gen.UpdateUserInput) int
 	}
 
 	PageInfo struct {
@@ -612,6 +616,9 @@ type MutationResolver interface {
 	UnsetDeviceLocation(ctx context.Context, id uuid.UUID) (*model.DeviceLocationDeletePayload, error)
 	CheckInUserDevice(ctx context.Context, input model.CheckInUserDeviceInput) (*model.CheckInUserDeviceOutput, error)
 	CheckOutUserDevice(ctx context.Context, input model.CheckOutUserDeviceInput) (*model.CheckOutUserDeviceOutput, error)
+	PatchLocationData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.LocationOutput, error)
+	PatchDeviceData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.DeviceOutput, error)
+	PatchDeviceLocationData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.DeviceLocationOutput, error)
 }
 type QueryResolver interface {
 	Node(ctx context.Context, id uuid.UUID) (gen.Noder, error)
@@ -2166,6 +2173,39 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.GenerateJSONSchema(childComplexity, args["jsonData"].(string)), true
+	case "Mutation.patchDeviceData":
+		if e.ComplexityRoot.Mutation.PatchDeviceData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchDeviceData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchDeviceData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
+	case "Mutation.patchDeviceLocationData":
+		if e.ComplexityRoot.Mutation.PatchDeviceLocationData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchDeviceLocationData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchDeviceLocationData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
+	case "Mutation.patchLocationData":
+		if e.ComplexityRoot.Mutation.PatchLocationData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchLocationData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchLocationData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
 	case "Mutation.registerTenant":
 		if e.ComplexityRoot.Mutation.RegisterTenant == nil {
 			break
@@ -3148,6 +3188,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputEventWhereInput,
 		ec.unmarshalInputGroupOrder,
 		ec.unmarshalInputGroupWhereInput,
+		ec.unmarshalInputJSONPatchInput,
 		ec.unmarshalInputKeyValueOrder,
 		ec.unmarshalInputKeyValueWhereInput,
 		ec.unmarshalInputLocationOrder,
@@ -3246,7 +3287,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "graph/customevent.graphql" "graph/datatype.graphql" "graph/device.graphql" "graph/devicelocation.graphql" "graph/ent.graphql" "graph/event.graphql" "graph/group.graphql" "graph/jsonschema.graphql" "graph/keyvalue.graphql" "graph/location.graphql" "graph/mutations.graphql" "graph/policy.graphql" "graph/role.graphql" "graph/serviceinfo.graphql" "graph/temporalworkflow.graphql" "graph/tenant.graphql" "graph/userprofile.graphql"
+//go:embed "graph/customevent.graphql" "graph/datatype.graphql" "graph/device.graphql" "graph/devicelocation.graphql" "graph/ent.graphql" "graph/event.graphql" "graph/group.graphql" "graph/jsonpatch.graphql" "graph/jsonschema.graphql" "graph/keyvalue.graphql" "graph/location.graphql" "graph/mutations.graphql" "graph/policy.graphql" "graph/role.graphql" "graph/serviceinfo.graphql" "graph/temporalworkflow.graphql" "graph/tenant.graphql" "graph/userprofile.graphql"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -3265,6 +3306,7 @@ var sources = []*ast.Source{
 	{Name: "graph/ent.graphql", Input: sourceData("graph/ent.graphql"), BuiltIn: false},
 	{Name: "graph/event.graphql", Input: sourceData("graph/event.graphql"), BuiltIn: false},
 	{Name: "graph/group.graphql", Input: sourceData("graph/group.graphql"), BuiltIn: false},
+	{Name: "graph/jsonpatch.graphql", Input: sourceData("graph/jsonpatch.graphql"), BuiltIn: false},
 	{Name: "graph/jsonschema.graphql", Input: sourceData("graph/jsonschema.graphql"), BuiltIn: false},
 	{Name: "graph/keyvalue.graphql", Input: sourceData("graph/keyvalue.graphql"), BuiltIn: false},
 	{Name: "graph/location.graphql", Input: sourceData("graph/location.graphql"), BuiltIn: false},
@@ -3739,6 +3781,54 @@ func (ec *executionContext) field_Mutation_generateJsonSchema_args(ctx context.C
 		return nil, err
 	}
 	args["jsonData"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchDeviceData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchDeviceLocationData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchLocationData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
 	return args, nil
 }
 
@@ -13270,6 +13360,147 @@ func (ec *executionContext) fieldContext_Mutation_checkOutUserDevice(ctx context
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_checkOutUserDevice_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchLocationData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchLocationData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchLocationData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalNLocationOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋmodelᚐLocationOutput,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchLocationData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "location":
+				return ec.fieldContext_LocationOutput_location(ctx, field)
+			case "workflows":
+				return ec.fieldContext_LocationOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type LocationOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchLocationData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchDeviceData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchDeviceData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchDeviceData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalNDeviceOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋmodelᚐDeviceOutput,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchDeviceData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "device":
+				return ec.fieldContext_DeviceOutput_device(ctx, field)
+			case "workflows":
+				return ec.fieldContext_DeviceOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type DeviceOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchDeviceData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchDeviceLocationData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchDeviceLocationData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchDeviceLocationData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalNDeviceLocationOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋmodelᚐDeviceLocationOutput,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchDeviceLocationData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "DeviceLocation":
+				return ec.fieldContext_DeviceLocationOutput_DeviceLocation(ctx, field)
+			case "workflows":
+				return ec.fieldContext_DeviceLocationOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type DeviceLocationOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchDeviceLocationData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -26020,6 +26251,57 @@ func (ec *executionContext) unmarshalInputGroupWhereInput(ctx context.Context, o
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputJSONPatchInput(ctx context.Context, obj any) (jsonpatch.JSONPatchInput, error) {
+	var it jsonpatch.JSONPatchInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"op", "path", "value", "from"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "op":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("op"))
+			data, err := ec.unmarshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Op = data
+		case "path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("path"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Path = data
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		case "from":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("from"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.From = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputKeyValueOrder(ctx context.Context, obj any) (gen.KeyValueOrder, error) {
 	var it gen.KeyValueOrder
 	if obj == nil {
@@ -33931,6 +34213,27 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "patchLocationData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchLocationData(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "patchDeviceData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchDeviceData(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "patchDeviceLocationData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchDeviceLocationData(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -36547,6 +36850,36 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ(ctx context.Context, v any) ([]*jsonpatch.JSONPatchInput, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*jsonpatch.JSONPatchInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNJSONPatchInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNJSONPatchInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInput(ctx context.Context, v any) (*jsonpatch.JSONPatchInput, error) {
+	res, err := ec.unmarshalInputJSONPatchInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx context.Context, v any) (jsonpatch.JSONPatchOp, error) {
+	var res jsonpatch.JSONPatchOp
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx context.Context, sel ast.SelectionSet, v jsonpatch.JSONPatchOp) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) marshalNKeyValueConnection2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋentᚋgenᚐKeyValueConnection(ctx context.Context, sel ast.SelectionSet, v gen.KeyValueConnection) graphql.Marshaler {

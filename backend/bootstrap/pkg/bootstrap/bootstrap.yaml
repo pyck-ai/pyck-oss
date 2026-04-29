@@ -1,0 +1,308 @@
+zitadel:
+  organizations:
+    - name: Zitadel
+      exports:
+        - type: env
+          file: config/keys/bootstrap.env
+          name: PYCK_ZITADEL_ORG_ID
+          field: id
+        - type: process-env
+          name: PYCK_ZITADEL_ORG_ID
+          field: id
+      projects:
+        - name: Pyck
+          exports:
+            - type: env
+              file: config/keys/bootstrap.env
+              name: PYCK_ZITADEL_PROJECT_ID
+              field: id
+            - type: process-env
+              name: PYCK_ZITADEL_PROJECT_ID
+              field: id
+          apps:
+            - name: pyck-api
+              key-creation:
+                - type: file
+                  file: local-key.json
+              exports:
+                - type: file
+                  file: local-key.json
+
+            - name: pyck-temporal-frontend
+              key-creation:
+                - type: file
+                  file: temporal-frontend-key.json
+              exports:
+                - type: file
+                  file: temporal-frontend-key.json
+
+            - name: pyck-frontend
+              type: oidc
+              oidc_config:
+                application_type: web
+                response_types:
+                  - code
+                grant_types:
+                  - authorization_code
+                  - refresh_token
+                auth_method_type: none
+                redirect_uris:
+                  - https://dev.pyck.cloud/auth/oauth2/callback/zitadel
+                  - https://*.fly.dev/auth/oauth2/callback/zitadel
+                  - http://localhost:3000/auth/oauth2/callback/zitadel
+                post_logout_redirect_uris:
+                  - https://dev.pyck.cloud
+                  - http://localhost:3000
+                  - https://pyck-frontend.fly.dev
+                  - https://pr-*-pyck-frontend.fly.dev
+                access_token_type: jwt
+                access_token_role_assertion: true
+                id_token_role_assertion: true
+                id_token_userinfo_assertion: true
+                dev_mode: true
+              exports:
+                - type: env
+                  file: config/keys/bootstrap.env
+                  name: PYCK_FRONTEND_CLIENT_ID
+                  field: client_id
+
+
+            - name: pyck-admin
+              type: oidc
+              oidc_config:
+                application_type: web
+                response_types:
+                  - code
+                grant_types:
+                  - authorization_code
+                  - refresh_token
+                auth_method_type: none
+                redirect_uris:
+                  - https://dev.pyck.cloud/admin/callback
+                  - http://localhost:3000/admin/callback
+                  - http://localhost:3000/callback
+                post_logout_redirect_uris:
+                  - https://dev.pyck.cloud/admin
+                  - http://localhost:3000
+                access_token_type: jwt
+                access_token_role_assertion: true
+                id_token_role_assertion: true
+                id_token_userinfo_assertion: true
+                dev_mode: true
+              exports:
+                - type: env
+                  file: config/keys/bootstrap.env
+                  name: PYCK_ADMIN_CLIENT_ID
+                  field: client_id
+
+            - name: pyck-temporal-web
+              type: oidc
+              oidc_config:
+                application_type: web
+                response_types:
+                  - code
+                grant_types:
+                  - authorization_code
+                  - refresh_token
+                auth_method_type: basic
+                redirect_uris:
+                  - https://dev.pyck.cloud/temporal/auth/sso/callback
+                  - https://dev.pyck.cloud/temporal-ui/auth/sso/callback
+                post_logout_redirect_uris:
+                  - https://dev.pyck.cloud/temporal
+                  - https://dev.pyck.cloud/temporal-ui
+                access_token_type: jwt
+                access_token_role_assertion: true
+                id_token_role_assertion: true
+                id_token_userinfo_assertion: true
+              exports:
+                - type: env
+                  file: config/keys/bootstrap.env
+                  name: PYCK_TEMPORAL_WEB_CLIENT_ID
+                  field: client_id
+                - type: env
+                  file: config/keys/bootstrap.env
+                  name: PYCK_TEMPORAL_WEB_CLIENT_SECRET
+                  field: client_secret
+
+            - name: Mobile
+              type: oidc
+              oidc_config:
+                application_type: native
+                response_types:
+                  - code
+                grant_types:
+                  - authorization_code
+                  - refresh_token
+                auth_method_type: none
+                redirect_uris:
+                  - ai.pyck.picker:/
+                  - https://oauth.pstmn.io/v1/browser-callback
+                post_logout_redirect_uris:
+                  - ai.pyck.picker:/
+                  - https://oauth.pstmn.io/v1/browser-callback
+                dev_mode: true
+              exports:
+                - type: env
+                  file: config/keys/bootstrap.env
+                  name: PYCK_MOBILE_CLIENT_ID
+                  field: client_id
+
+            - name: Bruno
+              type: oidc
+              oidc_config:
+                application_type: web
+                response_types:
+                  - code
+                grant_types:
+                  - authorization_code
+                  - refresh_token
+                auth_method_type: none
+                redirect_uris:
+                  - https://oauth.usebruno.com/callback
+                  - http://localhost:11234
+                dev_mode: true
+              exports:
+                - type: env
+                  file: config/keys/bruno.env
+                  name: PYCK_BRUNO_CLIENT_ID
+                  field: client_id
+
+            - name: Pyck Go Env Manager
+              type: oidc
+              oidc_config:
+                application_type: web
+                response_types:
+                  - code
+                grant_types:
+                  - authorization_code
+                auth_method_type: none
+                redirect_uris:
+                  - http://localhost:3456/auth/callback
+                post_logout_redirect_uris:
+                  - http://localhost:3456
+                dev_mode: true
+              exports:
+                - type: env
+                  file: config/keys/bootstrap.env
+                  name: PYCK_ENV_MANAGER_CLIENT_ID
+                  field: client_id
+                  
+            - name: apollo-mcp-server
+              type: oidc
+              oidc_config:
+                application_type: native
+                response_types:
+                  - code
+                grant_types:
+                  - authorization_code
+                auth_method_type: none
+                redirect_uris:
+                  - http://127.0.0.1:19876/mcp/oauth/callback
+                  - http://127.0.0.1/mcp/oauth/callback
+                access_token_type: jwt
+                access_token_role_assertion: true
+                id_token_userinfo_assertion: true
+              exports:
+                - type: env
+                  file: config/keys/bootstrap.env
+                  name: PYCK_MCP_CLIENT_ID
+                  field: client_id
+          roles:
+            - key: system
+              display_name: System Role
+            - key: admin
+              display_name: Admin Role
+            - key: writer
+              display_name: Writer Role
+            - key: reader
+              display_name: Reader Role
+            - key: temporal_reader
+              display_name: Temporal Reader Role
+            - key: temporal_writer
+              display_name: Temporal Writer Role
+            - key: temporal_admin
+              display_name: Temporal Admin Role
+      human_users:
+        - username: bruno
+          email: bruno@zitadel.local
+          first_name: Bruno
+          last_name: Admin
+          display_name: Bruno
+          password: Password1!
+          is_email_verified: true
+          change_password: false
+          user_grants:
+            - project_name: Pyck
+              role_key: admin
+      machine_users:
+        - username: service-user
+          name: Service User
+          access_token_type: pat
+          user_grants:
+            - organization_name: Zitadel
+              project_name: Pyck
+              role_key: system
+          key-creation:
+            - type: file
+              file: service-user.key
+          exports:
+            - type: file
+              file: service-user.key
+            - type: env
+              file: config/keys/bootstrap.env
+              name: PYCK_SERVICE_TOKEN
+            - type: process-env
+              name: PYCK_SERVICE_TOKEN
+        - username: login-service-user
+          name: Login Service User
+          access_token_type: pat
+          role:
+            - IAM_LOGIN_CLIENT
+          key-creation:
+            - type: file
+              file: login-client.pat
+          exports:
+            - type: file
+              file: login-client.pat
+
+    - name: Pyck Warehouse
+      project_grants:
+        - organization_name: Zitadel
+          project_name: Pyck
+          role_keys:
+            - writer
+            - reader
+      machine_users:
+        - username: service-worker-user
+          name: Service Worker User
+          access_token_type: pat
+          user_grants:
+            - organization_name: Zitadel
+              project_name: Pyck
+              role_key: writer
+          key-creation:
+            - type: file
+              file: service-worker-user.key
+          exports:
+            - type: file
+              file: service-worker-user.key
+            - type: env
+              file: config/keys/bootstrap.env
+              name: PYCK_SERVICE_WORKER_TOKEN
+        - username: api-user
+          name: API User
+          access_token_type: pat
+          user_grants:
+            - organization_name: Zitadel
+              project_name: Pyck
+              role_key: writer
+          key-creation:
+            - type: file
+              file: api-user.key
+          exports:
+            - type: file
+              file: api-user.key
+            - type: env
+              file: config/keys/bootstrap.env
+              name: PYCK_TEST_AUTH_TOKEN

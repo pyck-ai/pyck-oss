@@ -995,6 +995,41 @@ type GroupWhereInput struct {
 	HasRolesWith []*RoleWhereInput `json:"hasRolesWith,omitempty"`
 }
 
+// A single RFC 6902 JSON Patch operation.
+// See: https://datatracker.ietf.org/doc/html/rfc6902
+//
+// Path uses JSON Pointer syntax (RFC 6901):
+// - "/name" targets the field "name"
+// - "/address/city" targets a nested field
+// - "/tags/0" targets an array element by index
+// - "/tags/-" appends to an array (ADD only)
+//
+// Value must be a JSON-encoded string:
+// - String: "\"Alice\""
+// - Number: "42"
+// - Object: "{\"key\": \"value\"}"
+// - Array: "[1, 2, 3]"
+// - Boolean: "true"
+// - Null: "null"
+//
+// Examples:
+//
+//	{ op: ADD, path: "/address/city", value: "\"NYC\"" }
+//	{ op: REMOVE, path: "/oldField" }
+//	{ op: REPLACE, path: "/quantity", value: "100" }
+//	{ op: MOVE, from: "/temp", path: "/permanent" }
+//	{ op: TEST, path: "/version", value: "\"1.0\"" }
+type JSONPatchInput struct {
+	// The operation to perform.
+	Op JSONPatchOp `json:"op"`
+	// JSON Pointer (RFC 6901) to the target location.
+	Path string `json:"path"`
+	// JSON-encoded value (required for ADD, REPLACE, TEST).
+	Value *string `json:"value,omitempty"`
+	// Source JSON Pointer for MOVE and COPY operations.
+	From *string `json:"from,omitempty"`
+}
+
 // Ordering options for KeyValue connections
 type KeyValueOrder struct {
 	// The ordering direction.
@@ -2249,6 +2284,77 @@ func (e *GroupOrderField) UnmarshalJSON(b []byte) error {
 }
 
 func (e GroupOrderField) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// RFC 6902 JSON Patch operation type.
+// See: https://datatracker.ietf.org/doc/html/rfc6902
+type JSONPatchOp string
+
+const (
+	// Insert or set a value at the target path.
+	JSONPatchOpAdd JSONPatchOp = "ADD"
+	// Delete the value at the target path.
+	JSONPatchOpRemove JSONPatchOp = "REMOVE"
+	// Update an existing value at the target path.
+	JSONPatchOpReplace JSONPatchOp = "REPLACE"
+	// Move a value from one path to another (requires from).
+	JSONPatchOpMove JSONPatchOp = "MOVE"
+	// Copy a value from one path to another (requires from).
+	JSONPatchOpCopy JSONPatchOp = "COPY"
+	// Assert a value equals the expected; fails the entire patch if not.
+	JSONPatchOpTest JSONPatchOp = "TEST"
+)
+
+var AllJSONPatchOp = []JSONPatchOp{
+	JSONPatchOpAdd,
+	JSONPatchOpRemove,
+	JSONPatchOpReplace,
+	JSONPatchOpMove,
+	JSONPatchOpCopy,
+	JSONPatchOpTest,
+}
+
+func (e JSONPatchOp) IsValid() bool {
+	switch e {
+	case JSONPatchOpAdd, JSONPatchOpRemove, JSONPatchOpReplace, JSONPatchOpMove, JSONPatchOpCopy, JSONPatchOpTest:
+		return true
+	}
+	return false
+}
+
+func (e JSONPatchOp) String() string {
+	return string(e)
+}
+
+func (e *JSONPatchOp) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = JSONPatchOp(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid JSONPatchOp", str)
+	}
+	return nil
+}
+
+func (e JSONPatchOp) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *JSONPatchOp) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e JSONPatchOp) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

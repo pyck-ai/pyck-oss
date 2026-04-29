@@ -1,0 +1,11 @@
+info:
+  name: Cross - Receiving Inbound Shipment Notification Patch Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Tests JSON Patch (RFC 6902) operations on receiving inbound shipment notifications. Creates a data type, an inbound, then a notification with data, patches individual fields, verifies changes persist, then cleans up.
+
+
+request:
+  auth: inherit

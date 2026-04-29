@@ -3,6 +3,7 @@ package resolvers_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -386,6 +387,7 @@ func TestOrderItem_Delete(t *testing.T) {
 		deleted, err := te.Ent.OrderItems.Get(te.ctxWithDeleted(userA), item.ID)
 		require.NoError(t, err)
 		assert.NotNil(t, deleted.DeletedAt)
+		assert.Equal(t, time.UTC, deleted.DeletedAt.Location(), "deleted_at should be in UTC")
 
 		te.assertEvents(ctx, Delete("orderitems", item.ID))
 	})

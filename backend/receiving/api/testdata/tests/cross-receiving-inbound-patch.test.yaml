@@ -1,0 +1,340 @@
+---
+name: "Cross - Receiving Inbound Patch Lifecycle"
+description: >
+  Tests JSON Patch (RFC 6902) operations on receiving inbounds and inbound items.
+  Creates a data type, inbound with data, and inbound item. Patches fields on
+  both, verifies changes persist, then cleans up.
+steps:
+  - id: createDT
+    name: "Create data type for inbounds"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Inbound Patch Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "receivinginbound"
+        jsonSchema: '{"type":"object","properties":{"warehouse":{"type":"string"},"priority":{"type":"integer","minimum":0},"notes":{"type":"string"},"tags":{"type":"array","items":{"type":"string"}}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: createItemDT
+    name: "Create data type for inbound items"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Inbound Item Patch Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "receivinginbounditem"
+        jsonSchema: '{"type":"object","properties":{"condition":{"type":"string"},"inspected":{"type":"boolean"},"weight":{"type":"number"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  # =========================================================================
+  # INBOUND: create → update → verify → patch → verify
+  # =========================================================================
+  - id: create
+    name: "Create inbound with data"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        orderID: "PATCH-TEST-001"
+        data:
+          warehouse: "WH-A"
+          priority: 5
+          notes: "Original note"
+          tags: ["inbound", "test"]
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound created"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+      - msg: "Data persisted"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.data.warehouse
+            equal: "WH-A"
+          - ref: res.body.data.createReceivingInbound.receivingInbound.data.priority
+            equal: 5
+
+  - name: "Update inbound data (full overwrite)"
+    operation: receiving.updateReceivingInbound
+    vars:
+      id: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          warehouse: "WH-B"
+          priority: 8
+          notes: "Updated note"
+          tags: ["inbound", "updated"]
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "All data replaced"
+        assertions:
+          - ref: res.body.data.updateReceivingInbound.receivingInbound.data.warehouse
+            equal: "WH-B"
+          - ref: res.body.data.updateReceivingInbound.receivingInbound.data.priority
+            equal: 8
+
+  - name: "Verify inbound update persisted"
+    operation: receiving.getReceivingInbounds
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Updated data persisted"
+        assertions:
+          - ref: res.body.data.receivingInbounds.edges[].node.data.warehouse
+            equal: "WH-B"
+          - ref: res.body.data.receivingInbounds.edges[].node.data.priority
+            equal: 8
+
+  - id: patch
+    name: "Patch inbound data - replace and add"
+    operation: receiving.patchReceivingInboundData
+    vars:
+      id: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+      patches:
+        - op: REPLACE
+          path: "/warehouse"
+          value: "\"WH-C\""
+        - op: REPLACE
+          path: "/priority"
+          value: "10"
+        - op: ADD
+          path: "/tags/-"
+          value: "\"urgent\""
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Warehouse patched"
+        assertions:
+          - ref: res.body.data.patchReceivingInboundData.receivingInbound.data.warehouse
+            equal: "WH-C"
+      - msg: "Priority patched"
+        assertions:
+          - ref: res.body.data.patchReceivingInboundData.receivingInbound.data.priority
+            equal: 10
+      - msg: "Notes preserved (untouched)"
+        assertions:
+          - ref: res.body.data.patchReceivingInboundData.receivingInbound.data.notes
+            equal: "Updated note"
+
+  - name: "Verify inbound patch persisted"
+    operation: receiving.getReceivingInbounds
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Patched data persisted"
+        assertions:
+          - ref: res.body.data.receivingInbounds.edges[].node.data.warehouse
+            equal: "WH-C"
+          - ref: res.body.data.receivingInbounds.edges[].node.data.priority
+            equal: 10
+          - ref: res.body.data.receivingInbounds.edges[].node.data.notes
+            equal: "Updated note"
+
+  # =========================================================================
+  # INBOUND ITEM: create → update → verify → patch → verify
+  # =========================================================================
+  - id: createItem
+    name: "Create inbound item with data"
+    operation: receiving.createReceivingInboundItem
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createItemDT].body.data.createDataType.id"}
+        inboundID: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+        sku: {$fake: "{{uuid}}"}
+        quantity: 50
+        data:
+          condition: "new"
+          inspected: false
+          weight: 2.5
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created"
+        assertions:
+          - ref: res.body.data.createReceivingInboundItem.receivingInboundItem.id
+            nil: false
+
+  - name: "Patch inbound item data"
+    operation: receiving.patchReceivingInboundItemData
+    vars:
+      id: {$ref: "res[createItem].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+      patches:
+        - op: REPLACE
+          path: "/inspected"
+          value: "true"
+        - op: REPLACE
+          path: "/condition"
+          value: "\"inspected-ok\""
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inspected patched"
+        assertions:
+          - ref: res.body.data.patchReceivingInboundItemData.receivingInboundItem.data.inspected
+            equal: true
+      - msg: "Condition patched"
+        assertions:
+          - ref: res.body.data.patchReceivingInboundItemData.receivingInboundItem.data.condition
+            equal: "inspected-ok"
+      - msg: "Weight preserved"
+        assertions:
+          - ref: res.body.data.patchReceivingInboundItemData.receivingInboundItem.data.weight
+            equal: 2.5
+
+  - name: "Verify inbound item patch persisted"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        id: {$ref: "res[createItem].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Patched item data persisted"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.edges[].node.data.inspected
+            equal: true
+          - ref: res.body.data.receivingInboundItems.edges[].node.data.condition
+            equal: "inspected-ok"
+          - ref: res.body.data.receivingInboundItems.edges[].node.data.weight
+            equal: 2.5
+
+  # =========================================================================
+  # CLEANUP
+  # =========================================================================
+  - name: "Delete inbound item"
+    operation: receiving.deleteReceivingInboundItem
+    vars:
+      id: {$ref: "res[createItem].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Delete inbound"
+    operation: receiving.deleteReceivingInbound
+    vars:
+      id: {$ref: "res[create].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete item data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createItemDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete inbound data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

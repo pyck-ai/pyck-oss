@@ -57,6 +57,9 @@ type Client interface {
 	CreateReceivingInboundShipmentNotification(ctx context.Context, input CreateReceivingInboundShipmentNotificationArgs) (*CreateReceivingInboundShipmentNotification, error)
 	UpdateReceivingInboundShipmentNotification(ctx context.Context, input UpdateReceivingInboundShipmentNotificationArgs) (*UpdateReceivingInboundShipmentNotification, error)
 	DeleteReceivingInboundShipmentNotification(ctx context.Context, input DeleteReceivingInboundShipmentNotificationArgs) (*DeleteReceivingInboundShipmentNotification, error)
+	PatchReceivingInboundData(ctx context.Context, input PatchReceivingInboundDataArgs) (*PatchReceivingInboundData, error)
+	PatchReceivingInboundItemData(ctx context.Context, input PatchReceivingInboundItemDataArgs) (*PatchReceivingInboundItemData, error)
+	PatchReceivingInboundShipmentNotificationData(ctx context.Context, input PatchReceivingInboundShipmentNotificationDataArgs) (*PatchReceivingInboundShipmentNotificationData, error)
 }
 
 type client struct {
@@ -200,4 +203,34 @@ type DeleteReceivingInboundShipmentNotificationArgs struct {
 
 func (c *client) DeleteReceivingInboundShipmentNotification(ctx context.Context, input DeleteReceivingInboundShipmentNotificationArgs) (*DeleteReceivingInboundShipmentNotification, error) {
 	return c.api.DeleteReceivingInboundShipmentNotification(ctx, input.Id)
+}
+
+// PatchReceivingInboundDataArgs is a sparse struct for PatchReceivingInboundData parameters
+type PatchReceivingInboundDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchReceivingInboundData(ctx context.Context, input PatchReceivingInboundDataArgs) (*PatchReceivingInboundData, error) {
+	return c.api.PatchReceivingInboundData(ctx, input.Id, input.Patches)
+}
+
+// PatchReceivingInboundItemDataArgs is a sparse struct for PatchReceivingInboundItemData parameters
+type PatchReceivingInboundItemDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchReceivingInboundItemData(ctx context.Context, input PatchReceivingInboundItemDataArgs) (*PatchReceivingInboundItemData, error) {
+	return c.api.PatchReceivingInboundItemData(ctx, input.Id, input.Patches)
+}
+
+// PatchReceivingInboundShipmentNotificationDataArgs is a sparse struct for PatchReceivingInboundShipmentNotificationData parameters
+type PatchReceivingInboundShipmentNotificationDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchReceivingInboundShipmentNotificationData(ctx context.Context, input PatchReceivingInboundShipmentNotificationDataArgs) (*PatchReceivingInboundShipmentNotificationData, error) {
+	return c.api.PatchReceivingInboundShipmentNotificationData(ctx, input.Id, input.Patches)
 }

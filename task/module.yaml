@@ -26,9 +26,9 @@ tasks:
     desc: Lint module
     cmds:
       - go mod verify
-      - golangci-lint-v2 config verify --schema '{{.TASKFILE_DIR}}/../.golangci-lint/golangci.v2.5.jsonschema.json'
+      - golangci-lint config verify --schema '{{.TASKFILE_DIR}}/../.golangci-lint/golangci.v2.5.jsonschema.json'
       - >-
-        golangci-lint-v2 run
+        golangci-lint run
         --allow-serial-runners
         --timeout=5m
         ./...
@@ -37,9 +37,9 @@ tasks:
     desc: Lint module and fix issues
     cmds:
       - go mod verify
-      - golangci-lint-v2 config verify
+      - golangci-lint config verify
       - >-
-        golangci-lint-v2 run
+        golangci-lint run
         --allow-serial-runners
         --timeout=5m
         --fix
@@ -48,12 +48,12 @@ tasks:
   format:
     desc: Format module
     cmds:
-      - golangci-lint-v2 fmt ./...
+      - golangci-lint fmt ./...
 
   format:diff:
     desc: Show format diff for module
     cmds:
-      - golangci-lint-v2 fmt --diff-colored ./... || true
+      - golangci-lint fmt --diff-colored ./... || true
 
   test:
     desc: Test module

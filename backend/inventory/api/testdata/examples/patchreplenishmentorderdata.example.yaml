@@ -1,0 +1,27 @@
+---
+operation: PatchReplenishmentOrderData
+name: "Patch Replenishment Order Data"
+description: >
+  Applies RFC 6902 JSON Patch operations to the replenishment order's data field.
+  Only changed fields are modified; untouched fields are preserved.
+vars:
+  id: { $placeholder: "replenishment order id to patch" }
+  patches:
+    - op: REPLACE
+      path: "/priority"
+      value: "\"high\""
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Patched order returned"
+    assertions:
+      - ref: res.body.data.patchReplenishmentOrderData.replenishmentOrder
+        nil: false
+      - ref: res.body.data.patchReplenishmentOrderData.replenishmentOrder.id
+        equal: {$ref: req.body.variables.id}

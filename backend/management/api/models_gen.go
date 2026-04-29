@@ -28,6 +28,7 @@ type EventOrder = internalapi.EventOrder
 type EventWhereInput = internalapi.EventWhereInput
 type GroupOrder = internalapi.GroupOrder
 type GroupWhereInput = internalapi.GroupWhereInput
+type JSONPatchInput = internalapi.JSONPatchInput
 type KeyValueOrder = internalapi.KeyValueOrder
 type KeyValueWhereInput = internalapi.KeyValueWhereInput
 type LocationOrder = internalapi.LocationOrder
@@ -52,6 +53,7 @@ type DeviceOrderField = internalapi.DeviceOrderField
 type DeviceUserOrderField = internalapi.DeviceUserOrderField
 type EventOrderField = internalapi.EventOrderField
 type GroupOrderField = internalapi.GroupOrderField
+type JSONPatchOp = internalapi.JSONPatchOp
 type JSONType = internalapi.JSONType
 type KeyValueOrderField = internalapi.KeyValueOrderField
 type LocationOrderField = internalapi.LocationOrderField
@@ -310,6 +312,24 @@ type CheckInUserDevice_CheckInUserDevice = internalapi.CheckInUserDevice_CheckIn
 type CheckOutUserDevice_CheckOutUserDevice_DeviceUser = internalapi.CheckOutUserDevice_CheckOutUserDevice_DeviceUser
 type CheckOutUserDevice_CheckOutUserDevice_Workflows = internalapi.CheckOutUserDevice_CheckOutUserDevice_Workflows
 type CheckOutUserDevice_CheckOutUserDevice = internalapi.CheckOutUserDevice_CheckOutUserDevice
+type PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_Edges = internalapi.PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_Edges
+type PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_PageInfo = internalapi.PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_PageInfo
+type PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation = internalapi.PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation
+type PatchLocationData_PatchLocationData_Location = internalapi.PatchLocationData_PatchLocationData_Location
+type PatchLocationData_PatchLocationData_Workflows = internalapi.PatchLocationData_PatchLocationData_Workflows
+type PatchLocationData_PatchLocationData = internalapi.PatchLocationData_PatchLocationData
+type PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_Edges = internalapi.PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_Edges
+type PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_PageInfo = internalapi.PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_PageInfo
+type PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice = internalapi.PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice
+type PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_Edges = internalapi.PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_Edges
+type PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_PageInfo = internalapi.PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_PageInfo
+type PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice = internalapi.PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice
+type PatchDeviceData_PatchDeviceData_Device = internalapi.PatchDeviceData_PatchDeviceData_Device
+type PatchDeviceData_PatchDeviceData_Workflows = internalapi.PatchDeviceData_PatchDeviceData_Workflows
+type PatchDeviceData_PatchDeviceData = internalapi.PatchDeviceData_PatchDeviceData
+type PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation = internalapi.PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation
+type PatchDeviceLocationData_PatchDeviceLocationData_Workflows = internalapi.PatchDeviceLocationData_PatchDeviceLocationData_Workflows
+type PatchDeviceLocationData_PatchDeviceLocationData = internalapi.PatchDeviceLocationData_PatchDeviceLocationData
 type GetAccessPolicies = internalapi.GetAccessPolicies
 type GetDataTypes = internalapi.GetDataTypes
 type GetDevices = internalapi.GetDevices
@@ -361,6 +381,9 @@ type SetDeviceLocation = internalapi.SetDeviceLocation
 type UnsetDeviceLocation = internalapi.UnsetDeviceLocation
 type CheckInUserDevice = internalapi.CheckInUserDevice
 type CheckOutUserDevice = internalapi.CheckOutUserDevice
+type PatchLocationData = internalapi.PatchLocationData
+type PatchDeviceData = internalapi.PatchDeviceData
+type PatchDeviceLocationData = internalapi.PatchDeviceLocationData
 
 const AccessPolicyOrderFieldCreatedAt = internalapi.AccessPolicyOrderFieldCreatedAt
 const AccessPolicyOrderFieldCreatedBy = internalapi.AccessPolicyOrderFieldCreatedBy
@@ -426,6 +449,12 @@ const GroupOrderFieldDeletedBy = internalapi.GroupOrderFieldDeletedBy
 const GroupOrderFieldTenantID = internalapi.GroupOrderFieldTenantID
 const GroupOrderFieldName = internalapi.GroupOrderFieldName
 const GroupOrderFieldDescription = internalapi.GroupOrderFieldDescription
+const JSONPatchOpAdd = internalapi.JSONPatchOpAdd
+const JSONPatchOpRemove = internalapi.JSONPatchOpRemove
+const JSONPatchOpReplace = internalapi.JSONPatchOpReplace
+const JSONPatchOpMove = internalapi.JSONPatchOpMove
+const JSONPatchOpCopy = internalapi.JSONPatchOpCopy
+const JSONPatchOpTest = internalapi.JSONPatchOpTest
 const JSONTypeNumber = internalapi.JSONTypeNumber
 const JSONTypeString = internalapi.JSONTypeString
 const JSONTypeBoolean = internalapi.JSONTypeBoolean
@@ -490,6 +519,7 @@ func AllDeviceOrderField() []DeviceOrderField         { return internalapi.AllDe
 func AllDeviceUserOrderField() []DeviceUserOrderField { return internalapi.AllDeviceUserOrderField }
 func AllEventOrderField() []EventOrderField           { return internalapi.AllEventOrderField }
 func AllGroupOrderField() []GroupOrderField           { return internalapi.AllGroupOrderField }
+func AllJSONPatchOp() []JSONPatchOp                   { return internalapi.AllJSONPatchOp }
 func AllJSONType() []JSONType                         { return internalapi.AllJSONType }
 func AllKeyValueOrderField() []KeyValueOrderField     { return internalapi.AllKeyValueOrderField }
 func AllLocationOrderField() []LocationOrderField     { return internalapi.AllLocationOrderField }

@@ -25,6 +25,9 @@ type APIClient interface {
 	CreateReceivingInboundShipmentNotification(ctx context.Context, input CreateReceivingInboundShipmentNotificationInput, interceptors ...clientv2.RequestInterceptor) (*CreateReceivingInboundShipmentNotification, error)
 	UpdateReceivingInboundShipmentNotification(ctx context.Context, id string, input UpdateReceivingInboundShipmentNotificationInput, interceptors ...clientv2.RequestInterceptor) (*UpdateReceivingInboundShipmentNotification, error)
 	DeleteReceivingInboundShipmentNotification(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeleteReceivingInboundShipmentNotification, error)
+	PatchReceivingInboundData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchReceivingInboundData, error)
+	PatchReceivingInboundItemData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchReceivingInboundItemData, error)
+	PatchReceivingInboundShipmentNotificationData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchReceivingInboundShipmentNotificationData, error)
 }
 
 type Client struct {
@@ -2174,6 +2177,570 @@ func (t *DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipme
 	return t.Workflows
 }
 
+type PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems struct {
+	Edges      []*PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                                        "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems) GetEdges() []*PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_Edges {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems{}
+	}
+	return t.Edges
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems) GetPageInfo() *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems_PageInfo {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems) GetTotalCount() int {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems{}
+	}
+	return t.TotalCount
+}
+
+type PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications struct {
+	Edges      []*PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                                                        "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications) GetEdges() []*PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_Edges {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications{}
+	}
+	return t.Edges
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications) GetPageInfo() *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications_PageInfo {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications) GetTotalCount() int {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications{}
+	}
+	return t.TotalCount
+}
+
+type PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound struct {
+	CreatedAt                    time.Time                                                                                         "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy                    uuid.UUID                                                                                         "json:\"createdBy\" graphql:\"createdBy\""
+	Data                         map[string]any                                                                                    "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID                   *uuid.UUID                                                                                        "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug                 *string                                                                                           "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt                    *time.Time                                                                                        "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy                    *uuid.UUID                                                                                        "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	ID                           string                                                                                            "json:\"id\" graphql:\"id\""
+	InboundItems                 PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems                 "json:\"inboundItems\" graphql:\"inboundItems\""
+	InboundShipmentNotifications PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications "json:\"inboundShipmentNotifications\" graphql:\"inboundShipmentNotifications\""
+	OrderID                      *string                                                                                           "json:\"orderID,omitempty\" graphql:\"orderID\""
+	SupplierID                   uuid.UUID                                                                                         "json:\"supplierID\" graphql:\"supplierID\""
+	TenantID                     uuid.UUID                                                                                         "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt                    *time.Time                                                                                        "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy                    *uuid.UUID                                                                                        "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) GetData() map[string]any {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound{}
+	}
+	return t.Data
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) GetID() string {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound{}
+	}
+	return t.ID
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) GetInboundItems() *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundItems {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound{}
+	}
+	return &t.InboundItems
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) GetInboundShipmentNotifications() *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound_InboundShipmentNotifications {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound{}
+	}
+	return &t.InboundShipmentNotifications
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) GetOrderID() *string {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound{}
+	}
+	return t.OrderID
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) GetSupplierID() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound{}
+	}
+	return &t.SupplierID
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound{}
+	}
+	return &t.TenantID
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchReceivingInboundData_PatchReceivingInboundData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchReceivingInboundData_PatchReceivingInboundData struct {
+	ReceivingInbound *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound "json:\"receivingInbound,omitempty\" graphql:\"receivingInbound\""
+	Workflows        []*PatchReceivingInboundData_PatchReceivingInboundData_Workflows      "json:\"workflows,omitempty\" graphql:\"workflows\""
+}
+
+func (t *PatchReceivingInboundData_PatchReceivingInboundData) GetReceivingInbound() *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData{}
+	}
+	return t.ReceivingInbound
+}
+func (t *PatchReceivingInboundData_PatchReceivingInboundData) GetWorkflows() []*PatchReceivingInboundData_PatchReceivingInboundData_Workflows {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData{}
+	}
+	return t.Workflows
+}
+
+type PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem struct {
+	CreatedAt    time.Time      "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy    uuid.UUID      "json:\"createdBy\" graphql:\"createdBy\""
+	Data         map[string]any "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID   *uuid.UUID     "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug *string        "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt    *time.Time     "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy    *uuid.UUID     "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	ID           string         "json:\"id\" graphql:\"id\""
+	InboundID    string         "json:\"inboundID\" graphql:\"inboundID\""
+	Quantity     int            "json:\"quantity\" graphql:\"quantity\""
+	Sku          string         "json:\"sku\" graphql:\"sku\""
+	TenantID     uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem) GetData() map[string]any {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem{}
+	}
+	return t.Data
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem) GetID() string {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem{}
+	}
+	return t.ID
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem) GetInboundID() string {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem{}
+	}
+	return t.InboundID
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem) GetQuantity() int {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem{}
+	}
+	return t.Quantity
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem) GetSku() string {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem{}
+	}
+	return t.Sku
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem{}
+	}
+	return &t.TenantID
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchReceivingInboundItemData_PatchReceivingInboundItemData struct {
+	ReceivingInboundItem *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem "json:\"receivingInboundItem,omitempty\" graphql:\"receivingInboundItem\""
+	Workflows            []*PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows          "json:\"workflows,omitempty\" graphql:\"workflows\""
+}
+
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData) GetReceivingInboundItem() *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData{}
+	}
+	return t.ReceivingInboundItem
+}
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData) GetWorkflows() []*PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData{}
+	}
+	return t.Workflows
+}
+
+type PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification struct {
+	CreatedAt    time.Time      "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy    uuid.UUID      "json:\"createdBy\" graphql:\"createdBy\""
+	Data         map[string]any "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID   *uuid.UUID     "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug *string        "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt    *time.Time     "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy    *uuid.UUID     "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	ID           string         "json:\"id\" graphql:\"id\""
+	InboundID    string         "json:\"inboundID\" graphql:\"inboundID\""
+	TenantID     uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification) GetData() map[string]any {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification{}
+	}
+	return t.Data
+}
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification) GetID() string {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification{}
+	}
+	return t.ID
+}
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification) GetInboundID() string {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification{}
+	}
+	return t.InboundID
+}
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification{}
+	}
+	return &t.TenantID
+}
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData struct {
+	ReceivingInboundShipmentNotification *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification "json:\"receivingInboundShipmentNotification,omitempty\" graphql:\"receivingInboundShipmentNotification\""
+	Workflows                            []*PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows                          "json:\"workflows,omitempty\" graphql:\"workflows\""
+}
+
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData) GetReceivingInboundShipmentNotification() *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData{}
+	}
+	return t.ReceivingInboundShipmentNotification
+}
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData) GetWorkflows() []*PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData{}
+	}
+	return t.Workflows
+}
+
 type GetReceivingInbounds struct {
 	ReceivingInbounds GetReceivingInbounds_ReceivingInbounds "json:\"receivingInbounds\" graphql:\"receivingInbounds\""
 }
@@ -2315,6 +2882,39 @@ func (t *DeleteReceivingInboundShipmentNotification) GetDeleteReceivingInboundSh
 		t = &DeleteReceivingInboundShipmentNotification{}
 	}
 	return &t.DeleteReceivingInboundShipmentNotification
+}
+
+type PatchReceivingInboundData struct {
+	PatchReceivingInboundData *PatchReceivingInboundData_PatchReceivingInboundData "json:\"patchReceivingInboundData,omitempty\" graphql:\"patchReceivingInboundData\""
+}
+
+func (t *PatchReceivingInboundData) GetPatchReceivingInboundData() *PatchReceivingInboundData_PatchReceivingInboundData {
+	if t == nil {
+		t = &PatchReceivingInboundData{}
+	}
+	return t.PatchReceivingInboundData
+}
+
+type PatchReceivingInboundItemData struct {
+	PatchReceivingInboundItemData *PatchReceivingInboundItemData_PatchReceivingInboundItemData "json:\"patchReceivingInboundItemData,omitempty\" graphql:\"patchReceivingInboundItemData\""
+}
+
+func (t *PatchReceivingInboundItemData) GetPatchReceivingInboundItemData() *PatchReceivingInboundItemData_PatchReceivingInboundItemData {
+	if t == nil {
+		t = &PatchReceivingInboundItemData{}
+	}
+	return t.PatchReceivingInboundItemData
+}
+
+type PatchReceivingInboundShipmentNotificationData struct {
+	PatchReceivingInboundShipmentNotificationData *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData "json:\"patchReceivingInboundShipmentNotificationData,omitempty\" graphql:\"patchReceivingInboundShipmentNotificationData\""
+}
+
+func (t *PatchReceivingInboundShipmentNotificationData) GetPatchReceivingInboundShipmentNotificationData() *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData{}
+	}
+	return t.PatchReceivingInboundShipmentNotificationData
 }
 
 const GetReceivingInboundsDocument = `query GetReceivingInbounds ($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderBy: ReceivingInboundOrder, $where: ReceivingInboundWhereInput) {
@@ -2949,18 +3549,177 @@ func (c *Client) DeleteReceivingInboundShipmentNotification(ctx context.Context,
 	return &res, nil
 }
 
+const PatchReceivingInboundDataDocument = `mutation PatchReceivingInboundData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchReceivingInboundData(id: $id, patches: $patches) {
+		receivingInbound {
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			id
+			inboundItems {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			inboundShipmentNotifications {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			orderID
+			supplierID
+			tenantID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchReceivingInboundData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchReceivingInboundData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchReceivingInboundData
+	if err := c.Client.Post(ctx, "PatchReceivingInboundData", PatchReceivingInboundDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const PatchReceivingInboundItemDataDocument = `mutation PatchReceivingInboundItemData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchReceivingInboundItemData(id: $id, patches: $patches) {
+		receivingInboundItem {
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			id
+			inboundID
+			quantity
+			sku
+			tenantID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchReceivingInboundItemData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchReceivingInboundItemData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchReceivingInboundItemData
+	if err := c.Client.Post(ctx, "PatchReceivingInboundItemData", PatchReceivingInboundItemDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const PatchReceivingInboundShipmentNotificationDataDocument = `mutation PatchReceivingInboundShipmentNotificationData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchReceivingInboundShipmentNotificationData(id: $id, patches: $patches) {
+		receivingInboundShipmentNotification {
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			id
+			inboundID
+			tenantID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchReceivingInboundShipmentNotificationData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchReceivingInboundShipmentNotificationData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchReceivingInboundShipmentNotificationData
+	if err := c.Client.Post(ctx, "PatchReceivingInboundShipmentNotificationData", PatchReceivingInboundShipmentNotificationDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 var DocumentOperationNames = map[string]string{
-	GetReceivingInboundsDocument:                       "GetReceivingInbounds",
-	GetReceivingInboundItemsDocument:                   "GetReceivingInboundItems",
-	GetReceivingInboundShipmentNotificationsDocument:   "GetReceivingInboundShipmentNotifications",
-	GetReceivingServiceInfoDocument:                    "GetReceivingServiceInfo",
-	CreateReceivingInboundDocument:                     "CreateReceivingInbound",
-	UpdateReceivingInboundDocument:                     "UpdateReceivingInbound",
-	DeleteReceivingInboundDocument:                     "DeleteReceivingInbound",
-	CreateReceivingInboundItemDocument:                 "CreateReceivingInboundItem",
-	UpdateReceivingInboundItemDocument:                 "UpdateReceivingInboundItem",
-	DeleteReceivingInboundItemDocument:                 "DeleteReceivingInboundItem",
-	CreateReceivingInboundShipmentNotificationDocument: "CreateReceivingInboundShipmentNotification",
-	UpdateReceivingInboundShipmentNotificationDocument: "UpdateReceivingInboundShipmentNotification",
-	DeleteReceivingInboundShipmentNotificationDocument: "DeleteReceivingInboundShipmentNotification",
+	GetReceivingInboundsDocument:                          "GetReceivingInbounds",
+	GetReceivingInboundItemsDocument:                      "GetReceivingInboundItems",
+	GetReceivingInboundShipmentNotificationsDocument:      "GetReceivingInboundShipmentNotifications",
+	GetReceivingServiceInfoDocument:                       "GetReceivingServiceInfo",
+	CreateReceivingInboundDocument:                        "CreateReceivingInbound",
+	UpdateReceivingInboundDocument:                        "UpdateReceivingInbound",
+	DeleteReceivingInboundDocument:                        "DeleteReceivingInbound",
+	CreateReceivingInboundItemDocument:                    "CreateReceivingInboundItem",
+	UpdateReceivingInboundItemDocument:                    "UpdateReceivingInboundItem",
+	DeleteReceivingInboundItemDocument:                    "DeleteReceivingInboundItem",
+	CreateReceivingInboundShipmentNotificationDocument:    "CreateReceivingInboundShipmentNotification",
+	UpdateReceivingInboundShipmentNotificationDocument:    "UpdateReceivingInboundShipmentNotification",
+	DeleteReceivingInboundShipmentNotificationDocument:    "DeleteReceivingInboundShipmentNotification",
+	PatchReceivingInboundDataDocument:                     "PatchReceivingInboundData",
+	PatchReceivingInboundItemDataDocument:                 "PatchReceivingInboundItemData",
+	PatchReceivingInboundShipmentNotificationDataDocument: "PatchReceivingInboundShipmentNotificationData",
 }

@@ -506,7 +506,7 @@ func TestZitadelAuthProvider_HTTPMiddleware(t *testing.T) {
 
 			// If authentication failed, verify error message
 			if tc.expectedStatusCode == http.StatusUnauthorized {
-				assert.Equal(t, "Unauthorized\n", rr.Body.String())
+				assert.JSONEq(t, `{"error":"Unauthorized"}`, rr.Body.String())
 			}
 
 			mockClient.AssertExpectations(t)

@@ -89,7 +89,7 @@ func (HistoryMixin) Hooks() []ent.Hook {
 	return []ent.Hook{
 		func(next ent.Mutator) ent.Mutator {
 			return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-				now := time.Now()
+				now := time.Now().UTC()
 
 				req := request.ForContext(ctx)
 				user := req.User()
@@ -156,7 +156,7 @@ func HistoryMixinNotDeletedIndexAnnotation() *entsql.IndexAnnotation {
 // updated_at and updated_by fields with the current time and the user ID.
 func HistoryMixinResolveWithNewValues(ctx context.Context) sql.ConflictOption {
 	return sql.ResolveWith(func(u *sql.UpdateSet) {
-		now := time.Now()
+		now := time.Now().UTC()
 		req := request.ForContext(ctx)
 		user := req.User()
 

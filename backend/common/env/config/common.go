@@ -13,7 +13,7 @@ type HTTPConfig struct {
 }
 
 type EnvironmentConfig struct {
-	EnvironmentName string `env:"PYCK_ENVIRONMENT,notEmpty" envDefault:"local"`
+	EnvironmentName string `env:"PYCK_ENV,notEmpty,required"`
 }
 
 type LogConfig struct {
@@ -22,8 +22,8 @@ type LogConfig struct {
 }
 
 type DbConfig struct {
-	DbMasterUrl string `env:"PYCK_DATABASE_MASTER_URL,notEmpty,required"`
-	DbSlaveUrl  string `env:"PYCK_DATABASE_SLAVE_URL,notEmpty,required"`
+	DbMasterUrl string `env:"PYCK_DATABASE_MASTER_URL,notEmpty,required" json:"-"`
+	DbSlaveUrl  string `env:"PYCK_DATABASE_SLAVE_URL,notEmpty,required" json:"-"`
 	DbDebug     bool   `env:"PYCK_DATABASE_DEBUG,notEmpty" envDefault:"false"`
 	DbDriver    string `env:"PYCK_DATABASE_DRIVER,notEmpty" envDefault:"postgres"`
 
@@ -46,8 +46,9 @@ type TemporalBootstrapConfig struct {
 }
 
 type ServiceConfig struct {
-	ServicesPath string `env:"PYCK_SERVICES_PATH"`
-	ServiceToken string `env:"PYCK_SERVICE_TOKEN,notEmpty,required" json:"-"`
+	ServicesPath       string `env:"PYCK_SERVICES_PATH"`
+	ServiceToken       string `env:"PYCK_SERVICE_TOKEN,notEmpty,required" json:"-"`
+	StrictVersionCheck bool   `env:"PYCK_STRICT_VERSION_CHECK,notEmpty" envDefault:"true"`
 }
 
 type ServiceInstanceConfig struct {
@@ -55,6 +56,8 @@ type ServiceInstanceConfig struct {
 }
 
 type ZitadelConfig struct {
+	ZitadelOAuthURL           string        `env:"PYCK_ZITADEL_OAUTH_URL,notEmpty,required"`
+	ZitadelGrpcAddr           string        `env:"PYCK_ZITADEL_GRPC_ADDR,notEmpty,required"`
 	ZitadelAudience           string        `env:"PYCK_ZITADEL_AUDIENCE,notEmpty,required"`
 	ZitadelOrganizationId     string        `env:"PYCK_ZITADEL_ORG_ID,notEmpty,required"`
 	ZitadelProjectId          string        `env:"PYCK_ZITADEL_PROJECT_ID,notEmpty,required"`
@@ -65,7 +68,7 @@ type ZitadelConfig struct {
 }
 
 type NatsConfig struct {
-	NatsUrl            string        `env:"PYCK_NATS_URL,notEmpty,required"`
+	NatsUrl            string        `env:"PYCK_NATS_URL,notEmpty,required" json:"-"`
 	NatsStreamName     string        `env:"PYCK_NATS_STREAM_NAME,notEmpty,required"`
 	NatsWsUrl          string        `env:"PYCK_NATS_WS_URL,notEmpty,required"`
 	NatsReplicasNumber int           `env:"PYCK_NATS_REPLICAS_NO,notEmpty,required"`

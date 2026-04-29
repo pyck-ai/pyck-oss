@@ -1,0 +1,28 @@
+---
+operation: CancelWorkflow
+name: "Cancel Workflow"
+description: >
+  Requests graceful cancellation of a running workflow execution. The
+  target workflow receives a cancellation signal on its context and can
+  run cleanup before terminating. Returns once the cancel request has
+  been accepted by Temporal (not when the workflow has actually
+  terminated).
+vars:
+  input:
+    workflowID: { $placeholder: "workflow execution ID" }
+    workflowRunID: { $placeholder: "run ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Workflow IDs echoed back"
+    assertions:
+      - ref: res.body.data.cancelWorkflow.workflowID
+        equal: { $ref: req.body.variables.input.workflowID }
+      - ref: res.body.data.cancelWorkflow.workflowRunID
+        equal: { $ref: req.body.variables.input.workflowRunID }

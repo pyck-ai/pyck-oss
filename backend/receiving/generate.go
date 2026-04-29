@@ -5,6 +5,7 @@ package receiving
 //go:generate go tool apigen
 //go:generate go tool gqlgenc
 //go:generate go tool apigenc
+//go:generate go tool importgen
 //go:generate go tool brunogen
 
 import _ "github.com/hashicorp/go-multierror"

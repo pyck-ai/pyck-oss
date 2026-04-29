@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	httputil "github.com/pyck-ai/pyck/backend/common/http"
 	"github.com/pyck-ai/pyck/backend/common/log"
 )
 
@@ -30,7 +31,7 @@ func (mw *Middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	features, err := mw.GetFeatures(r)
 	if err != nil {
 		log.ForContext(ctx).Error().Err(err).Msg("failed to get features")
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		httputil.JSONError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

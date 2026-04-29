@@ -1590,3 +1590,349 @@ mutation DeleteReplenishmentOrderItem($id: ID!) {
   }
 }
 
+
+mutation PatchInventoryItemData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchInventoryItemData(id: $id, patches: $patches) {
+    inventoryItem {
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      id
+      sku
+      tenantID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+
+
+mutation PatchInventoryRepositoryData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchInventoryRepositoryData(id: $id, patches: $patches) {
+    inventoryRepository {
+      children {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      id
+      itemMovementFromRepositories {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      itemMovementToRepositories {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      layout
+      locationID
+      name
+      parentID
+      repositoryMovementFromRepositories {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      repositoryMovementRepositories {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      repositoryMovementToRepositories {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      repositoryStocks {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      repositoryTransactions {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      tenantID
+      type
+      updatedAt
+      updatedBy
+      virtualRepo
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+
+
+mutation PatchInventoryItemMovementData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchInventoryItemMovementData(id: $id, patches: $patches) {
+    inventoryItemMovement {
+      blockedBy
+      collectionID
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      executed
+      executedAt
+      fromID
+      handler
+      id
+      itemID
+      orderID
+      position
+      quantity
+      tenantID
+      toID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+
+
+mutation PatchInventoryRepositoryMovementData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchInventoryRepositoryMovementData(id: $id, patches: $patches) {
+    inventoryRepositoryMovement {
+      blockedBy
+      collectionID
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      executed
+      executedAt
+      fromID
+      handler
+      id
+      orderID
+      position
+      repositoryID
+      tenantID
+      toID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+
+
+mutation PatchInventoryCollectionMovementData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchInventoryCollectionMovementData(id: $id, patches: $patches) {
+    inventoryCollection {
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      handler
+      id
+      tenantID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+
+
+mutation PatchInventoryItemSetData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchInventoryItemSetData(id: $id, patches: $patches) {
+    inventoryItemSet {
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      id
+      items {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      sku
+      tenantID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+
+
+mutation PatchReplenishmentOrderData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchReplenishmentOrderData(id: $id, patches: $patches) {
+    replenishmentOrder {
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      id
+      replenishmentOrderItems {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      supplierID
+      tenantID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+
+
+mutation PatchReplenishmentOrderItemData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchReplenishmentOrderItemData(id: $id, patches: $patches) {
+    replenishmentOrderItem {
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      id
+      quantity
+      replenishmentOrderID
+      sku
+      tenantID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+

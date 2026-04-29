@@ -109,6 +109,24 @@ func (client *K8sClient) UpdateSecrets(ctx context.Context, name string, data ma
 	return err
 }
 
+// SecretExists checks if a Kubernetes secret exists and contains data.
+// If key is empty, it checks whether the secret has any data at all.
+// If key is provided, it checks whether that specific key exists and is non-empty.
+func (client *K8sClient) SecretExists(ctx context.Context, name string, key string) (bool, error) {
+	secret, err := client.clientset.CoreV1().Secrets(client.namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if key == "" {
+		return len(secret.Data) > 0, nil
+	}
+	val, ok := secret.Data[key]
+	return ok && len(val) > 0, nil
+}
+
 func (client *K8sClient) UpsertSecrets(ctx context.Context, name string, data map[string][]byte) error {
 	err := client.CreateSecrets(ctx, name, data)
 

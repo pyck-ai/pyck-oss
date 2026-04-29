@@ -302,7 +302,7 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 	// Soft-delete any leftover existing signals not present in desired
 	// MutationEventHook captures the mutation automatically.
 	if len(existing) > 0 {
-		now := time.Now()
+		now := time.Now().UTC()
 		for _, es := range existing {
 			_, err := tx.WorkflowSignal.UpdateOneID(es.ID).
 				SetDeletedAt(now).
@@ -326,7 +326,7 @@ func (r *mutationResolver) DeleteWorkflow(ctx context.Context, id uuid.UUID) (*m
 	}
 
 	req := request.ForContext(ctx)
-	now := time.Now()
+	now := time.Now().UTC()
 
 	// Ensure the workflow exists, belongs to tenant, and is not already deleted.
 	wf, err := tx.Workflow.
@@ -382,6 +382,25 @@ func (r *mutationResolver) DeleteWorkflow(ctx context.Context, id uuid.UUID) (*m
 	return &model.WorkflowDeletePayload{DeletedID: &id}, nil
 }
 
+// CancelWorkflow is the resolver for the cancelWorkflow field.
+func (r *mutationResolver) CancelWorkflow(ctx context.Context, input model.CancelWorkflowInput) (*model.CancelWorkflowPayload, error) {
+	req := request.ForContext(ctx)
+
+	workflowClient, err := r.workflowRouter.GetClient(ctx, req.MutationTenantID().String())
+	if err != nil || workflowClient == nil {
+		return nil, ErrInvalidWorkflowClient
+	}
+
+	if err := workflowClient.CancelWorkflow(ctx, input.WorkflowID, input.WorkflowRunID); err != nil {
+		return nil, err
+	}
+
+	return &model.CancelWorkflowPayload{
+		WorkflowID:    input.WorkflowID,
+		WorkflowRunID: input.WorkflowRunID,
+	}, nil
+}
+
 // WorkflowExecutions is the resolver for the workflowExecutions field.
 // Returns paginated workflow executions using Temporal's NextPageToken for cursor-based pagination.
 func (r *queryResolver) WorkflowExecutions(ctx context.Context, where *model.WorkflowExecutionsWhereInput, first *int, after *string, orderBy *model.WorkflowExecutionOrder) (*model.WorkflowExecutionInfoConnection, error) {
@@ -389,9 +408,13 @@ func (r *queryResolver) WorkflowExecutions(ctx context.Context, where *model.Wor
 }
 
 // AssignableWorkflowExecutions is the resolver for the assignableWorkflowExecutions field.
-// Returns only workflow executions that have user tasks (ActivityCount > 0 in UserDataInput).
+// It narrows the result to workflows advertising themselves as assignable via the
+// pyck_workflow_is_assignable search attribute (null-matches-true: workflows that
+// never wrote the attribute are considered assignable by default) and delegates
+// to the standard workflowExecutions path. Deprecated: will be removed once
+// callers migrate to filtering workflowExecutions with isAssignable directly.
 func (r *queryResolver) AssignableWorkflowExecutions(ctx context.Context, where *model.WorkflowExecutionsWhereInput, first *int, after *string, orderBy *model.WorkflowExecutionOrder) (*model.WorkflowExecutionInfoConnection, error) {
-	return r.listAssignableWorkflowExecutionsPage(ctx, where, first, after, orderBy)
+	return r.listWorkflowExecutionsPage(ctx, withIsAssignableTrue(where), first, after, orderBy)
 }
 
 // WorkflowHistory fetches history for workflow executions matching the filter criteria.

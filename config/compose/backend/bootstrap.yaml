@@ -1,0 +1,64 @@
+
+---
+services:
+  bootstrap:
+    image: busybox:latest
+    command: ["true"]
+    depends_on:
+      bootstrap-zitadel: { condition: service_completed_successfully }
+      bootstrap-minio: { condition: service_completed_successfully }
+      db: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      zitadel-proxy: { condition: service_healthy }
+      zitadel-login: { condition: service_healthy }
+      nats: { condition: service_healthy }
+
+---
+x-common: &common
+    build:
+      context: ../../../
+      dockerfile: ./backend/Dockerfile
+      args:
+        - SERVICE_NAME=management  # change to bootstrap
+    restart: on-failure
+    user: root
+    env_file:
+      - path: ../../../.env
+      - path: ../../../.env.local
+        required: false
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+services:
+  bootstrap-zitadel:
+    <<: *common
+    entrypoint: ["/usr/local/bin/service"]
+    environment:
+      - PYCK_BOOTSTRAP_TIMEOUT=10m
+      - PYCK_BOOTSTRAP_ENABLED=true
+      - PYCK_BOOTSTRAP_ONLY=true
+      - PYCK_BOOTSTRAP_MODULE=zitadel
+      - PYCK_BOOTSTRAP_ZITADEL_KEY_PATH=/data/keys
+      - PYCK_BOOTSTRAP_ZITADEL_ENV_PATH=/data/env
+      # - PYCK_BOOTSTRAP_CONFIG_FILE=/data/config/bootstrap.json
+    volumes:
+      - ./../../../:/src:ro,z
+      - ./../../keys/:/data/keys/
+      - ./../../../:/data/env/
+      # - ./../../bootstrap.json:/data/config/bootstrap.json:ro,z
+    depends_on:
+      zitadel-proxy: { condition: service_healthy }
+
+  bootstrap-minio:
+    <<: *common
+    environment:
+      - PYCK_BOOTSTRAP_TIMEOUT=10m
+      - PYCK_BOOTSTRAP_ENABLED=true
+      - PYCK_BOOTSTRAP_ONLY=true
+      - PYCK_BOOTSTRAP_MODULE=minio
+    volumes:
+      - ./../../../:/src:ro,z
+    depends_on:
+      minio: { condition: service_healthy }

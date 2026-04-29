@@ -23,6 +23,11 @@ resolver:
 
 omit_gqlgen_version_in_file_notice: true
 
+# @pyckImportable is used at code generation time by importgen, not at runtime.
+directives:
+  pyckImportable:
+    skip_runtime: true
+
 skip_validation: false
 
 skip_mod_tidy: false
@@ -46,6 +51,12 @@ models:
   Map:
     model:
       - github.com/99designs/gqlgen/graphql.Map
+  JSONPatchOp:
+    model:
+      - github.com/pyck-ai/pyck/backend/common/jsonpatch.JSONPatchOp
+  JSONPatchInput:
+    model:
+      - github.com/pyck-ai/pyck/backend/common/jsonpatch.JSONPatchInput
   Node:
     model:
       - github.com/pyck-ai/pyck/backend/main-data/ent/gen.Noder

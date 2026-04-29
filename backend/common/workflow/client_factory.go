@@ -164,22 +164,20 @@ func (f *DefaultClientFactory) ensureNamespaceExists(ctx context.Context, namesp
 }
 
 func (f *DefaultClientFactory) addSearchAttributes(ctx context.Context, temporalClient temporalclient.Client, namespace string) error {
-	searchAttributes := make(map[string]enums.IndexedValueType, len(SearchAttributes))
-	for _, attr := range SearchAttributes {
-		searchAttributes[attr.GetName()] = attr.GetValueType()
-	}
-
 	operatorService := temporalClient.OperatorService()
 
-	if _, err := operatorService.AddSearchAttributes(ctx, &operatorservice.AddSearchAttributesRequest{
-		Namespace:        namespace,
-		SearchAttributes: searchAttributes,
-	}); err != nil {
-		if status.Code(err) == codes.AlreadyExists {
-			return nil // Ignore already exists error
+	for _, attr := range SearchAttributes {
+		if _, err := operatorService.AddSearchAttributes(ctx, &operatorservice.AddSearchAttributesRequest{
+			Namespace: namespace,
+			SearchAttributes: map[string]enums.IndexedValueType{
+				attr.GetName(): attr.GetValueType(),
+			},
+		}); err != nil {
+			if status.Code(err) == codes.AlreadyExists {
+				continue
+			}
+			return fmt.Errorf("failed to add search attribute %q: %w", attr.GetName(), err)
 		}
-
-		return fmt.Errorf("failed to add search attributes, error: %w", err)
 	}
 
 	return nil

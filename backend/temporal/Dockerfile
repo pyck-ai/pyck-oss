@@ -36,7 +36,7 @@ RUN --mount=type=cache,id=go-cache,target=/var/cache/go/ \
     go mod verify && \
     go mod tidy -v -diff && \
     CGO_ENABLED=0 go build \
-        -mod=readonly \
+    -mod=readonly \
     -trimpath \
     -ldflags="-w -s -extldflags=-static" \
     -o=/tmp/temporal-server \
@@ -62,5 +62,6 @@ ENV TEMPORAL_ADDRESS=:7236
 ENV LOG_LEVEL=warn
 ENV TEMPORAL_AUTH_AUTHORIZER=default
 
+ENV PYCK_ENV_DIR=/src
 ENV PYCK_EVENT_ADAPTER=default
 ENV PYCK_LOG_LEVEL=info

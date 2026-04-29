@@ -393,3 +393,104 @@ mutation DeletePickingOutboundShipmentNotification($id: ID!) {
   }
 }
 
+
+mutation PatchPickingOrderData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchPickingOrderData(id: $id, patches: $patches) {
+    pickingOrder {
+      createdAt
+      createdBy
+      customerID
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      id
+      orderItems {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      outboundShipmentNotifications {
+        edges {
+          cursor
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+        totalCount
+      }
+      tenantID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+
+
+mutation PatchPickingOrderItemData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchPickingOrderItemData(id: $id, patches: $patches) {
+    pickingOrderItem {
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      id
+      orderID
+      quantity
+      sku
+      tenantID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+
+
+mutation PatchPickingOutboundShipmentNotificationData($id: ID!, $patches: [JSONPatchInput!]!) {
+  patchPickingOutboundShipmentNotificationData(id: $id, patches: $patches) {
+    pickingOutboundShipmentNotification {
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      id
+      orderID
+      tenantID
+      updatedAt
+      updatedBy
+    }
+    workflows {
+      id
+      runID
+      type
+    }
+  }
+}
+

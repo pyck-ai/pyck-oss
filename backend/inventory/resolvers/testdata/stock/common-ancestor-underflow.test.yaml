@@ -1,0 +1,174 @@
+# Common Ancestor Stock Underflow Test (#1159)
+# Reproduces a deterministic underflow bug in CalculateRepositoryStockMap
+# (services/inventory_stock.go) when the FROM and TO of an item movement
+# share a common ancestor whose rollup quantity has independently been
+# brought to 0 by an earlier movement that drained the ancestor directly.
+#
+# The corrective step (Pallet -> Box, both descendants of Halle) is net
+# zero on Halle (FROM walk -1, TO walk +1), but the executor validates
+# each ancestor on the FROM walk BEFORE the TO walk compensates.
+# When Halle's rollup is 0 going in, the FROM walk hits "stock underflow:
+# repository=<halle> quantity would be -1 (current=0, delta=-1)".
+#
+# Once the executor accumulates deltas across both walks before validating
+# (or skips validation on common ancestors of FROM/TO), this scenario
+# produces the expected net-zero state on Halle and the items end up in
+# the box.
+name: common-ancestor-underflow
+itemSKU: common-ancestor-underflow-item
+
+# ========================================================================
+# REPOSITORY STRUCTURE OVERVIEW
+# ========================================================================
+#
+#  virtual-source (virtual)
+#  external-sink (virtual)
+#
+#  halle (root)
+#  ├─ inbound
+#  │  └─ pallet (dynamic)   ← items live here
+#  └─ packing-area
+#     └─ box (dynamic)      ← items should end up here
+#
+# ========================================================================
+repositories:
+  # Virtual seed: feeds initial stock onto the pallet.
+  - name: virtual-source
+    parent: ""
+    type: static
+    virtual: true
+
+  # Virtual sink OUTSIDE Halle: used to drain Halle's rollup directly,
+  # without touching the descendants. This decouples Halle's qty from
+  # its descendants' qty and creates the inconsistent state that
+  # triggers the underflow on the next Pallet -> Box movement.
+  - name: external-sink
+    parent: ""
+    type: static
+    virtual: true
+
+  # Real warehouse root. Both Pallet (under Inbound) and Box
+  # (under Packing Area) live in this subtree.
+  - name: halle
+    parent: ""
+    type: static
+    virtual: false
+
+  # Inbound zone — parent of source pallets.
+  - name: inbound
+    parent: halle
+    type: static
+    virtual: false
+
+  # Pallet under Inbound — owns the actual items.
+  - name: pallet
+    parent: inbound
+    type: dynamic
+    virtual: false
+
+  # Packing area — parent of work-in-progress boxes.
+  - name: packing-area
+    parent: halle
+    type: static
+    virtual: false
+
+  # Box under Packing Area — destination of the corrective movement.
+  - name: box
+    parent: packing-area
+    type: dynamic
+    virtual: false
+
+steps:
+  # =========================================================================
+  # Phase 1: Seed the pallet with 1 item (rollup also lifts Halle to 1).
+  # =========================================================================
+  - name: receive_item
+    action: create
+    moveType: item
+    from: virtual-source
+    to: pallet
+    qty: 1
+    expectedStocks:
+      virtual-source: { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 1, ownOut: 1 }
+      external-sink:  { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      halle:          { qty: 0, ownQty: 0, in: 1, ownIn: 0, out: 0, ownOut: 0 }
+      inbound:        { qty: 0, ownQty: 0, in: 1, ownIn: 0, out: 0, ownOut: 0 }
+      pallet:         { qty: 0, ownQty: 0, in: 1, ownIn: 1, out: 0, ownOut: 0 }
+      packing-area:   { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      box:            { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  - name: execute_receive
+    action: execute
+    movement: receive_item
+    expectedStocks:
+      virtual-source: { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      external-sink:  { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      halle:          { qty: 1, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      inbound:        { qty: 1, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      pallet:         { qty: 1, ownQty: 1, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      packing-area:   { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      box:            { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  # =========================================================================
+  # Phase 2: Drain Halle directly to a sink OUTSIDE Halle's subtree.
+  # =========================================================================
+  - name: drain_halle
+    action: create
+    moveType: item
+    from: halle
+    to: external-sink
+    qty: 1
+    expectedStocks:
+      virtual-source: { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      external-sink:  { qty: 0, ownQty: 0, in: 1, ownIn: 1, out: 0, ownOut: 0 }
+      halle:          { qty: 1, ownQty: 0, in: 0, ownIn: 0, out: 1, ownOut: 1 }
+      inbound:        { qty: 1, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      pallet:         { qty: 1, ownQty: 1, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      packing-area:   { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      box:            { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  - name: execute_drain
+    action: execute
+    movement: drain_halle
+    expectedStocks:
+      virtual-source: { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      external-sink:  { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      halle:          { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      inbound:        { qty: 1, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      pallet:         { qty: 1, ownQty: 1, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      packing-area:   { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      box:            { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+
+  # =========================================================================
+  # Phase 3: Corrective Pallet -> Box movement.
+  # Both endpoints are descendants of Halle, so net effect on Halle is 0.
+  # =========================================================================
+  - name: pallet_to_box
+    action: create
+    moveType: item
+    from: pallet
+    to: box
+    qty: 1
+    expectedStocks:
+      virtual-source: { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      external-sink:  { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      halle:          { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      inbound:        { qty: 1, ownQty: 0, in: 0, ownIn: 0, out: 1, ownOut: 0 }
+      pallet:         { qty: 1, ownQty: 1, in: 0, ownIn: 0, out: 1, ownOut: 1 }
+      packing-area:   { qty: 0, ownQty: 0, in: 1, ownIn: 0, out: 0, ownOut: 0 }
+      box:            { qty: 0, ownQty: 0, in: 1, ownIn: 1, out: 0, ownOut: 0 }
+
+  - name: execute_pallet_to_box
+    action: execute
+    movement: pallet_to_box
+    # Expected state AFTER the fix: net 0 on Halle (FROM -1, TO +1),
+    # Pallet drained, Box receives the item. With the current buggy
+    # executor this step fails with "stock underflow" on Halle.
+    expectedStocks:
+      virtual-source: { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      external-sink:  { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      halle:          { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      inbound:        { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      pallet:         { qty: 0, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      packing-area:   { qty: 1, ownQty: 0, in: 0, ownIn: 0, out: 0, ownOut: 0 }
+      box:            { qty: 1, ownQty: 1, in: 0, ownIn: 0, out: 0, ownOut: 0 }

@@ -30,7 +30,7 @@ This will:
 At the end of the script execution, you will see a message like:
 
 ```
->>> Login at https://auth.local.pyck.cloud:8080 with username 'zitadel-admin@zitadel.auth.local.pyck.cloud' and password 'Password1!'
+>>> Login at http://localhost:8080 with username 'zitadel-admin@localhost' and password 'Password1!'
 ```
 
 2. **Login to ZITADEL and Assign Roles**
@@ -38,7 +38,7 @@ At the end of the script execution, you will see a message like:
 Open your browser and go to:
 
 ```
-https://auth.local.pyck.cloud:8080
+http://localhost:8080
 ```
 
 Login with the credentials provided in the script output. Then:
@@ -98,7 +98,7 @@ docker compose up -d
 
 8. **Access the Services**
 
-- **ZITADEL Admin Console**: [https://auth.local.pyck.cloud:8080](https://auth.local.pyck.cloud:8080)
+- **ZITADEL Admin Console**: [http://localhost:8080](http://localhost:8080)
 - **Temporal UI (OIDC)**: [http://localhost:8083](http://localhost:8083)
 
 9. **Run Tests**

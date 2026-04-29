@@ -1,0 +1,11 @@
+info:
+  name: Cross - DeviceLocation Patch Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Tests JSON Patch (RFC 6902) operations on device location assignments. Creates a location and device, assigns the device to the location with data, patches the assignment data, verifies persistence, then cleans up.
+
+
+request:
+  auth: inherit

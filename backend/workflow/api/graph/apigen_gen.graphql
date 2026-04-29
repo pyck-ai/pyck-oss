@@ -249,9 +249,39 @@ query GetWorkflowHistory($where: WorkflowExecutionsWhereInput!, $limit: Int) {
 }
 
 
+query GetWorkflowActions($input: GetWorkflowActionsInput!, $where: WorkflowActionsWhereInput) {
+  workflowActions(input: $input, where: $where) {
+    queries {
+      description
+      enabled
+      name
+    }
+    updates {
+      description
+      enabled
+      name
+    }
+  }
+}
+
+
 query GetWorkflowAssignee($input: GetWorkflowAssigneeInput!) {
   workflowAssignee(input: $input) {
     assignee
+  }
+}
+
+
+query GetWorkflowIsAssignable($input: GetWorkflowIsAssignableInput!) {
+  workflowIsAssignable(input: $input) {
+    isAssignable
+  }
+}
+
+
+query GetWorkflowTargets($input: GetWorkflowTargetsInput!) {
+  workflowTargets(input: $input) {
+    targets
   }
 }
 
@@ -327,9 +357,31 @@ mutation DeleteWorkflow($id: ID!) {
 }
 
 
+mutation CancelWorkflow($input: CancelWorkflowInput!) {
+  cancelWorkflow(input: $input) {
+    workflowID
+    workflowRunID
+  }
+}
+
+
 mutation SetWorkflowAssignee($input: SetWorkflowAssigneeInput!) {
   setWorkflowAssignee(input: $input) {
     assignee
+  }
+}
+
+
+mutation SetWorkflowIsAssignable($input: SetWorkflowIsAssignableInput!) {
+  setWorkflowIsAssignable(input: $input) {
+    isAssignable
+  }
+}
+
+
+mutation SetWorkflowTargets($input: SetWorkflowTargetsInput!) {
+  setWorkflowTargets(input: $input) {
+    targets
   }
 }
 

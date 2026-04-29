@@ -1,0 +1,37 @@
+#######################################################################
+#   CONFIGURATION                                                     #
+#######################################################################
+
+ARG TEMPORAL_ADMINTOOLS_VERSION=1.29.1-tctl-1.18.4-cli-1.5.0
+
+#######################################################################
+#   END OF CONFIGURATION                                              #
+#                                                                     #
+# Do not edit below this line unless you know what you are doing!     #
+#######################################################################
+FROM temporalio/admin-tools:${TEMPORAL_ADMINTOOLS_VERSION}
+
+COPY <<'EOF' /scripts/setup-postgres.sh
+#!/bin/sh
+# Initializes the Temporal PostgreSQL databases and applies schema migrations.
+# Based on: https://github.com/temporalio/samples-server/blob/main/compose/scripts/setup-postgres.sh
+set -eu
+
+: "${POSTGRES_SEEDS:?}" "${POSTGRES_USER:?}" "${POSTGRES_PWD:?}" "${DB_PORT:?}" "${DBNAME:?}" "${VISIBILITY_DBNAME:?}"
+
+CONN="--plugin postgres12 --ep ${POSTGRES_SEEDS} -p ${DB_PORT} -u ${POSTGRES_USER} --pw ${POSTGRES_PWD}"
+
+echo "Setting up Temporal database '${DBNAME}'..."
+temporal-sql-tool ${CONN} --db ${DBNAME} create
+temporal-sql-tool ${CONN} --db ${DBNAME} setup-schema -v 0.0
+temporal-sql-tool ${CONN} --db ${DBNAME} update-schema -d /etc/temporal/schema/postgresql/v12/temporal/versioned
+
+echo "Setting up visibility database '${VISIBILITY_DBNAME}'..."
+temporal-sql-tool ${CONN} --db ${VISIBILITY_DBNAME} create
+temporal-sql-tool ${CONN} --db ${VISIBILITY_DBNAME} setup-schema -v 0.0
+temporal-sql-tool ${CONN} --db ${VISIBILITY_DBNAME} update-schema -d /etc/temporal/schema/postgresql/v12/visibility/versioned
+
+echo "Temporal database setup complete."
+EOF
+
+ENTRYPOINT ["/bin/sh", "/scripts/setup-postgres.sh"]

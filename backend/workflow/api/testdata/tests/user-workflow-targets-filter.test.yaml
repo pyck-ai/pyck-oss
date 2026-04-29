@@ -1,0 +1,66 @@
+---
+name: "User - Workflow Targets Filter"
+description: >
+  Smoke-test the targets / targetsNotIn filters on workflowExecutions. Does not
+  require any workflow to be running — only verifies the request shape is
+  accepted and the Temporal visibility query is rendered without errors.
+steps:
+  - name: "Filter by single target"
+    operation: workflow.getWorkflowExecutions
+    vars:
+      first: 10
+      where:
+        targets: ["WEB"]
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Result set returned"
+        assertions:
+          - ref: res.body.data.workflowExecutions.totalCount
+            nil: false
+
+  - name: "Filter by targets NOT IN"
+    operation: workflow.getWorkflowExecutions
+    vars:
+      first: 10
+      where:
+        targetsNotIn: ["SETUP"]
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Result set returned"
+        assertions:
+          - ref: res.body.data.workflowExecutions.totalCount
+            nil: false
+
+  - name: "Filter by multiple targets"
+    operation: workflow.getWorkflowExecutions
+    vars:
+      first: 10
+      where:
+        targets: ["WEB", "MOBILE"]
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Result set returned"
+        assertions:
+          - ref: res.body.data.workflowExecutions.totalCount
+            nil: false

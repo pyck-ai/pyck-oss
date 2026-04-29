@@ -2,6 +2,7 @@ package resolvers_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
@@ -420,6 +421,7 @@ func TestRepositoryMovement_Delete(t *testing.T) {
 		deleted, err := te.Ent.RepositoryMovement.Get(te.ctxWithDeleted(userA), movement.ID)
 		require.NoError(t, err)
 		assert.NotNil(t, deleted.DeletedAt)
+		assert.Equal(t, time.UTC, deleted.DeletedAt.Location(), "deleted_at should be in UTC")
 
 		te.assertEvents(ctx, Delete("repositorymovement", movement.ID))
 	})

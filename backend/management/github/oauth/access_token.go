@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 
+	httputil "github.com/pyck-ai/pyck/backend/common/http"
 	"github.com/pyck-ai/pyck/backend/common/std"
 	"github.com/rs/zerolog/log"
 )
@@ -13,24 +14,24 @@ import (
 func AccessTokenHandler(clientID, clientSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			httputil.JSONError(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
 		reqBody, err := io.ReadAll(r.Body)
 		if err != nil {
-			http.Error(w, "error while reading body", http.StatusUnprocessableEntity)
+			httputil.JSONError(w, "error while reading body", http.StatusUnprocessableEntity)
 			return
 		}
 
 		input, err := std.UnmarshalJson[accessTokenInput](reqBody)
 		if err != nil {
-			http.Error(w, "unable to unmarshal", http.StatusUnprocessableEntity)
+			httputil.JSONError(w, "unable to unmarshal", http.StatusUnprocessableEntity)
 			return
 		}
 
 		if input.Code == "" {
-			http.Error(w, "missing code", http.StatusBadRequest)
+			httputil.JSONError(w, "missing code", http.StatusBadRequest)
 			return
 		}
 		log.Info().Msgf("processing code: %s", input.Code)
@@ -42,13 +43,13 @@ func AccessTokenHandler(clientID, clientSecret string) http.HandlerFunc {
 		}
 		ghTokenBodyBytes, err := std.MarshalJson(ghTokenInput)
 		if err != nil {
-			http.Error(w, "unable to marshal request", http.StatusInternalServerError)
+			httputil.JSONError(w, "unable to marshal request", http.StatusInternalServerError)
 			return
 		}
 
 		ghTokenReq, err := http.NewRequest(http.MethodPost, "https://github.com/login/oauth/access_token", bytes.NewReader(ghTokenBodyBytes))
 		if err != nil {
-			http.Error(w, "unable to request github", http.StatusInternalServerError)
+			httputil.JSONError(w, "unable to request github", http.StatusInternalServerError)
 			return
 		}
 
@@ -58,7 +59,7 @@ func AccessTokenHandler(clientID, clientSecret string) http.HandlerFunc {
 		ghResp, err := http.DefaultClient.Do(ghTokenReq)
 		if err != nil {
 			log.Error().Err(err).Msg("github token exchange error")
-			http.Error(w, "github token exchange error", http.StatusInternalServerError)
+			httputil.JSONError(w, "github token exchange error", http.StatusInternalServerError)
 			return
 		}
 		defer func() {
@@ -69,18 +70,18 @@ func AccessTokenHandler(clientID, clientSecret string) http.HandlerFunc {
 
 		ghRespBytes, err := io.ReadAll(ghResp.Body)
 		if err != nil {
-			http.Error(w, "unable to decode github response", http.StatusInternalServerError)
+			httputil.JSONError(w, "unable to decode github response", http.StatusInternalServerError)
 			return
 		}
 
 		ghTokenResp, err := std.UnmarshalJson[githubTokenResponse](ghRespBytes)
 		if err != nil {
-			http.Error(w, "unable to unmarshal github response", http.StatusInternalServerError)
+			httputil.JSONError(w, "unable to unmarshal github response", http.StatusInternalServerError)
 			return
 		}
 
 		if ghTokenResp.Error != "" {
-			http.Error(w, ghTokenResp.Error, http.StatusBadRequest)
+			httputil.JSONError(w, ghTokenResp.Error, http.StatusBadRequest)
 			return
 		}
 
@@ -91,7 +92,7 @@ func AccessTokenHandler(clientID, clientSecret string) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(handlerResp); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			httputil.JSONError(w, err.Error(), http.StatusInternalServerError)
 		}
 	}
 }

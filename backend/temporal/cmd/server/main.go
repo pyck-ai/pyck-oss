@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pyck-ai/pyck/backend/common/env"
-	pyckconfig "github.com/pyck-ai/pyck/backend/common/env/config"
-	"github.com/pyck-ai/pyck/backend/common/log"
 	"github.com/urfave/cli/v2"
 	temporalconfig "go.temporal.io/server/common/config"
 	temporalheaders "go.temporal.io/server/common/headers"
@@ -16,6 +13,10 @@ import (
 	_ "go.temporal.io/server/common/persistence/sql/sqlplugin/mysql"      // needed to load mysql plugin
 	_ "go.temporal.io/server/common/persistence/sql/sqlplugin/postgresql" // needed to load postgresql plugin
 	_ "go.temporal.io/server/common/persistence/sql/sqlplugin/sqlite"     // needed to load sqlite plugin
+
+	"github.com/pyck-ai/pyck/backend/common/env"
+	pyckconfig "github.com/pyck-ai/pyck/backend/common/env/config"
+	"github.com/pyck-ai/pyck/backend/common/log"
 )
 
 const (

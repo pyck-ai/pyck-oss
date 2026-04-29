@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
+	httputil "github.com/pyck-ai/pyck/backend/common/http"
 	"github.com/pyck-ai/pyck/backend/common/std"
 
 	ent "github.com/pyck-ai/pyck/backend/file/ent/gen"
@@ -25,12 +26,12 @@ func FileAliasHandler(dbClient *ent.Client, s3Storage *services.S3StorageService
 
 		tenantID, err := uuid.Parse(tenantIDStr)
 		if err != nil {
-			http.Error(w, "invalid tenant ID", http.StatusBadRequest)
+			httputil.JSONError(w, "invalid tenant ID", http.StatusBadRequest)
 			return
 		}
 
 		if !std.IsValidSlug(alias) {
-			http.Error(w, "invalid public alias", http.StatusBadRequest)
+			httputil.JSONError(w, "invalid public alias", http.StatusBadRequest)
 			return
 		}
 
@@ -46,14 +47,14 @@ func FileAliasHandler(dbClient *ent.Client, s3Storage *services.S3StorageService
 			Only(ctx)
 		if err != nil {
 			if ent.IsNotFound(err) {
-				http.Error(w, "file not found", http.StatusNotFound)
+				httputil.JSONError(w, "file not found", http.StatusNotFound)
 				return
 			}
 			log.Error().Err(err).
 				Str("tenantID", tenantIDStr).
 				Str("publicAlias", alias).
 				Msg("Error querying file by public alias")
-			http.Error(w, "internal server error", http.StatusInternalServerError)
+			httputil.JSONError(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
 
@@ -62,7 +63,7 @@ func FileAliasHandler(dbClient *ent.Client, s3Storage *services.S3StorageService
 			log.Error().Err(err).
 				Str("fileID", f.ID.String()).
 				Msg("Error generating pre-signed URL")
-			http.Error(w, "internal server error", http.StatusInternalServerError)
+			httputil.JSONError(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
 

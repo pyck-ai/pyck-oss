@@ -1,0 +1,45 @@
+extend type Query {
+  """
+  Returns whether the given workflow execution is currently assignable.
+
+  Reads the `pyck_workflow_is_assignable` Temporal search attribute on the
+  execution. Workflows that never wrote the attribute are treated as
+  assignable (returns `true`) — matching the SDK's default behaviour for
+  workflows that didn't opt in via `workflowsdk.WorkflowIsAssignableSetter`.
+  """
+  workflowIsAssignable(
+    input: GetWorkflowIsAssignableInput!
+  ): GetWorkflowIsAssignableResponse!
+}
+
+input GetWorkflowIsAssignableInput {
+  workflowId: String!
+  workflowExecutionId: String!
+}
+
+type GetWorkflowIsAssignableResponse {
+  isAssignable: Boolean!
+}
+
+extend type Mutation {
+  """
+  Toggle the `pyck_workflow_is_assignable` search attribute on a running
+  workflow execution. The workflow must be running and must have been
+  registered with a `WorkflowIsAssignableSetter` handler via
+  `workflowsdk.SetupDefaults`; otherwise Temporal returns
+  "no update handler registered".
+  """
+  setWorkflowIsAssignable(
+    input: SetWorkflowIsAssignableInput!
+  ): SetWorkflowIsAssignableResponse
+}
+
+input SetWorkflowIsAssignableInput {
+  workflowId: String!
+  workflowExecutionId: String!
+  isAssignable: Boolean!
+}
+
+type SetWorkflowIsAssignableResponse {
+  isAssignable: Boolean!
+}

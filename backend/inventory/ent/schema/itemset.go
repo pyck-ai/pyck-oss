@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
+	"github.com/pyck-ai/pyck/backend/common/importexport"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 )
 
@@ -26,6 +27,11 @@ func (ItemSet) Annotations() []schema.Annotation {
 		entgql.RelayConnection(),
 		entgql.QueryField(),
 		entgql.Mutations(entgql.MutationCreate(), entgql.MutationUpdate()),
+		entgql.Directives(importexport.Importable("sku",
+			importexport.WithList("inventoryItemSets"),
+			importexport.WithCreate("createInventoryItemSet"),
+			importexport.WithUpdate("updateInventoryItemSet"),
+		)),
 		entgql.OrderField("sku"),
 	}
 }

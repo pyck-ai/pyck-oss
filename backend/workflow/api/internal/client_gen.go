@@ -20,12 +20,18 @@ type APIClient interface {
 	GetWorkflowExecutions(ctx context.Context, where *model.WorkflowExecutionsWhereInput, first *int, after *string, orderBy *model.WorkflowExecutionOrder, interceptors ...clientv2.RequestInterceptor) (*GetWorkflowExecutions, error)
 	GetAssignableWorkflowExecutions(ctx context.Context, where *model.WorkflowExecutionsWhereInput, first *int, after *string, orderBy *model.WorkflowExecutionOrder, interceptors ...clientv2.RequestInterceptor) (*GetAssignableWorkflowExecutions, error)
 	GetWorkflowHistory(ctx context.Context, where model.WorkflowExecutionsWhereInput, limit *int, interceptors ...clientv2.RequestInterceptor) (*GetWorkflowHistory, error)
+	GetWorkflowActions(ctx context.Context, input model.GetWorkflowActionsInput, where *model.WorkflowActionsWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetWorkflowActions, error)
 	GetWorkflowAssignee(ctx context.Context, input model.GetWorkflowAssigneeInput, interceptors ...clientv2.RequestInterceptor) (*GetWorkflowAssignee, error)
+	GetWorkflowIsAssignable(ctx context.Context, input model.GetWorkflowIsAssignableInput, interceptors ...clientv2.RequestInterceptor) (*GetWorkflowIsAssignable, error)
+	GetWorkflowTargets(ctx context.Context, input model.GetWorkflowTargetsInput, interceptors ...clientv2.RequestInterceptor) (*GetWorkflowTargets, error)
 	EnsureTemporalNamespace(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*EnsureTemporalNamespace, error)
 	SubmitUserDataInput(ctx context.Context, input model.SubmitUserDataInputInput, interceptors ...clientv2.RequestInterceptor) (*SubmitUserDataInput, error)
 	RegisterWorkflow(ctx context.Context, input model.RegisterWorkflowWithSignalsInput, interceptors ...clientv2.RequestInterceptor) (*RegisterWorkflow, error)
 	DeleteWorkflow(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeleteWorkflow, error)
+	CancelWorkflow(ctx context.Context, input model.CancelWorkflowInput, interceptors ...clientv2.RequestInterceptor) (*CancelWorkflow, error)
 	SetWorkflowAssignee(ctx context.Context, input model.SetWorkflowAssigneeInput, interceptors ...clientv2.RequestInterceptor) (*SetWorkflowAssignee, error)
+	SetWorkflowIsAssignable(ctx context.Context, input model.SetWorkflowIsAssignableInput, interceptors ...clientv2.RequestInterceptor) (*SetWorkflowIsAssignable, error)
+	SetWorkflowTargets(ctx context.Context, input model.SetWorkflowTargetsInput, interceptors ...clientv2.RequestInterceptor) (*SetWorkflowTargets, error)
 }
 
 type Client struct {
@@ -1404,6 +1410,74 @@ func (t *GetWorkflowHistory_WorkflowHistory) GetTotalCount() int {
 	return t.TotalCount
 }
 
+type GetWorkflowActions_WorkflowActions_Queries struct {
+	Description *string "json:\"description,omitempty\" graphql:\"description\""
+	Enabled     bool    "json:\"enabled\" graphql:\"enabled\""
+	Name        string  "json:\"name\" graphql:\"name\""
+}
+
+func (t *GetWorkflowActions_WorkflowActions_Queries) GetDescription() *string {
+	if t == nil {
+		t = &GetWorkflowActions_WorkflowActions_Queries{}
+	}
+	return t.Description
+}
+func (t *GetWorkflowActions_WorkflowActions_Queries) GetEnabled() bool {
+	if t == nil {
+		t = &GetWorkflowActions_WorkflowActions_Queries{}
+	}
+	return t.Enabled
+}
+func (t *GetWorkflowActions_WorkflowActions_Queries) GetName() string {
+	if t == nil {
+		t = &GetWorkflowActions_WorkflowActions_Queries{}
+	}
+	return t.Name
+}
+
+type GetWorkflowActions_WorkflowActions_Updates struct {
+	Description *string "json:\"description,omitempty\" graphql:\"description\""
+	Enabled     bool    "json:\"enabled\" graphql:\"enabled\""
+	Name        string  "json:\"name\" graphql:\"name\""
+}
+
+func (t *GetWorkflowActions_WorkflowActions_Updates) GetDescription() *string {
+	if t == nil {
+		t = &GetWorkflowActions_WorkflowActions_Updates{}
+	}
+	return t.Description
+}
+func (t *GetWorkflowActions_WorkflowActions_Updates) GetEnabled() bool {
+	if t == nil {
+		t = &GetWorkflowActions_WorkflowActions_Updates{}
+	}
+	return t.Enabled
+}
+func (t *GetWorkflowActions_WorkflowActions_Updates) GetName() string {
+	if t == nil {
+		t = &GetWorkflowActions_WorkflowActions_Updates{}
+	}
+	return t.Name
+}
+
+type GetWorkflowActions_WorkflowActions struct {
+	Queries []*GetWorkflowActions_WorkflowActions_Queries "json:\"queries\" graphql:\"queries\""
+	Updates []*GetWorkflowActions_WorkflowActions_Updates "json:\"updates\" graphql:\"updates\""
+}
+
+func (t *GetWorkflowActions_WorkflowActions) GetQueries() []*GetWorkflowActions_WorkflowActions_Queries {
+	if t == nil {
+		t = &GetWorkflowActions_WorkflowActions{}
+	}
+	return t.Queries
+}
+func (t *GetWorkflowActions_WorkflowActions) GetUpdates() []*GetWorkflowActions_WorkflowActions_Updates {
+	if t == nil {
+		t = &GetWorkflowActions_WorkflowActions{}
+	}
+	return t.Updates
+}
+
 type GetWorkflowAssignee_WorkflowAssignee struct {
 	Assignee string "json:\"assignee\" graphql:\"assignee\""
 }
@@ -1413,6 +1487,28 @@ func (t *GetWorkflowAssignee_WorkflowAssignee) GetAssignee() string {
 		t = &GetWorkflowAssignee_WorkflowAssignee{}
 	}
 	return t.Assignee
+}
+
+type GetWorkflowIsAssignable_WorkflowIsAssignable struct {
+	IsAssignable bool "json:\"isAssignable\" graphql:\"isAssignable\""
+}
+
+func (t *GetWorkflowIsAssignable_WorkflowIsAssignable) GetIsAssignable() bool {
+	if t == nil {
+		t = &GetWorkflowIsAssignable_WorkflowIsAssignable{}
+	}
+	return t.IsAssignable
+}
+
+type GetWorkflowTargets_WorkflowTargets struct {
+	Targets []model.WorkflowTarget "json:\"targets\" graphql:\"targets\""
+}
+
+func (t *GetWorkflowTargets_WorkflowTargets) GetTargets() []model.WorkflowTarget {
+	if t == nil {
+		t = &GetWorkflowTargets_WorkflowTargets{}
+	}
+	return t.Targets
 }
 
 type SubmitUserDataInput_SubmitUserDataInput_Workflow struct {
@@ -1741,15 +1837,55 @@ func (t *DeleteWorkflow_DeleteWorkflow) GetDeletedID() *string {
 	return t.DeletedID
 }
 
-type SetWorkflowAssignee_SetWorkflowAssignee struct {
-	Assignee string "json:\"assignee\" graphql:\"assignee\""
+type CancelWorkflow_CancelWorkflow struct {
+	WorkflowID    string "json:\"workflowID\" graphql:\"workflowID\""
+	WorkflowRunID string "json:\"workflowRunID\" graphql:\"workflowRunID\""
 }
 
-func (t *SetWorkflowAssignee_SetWorkflowAssignee) GetAssignee() string {
+func (t *CancelWorkflow_CancelWorkflow) GetWorkflowID() string {
+	if t == nil {
+		t = &CancelWorkflow_CancelWorkflow{}
+	}
+	return t.WorkflowID
+}
+func (t *CancelWorkflow_CancelWorkflow) GetWorkflowRunID() string {
+	if t == nil {
+		t = &CancelWorkflow_CancelWorkflow{}
+	}
+	return t.WorkflowRunID
+}
+
+type SetWorkflowAssignee_SetWorkflowAssignee struct {
+	Assignee *string "json:\"assignee,omitempty\" graphql:\"assignee\""
+}
+
+func (t *SetWorkflowAssignee_SetWorkflowAssignee) GetAssignee() *string {
 	if t == nil {
 		t = &SetWorkflowAssignee_SetWorkflowAssignee{}
 	}
 	return t.Assignee
+}
+
+type SetWorkflowIsAssignable_SetWorkflowIsAssignable struct {
+	IsAssignable bool "json:\"isAssignable\" graphql:\"isAssignable\""
+}
+
+func (t *SetWorkflowIsAssignable_SetWorkflowIsAssignable) GetIsAssignable() bool {
+	if t == nil {
+		t = &SetWorkflowIsAssignable_SetWorkflowIsAssignable{}
+	}
+	return t.IsAssignable
+}
+
+type SetWorkflowTargets_SetWorkflowTargets struct {
+	Targets []model.WorkflowTarget "json:\"targets\" graphql:\"targets\""
+}
+
+func (t *SetWorkflowTargets_SetWorkflowTargets) GetTargets() []model.WorkflowTarget {
+	if t == nil {
+		t = &SetWorkflowTargets_SetWorkflowTargets{}
+	}
+	return t.Targets
 }
 
 type GetWorkflows struct {
@@ -1829,6 +1965,17 @@ func (t *GetWorkflowHistory) GetWorkflowHistory() *GetWorkflowHistory_WorkflowHi
 	return &t.WorkflowHistory
 }
 
+type GetWorkflowActions struct {
+	WorkflowActions GetWorkflowActions_WorkflowActions "json:\"workflowActions\" graphql:\"workflowActions\""
+}
+
+func (t *GetWorkflowActions) GetWorkflowActions() *GetWorkflowActions_WorkflowActions {
+	if t == nil {
+		t = &GetWorkflowActions{}
+	}
+	return &t.WorkflowActions
+}
+
 type GetWorkflowAssignee struct {
 	WorkflowAssignee GetWorkflowAssignee_WorkflowAssignee "json:\"workflowAssignee\" graphql:\"workflowAssignee\""
 }
@@ -1838,6 +1985,28 @@ func (t *GetWorkflowAssignee) GetWorkflowAssignee() *GetWorkflowAssignee_Workflo
 		t = &GetWorkflowAssignee{}
 	}
 	return &t.WorkflowAssignee
+}
+
+type GetWorkflowIsAssignable struct {
+	WorkflowIsAssignable GetWorkflowIsAssignable_WorkflowIsAssignable "json:\"workflowIsAssignable\" graphql:\"workflowIsAssignable\""
+}
+
+func (t *GetWorkflowIsAssignable) GetWorkflowIsAssignable() *GetWorkflowIsAssignable_WorkflowIsAssignable {
+	if t == nil {
+		t = &GetWorkflowIsAssignable{}
+	}
+	return &t.WorkflowIsAssignable
+}
+
+type GetWorkflowTargets struct {
+	WorkflowTargets GetWorkflowTargets_WorkflowTargets "json:\"workflowTargets\" graphql:\"workflowTargets\""
+}
+
+func (t *GetWorkflowTargets) GetWorkflowTargets() *GetWorkflowTargets_WorkflowTargets {
+	if t == nil {
+		t = &GetWorkflowTargets{}
+	}
+	return &t.WorkflowTargets
 }
 
 type EnsureTemporalNamespace struct {
@@ -1884,6 +2053,17 @@ func (t *DeleteWorkflow) GetDeleteWorkflow() *DeleteWorkflow_DeleteWorkflow {
 	return &t.DeleteWorkflow
 }
 
+type CancelWorkflow struct {
+	CancelWorkflow CancelWorkflow_CancelWorkflow "json:\"cancelWorkflow\" graphql:\"cancelWorkflow\""
+}
+
+func (t *CancelWorkflow) GetCancelWorkflow() *CancelWorkflow_CancelWorkflow {
+	if t == nil {
+		t = &CancelWorkflow{}
+	}
+	return &t.CancelWorkflow
+}
+
 type SetWorkflowAssignee struct {
 	SetWorkflowAssignee *SetWorkflowAssignee_SetWorkflowAssignee "json:\"setWorkflowAssignee,omitempty\" graphql:\"setWorkflowAssignee\""
 }
@@ -1893,6 +2073,28 @@ func (t *SetWorkflowAssignee) GetSetWorkflowAssignee() *SetWorkflowAssignee_SetW
 		t = &SetWorkflowAssignee{}
 	}
 	return t.SetWorkflowAssignee
+}
+
+type SetWorkflowIsAssignable struct {
+	SetWorkflowIsAssignable *SetWorkflowIsAssignable_SetWorkflowIsAssignable "json:\"setWorkflowIsAssignable,omitempty\" graphql:\"setWorkflowIsAssignable\""
+}
+
+func (t *SetWorkflowIsAssignable) GetSetWorkflowIsAssignable() *SetWorkflowIsAssignable_SetWorkflowIsAssignable {
+	if t == nil {
+		t = &SetWorkflowIsAssignable{}
+	}
+	return t.SetWorkflowIsAssignable
+}
+
+type SetWorkflowTargets struct {
+	SetWorkflowTargets *SetWorkflowTargets_SetWorkflowTargets "json:\"setWorkflowTargets,omitempty\" graphql:\"setWorkflowTargets\""
+}
+
+func (t *SetWorkflowTargets) GetSetWorkflowTargets() *SetWorkflowTargets_SetWorkflowTargets {
+	if t == nil {
+		t = &SetWorkflowTargets{}
+	}
+	return t.SetWorkflowTargets
 }
 
 const GetWorkflowsDocument = `query GetWorkflows ($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderBy: WorkflowOrder, $where: WorkflowWhereInput) {
@@ -2277,6 +2479,40 @@ func (c *Client) GetWorkflowHistory(ctx context.Context, where model.WorkflowExe
 	return &res, nil
 }
 
+const GetWorkflowActionsDocument = `query GetWorkflowActions ($input: GetWorkflowActionsInput!, $where: WorkflowActionsWhereInput) {
+	workflowActions(input: $input, where: $where) {
+		queries {
+			description
+			enabled
+			name
+		}
+		updates {
+			description
+			enabled
+			name
+		}
+	}
+}
+`
+
+func (c *Client) GetWorkflowActions(ctx context.Context, input model.GetWorkflowActionsInput, where *model.WorkflowActionsWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetWorkflowActions, error) {
+	vars := map[string]any{
+		"input": input,
+		"where": where,
+	}
+
+	var res GetWorkflowActions
+	if err := c.Client.Post(ctx, "GetWorkflowActions", GetWorkflowActionsDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 const GetWorkflowAssigneeDocument = `query GetWorkflowAssignee ($input: GetWorkflowAssigneeInput!) {
 	workflowAssignee(input: $input) {
 		assignee
@@ -2291,6 +2527,54 @@ func (c *Client) GetWorkflowAssignee(ctx context.Context, input model.GetWorkflo
 
 	var res GetWorkflowAssignee
 	if err := c.Client.Post(ctx, "GetWorkflowAssignee", GetWorkflowAssigneeDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const GetWorkflowIsAssignableDocument = `query GetWorkflowIsAssignable ($input: GetWorkflowIsAssignableInput!) {
+	workflowIsAssignable(input: $input) {
+		isAssignable
+	}
+}
+`
+
+func (c *Client) GetWorkflowIsAssignable(ctx context.Context, input model.GetWorkflowIsAssignableInput, interceptors ...clientv2.RequestInterceptor) (*GetWorkflowIsAssignable, error) {
+	vars := map[string]any{
+		"input": input,
+	}
+
+	var res GetWorkflowIsAssignable
+	if err := c.Client.Post(ctx, "GetWorkflowIsAssignable", GetWorkflowIsAssignableDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const GetWorkflowTargetsDocument = `query GetWorkflowTargets ($input: GetWorkflowTargetsInput!) {
+	workflowTargets(input: $input) {
+		targets
+	}
+}
+`
+
+func (c *Client) GetWorkflowTargets(ctx context.Context, input model.GetWorkflowTargetsInput, interceptors ...clientv2.RequestInterceptor) (*GetWorkflowTargets, error) {
+	vars := map[string]any{
+		"input": input,
+	}
+
+	var res GetWorkflowTargets
+	if err := c.Client.Post(ctx, "GetWorkflowTargets", GetWorkflowTargetsDocument, &res, vars, interceptors...); err != nil {
 		if c.Client.ParseDataWhenErrors {
 			return &res, err
 		}
@@ -2437,6 +2721,31 @@ func (c *Client) DeleteWorkflow(ctx context.Context, id string, interceptors ...
 	return &res, nil
 }
 
+const CancelWorkflowDocument = `mutation CancelWorkflow ($input: CancelWorkflowInput!) {
+	cancelWorkflow(input: $input) {
+		workflowID
+		workflowRunID
+	}
+}
+`
+
+func (c *Client) CancelWorkflow(ctx context.Context, input model.CancelWorkflowInput, interceptors ...clientv2.RequestInterceptor) (*CancelWorkflow, error) {
+	vars := map[string]any{
+		"input": input,
+	}
+
+	var res CancelWorkflow
+	if err := c.Client.Post(ctx, "CancelWorkflow", CancelWorkflowDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 const SetWorkflowAssigneeDocument = `mutation SetWorkflowAssignee ($input: SetWorkflowAssigneeInput!) {
 	setWorkflowAssignee(input: $input) {
 		assignee
@@ -2461,6 +2770,54 @@ func (c *Client) SetWorkflowAssignee(ctx context.Context, input model.SetWorkflo
 	return &res, nil
 }
 
+const SetWorkflowIsAssignableDocument = `mutation SetWorkflowIsAssignable ($input: SetWorkflowIsAssignableInput!) {
+	setWorkflowIsAssignable(input: $input) {
+		isAssignable
+	}
+}
+`
+
+func (c *Client) SetWorkflowIsAssignable(ctx context.Context, input model.SetWorkflowIsAssignableInput, interceptors ...clientv2.RequestInterceptor) (*SetWorkflowIsAssignable, error) {
+	vars := map[string]any{
+		"input": input,
+	}
+
+	var res SetWorkflowIsAssignable
+	if err := c.Client.Post(ctx, "SetWorkflowIsAssignable", SetWorkflowIsAssignableDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const SetWorkflowTargetsDocument = `mutation SetWorkflowTargets ($input: SetWorkflowTargetsInput!) {
+	setWorkflowTargets(input: $input) {
+		targets
+	}
+}
+`
+
+func (c *Client) SetWorkflowTargets(ctx context.Context, input model.SetWorkflowTargetsInput, interceptors ...clientv2.RequestInterceptor) (*SetWorkflowTargets, error) {
+	vars := map[string]any{
+		"input": input,
+	}
+
+	var res SetWorkflowTargets
+	if err := c.Client.Post(ctx, "SetWorkflowTargets", SetWorkflowTargetsDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 var DocumentOperationNames = map[string]string{
 	GetWorkflowsDocument:                    "GetWorkflows",
 	GetWorkflowSignalsDocument:              "GetWorkflowSignals",
@@ -2469,10 +2826,16 @@ var DocumentOperationNames = map[string]string{
 	GetWorkflowExecutionsDocument:           "GetWorkflowExecutions",
 	GetAssignableWorkflowExecutionsDocument: "GetAssignableWorkflowExecutions",
 	GetWorkflowHistoryDocument:              "GetWorkflowHistory",
+	GetWorkflowActionsDocument:              "GetWorkflowActions",
 	GetWorkflowAssigneeDocument:             "GetWorkflowAssignee",
+	GetWorkflowIsAssignableDocument:         "GetWorkflowIsAssignable",
+	GetWorkflowTargetsDocument:              "GetWorkflowTargets",
 	EnsureTemporalNamespaceDocument:         "EnsureTemporalNamespace",
 	SubmitUserDataInputDocument:             "SubmitUserDataInput",
 	RegisterWorkflowDocument:                "RegisterWorkflow",
 	DeleteWorkflowDocument:                  "DeleteWorkflow",
+	CancelWorkflowDocument:                  "CancelWorkflow",
 	SetWorkflowAssigneeDocument:             "SetWorkflowAssignee",
+	SetWorkflowIsAssignableDocument:         "SetWorkflowIsAssignable",
+	SetWorkflowTargetsDocument:              "SetWorkflowTargets",
 }

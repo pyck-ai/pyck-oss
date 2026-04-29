@@ -1,0 +1,30 @@
+---
+operation: PatchDeviceData
+name: "Patch Device Data"
+description: >
+  Applies RFC 6902 JSON Patch operations to the device's data field.
+  Only changed fields are modified; untouched fields are preserved.
+vars:
+  id: { $placeholder: "device id to patch" }
+  patches:
+    - op: REPLACE
+      path: "/firmware"
+      value: "\"2.0\""
+    - op: REPLACE
+      path: "/battery"
+      value: "95"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Patched device returned"
+    assertions:
+      - ref: res.body.data.patchDeviceData.device
+        nil: false
+      - ref: res.body.data.patchDeviceData.device.id
+        equal: {$ref: req.body.variables.id}

@@ -10,9 +10,11 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
+	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 	"github.com/pyck-ai/pyck/backend/picking"
@@ -160,7 +162,7 @@ func (r *mutationResolver) DeletePickingOrder(ctx context.Context, id uuid.UUID)
 	// Soft delete order (MutationEventHook detects soft delete, WorkflowReplyMiddleware handles reply)
 	_, err = tx.Order.
 		UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -179,7 +181,7 @@ func (r *mutationResolver) DeletePickingOrder(ctx context.Context, id uuid.UUID)
 	for _, v := range items {
 		_, err = tx.OrderItems.
 			UpdateOneID(v.ID).
-			SetDeletedAt(time.Now()).
+			SetDeletedAt(time.Now().UTC()).
 			SetDeletedBy(req.User().ID).
 			Save(ctx)
 		if err != nil {
@@ -290,7 +292,7 @@ func (r *mutationResolver) DeletePickingOrderItem(ctx context.Context, id uuid.U
 	// Soft delete item (MutationEventHook detects soft delete, WorkflowReplyMiddleware handles reply)
 	_, err = tx.OrderItems.
 		UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(request.ForContext(ctx).User().ID).
 		Save(ctx)
 	if err != nil {
@@ -395,7 +397,7 @@ func (r *mutationResolver) DeletePickingOutboundShipmentNotification(ctx context
 	// Soft delete notification (MutationEventHook detects soft delete, WorkflowReplyMiddleware handles reply)
 	_, err = tx.OutboundShipmentNotification.
 		UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(request.ForContext(ctx).User().ID).
 		Save(ctx)
 	if err != nil {
@@ -403,6 +405,129 @@ func (r *mutationResolver) DeletePickingOutboundShipmentNotification(ctx context
 	}
 
 	return &model.PickingOutboundShipmentNotificationDeletePayload{DeletedID: &id}, nil
+}
+
+// PatchPickingOrderData applies RFC 6902 JSON Patch operations to the picking order's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchPickingOrderData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.PickingOrderOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.Order.Query().Where(order.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    order.Table,
+		FieldName:    order.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.Order.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.PickingOrderOutput{PickingOrder: updated}, nil
+}
+
+// PatchPickingOrderItemData applies RFC 6902 JSON Patch operations to the picking order item's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchPickingOrderItemData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.PickingOrderItemOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.OrderItems.Query().Where(orderitems.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    orderitems.Table,
+		FieldName:    orderitems.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.OrderItems.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.PickingOrderItemOutput{PickingOrderItem: updated}, nil
+}
+
+// PatchPickingOutboundShipmentNotificationData applies RFC 6902 JSON Patch operations to the notification's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchPickingOutboundShipmentNotificationData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.PickingOutboundShipmentNotificationOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.OutboundShipmentNotification.Query().Where(outboundshipmentnotification.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    outboundshipmentnotification.Table,
+		FieldName:    outboundshipmentnotification.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.OutboundShipmentNotification.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.PickingOutboundShipmentNotificationOutput{PickingOutboundShipmentNotification: updated}, nil
 }
 
 // Mutation returns picking.MutationResolver implementation.

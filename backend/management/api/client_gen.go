@@ -95,6 +95,9 @@ type Client interface {
 	UnsetDeviceLocation(ctx context.Context, input UnsetDeviceLocationArgs) (*UnsetDeviceLocation, error)
 	CheckInUserDevice(ctx context.Context, input CheckInUserDeviceArgs) (*CheckInUserDevice, error)
 	CheckOutUserDevice(ctx context.Context, input CheckOutUserDeviceArgs) (*CheckOutUserDevice, error)
+	PatchLocationData(ctx context.Context, input PatchLocationDataArgs) (*PatchLocationData, error)
+	PatchDeviceData(ctx context.Context, input PatchDeviceDataArgs) (*PatchDeviceData, error)
+	PatchDeviceLocationData(ctx context.Context, input PatchDeviceLocationDataArgs) (*PatchDeviceLocationData, error)
 }
 
 type client struct {
@@ -620,4 +623,34 @@ type CheckOutUserDeviceArgs struct {
 
 func (c *client) CheckOutUserDevice(ctx context.Context, input CheckOutUserDeviceArgs) (*CheckOutUserDevice, error) {
 	return c.api.CheckOutUserDevice(ctx, input.Input)
+}
+
+// PatchLocationDataArgs is a sparse struct for PatchLocationData parameters
+type PatchLocationDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchLocationData(ctx context.Context, input PatchLocationDataArgs) (*PatchLocationData, error) {
+	return c.api.PatchLocationData(ctx, input.Id, input.Patches)
+}
+
+// PatchDeviceDataArgs is a sparse struct for PatchDeviceData parameters
+type PatchDeviceDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchDeviceData(ctx context.Context, input PatchDeviceDataArgs) (*PatchDeviceData, error) {
+	return c.api.PatchDeviceData(ctx, input.Id, input.Patches)
+}
+
+// PatchDeviceLocationDataArgs is a sparse struct for PatchDeviceLocationData parameters
+type PatchDeviceLocationDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchDeviceLocationData(ctx context.Context, input PatchDeviceLocationDataArgs) (*PatchDeviceLocationData, error) {
+	return c.api.PatchDeviceLocationData(ctx, input.Id, input.Patches)
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/Yamashou/gqlgenc/clientv2"
 	"github.com/go-chi/chi"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -17,6 +18,7 @@ import (
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/db"
+	"github.com/pyck-ai/pyck/backend/common/env"
 	"github.com/pyck-ai/pyck/backend/common/env/config"
 	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/pyck-ai/pyck/backend/common/feature"
@@ -33,6 +35,9 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/std"
 	"github.com/pyck-ai/pyck/backend/common/tenant"
 	"github.com/pyck-ai/pyck/backend/common/validator"
+
+	managementapi "github.com/pyck-ai/pyck/backend/management/api"
+	managementguard "github.com/pyck-ai/pyck/backend/management/guard"
 
 	"github.com/pyck-ai/pyck/backend/workflow/core"
 	ent "github.com/pyck-ai/pyck/backend/workflow/ent/gen"
@@ -68,6 +73,25 @@ func main() {
 	log.ForContext(ctx).Info().
 		Any("config", core.Config).
 		Msg("starting...")
+
+	// Check the management service is running and version-compatible before
+	// starting, because we depend on it for JSON schemas and data types.
+	mgmtClient := managementapi.NewClient(
+		nethttp.DefaultClient,
+		core.Config.GatewayUrl,
+		&clientv2.Options{ParseDataAlongWithErrors: true},
+		func(ctx context.Context, r *nethttp.Request, gqlInfo *clientv2.GQLRequestInfo, res any, next clientv2.RequestInterceptorFunc) error {
+			r.Header.Set("Authorization", "Bearer "+core.Config.ServiceToken)
+			return next(ctx, r, gqlInfo, res)
+		},
+	)
+
+	if err := managementguard.WaitForManagement(ctx, mgmtClient, env.GetBuildInfo().GitCommitSHA(), core.Config.StrictVersionCheck); err != nil {
+		log.ForContext(ctx).Fatal().
+			Err(err).
+			Msg("management service dependency check failed")
+		return
+	}
 
 	// Set up tracer
 	tracer, err := otel.SetupTracer(serviceName, core.Config.EnvironmentName, &core.Config.OTelConfig)

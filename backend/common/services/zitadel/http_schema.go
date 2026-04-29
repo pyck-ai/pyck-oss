@@ -70,20 +70,6 @@ type targetDetails struct {
 	Owner    targetOwner `json:"owner"`
 }
 
-type searchTargetNameFilter struct {
-	Name string `json:"targetName"`
-}
-
-type searchTargetIdsFilter struct {
-	TargetIds []string `json:"targetIds"`
-}
-
-// Legacy v3alpha search request (kept for fallback compatibility)
-type searchTargetsRequest struct {
-	NameFilter searchTargetNameFilter `json:"targetNameFilter"`
-	IdsFilter  searchTargetIdsFilter  `json:"targetIdsFilter"`
-}
-
 type searchTargetsResponseDetails struct {
 	AppliedLimit string    `json:"appliedLimit"`
 	TotalCount   string    `json:"totalCount"`

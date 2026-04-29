@@ -37,6 +37,23 @@ type Mutation {
   createReplenishmentOrderItem(input: CreateReplenishmentOrderItemInput!): ReplenishmentOrderItemOutput
   updateReplenishmentOrderItem(id: ID!, input: UpdateReplenishmentOrderItemInput!): ReplenishmentOrderItemOutput
   deleteReplenishmentOrderItem(id: ID!): ReplenishmentOrderItemDeletePayload!
+
+  """Apply RFC 6902 JSON Patch operations to the item's data field."""
+  patchInventoryItemData(id: ID!, patches: [JSONPatchInput!]!): InventoryItemOutput
+  """Apply RFC 6902 JSON Patch operations to the repository's data field."""
+  patchInventoryRepositoryData(id: ID!, patches: [JSONPatchInput!]!): InventoryRepositoryOutput
+  """Apply RFC 6902 JSON Patch operations to the item movement's data field."""
+  patchInventoryItemMovementData(id: ID!, patches: [JSONPatchInput!]!): InventoryItemMovementOutput
+  """Apply RFC 6902 JSON Patch operations to the repository movement's data field."""
+  patchInventoryRepositoryMovementData(id: ID!, patches: [JSONPatchInput!]!): InventoryRepositoryMovementOutput
+  """Apply RFC 6902 JSON Patch operations to the collection movement's data field."""
+  patchInventoryCollectionMovementData(id: ID!, patches: [JSONPatchInput!]!): UpdateCollectionMovementOutput
+  """Apply RFC 6902 JSON Patch operations to the item set's data field."""
+  patchInventoryItemSetData(id: ID!, patches: [JSONPatchInput!]!): InventoryItemSetOutput
+  """Apply RFC 6902 JSON Patch operations to the replenishment order's data field."""
+  patchReplenishmentOrderData(id: ID!, patches: [JSONPatchInput!]!): ReplenishmentOrderOutput
+  """Apply RFC 6902 JSON Patch operations to the replenishment order item's data field."""
+  patchReplenishmentOrderItemData(id: ID!, patches: [JSONPatchInput!]!): ReplenishmentOrderItemOutput
 }
 
 input CreateReplenishmentOrderItemsInput {

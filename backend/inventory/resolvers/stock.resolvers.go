@@ -31,7 +31,7 @@ func (r *queryResolver) GetStockTree(ctx context.Context, after *entgql.Cursor[u
 	}
 
 	if where.CreatedAtLT == nil {
-		now := time.Now()
+		now := time.Now().UTC()
 		where.CreatedAtLT = &now
 	}
 
@@ -220,7 +220,7 @@ func (r *queryResolver) GetStockTree(ctx context.Context, after *entgql.Cursor[u
 // Time is the resolver for the time field.
 func (r *stockWhereInputResolver) Time(ctx context.Context, obj *gen.StockWhereInput, data *time.Time) error {
 	if data == nil {
-		t := time.Now()
+		t := time.Now().UTC()
 		data = &t
 	}
 

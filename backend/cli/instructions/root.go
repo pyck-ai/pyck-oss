@@ -17,6 +17,7 @@ import (
 	maindataapi "github.com/pyck-ai/pyck/backend/main-data/api"
 	managementapi "github.com/pyck-ai/pyck/backend/management/api"
 	pickingapi "github.com/pyck-ai/pyck/backend/picking/api"
+	receivingapi "github.com/pyck-ai/pyck/backend/receiving/api"
 )
 
 var (
@@ -42,7 +43,7 @@ var rootCmd = &cobra.Command{
 	configurations and performance scenarios effortlessly.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// Commands that don't need API clients
-		ignoreAPIClientCommands := []string{"setup", "migrate", "project", "uuid"}
+		ignoreAPIClientCommands := []string{"setup", "migrate", "project", "uuid", "import-type"}
 		if cmd.Parent() != nil && slices.Contains(ignoreAPIClientCommands, cmd.Parent().Name()) {
 			return
 		}
@@ -180,4 +181,24 @@ func getPickingClient(cmd *cobra.Command) (pickingapi.Client, error) {
 
 	interceptor := &clientAuthInterceptor{token: token}
 	return pickingapi.NewClient(http.DefaultClient, gatewayURL, nil, interceptor.intercept), nil
+}
+
+//nolint:ireturn // Returning interface is intentional for dependency injection
+func getReceivingClient(cmd *cobra.Command) (receivingapi.Client, error) {
+	gatewayURL := viper.GetString("GATEWAY_URL")
+	token := viper.GetString("AUTH")
+	commandToken, _ := cmd.Flags().GetString(authTokenFlagName)
+	if len(commandToken) > 0 {
+		token = commandToken
+	}
+
+	if gatewayURL == "" {
+		return nil, errGatewayURLMissing
+	}
+	if token == "" {
+		return nil, fmt.Errorf("%w: --%s [PYCK_AUTH]", errAuthTokenMissing, authTokenFlagName)
+	}
+
+	interceptor := &clientAuthInterceptor{token: token}
+	return receivingapi.NewClient(http.DefaultClient, gatewayURL, nil, interceptor.intercept), nil
 }

@@ -52,6 +52,45 @@ func (e *InventoryStockService) Close() {
 }
 
 func (s *InventoryStockService) CalculateRepositoryStockMap(ctx context.Context, tx *ent.Tx, itemID, repositoryID uuid.UUID, quantity int64, stockMap map[uuid.UUID]ent.Stock, ownStock bool) error {
+	if err := s.applyRepositoryStockDelta(ctx, tx, itemID, repositoryID, quantity, stockMap, ownStock); err != nil {
+		return err
+	}
+	return s.ValidateStockMapNoUnderflow(stockMap)
+}
+
+// ApplyItemMovementStockDelta applies the FROM-walk and TO-walk for an item
+// movement and validates the resulting stockMap once both walks have run. This
+// is the correct shape for the executor: validating per-walk over-rejects the
+// case where FROM and TO share a common ancestor whose net delta is zero
+func (s *InventoryStockService) ApplyItemMovementStockDelta(ctx context.Context, tx *ent.Tx, itemID, fromID, toID uuid.UUID, quantity int64, stockMap map[uuid.UUID]ent.Stock, ownStock bool) error {
+	if err := s.applyRepositoryStockDelta(ctx, tx, itemID, fromID, -quantity, stockMap, ownStock); err != nil {
+		return err
+	}
+	if err := s.applyRepositoryStockDelta(ctx, tx, itemID, toID, quantity, stockMap, ownStock); err != nil {
+		return err
+	}
+	return s.ValidateStockMapNoUnderflow(stockMap)
+}
+
+// ValidateStockMapNoUnderflow returns ErrStockUnderflow if any non-virtual
+// repository in stockMap has a negative Quantity. Virtual repos are clamped
+// to zero by applyRepositoryStockDelta, so a single Quantity < 0 check is
+// sufficient.
+func (s *InventoryStockService) ValidateStockMapNoUnderflow(stockMap map[uuid.UUID]ent.Stock) error {
+	for repoID, rec := range stockMap {
+		if rec.Quantity < 0 {
+			return fmt.Errorf("%w: repository=%s quantity would be %d", ErrStockUnderflow, repoID, rec.Quantity)
+		}
+	}
+	return nil
+}
+
+// applyRepositoryStockDelta walks the parent chain of repositoryID and
+// accumulates the delta into stockMap without validating underflow. Callers
+// must run ValidateStockMapNoUnderflow after all desired walks have been
+// applied; transient negative quantities at intermediate ancestors are
+// expected when FROM and TO share a common ancestor.
+func (s *InventoryStockService) applyRepositoryStockDelta(ctx context.Context, tx *ent.Tx, itemID, repositoryID uuid.UUID, quantity int64, stockMap map[uuid.UUID]ent.Stock, ownStock bool) error {
 	stockRecordQuantity := int64(0)
 	incomingStockRecordQuantity := int64(0)
 	outgoingStockRecordQuantity := int64(0)
@@ -107,9 +146,6 @@ func (s *InventoryStockService) CalculateRepositoryStockMap(ctx context.Context,
 	if repo.VirtualRepo {
 		// Virtual repositories are infinite sources/sinks — clamp to zero
 		stockRecordQuantity = 0
-	} else if stockRecordQuantity < int64(0) {
-		return fmt.Errorf("%w: repository=%s quantity would be %d (current=%d, delta=%d)",
-			ErrStockUnderflow, repositoryID, stockRecordQuantity, stockRecordQuantity-quantity, quantity)
 	}
 
 	var updatedRecord ent.Stock
@@ -151,7 +187,7 @@ func (s *InventoryStockService) CalculateRepositoryStockMap(ctx context.Context,
 		return nil
 	}
 
-	return s.CalculateRepositoryStockMap(ctx, tx, itemID, repo.ParentID, quantity, stockMap, false)
+	return s.applyRepositoryStockDelta(ctx, tx, itemID, repo.ParentID, quantity, stockMap, false)
 }
 
 func (s *InventoryStockService) SimulateRepositoryStockMap(itemID, repositoryID, sourceRepositoryID uuid.UUID, quantity int64, stockMap map[uuid.UUID]map[uuid.UUID]ent.Stock, repoMap map[uuid.UUID]ent.Repository, ownStock bool) error {
@@ -741,11 +777,8 @@ func (s *InventoryStockService) replayRebuildEvent(
 			evtIdx, mov.ID, mov.ItemID, mov.FromID, mov.ToID, mov.Quantity, evt.timestamp)
 
 		stockMap := make(map[uuid.UUID]ent.Stock)
-		if err := s.CalculateRepositoryStockMap(ctx, tx, mov.ItemID, mov.FromID, -mov.Quantity, stockMap, true); err != nil {
-			return fmt.Errorf("movement %s: CalculateRepositoryStockMap (from): %w", mov.ID, err)
-		}
-		if err := s.CalculateRepositoryStockMap(ctx, tx, mov.ItemID, mov.ToID, mov.Quantity, stockMap, true); err != nil {
-			return fmt.Errorf("movement %s: CalculateRepositoryStockMap (to): %w", mov.ID, err)
+		if err := s.ApplyItemMovementStockDelta(ctx, tx, mov.ItemID, mov.FromID, mov.ToID, mov.Quantity, stockMap, true); err != nil {
+			return fmt.Errorf("movement %s: ApplyItemMovementStockDelta: %w", mov.ID, err)
 		}
 		creates := make([]*ent.StockCreate, 0, len(stockMap))
 		for repoID, rec := range stockMap {

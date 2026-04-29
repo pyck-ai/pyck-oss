@@ -1,10 +1,12 @@
 package http
 
 import (
+	"errors"
+	"fmt"
 	nethttp "net/http"
+	"runtime/debug"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httplog"
 	"github.com/pyck-ai/pyck/backend/common/otel"
 	"github.com/rs/zerolog"
@@ -36,8 +38,31 @@ func NewRouter(config RouterConfig) *chi.Mux {
 		mx.Use(mw)
 	}
 
-	// Add recovery middleware last
-	mx.Use(middleware.Recoverer)
+	// Add recovery middleware last — returns JSON errors on panic
+	mx.Use(jsonRecoverer)
 
 	return mx
+}
+
+// jsonRecoverer is a middleware that recovers from panics and returns a JSON error response.
+func jsonRecoverer(next nethttp.Handler) nethttp.Handler {
+	return nethttp.HandlerFunc(func(w nethttp.ResponseWriter, r *nethttp.Request) {
+		defer func() {
+			if rvr := recover(); rvr != nil {
+				if err, ok := rvr.(error); ok && errors.Is(err, nethttp.ErrAbortHandler) {
+					panic(rvr)
+				}
+
+				zerolog.Ctx(r.Context()).Error().
+					Str("stack", string(debug.Stack())).
+					Msgf("panic recovered: %v", rvr)
+
+				if r.Header.Get("Connection") != "Upgrade" {
+					JSONError(w, fmt.Sprintf("%v", rvr), nethttp.StatusInternalServerError)
+				}
+			}
+		}()
+
+		next.ServeHTTP(w, r)
+	})
 }

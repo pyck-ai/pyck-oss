@@ -1,0 +1,178 @@
+---
+name: "Cross - Picking Outbound Shipment Notification Patch Lifecycle"
+description: >
+  Tests JSON Patch (RFC 6902) operations on picking outbound shipment
+  notifications. Creates a data type, an order, then a notification
+  with data, patches individual fields, verifies changes persist,
+  then cleans up.
+steps:
+  - id: createDT
+    name: "Create data type for outbound shipment notifications"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Outbound Shipment Notification Patch Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "pickingoutboundshipmentnotification"
+        jsonSchema: '{"type":"object","properties":{"carrier":{"type":"string"},"trackingNumber":{"type":"string"},"priority":{"type":"integer","minimum":0}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: createOrder
+    name: "Create parent picking order"
+    operation: picking.createPickingOrder
+    vars:
+      input:
+        customerID: {$fake: uuid}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Order created"
+        assertions:
+          - ref: res.body.data.createPickingOrder.pickingOrder.id
+            nil: false
+
+  - id: createNotification
+    name: "Create notification with data"
+    operation: picking.createPickingOutboundShipmentNotification
+    vars:
+      input:
+        orderID: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          carrier: "DHL"
+          trackingNumber: "TRK-001"
+          priority: 1
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Notification created"
+        assertions:
+          - ref: res.body.data.createPickingOutboundShipmentNotification.pickingOutboundShipmentNotification.id
+            nil: false
+      - msg: "Initial data persisted"
+        assertions:
+          - ref: res.body.data.createPickingOutboundShipmentNotification.pickingOutboundShipmentNotification.data.carrier
+            equal: "DHL"
+
+  - id: patchNotification
+    name: "Patch notification data - partial update"
+    operation: picking.patchPickingOutboundShipmentNotificationData
+    vars:
+      id: {$ref: "res[createNotification].body.data.createPickingOutboundShipmentNotification.pickingOutboundShipmentNotification.id"}
+      patches:
+        - op: REPLACE
+          path: "/carrier"
+          value: "\"UPS\""
+        - op: REPLACE
+          path: "/priority"
+          value: "5"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Carrier patched"
+        assertions:
+          - ref: res.body.data.patchPickingOutboundShipmentNotificationData.pickingOutboundShipmentNotification.data.carrier
+            equal: "UPS"
+      - msg: "Priority patched"
+        assertions:
+          - ref: res.body.data.patchPickingOutboundShipmentNotificationData.pickingOutboundShipmentNotification.data.priority
+            equal: 5
+      - msg: "Tracking number preserved"
+        assertions:
+          - ref: res.body.data.patchPickingOutboundShipmentNotificationData.pickingOutboundShipmentNotification.data.trackingNumber
+            equal: "TRK-001"
+
+  - name: "Verify patch persisted"
+    operation: picking.getPickingOutboundShipmentNotifications
+    vars:
+      where:
+        id: {$ref: "res[createNotification].body.data.createPickingOutboundShipmentNotification.pickingOutboundShipmentNotification.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Patched data persisted"
+        assertions:
+          - ref: res.body.data.pickingOutboundShipmentNotifications.edges[].node.data.carrier
+            equal: "UPS"
+          - ref: res.body.data.pickingOutboundShipmentNotifications.edges[].node.data.priority
+            equal: 5
+          - ref: res.body.data.pickingOutboundShipmentNotifications.edges[].node.data.trackingNumber
+            equal: "TRK-001"
+
+  - name: "Cleanup - delete notification"
+    operation: picking.deletePickingOutboundShipmentNotification
+    vars:
+      id: {$ref: "res[createNotification].body.data.createPickingOutboundShipmentNotification.pickingOutboundShipmentNotification.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete order"
+    operation: picking.deletePickingOrder
+    vars:
+      id: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

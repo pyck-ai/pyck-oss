@@ -6,6 +6,7 @@ import (
 
 	"go.temporal.io/sdk/client"
 
+	httputil "github.com/pyck-ai/pyck/backend/common/http"
 	"github.com/pyck-ai/pyck/backend/common/std"
 
 	zitadelsync "github.com/pyck-ai/pyck/backend/management/workflows/zitadel-sync"
@@ -17,18 +18,18 @@ func SyncHandler(temporalClient client.Client, taskQueue string) http.HandlerFun
 	return func(w http.ResponseWriter, r *http.Request) {
 		reqBody, err := io.ReadAll(r.Body)
 		if err != nil {
-			http.Error(w, "error reading body", http.StatusBadRequest)
+			httputil.JSONError(w, "error reading body", http.StatusBadRequest)
 			return
 		}
 
 		input, err := std.UnmarshalJson[SyncInput](reqBody)
 		if err != nil {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			httputil.JSONError(w, "invalid JSON", http.StatusBadRequest)
 			return
 		}
 
 		if input.OrganizationID == "" {
-			http.Error(w, "orgID is required", http.StatusBadRequest)
+			httputil.JSONError(w, "orgID is required", http.StatusBadRequest)
 			return
 		}
 
@@ -45,7 +46,7 @@ func SyncHandler(temporalClient client.Client, taskQueue string) http.HandlerFun
 			},
 		)
 		if err != nil {
-			http.Error(w, "failed to start workflow", http.StatusInternalServerError)
+			httputil.JSONError(w, "failed to start workflow", http.StatusInternalServerError)
 			return
 		}
 

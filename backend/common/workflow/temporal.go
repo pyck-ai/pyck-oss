@@ -11,4 +11,9 @@ const (
 	WorkflowQueryTypeAwaitUserDataInput
 	WorkflowQueryTypeGetAssignee
 	WorkflowQueryTypeSetAssignee
+	WorkflowQueryTypeGetAvailableActions
+	WorkflowQueryTypeGetTargets
+	WorkflowQueryTypeSetTargets
+	WorkflowQueryTypeGetIsAssignable
+	WorkflowQueryTypeSetIsAssignable
 )

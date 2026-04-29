@@ -50,16 +50,18 @@ type ZitadelSdkClient struct {
 }
 
 // SdkClient builds admin/management clients with JWT profile credentials.
-func SdkClient(ctx context.Context, issuer, api, jwtProfilePath, orgID string) (*ZitadelSdkClient, error) {
-	options := []zitadel.Option{
-		zitadel.WithJWTProfileTokenSource(middleware.JWTProfileFromPath(ctx, jwtProfilePath)),
-	}
+// grpcAddr is the host:port for gRPC dial (e.g. "localhost:8080").
+// apiURL is the full HTTP URL for token exchange (e.g. "http://localhost:8080").
+// When insecure is true, the connection uses plaintext gRPC and a custom token
+// source that bypasses OIDC discovery.
+func SdkClient(ctx context.Context, issuer, grpcAddr, apiURL, jwtProfilePath, orgID string, insecure bool) (*ZitadelSdkClient, error) {
+	options := sdkOptions(ctx, issuer, apiURL, jwtProfilePath, insecure)
 	if orgID != "" {
 		options = append(options, zitadel.WithOrgID(orgID))
 	}
 
 	managementClient, err := managementclient.NewClient(
-		ctx, issuer, api,
+		ctx, issuer, grpcAddr,
 		[]string{oidc.ScopeOpenID, "urn:zitadel:iam:org:project:id:zitadel:aud"},
 		options...,
 	)
@@ -68,7 +70,7 @@ func SdkClient(ctx context.Context, issuer, api, jwtProfilePath, orgID string) (
 	}
 
 	adminClient, err := adminclient.NewClient(
-		ctx, issuer, api,
+		ctx, issuer, grpcAddr,
 		[]string{oidc.ScopeOpenID, "urn:zitadel:iam:org:project:id:zitadel:aud"},
 		options...,
 	)
@@ -80,6 +82,19 @@ func SdkClient(ctx context.Context, issuer, api, jwtProfilePath, orgID string) (
 		managementAPI: managementClient,
 		adminAPI:      adminClient,
 	}, nil
+}
+
+// sdkOptions returns the common zitadel.Option slice for SDK connections.
+func sdkOptions(ctx context.Context, issuer, apiURL, jwtProfilePath string, insecure bool) []zitadel.Option {
+	if insecure {
+		return []zitadel.Option{
+			zitadel.WithInsecure(),
+			zitadel.WithTokenSource(NewJWTProfileTokenSource(apiURL, issuer, jwtProfilePath)),
+		}
+	}
+	return []zitadel.Option{
+		zitadel.WithJWTProfileTokenSource(middleware.JWTProfileFromPath(ctx, jwtProfilePath)),
+	}
 }
 
 func (client *ZitadelSdkClient) Close() {

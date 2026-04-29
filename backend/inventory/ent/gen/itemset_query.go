@@ -10,6 +10,7 @@ import (
 	"math"
 
 	"entgo.io/ent"
+	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
@@ -29,8 +30,8 @@ type ItemSetQuery struct {
 	inters         []Interceptor
 	predicates     []predicate.ItemSet
 	withItems      *ItemQuery
-	modifiers      []func(*sql.Selector)
 	loadTotal      []func(context.Context, []*ItemSet) error
+	modifiers      []func(*sql.Selector)
 	withNamedItems map[string]*ItemQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -571,6 +572,9 @@ func (_q *ItemSetQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	t1.Schema(_q.schemaConfig.ItemSet)
 	ctx = internal.NewSchemaConfigContext(ctx, _q.schemaConfig)
 	selector.WithContext(ctx)
+	for _, m := range _q.modifiers {
+		m(selector)
+	}
 	for _, p := range _q.predicates {
 		p(selector)
 	}
@@ -586,6 +590,32 @@ func (_q *ItemSetQuery) sqlQuery(ctx context.Context) *sql.Selector {
 		selector.Limit(*limit)
 	}
 	return selector
+}
+
+// ForUpdate locks the selected rows against concurrent updates, and prevent them from being
+// updated, deleted or "selected ... for update" by other sessions, until the transaction is
+// either committed or rolled-back.
+func (_q *ItemSetQuery) ForUpdate(opts ...sql.LockOption) *ItemSetQuery {
+	if _q.driver.Dialect() == dialect.Postgres {
+		_q.Unique(false)
+	}
+	_q.modifiers = append(_q.modifiers, func(s *sql.Selector) {
+		s.ForUpdate(opts...)
+	})
+	return _q
+}
+
+// ForShare behaves similarly to ForUpdate, except that it acquires a shared mode lock
+// on any rows that are read. Other sessions can read the rows, but cannot modify them
+// until your transaction commits.
+func (_q *ItemSetQuery) ForShare(opts ...sql.LockOption) *ItemSetQuery {
+	if _q.driver.Dialect() == dialect.Postgres {
+		_q.Unique(false)
+	}
+	_q.modifiers = append(_q.modifiers, func(s *sql.Selector) {
+		s.ForShare(opts...)
+	})
+	return _q
 }
 
 // WithNamedItems tells the query-builder to eager-load the nodes that are connected to the "items"

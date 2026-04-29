@@ -63,6 +63,9 @@ type APIClient interface {
 	UnsetDeviceLocation(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*UnsetDeviceLocation, error)
 	CheckInUserDevice(ctx context.Context, input model.CheckInUserDeviceInput, interceptors ...clientv2.RequestInterceptor) (*CheckInUserDevice, error)
 	CheckOutUserDevice(ctx context.Context, input model.CheckOutUserDeviceInput, interceptors ...clientv2.RequestInterceptor) (*CheckOutUserDevice, error)
+	PatchLocationData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchLocationData, error)
+	PatchDeviceData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchDeviceData, error)
+	PatchDeviceLocationData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchDeviceLocationData, error)
 }
 
 type Client struct {
@@ -10779,6 +10782,631 @@ func (t *CheckOutUserDevice_CheckOutUserDevice) GetWorkflows() []*CheckOutUserDe
 	return t.Workflows
 }
 
+type PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation struct {
+	Edges      []*PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                           "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation) GetEdges() []*PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_Edges {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation{}
+	}
+	return t.Edges
+}
+func (t *PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation) GetPageInfo() *PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation_PageInfo {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation) GetTotalCount() int {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation{}
+	}
+	return t.TotalCount
+}
+
+type PatchLocationData_PatchLocationData_Location struct {
+	CreatedAt               time.Time                                                            "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy               uuid.UUID                                                            "json:\"createdBy\" graphql:\"createdBy\""
+	Data                    map[string]any                                                       "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID              *uuid.UUID                                                           "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug            *string                                                              "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt               *time.Time                                                           "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy               *uuid.UUID                                                           "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	DeviceLocationsLocation PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation "json:\"deviceLocationsLocation\" graphql:\"deviceLocationsLocation\""
+	ID                      string                                                               "json:\"id\" graphql:\"id\""
+	Name                    string                                                               "json:\"name\" graphql:\"name\""
+	TenantID                uuid.UUID                                                            "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt               *time.Time                                                           "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy               *uuid.UUID                                                           "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchLocationData_PatchLocationData_Location) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchLocationData_PatchLocationData_Location) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchLocationData_PatchLocationData_Location) GetData() map[string]any {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location{}
+	}
+	return t.Data
+}
+func (t *PatchLocationData_PatchLocationData_Location) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchLocationData_PatchLocationData_Location) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchLocationData_PatchLocationData_Location) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchLocationData_PatchLocationData_Location) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchLocationData_PatchLocationData_Location) GetDeviceLocationsLocation() *PatchLocationData_PatchLocationData_Location_DeviceLocationsLocation {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location{}
+	}
+	return &t.DeviceLocationsLocation
+}
+func (t *PatchLocationData_PatchLocationData_Location) GetID() string {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location{}
+	}
+	return t.ID
+}
+func (t *PatchLocationData_PatchLocationData_Location) GetName() string {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location{}
+	}
+	return t.Name
+}
+func (t *PatchLocationData_PatchLocationData_Location) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location{}
+	}
+	return &t.TenantID
+}
+func (t *PatchLocationData_PatchLocationData_Location) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchLocationData_PatchLocationData_Location) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Location{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchLocationData_PatchLocationData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchLocationData_PatchLocationData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchLocationData_PatchLocationData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchLocationData_PatchLocationData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchLocationData_PatchLocationData struct {
+	Location  PatchLocationData_PatchLocationData_Location     "json:\"location\" graphql:\"location\""
+	Workflows []*PatchLocationData_PatchLocationData_Workflows "json:\"workflows\" graphql:\"workflows\""
+}
+
+func (t *PatchLocationData_PatchLocationData) GetLocation() *PatchLocationData_PatchLocationData_Location {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData{}
+	}
+	return &t.Location
+}
+func (t *PatchLocationData_PatchLocationData) GetWorkflows() []*PatchLocationData_PatchLocationData_Workflows {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData{}
+	}
+	return t.Workflows
+}
+
+type PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice struct {
+	Edges      []*PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                                   "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice) GetEdges() []*PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_Edges {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice{}
+	}
+	return t.Edges
+}
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice) GetPageInfo() *PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice_PageInfo {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice) GetTotalCount() int {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice{}
+	}
+	return t.TotalCount
+}
+
+type PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_Edges struct {
+	Cursor string "json:\"cursor\" graphql:\"cursor\""
+}
+
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_Edges) GetCursor() string {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_Edges{}
+	}
+	return t.Cursor
+}
+
+type PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice struct {
+	Edges      []*PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                               "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice) GetEdges() []*PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_Edges {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice{}
+	}
+	return t.Edges
+}
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice) GetPageInfo() *PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice_PageInfo {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice{}
+	}
+	return &t.PageInfo
+}
+func (t *PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice) GetTotalCount() int {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice{}
+	}
+	return t.TotalCount
+}
+
+type PatchDeviceData_PatchDeviceData_Device struct {
+	CreatedAt             time.Time                                                    "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy             uuid.UUID                                                    "json:\"createdBy\" graphql:\"createdBy\""
+	Data                  map[string]any                                               "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID            *uuid.UUID                                                   "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug          *string                                                      "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt             *time.Time                                                   "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy             *uuid.UUID                                                   "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	DeviceLocationsDevice PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice "json:\"deviceLocationsDevice\" graphql:\"deviceLocationsDevice\""
+	DeviceUsersDevice     PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice     "json:\"deviceUsersDevice\" graphql:\"deviceUsersDevice\""
+	ID                    string                                                       "json:\"id\" graphql:\"id\""
+	Name                  string                                                       "json:\"name\" graphql:\"name\""
+	TenantID              uuid.UUID                                                    "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt             *time.Time                                                   "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy             *uuid.UUID                                                   "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchDeviceData_PatchDeviceData_Device) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchDeviceData_PatchDeviceData_Device) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchDeviceData_PatchDeviceData_Device) GetData() map[string]any {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device{}
+	}
+	return t.Data
+}
+func (t *PatchDeviceData_PatchDeviceData_Device) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchDeviceData_PatchDeviceData_Device) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchDeviceData_PatchDeviceData_Device) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchDeviceData_PatchDeviceData_Device) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchDeviceData_PatchDeviceData_Device) GetDeviceLocationsDevice() *PatchDeviceData_PatchDeviceData_Device_DeviceLocationsDevice {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device{}
+	}
+	return &t.DeviceLocationsDevice
+}
+func (t *PatchDeviceData_PatchDeviceData_Device) GetDeviceUsersDevice() *PatchDeviceData_PatchDeviceData_Device_DeviceUsersDevice {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device{}
+	}
+	return &t.DeviceUsersDevice
+}
+func (t *PatchDeviceData_PatchDeviceData_Device) GetID() string {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device{}
+	}
+	return t.ID
+}
+func (t *PatchDeviceData_PatchDeviceData_Device) GetName() string {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device{}
+	}
+	return t.Name
+}
+func (t *PatchDeviceData_PatchDeviceData_Device) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device{}
+	}
+	return &t.TenantID
+}
+func (t *PatchDeviceData_PatchDeviceData_Device) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchDeviceData_PatchDeviceData_Device) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Device{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchDeviceData_PatchDeviceData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchDeviceData_PatchDeviceData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchDeviceData_PatchDeviceData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchDeviceData_PatchDeviceData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchDeviceData_PatchDeviceData struct {
+	Device    PatchDeviceData_PatchDeviceData_Device       "json:\"device\" graphql:\"device\""
+	Workflows []*PatchDeviceData_PatchDeviceData_Workflows "json:\"workflows\" graphql:\"workflows\""
+}
+
+func (t *PatchDeviceData_PatchDeviceData) GetDevice() *PatchDeviceData_PatchDeviceData_Device {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData{}
+	}
+	return &t.Device
+}
+func (t *PatchDeviceData_PatchDeviceData) GetWorkflows() []*PatchDeviceData_PatchDeviceData_Workflows {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData{}
+	}
+	return t.Workflows
+}
+
+type PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation struct {
+	CreatedAt    time.Time      "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy    uuid.UUID      "json:\"createdBy\" graphql:\"createdBy\""
+	Data         map[string]any "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID   *uuid.UUID     "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug *string        "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt    *time.Time     "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy    *uuid.UUID     "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	DeviceID     string         "json:\"deviceID\" graphql:\"deviceID\""
+	ID           string         "json:\"id\" graphql:\"id\""
+	LocationID   string         "json:\"locationID\" graphql:\"locationID\""
+	TenantID     uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+}
+
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation{}
+	}
+	return &t.CreatedAt
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation{}
+	}
+	return &t.CreatedBy
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation) GetData() map[string]any {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation{}
+	}
+	return t.Data
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation{}
+	}
+	return t.DataTypeID
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation{}
+	}
+	return t.DataTypeSlug
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation{}
+	}
+	return t.DeletedAt
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation{}
+	}
+	return t.DeletedBy
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation) GetDeviceID() string {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation{}
+	}
+	return t.DeviceID
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation) GetID() string {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation{}
+	}
+	return t.ID
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation) GetLocationID() string {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation{}
+	}
+	return t.LocationID
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation{}
+	}
+	return &t.TenantID
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation{}
+	}
+	return t.UpdatedAt
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation{}
+	}
+	return t.UpdatedBy
+}
+
+type PatchDeviceLocationData_PatchDeviceLocationData_Workflows struct {
+	ID    string "json:\"id\" graphql:\"id\""
+	RunID string "json:\"runID\" graphql:\"runID\""
+	Type  string "json:\"type\" graphql:\"type\""
+}
+
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_Workflows) GetID() string {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_Workflows{}
+	}
+	return t.ID
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_Workflows) GetRunID() string {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_Workflows{}
+	}
+	return t.RunID
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData_Workflows) GetType() string {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData_Workflows{}
+	}
+	return t.Type
+}
+
+type PatchDeviceLocationData_PatchDeviceLocationData struct {
+	DeviceLocation PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation "json:\"DeviceLocation\" graphql:\"DeviceLocation\""
+	Workflows      []*PatchDeviceLocationData_PatchDeviceLocationData_Workflows   "json:\"workflows\" graphql:\"workflows\""
+}
+
+func (t *PatchDeviceLocationData_PatchDeviceLocationData) GetDeviceLocation() *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData{}
+	}
+	return &t.DeviceLocation
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData) GetWorkflows() []*PatchDeviceLocationData_PatchDeviceLocationData_Workflows {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData{}
+	}
+	return t.Workflows
+}
+
 type GetAccessPolicies struct {
 	AccessPolicies GetAccessPolicies_AccessPolicies "json:\"accessPolicies\" graphql:\"accessPolicies\""
 }
@@ -11338,6 +11966,39 @@ func (t *CheckOutUserDevice) GetCheckOutUserDevice() *CheckOutUserDevice_CheckOu
 		t = &CheckOutUserDevice{}
 	}
 	return &t.CheckOutUserDevice
+}
+
+type PatchLocationData struct {
+	PatchLocationData PatchLocationData_PatchLocationData "json:\"patchLocationData\" graphql:\"patchLocationData\""
+}
+
+func (t *PatchLocationData) GetPatchLocationData() *PatchLocationData_PatchLocationData {
+	if t == nil {
+		t = &PatchLocationData{}
+	}
+	return &t.PatchLocationData
+}
+
+type PatchDeviceData struct {
+	PatchDeviceData PatchDeviceData_PatchDeviceData "json:\"patchDeviceData\" graphql:\"patchDeviceData\""
+}
+
+func (t *PatchDeviceData) GetPatchDeviceData() *PatchDeviceData_PatchDeviceData {
+	if t == nil {
+		t = &PatchDeviceData{}
+	}
+	return &t.PatchDeviceData
+}
+
+type PatchDeviceLocationData struct {
+	PatchDeviceLocationData PatchDeviceLocationData_PatchDeviceLocationData "json:\"patchDeviceLocationData\" graphql:\"patchDeviceLocationData\""
+}
+
+func (t *PatchDeviceLocationData) GetPatchDeviceLocationData() *PatchDeviceLocationData_PatchDeviceLocationData {
+	if t == nil {
+		t = &PatchDeviceLocationData{}
+	}
+	return &t.PatchDeviceLocationData
 }
 
 const GetAccessPoliciesDocument = `query GetAccessPolicies ($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderBy: AccessPolicyOrder, $where: AccessPolicyWhereInput) {
@@ -14161,6 +14822,172 @@ func (c *Client) CheckOutUserDevice(ctx context.Context, input model.CheckOutUse
 	return &res, nil
 }
 
+const PatchLocationDataDocument = `mutation PatchLocationData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchLocationData(id: $id, patches: $patches) {
+		location {
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			deviceLocationsLocation {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			id
+			name
+			tenantID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchLocationData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchLocationData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchLocationData
+	if err := c.Client.Post(ctx, "PatchLocationData", PatchLocationDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const PatchDeviceDataDocument = `mutation PatchDeviceData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchDeviceData(id: $id, patches: $patches) {
+		device {
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			deviceLocationsDevice {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			deviceUsersDevice {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+					hasNextPage
+					hasPreviousPage
+					startCursor
+				}
+				totalCount
+			}
+			id
+			name
+			tenantID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchDeviceData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchDeviceData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchDeviceData
+	if err := c.Client.Post(ctx, "PatchDeviceData", PatchDeviceDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const PatchDeviceLocationDataDocument = `mutation PatchDeviceLocationData ($id: ID!, $patches: [JSONPatchInput!]!) {
+	patchDeviceLocationData(id: $id, patches: $patches) {
+		DeviceLocation {
+			createdAt
+			createdBy
+			data
+			dataTypeID
+			dataTypeSlug
+			deletedAt
+			deletedBy
+			deviceID
+			id
+			locationID
+			tenantID
+			updatedAt
+			updatedBy
+		}
+		workflows {
+			id
+			runID
+			type
+		}
+	}
+}
+`
+
+func (c *Client) PatchDeviceLocationData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchDeviceLocationData, error) {
+	vars := map[string]any{
+		"id":      id,
+		"patches": patches,
+	}
+
+	var res PatchDeviceLocationData
+	if err := c.Client.Post(ctx, "PatchDeviceLocationData", PatchDeviceLocationDataDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 var DocumentOperationNames = map[string]string{
 	GetAccessPoliciesDocument:        "GetAccessPolicies",
 	GetDataTypesDocument:             "GetDataTypes",
@@ -14213,4 +15040,7 @@ var DocumentOperationNames = map[string]string{
 	UnsetDeviceLocationDocument:      "UnsetDeviceLocation",
 	CheckInUserDeviceDocument:        "CheckInUserDevice",
 	CheckOutUserDeviceDocument:       "CheckOutUserDevice",
+	PatchLocationDataDocument:        "PatchLocationData",
+	PatchDeviceDataDocument:          "PatchDeviceData",
+	PatchDeviceLocationDataDocument:  "PatchDeviceLocationData",
 }

@@ -1,0 +1,11 @@
+info:
+  name: Cross - Picking Outbound Shipment Notification Patch Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Tests JSON Patch (RFC 6902) operations on picking outbound shipment notifications. Creates a data type, an order, then a notification with data, patches individual fields, verifies changes persist, then cleans up.
+
+
+request:
+  auth: inherit

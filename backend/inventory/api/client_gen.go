@@ -84,6 +84,14 @@ type Client interface {
 	CreateReplenishmentOrderItem(ctx context.Context, input CreateReplenishmentOrderItemArgs) (*CreateReplenishmentOrderItem, error)
 	UpdateReplenishmentOrderItem(ctx context.Context, input UpdateReplenishmentOrderItemArgs) (*UpdateReplenishmentOrderItem, error)
 	DeleteReplenishmentOrderItem(ctx context.Context, input DeleteReplenishmentOrderItemArgs) (*DeleteReplenishmentOrderItem, error)
+	PatchInventoryItemData(ctx context.Context, input PatchInventoryItemDataArgs) (*PatchInventoryItemData, error)
+	PatchInventoryRepositoryData(ctx context.Context, input PatchInventoryRepositoryDataArgs) (*PatchInventoryRepositoryData, error)
+	PatchInventoryItemMovementData(ctx context.Context, input PatchInventoryItemMovementDataArgs) (*PatchInventoryItemMovementData, error)
+	PatchInventoryRepositoryMovementData(ctx context.Context, input PatchInventoryRepositoryMovementDataArgs) (*PatchInventoryRepositoryMovementData, error)
+	PatchInventoryCollectionMovementData(ctx context.Context, input PatchInventoryCollectionMovementDataArgs) (*PatchInventoryCollectionMovementData, error)
+	PatchInventoryItemSetData(ctx context.Context, input PatchInventoryItemSetDataArgs) (*PatchInventoryItemSetData, error)
+	PatchReplenishmentOrderData(ctx context.Context, input PatchReplenishmentOrderDataArgs) (*PatchReplenishmentOrderData, error)
+	PatchReplenishmentOrderItemData(ctx context.Context, input PatchReplenishmentOrderItemDataArgs) (*PatchReplenishmentOrderItemData, error)
 }
 
 type client struct {
@@ -509,4 +517,84 @@ type DeleteReplenishmentOrderItemArgs struct {
 
 func (c *client) DeleteReplenishmentOrderItem(ctx context.Context, input DeleteReplenishmentOrderItemArgs) (*DeleteReplenishmentOrderItem, error) {
 	return c.api.DeleteReplenishmentOrderItem(ctx, input.Id)
+}
+
+// PatchInventoryItemDataArgs is a sparse struct for PatchInventoryItemData parameters
+type PatchInventoryItemDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchInventoryItemData(ctx context.Context, input PatchInventoryItemDataArgs) (*PatchInventoryItemData, error) {
+	return c.api.PatchInventoryItemData(ctx, input.Id, input.Patches)
+}
+
+// PatchInventoryRepositoryDataArgs is a sparse struct for PatchInventoryRepositoryData parameters
+type PatchInventoryRepositoryDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchInventoryRepositoryData(ctx context.Context, input PatchInventoryRepositoryDataArgs) (*PatchInventoryRepositoryData, error) {
+	return c.api.PatchInventoryRepositoryData(ctx, input.Id, input.Patches)
+}
+
+// PatchInventoryItemMovementDataArgs is a sparse struct for PatchInventoryItemMovementData parameters
+type PatchInventoryItemMovementDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchInventoryItemMovementData(ctx context.Context, input PatchInventoryItemMovementDataArgs) (*PatchInventoryItemMovementData, error) {
+	return c.api.PatchInventoryItemMovementData(ctx, input.Id, input.Patches)
+}
+
+// PatchInventoryRepositoryMovementDataArgs is a sparse struct for PatchInventoryRepositoryMovementData parameters
+type PatchInventoryRepositoryMovementDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchInventoryRepositoryMovementData(ctx context.Context, input PatchInventoryRepositoryMovementDataArgs) (*PatchInventoryRepositoryMovementData, error) {
+	return c.api.PatchInventoryRepositoryMovementData(ctx, input.Id, input.Patches)
+}
+
+// PatchInventoryCollectionMovementDataArgs is a sparse struct for PatchInventoryCollectionMovementData parameters
+type PatchInventoryCollectionMovementDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchInventoryCollectionMovementData(ctx context.Context, input PatchInventoryCollectionMovementDataArgs) (*PatchInventoryCollectionMovementData, error) {
+	return c.api.PatchInventoryCollectionMovementData(ctx, input.Id, input.Patches)
+}
+
+// PatchInventoryItemSetDataArgs is a sparse struct for PatchInventoryItemSetData parameters
+type PatchInventoryItemSetDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchInventoryItemSetData(ctx context.Context, input PatchInventoryItemSetDataArgs) (*PatchInventoryItemSetData, error) {
+	return c.api.PatchInventoryItemSetData(ctx, input.Id, input.Patches)
+}
+
+// PatchReplenishmentOrderDataArgs is a sparse struct for PatchReplenishmentOrderData parameters
+type PatchReplenishmentOrderDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchReplenishmentOrderData(ctx context.Context, input PatchReplenishmentOrderDataArgs) (*PatchReplenishmentOrderData, error) {
+	return c.api.PatchReplenishmentOrderData(ctx, input.Id, input.Patches)
+}
+
+// PatchReplenishmentOrderItemDataArgs is a sparse struct for PatchReplenishmentOrderItemData parameters
+type PatchReplenishmentOrderItemDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchReplenishmentOrderItemData(ctx context.Context, input PatchReplenishmentOrderItemDataArgs) (*PatchReplenishmentOrderItemData, error) {
+	return c.api.PatchReplenishmentOrderItemData(ctx, input.Id, input.Patches)
 }

@@ -45,8 +45,6 @@ services:
     volumes:
       # Persistent storage volume for traces
       - jaeger_data:/data/badger
-    networks:
-      - pyck
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:16686"]
       interval: 5s

@@ -10,12 +10,14 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
+	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/std"
 	"github.com/pyck-ai/pyck/backend/common/validator"
@@ -24,10 +26,12 @@ import (
 	ent "github.com/pyck-ai/pyck/backend/management/ent/gen"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/accesspolicy"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/datatype"
+	"github.com/pyck-ai/pyck/backend/management/ent/gen/device"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/devicelocation"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/deviceuser"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/group"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/keyvalue"
+	"github.com/pyck-ai/pyck/backend/management/ent/gen/location"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/role"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/user"
@@ -139,7 +143,7 @@ func (r *mutationResolver) DeleteDataType(ctx context.Context, id uuid.UUID) (*m
 	}
 
 	req := request.ForContext(ctx)
-	_, err = tx.DataType.UpdateOneID(id).SetDeletedAt(time.Now()).SetDeletedBy(req.User().ID).Save(ctx)
+	_, err = tx.DataType.UpdateOneID(id).SetDeletedAt(time.Now().UTC()).SetDeletedBy(req.User().ID).Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +427,7 @@ func (r *mutationResolver) DeletePolicy(ctx context.Context, id uuid.UUID) (bool
 	req := request.ForContext(ctx)
 	_, err = tx.AccessPolicy.
 		UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -530,7 +534,7 @@ func (r *mutationResolver) DeleteGroup(ctx context.Context, id uuid.UUID) (bool,
 	}
 
 	req := request.ForContext(ctx)
-	_, err = tx.Group.UpdateOneID(id).SetDeletedAt(time.Now()).SetDeletedBy(req.User().ID).Save(ctx)
+	_, err = tx.Group.UpdateOneID(id).SetDeletedAt(time.Now().UTC()).SetDeletedBy(req.User().ID).Save(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -643,7 +647,7 @@ func (r *mutationResolver) DeleteRole(ctx context.Context, id uuid.UUID) (bool, 
 	}
 
 	req := request.ForContext(ctx)
-	_, err = tx.Role.UpdateOneID(id).SetDeletedAt(time.Now()).SetDeletedBy(req.User().ID).Save(ctx)
+	_, err = tx.Role.UpdateOneID(id).SetDeletedAt(time.Now().UTC()).SetDeletedBy(req.User().ID).Save(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -726,7 +730,7 @@ func (r *mutationResolver) DeleteUser(ctx context.Context, id uuid.UUID) (bool, 
 	}
 
 	req := request.ForContext(ctx)
-	_, err = tx.User.UpdateOneID(id).SetDeletedAt(time.Now()).SetDeletedBy(req.User().ID).Save(ctx)
+	_, err = tx.User.UpdateOneID(id).SetDeletedAt(time.Now().UTC()).SetDeletedBy(req.User().ID).Save(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -798,7 +802,7 @@ func (r *mutationResolver) DeleteEvent(ctx context.Context, id uuid.UUID) (bool,
 	}
 
 	req := request.ForContext(ctx)
-	_, err = tx.Event.UpdateOneID(id).SetDeletedAt(time.Now()).SetDeletedBy(req.User().ID).Save(ctx)
+	_, err = tx.Event.UpdateOneID(id).SetDeletedAt(time.Now().UTC()).SetDeletedBy(req.User().ID).Save(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -866,7 +870,7 @@ func (r *mutationResolver) DeleteKeyValue(ctx context.Context, id uuid.UUID) (*m
 	}
 
 	req := request.ForContext(ctx)
-	_, err = tx.KeyValue.UpdateOneID(id).SetDeletedAt(time.Now()).SetDeletedBy(req.User().ID).Save(ctx)
+	_, err = tx.KeyValue.UpdateOneID(id).SetDeletedAt(time.Now().UTC()).SetDeletedBy(req.User().ID).Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -937,7 +941,7 @@ func (r *mutationResolver) DeleteLocation(ctx context.Context, id uuid.UUID) (*m
 	req := request.ForContext(ctx)
 	_, err = tx.Location.
 		UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -1010,7 +1014,7 @@ func (r *mutationResolver) DeleteDevice(ctx context.Context, id uuid.UUID) (*mod
 	req := request.ForContext(ctx)
 	_, err = tx.Device.
 		UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -1064,7 +1068,7 @@ func (r *mutationResolver) UnsetDeviceLocation(ctx context.Context, id uuid.UUID
 	req := request.ForContext(ctx)
 	_, err = tx.DeviceLocation.
 		UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -1159,7 +1163,7 @@ func (r *mutationResolver) CheckOutUserDevice(ctx context.Context, input model.C
 	for _, v := range deviceUsers {
 		_, err := tx.DeviceUser.
 			UpdateOneID(v.ID).
-			SetDeletedAt(time.Now()).
+			SetDeletedAt(time.Now().UTC()).
 			SetDeletedBy(req.User().ID).
 			Save(ctx)
 		if err != nil {
@@ -1168,6 +1172,129 @@ func (r *mutationResolver) CheckOutUserDevice(ctx context.Context, input model.C
 	}
 
 	return &resp, nil
+}
+
+// PatchLocationData applies RFC 6902 JSON Patch operations to the location's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchLocationData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.LocationOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.Location.Query().Where(location.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    location.Table,
+		FieldName:    location.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.Location.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.LocationOutput{Location: updated}, nil
+}
+
+// PatchDeviceData applies RFC 6902 JSON Patch operations to the device's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchDeviceData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.DeviceOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.Device.Query().Where(device.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    device.Table,
+		FieldName:    device.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.Device.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.DeviceOutput{Device: updated}, nil
+}
+
+// PatchDeviceLocationData applies RFC 6902 JSON Patch operations to the device location's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchDeviceLocationData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.DeviceLocationOutput, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.DeviceLocation.Query().Where(devicelocation.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    devicelocation.Table,
+		FieldName:    devicelocation.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := tx.DeviceLocation.UpdateOneID(id).SetData(patched).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.DeviceLocationOutput{DeviceLocation: updated}, nil
 }
 
 // Mutation returns m.MutationResolver implementation.

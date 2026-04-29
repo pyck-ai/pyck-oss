@@ -1,7 +1,4 @@
 FROM temporalio/ui:latest
 
-COPY config/keys /data/keys
-RUN cp /data/keys/zitadel_certificate.crt /etc/ssl/certs/zitadel.crt && update-ca-certificates
-
 ENV TEMPORAL_AUTH_ENABLED=false
 ENV TEMPORAL_CLOUD_UI=false

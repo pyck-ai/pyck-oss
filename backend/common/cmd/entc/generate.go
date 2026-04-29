@@ -67,7 +67,7 @@ func (gen *generator) registerGraphQLExtension() error {
 		entgql.WithTemplates(entgql.AllTemplates...),
 		entgql.WithWhereInputs(true),
 		entgql.WithSchemaGenerator(),
-		entgql.WithSchemaHook(jsonbOrderSchemaHook),
+		entgql.WithSchemaHook(pyckImportableDirectiveSchemaHook, jsonbOrderSchemaHook),
 		entgql.WithConfigPath(gen.config.GqlConfigPath),
 		entgql.WithSchemaPath(gen.config.GqlSchemaPath),
 		entgql.WithNodeDescriptor(false),
@@ -153,7 +153,7 @@ func (gen *generator) generateStage3() error {
   Package: %s
   Target: %s
   Schema: %s
-  Features: EntQL, Privacy, Intercept, Upsert, ExecQuery, VersionedMigration`, gen.packageName, gen.config.EntTargetPath, gen.config.EntSchemaPath)
+  Features: EntQL, Privacy, Intercept, Upsert, ExecQuery, VersionedMigration, Lock`, gen.packageName, gen.config.EntTargetPath, gen.config.EntSchemaPath)
 	}
 
 	if gen.config.DryRun {
@@ -170,6 +170,7 @@ func (gen *generator) generateStage3() error {
 			ent.FeatureUpsert,
 			ent.FeatureExecQuery,
 			ent.FeatureVersionedMigration,
+			ent.FeatureLock,
 		},
 	}
 

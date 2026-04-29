@@ -10,6 +10,12 @@ type Mutation {
   createReceivingInboundShipmentNotification(input: CreateReceivingInboundShipmentNotificationInput!): ReceivingInboundShipmentNotificationOutput
   updateReceivingInboundShipmentNotification(id: ID!, input: UpdateReceivingInboundShipmentNotificationInput!): ReceivingInboundShipmentNotificationOutput
   deleteReceivingInboundShipmentNotification(id: ID!): ReceivingInboundShipmentNotificationDeletePayload!
+  """Apply RFC 6902 JSON Patch operations to the inbound's data field."""
+  patchReceivingInboundData(id: ID!, patches: [JSONPatchInput!]!): ReceivingInboundOutput
+  """Apply RFC 6902 JSON Patch operations to the inbound item's data field."""
+  patchReceivingInboundItemData(id: ID!, patches: [JSONPatchInput!]!): ReceivingInboundItemOutput
+  """Apply RFC 6902 JSON Patch operations to the receiving inbound shipment notification's data field."""
+  patchReceivingInboundShipmentNotificationData(id: ID!, patches: [JSONPatchInput!]!): ReceivingInboundShipmentNotificationOutput
 }
 
 scalar UUID

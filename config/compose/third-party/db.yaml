@@ -6,11 +6,12 @@ services:
     restart: always
     ports:
       - 5432:5432
-    env_file: ../../../.env
+    env_file:
+      - path: ../../../.env
+      - path: ../../../.env.local
+        required: false
     environment:
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --data-checksums"
-    networks:
-      - pyck
     volumes:
      - ../../../config/db/entrypoint.sh:/usr/local/bin/pyck-entrypoint.sh:ro,z
     # Ultra memory-optimized PostgreSQL configuration
@@ -69,8 +70,6 @@ services:
     restart: always
     ports:
       - 15432:8080
-    networks:
-      - pyck
     depends_on:
       db: { condition: service_healthy }
     env_file: ../../../.env

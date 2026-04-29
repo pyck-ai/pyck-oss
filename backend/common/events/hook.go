@@ -678,7 +678,7 @@ func buildOutboxEntry(ctx context.Context, config HookConfig, schema string, op 
 
 	return &OutboxEntry{
 		ID:            uuidgql.GenerateV7UUID(),
-		CreatedAt:     time.Now(),
+		CreatedAt:     time.Now().UTC(),
 		CorrelationID: correlationID,
 		UserID:        userIDPtr,
 		Topic:         topic,

@@ -49,6 +49,7 @@ type Client interface {
 	UpdateFile(ctx context.Context, input UpdateFileArgs) (*UpdateFile, error)
 	DeleteFile(ctx context.Context, input DeleteFileArgs) (*DeleteFile, error)
 	AnalyzeImageFile(ctx context.Context, input AnalyzeImageFileArgs) (*AnalyzeImageFile, error)
+	PatchFileData(ctx context.Context, input PatchFileDataArgs) (*PatchFileData, error)
 }
 
 type client struct {
@@ -117,4 +118,14 @@ type AnalyzeImageFileArgs struct {
 
 func (c *client) AnalyzeImageFile(ctx context.Context, input AnalyzeImageFileArgs) (*AnalyzeImageFile, error) {
 	return c.api.AnalyzeImageFile(ctx, input.Id)
+}
+
+// PatchFileDataArgs is a sparse struct for PatchFileData parameters
+type PatchFileDataArgs struct {
+	Id      string
+	Patches []*JSONPatchInput
+}
+
+func (c *client) PatchFileData(ctx context.Context, input PatchFileDataArgs) (*PatchFileData, error) {
+	return c.api.PatchFileData(ctx, input.Id, input.Patches)
 }

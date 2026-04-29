@@ -32,7 +32,7 @@ services:
         limits:
           memory: 64M          # Enforce container memory limit
     networks:
-      pyck:
+      default:
         aliases:
           - nats-server
     healthcheck:
@@ -61,8 +61,6 @@ services:
       resources:
         limits:
           memory: 64M               # Limit UI memory usage
-    networks:
-      - pyck
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://0.0.0.0:31311"]
       interval: 5s

@@ -35,10 +35,10 @@ RUN --mount=type=cache,id=go-cache,target=/var/cache/go/ \
     go mod verify && \
     go mod tidy -v -diff && \
     CGO_ENABLED=0 go build \
-        -mod=readonly \
-        -gcflags="all=-N -l" \
-        -o=/tmp/temporal-server \
-        ./cmd/server/*.go
+    -mod=readonly \
+    -gcflags="all=-N -l" \
+    -o=/tmp/temporal-server \
+    ./cmd/server/*.go
 
 
 #################################################
@@ -46,7 +46,7 @@ RUN --mount=type=cache,id=go-cache,target=/var/cache/go/ \
 #   runtime environment                         #
 #                                               #
 #################################################
-FROM temporalio/auto-setup:${TEMPORAL_VERSION}
+FROM temporalio/server:${TEMPORAL_VERSION}
 
 USER root
 RUN apk add --no-cache delve
@@ -64,7 +64,6 @@ ENV DELVE_PORT=${DELVE_PORT}
 # USER temporal
 WORKDIR "/etc/temporal"
 ENTRYPOINT [ "/usr/local/bin/dlv-wrapper", "attach", "/etc/temporal/entrypoint.sh" ]
-CMD [ "autosetup" ]
 
 ENV BIND_ON_IP=::0
 ENV USE_INTERNAL_FRONTEND=1

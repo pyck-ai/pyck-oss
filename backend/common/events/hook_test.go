@@ -131,6 +131,51 @@ func (m *mockMutation) Type() string                             { return m.typ 
 func (m *mockMutation) Field(string) (ent.Value, bool)           { return nil, false }
 func (m *mockMutation) IDs(context.Context) ([]uuid.UUID, error) { return m.ids, nil }
 
+func TestMutationEventHook_OutboxEntryTimestampIsUTC(t *testing.T) {
+	t.Parallel()
+
+	entityID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	tenantID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+
+	var captured *events.OutboxEntry
+
+	hook := events.MutationEventHook(events.HookConfig{
+		Service:    "test",
+		StreamName: "test-stream",
+		OutboxInserter: func(_ context.Context, entry *events.OutboxEntry) error {
+			captured = entry
+			return nil
+		},
+	})
+
+	next := ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+		return &testEntity{ID: entityID, TenantID: tenantID, Name: "test"}, nil
+	})
+
+	mutator := hook(next)
+	m := &mockMutation{op: ent.OpCreate, typ: "TestEntity", ids: []uuid.UUID{entityID}}
+
+	// OTel trace context is required by buildOutboxEntry for correlation ID.
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithSpanProcessor(tracetest.NewSpanRecorder()),
+	)
+	defer func() { _ = tp.Shutdown(context.Background()) }()
+	ctx, span := tp.Tracer("test").Start(context.Background(), "test-span")
+	defer span.End()
+	ctx = authn.Context(ctx, &authn.User{
+		ID:       uuid.New(),
+		TenantID: tenantID,
+		Roles:    map[uuid.UUID]authn.Role{tenantID: authn.ROLE_WRITER},
+	})
+
+	_, err := mutator.Mutate(ctx, m)
+	require.NoError(t, err)
+	require.NotNil(t, captured, "outbox entry should have been captured")
+	assert.Equal(t, time.UTC, captured.CreatedAt.Location(),
+		"outbox entry CreatedAt should be in UTC")
+}
+
 func TestMutationEventHook_BulkUpdateZeroMatches_SkipsEventEmission(t *testing.T) {
 	t.Parallel()
 

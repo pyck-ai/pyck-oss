@@ -3,9 +3,63 @@ package main
 import (
 	"strings"
 
+	"entgo.io/contrib/entgql"
 	ent "entgo.io/ent/entc/gen"
 	"github.com/vektah/gqlparser/v2/ast"
 )
+
+// pyckImportableDirectiveSchemaHook adds the @importable directive definition to the
+// generated GraphQL schema so it appears in ent.graphql alongside @goField and
+// @goModel. Only emits the directive when at least one schema uses @importable,
+// avoiding noise in services that don't use import/export.
+func pyckImportableDirectiveSchemaHook(g *ent.Graph, s *ast.Schema) error {
+	if !hasPyckImportableEntity(g) {
+		return nil
+	}
+	s.Directives["pyckImportable"] = &ast.DirectiveDefinition{
+		Name:        "pyckImportable",
+		Description: "Marks an entity as importable/exportable via the generic import mechanism.",
+		Locations:   []ast.DirectiveLocation{ast.LocationObject},
+		Arguments: ast.ArgumentDefinitionList{
+			{
+				Name: "identityField",
+				Type: ast.NonNullNamedType("String", nil),
+			},
+			{
+				Name: "list",
+				Type: ast.NonNullNamedType("String", nil),
+			},
+			{
+				Name: "create",
+				Type: ast.NonNullNamedType("String", nil),
+			},
+			{
+				Name: "update",
+				Type: ast.NamedType("String", nil),
+			},
+		},
+		Position: &ast.Position{Src: &ast.Source{BuiltIn: false}},
+	}
+	return nil
+}
+
+// hasPyckImportableEntity checks if any schema node uses the @importable directive
+// by inspecting entgql annotations on the graph nodes.
+func hasPyckImportableEntity(g *ent.Graph) bool {
+	for _, node := range g.Nodes {
+		ant := &entgql.Annotation{}
+		if raw, ok := node.Annotations[ant.Name()]; ok {
+			if err := ant.Decode(raw); err == nil {
+				for _, d := range ant.Directives {
+					if d.Name == "pyckImportable" {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
 
 // jsonbOrderSchemaHook modifies all *Order input types in the generated GraphQL schema
 // to support ordering by JSONB sub-fields. For each *Order type it:

@@ -12,8 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	common "go.temporal.io/api/common/v1"
-	"go.temporal.io/sdk/converter"
 	otelapi "go.opentelemetry.io/otel"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
@@ -317,19 +315,6 @@ func stringPtr(s string) *string {
 
 func boolPtr(b bool) *bool {
 	return &b
-}
-
-// makeAssignableMemo creates a Temporal Memo proto with data.assignable set to the given value.
-func makeAssignableMemo(t *testing.T, assignable bool) *common.Memo {
-	t.Helper()
-	dc := converter.GetDefaultDataConverter()
-	dataPayload, err := dc.ToPayload(map[string]interface{}{"assignable": assignable})
-	require.NoError(t, err)
-	return &common.Memo{
-		Fields: map[string]*common.Payload{
-			"data": dataPayload,
-		},
-	}
 }
 
 // =============================================================================

@@ -1,0 +1,11 @@
+info:
+  name: Cross - Picking Order Patch Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Tests JSON Patch (RFC 6902) operations on picking orders. Creates a data type and order with data, updates via full overwrite, patches individual fields, verifies changes persist, then cleans up.
+
+
+request:
+  auth: inherit

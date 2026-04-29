@@ -1,0 +1,30 @@
+---
+operation: PatchSupplierData
+name: "Patch Supplier Data"
+description: >
+  Applies RFC 6902 JSON Patch operations to the supplier's data field.
+  Only changed fields are modified; untouched fields are preserved.
+vars:
+  id: { $placeholder: "supplier id to patch" }
+  patches:
+    - op: REPLACE
+      path: "/rating"
+      value: "5"
+    - op: REPLACE
+      path: "/active"
+      value: "false"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Patched supplier returned"
+    assertions:
+      - ref: res.body.data.patchSupplierData
+        nil: false
+      - ref: res.body.data.patchSupplierData.id
+        equal: {$ref: req.body.variables.id}

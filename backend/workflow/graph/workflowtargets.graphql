@@ -1,0 +1,52 @@
+"""
+Client surfaces a workflow can target. Used as values of the
+pyck_workflow_targets KeywordList search attribute. A workflow may declare
+zero, one, or multiple targets — and queries can filter on any subset via the
+`targets` and `targetsNotIn` predicates on WorkflowExecutionsWhereInput.
+"""
+enum WorkflowTarget {
+  WEB
+  MOBILE
+  SETUP
+}
+
+extend type Query {
+  """
+  Read the current target surfaces of a single workflow execution. Returns an
+  empty list when the workflow has not declared any targets.
+  """
+  workflowTargets(
+    input: GetWorkflowTargetsInput!
+  ): GetWorkflowTargetsResponse!
+}
+
+input GetWorkflowTargetsInput {
+  workflowId: String!
+  workflowExecutionId: String!
+}
+
+type GetWorkflowTargetsResponse {
+  targets: [WorkflowTarget!]!
+}
+
+extend type Mutation {
+  """
+  Replace the target surfaces of a running workflow execution. Requires the
+  workflow's state to implement the WorkflowTargetsSetter SDK interface.
+  Passing an empty list clears the search attribute so the workflow no longer
+  matches any targets-based filter.
+  """
+  setWorkflowTargets(
+    input: SetWorkflowTargetsInput!
+  ): SetWorkflowTargetsResponse
+}
+
+input SetWorkflowTargetsInput {
+  workflowId: String!
+  workflowExecutionId: String!
+  targets: [WorkflowTarget!]!
+}
+
+type SetWorkflowTargetsResponse {
+  targets: [WorkflowTarget!]!
+}

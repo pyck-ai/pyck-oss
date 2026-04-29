@@ -1,57 +1,37 @@
+---
+secrets:
+  zitadel-masterkey:
+    file: ../../../config/zitadel/masterkey.txt
+
+---
+x-common: &common
+  user: root  # this is required for rootless containers to use the correct permissions
+  env_file:
+    - path: ../../../config/zitadel/compose.env
+    - path: ../../../.env
+    - path: ../../../.env.local
+      required: false
+  image: 'ghcr.io/zitadel/zitadel:v4.12.0'
+
 services:
   zitadel:
+    <<: *common
     restart: 'always'
     container_name: zitadel
-    user: root  # this is required for rootless containers to use the correct permissions
-    networks:
-      pyck:
-        ipv4_address: 172.30.0.100
-    image: 'ghcr.io/zitadel/zitadel:v2.61.0'
-    command: 'start-from-init --masterkey "MasterkeyNeedsToHave32Characters" --tlsMode enabled'
+    command: 'start --masterkeyFile /run/secrets/zitadel-masterkey --tlsMode disabled'
+    secrets:
+      - zitadel-masterkey
     environment:
-      # Database configuration
-      - 'ZITADEL_DATABASE_POSTGRES_HOST=db'
-      - 'ZITADEL_DATABASE_POSTGRES_PORT=5432'
-      - 'ZITADEL_DATABASE_POSTGRES_DATABASE=zitadel'
-      - 'ZITADEL_DATABASE_POSTGRES_USER_USERNAME=zitadel'
-      - 'ZITADEL_DATABASE_POSTGRES_USER_PASSWORD=zitadel'
-      - 'ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE=disable'
-      - 'ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME=admin'
-      - 'ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD=12345'
-      - 'ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE=disable'
-      
-      # Database connection pool optimization for memory efficiency
-      - 'ZITADEL_DATABASE_POSTGRES_MAX_OPEN_CONNS=10'
-      - 'ZITADEL_DATABASE_POSTGRES_MAX_IDLE_CONNS=5'
-      - 'ZITADEL_DATABASE_POSTGRES_MAX_CONN_LIFETIME=5m'
-      - 'ZITADEL_DATABASE_POSTGRES_MAX_CONN_IDLE_TIME=1m'
-      
-      # External configuration
-      - 'ZITADEL_EXTERNALDOMAIN=auth.local.pyck.cloud'
-      - 'ZITADEL_EXTERNALPORT=8080'
-      - 'ZITADEL_EXTERNALSECURE=true'
-      - 'ZITADEL_TLS_ENABLED=true'
-      - 'ZITADEL_TLS_KEYPATH=/data/keys/zitadel_private_key.pem'
-      - 'ZITADEL_TLS_CERTPATH=/data/keys/zitadel_certificate.crt'
-      
-      # Instance configuration
-      - 'ZITADEL_FIRSTINSTANCE_MACHINEKEYPATH=/data/keys/zitadel-admin-sa.json'
-      - 'ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_USERNAME=zitadel-admin-sa'
-      - 'ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_NAME=Admin'
-      - 'ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINEKEY_TYPE=1'
-      
       # Memory optimization settings
       - 'GOGC=100'  # Go garbage collection target percentage
       - 'GOMEMLIMIT=384MiB'  # Go memory soft limit
-      
-      # Logging optimization - reduce verbosity to save memory
-      - 'ZITADEL_LOG_LEVEL=warn'
     volumes:
       - ../../../config/keys/:/data/keys/:z
     depends_on:
       db: { condition: 'service_healthy' }
-    ports:
-      - '8080:8080'
+      zitadel-setup: { condition: 'service_completed_successfully' }
+    expose:
+      - '8080'
     healthcheck:
       test: ["CMD", "/app/zitadel", "ready"]
       interval: 5s
@@ -63,22 +43,100 @@ services:
         limits:
           memory: 256M
 
-  zitadel-debug:
-    restart: always
-    container_name: zitadel-debug
-    build:
-      context: ../../../config/oidc-debug
-      dockerfile: Dockerfile
-    env_file: ../../../.env
-    networks:
-      pyck:
-        ipv4_address: 172.30.0.103
-    extra_hosts:
-      - "auth.local.pyck.cloud:172.30.0.100"
+  # zitadel-init creates the database schema and user accounts. It is a one-time
+  # setup container that runs before the main zitadel service starts. Once it
+  # completes successfully, the zitadel-setup container will run to perform any
+  # additional setup tasks required by zitadel.
+  zitadel-init:
+    <<: *common
+    restart: 'on-failure'
+    container_name: zitadel-init
+    command: 'init'
+    secrets:
+      - zitadel-masterkey
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+    depends_on:
+      db: { condition: 'service_healthy' }
+
+  # zitadel-setup runs the database migrations required by zitadel. It is a
+  # one-time setup container that runs after the zitadel-init container
+  # completes successfully. Once it completes successfully, the main zitadel
+  # service will start and run continuously to serve requests.
+  zitadel-setup:
+    <<: *common
+    restart: 'on-failure'
+    container_name: zitadel-setup
+    command: 'setup --init-projections=true --masterkeyFile /run/secrets/zitadel-masterkey --tlsMode disabled'
+    secrets:
+      - zitadel-masterkey
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    volumes:
+      - ../../../config/keys/:/data/keys/:z
+    depends_on:
+      db: { condition: 'service_healthy' }
+      zitadel-init: { condition: 'service_completed_successfully' }
+
+  # zitadel-login is the Login v2 UI for Zitadel v4+. It is a standalone Next.js
+  # application that handles user authentication flows (login, registration, MFA)
+  # using the Zitadel Session API. It requires a service user with IAM_LOGIN_CLIENT
+  # role and a Personal Access Token (PAT) to authenticate to the Zitadel API.
+  # The PAT is generated by the bootstrap-zitadel container.
+  #
+  # Connects to Zitadel through the proxy (zitadel-proxy:8080) which rewrites
+  # the Host header to "localhost:8080" for correct instance resolution.
+  zitadel-login:
+    image: 'ghcr.io/zitadel/zitadel-login:v4.12.0'
+    restart: 'always'
+    container_name: zitadel-login
+    environment:
+      - ZITADEL_API_URL=http://zitadel-proxy:8080
+      - ZITADEL_SERVICE_USER_TOKEN_FILE=/data/keys/login-client.pat
+      - NEXT_PUBLIC_BASE_PATH=/ui/v2/login
+    volumes:
+      - ../../../config/keys/:/data/keys/:ro,z
+    depends_on:      
+      bootstrap-zitadel: { condition: 'service_completed_successfully' }
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/ui/v2/login/healthy"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  # zitadel-proxy is a Caddy reverse proxy that rewrites the Host header to
+  # "localhost" before forwarding to Zitadel. This is needed because Zitadel v4
+  # uses the Host header for instance routing (ExternalDomain=localhost), and
+  # Docker containers resolving "zitadel" as hostname would send Host: zitadel,
+  # causing "Instance not found" errors. The proxy publishes ports 8080 and 3000
+  # to the host for browser access, and backend services connect via the Docker
+  # service name "zitadel-proxy" to reach Zitadel with the correct Host header.
+  zitadel-proxy:
+    image: 'caddy:2-alpine'
+    restart: 'always'
+    container_name: zitadel-proxy
+    ports:
+      - '8080:8080'
+      - '3000:3000'
+    volumes:
+      - ../../../config/zitadel/proxy.Caddyfile:/etc/caddy/Caddyfile:ro,z
     depends_on:
       zitadel: { condition: 'service_healthy' }
-    ports:
-      - 4182:3000
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/debug/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
     deploy:
       resources:
         limits:

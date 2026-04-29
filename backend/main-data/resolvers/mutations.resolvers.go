@@ -9,9 +9,11 @@ import (
 	"context"
 	"time"
 
+	"entgo.io/ent/dialect"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
+	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 	m "github.com/pyck-ai/pyck/backend/main-data"
@@ -102,7 +104,7 @@ func (r *mutationResolver) DeleteCustomer(ctx context.Context, id uuid.UUID) (*m
 	}
 
 	_, err = tx.Customer.UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -192,7 +194,7 @@ func (r *mutationResolver) DeleteSupplier(ctx context.Context, id uuid.UUID) (*m
 	}
 
 	_, err = tx.Supplier.UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -200,6 +202,78 @@ func (r *mutationResolver) DeleteSupplier(ctx context.Context, id uuid.UUID) (*m
 	}
 
 	return &model.SupplierDeletePayload{DeletedID: &id}, nil
+}
+
+// PatchCustomerData applies RFC 6902 JSON Patch operations to the customer's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchCustomerData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*ent.Customer, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.Customer.Query().Where(entcustomer.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    entcustomer.Table,
+		FieldName:    entcustomer.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return tx.Customer.UpdateOneID(id).SetData(patched).Save(ctx)
+}
+
+// PatchSupplierData applies RFC 6902 JSON Patch operations to the supplier's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchSupplierData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*ent.Supplier, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.Supplier.Query().Where(entsupplier.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    entsupplier.Table,
+		FieldName:    entsupplier.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return tx.Supplier.UpdateOneID(id).SetData(patched).Save(ctx)
 }
 
 // Mutation returns m.MutationResolver implementation.

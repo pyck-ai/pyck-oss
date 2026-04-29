@@ -1,0 +1,78 @@
+---
+name: "User - WorkflowExecutions IsAssignable Filter"
+description: >
+  Surface smoke test for the pyck_workflow_is_assignable filter on the
+  workflowExecutions query and its dedicated assignableWorkflowExecutions
+  wrapper. The three filter variants must all return a valid connection
+  envelope — no running workflow is required; this is a plumbing check
+  that the filter flows through resolver, query builder, and Temporal
+  client without errors.
+
+  For the full toggle round trip (default=true, set false, filter drops
+  the run, set true, filter includes it again) see the companion test
+  user-workflow-is-assignable-lifecycle.test.yaml, which requires a
+  running workflow implementing WorkflowIsAssignableSetter.
+steps:
+  - name: "List executions filtered by isAssignable=true"
+    operation: workflow.getWorkflowExecutions
+    vars:
+      first: 10
+      where:
+        isAssignable: true
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Connection envelope returned"
+        assertions:
+          - ref: res.body.data.workflowExecutions.totalCount
+            greaterOrEqual: 0
+          - ref: res.body.data.workflowExecutions.edges
+            isType: "array"
+
+  - name: "List executions filtered by isAssignable=false"
+    operation: workflow.getWorkflowExecutions
+    vars:
+      first: 10
+      where:
+        isAssignable: false
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Connection envelope returned"
+        assertions:
+          - ref: res.body.data.workflowExecutions.totalCount
+            greaterOrEqual: 0
+          - ref: res.body.data.workflowExecutions.edges
+            isType: "array"
+
+  - name: "Dedicated assignableWorkflowExecutions wrapper"
+    operation: workflow.getAssignableWorkflowExecutions
+    vars:
+      first: 10
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Connection envelope returned"
+        assertions:
+          - ref: res.body.data.assignableWorkflowExecutions.totalCount
+            greaterOrEqual: 0
+          - ref: res.body.data.assignableWorkflowExecutions.edges
+            isType: "array"

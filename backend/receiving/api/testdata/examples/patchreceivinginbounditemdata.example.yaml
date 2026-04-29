@@ -1,0 +1,30 @@
+---
+operation: PatchReceivingInboundItemData
+name: "Patch Receiving Inbound Item Data"
+description: >
+  Applies RFC 6902 JSON Patch operations to the inbound item's data field.
+  Only changed fields are modified; untouched fields are preserved.
+vars:
+  id: { $placeholder: "inbound item id to patch" }
+  patches:
+    - op: REPLACE
+      path: "/inspected"
+      value: "true"
+    - op: REPLACE
+      path: "/condition"
+      value: "\"inspected-ok\""
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Patched inbound item returned"
+    assertions:
+      - ref: res.body.data.patchReceivingInboundItemData.receivingInboundItem
+        nil: false
+      - ref: res.body.data.patchReceivingInboundItemData.receivingInboundItem.id
+        equal: {$ref: req.body.variables.id}

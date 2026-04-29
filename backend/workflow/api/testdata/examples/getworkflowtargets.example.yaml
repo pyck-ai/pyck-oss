@@ -1,0 +1,23 @@
+---
+operation: WorkflowTargets
+name: "Get Workflow Targets"
+description: >
+  Returns the list of client surfaces a workflow execution targets. The list is
+  empty when the workflow has not declared any targets.
+vars:
+  input:
+    workflowID: { $placeholder: "workflow execution ID" }
+    runID: { $placeholder: "run ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Targets returned"
+    assertions:
+      - ref: res.body.data.workflowTargets.targets
+        nil: false

@@ -1,0 +1,24 @@
+---
+operation: GetWorkflowIsAssignable
+name: "Get Workflow IsAssignable"
+description: >
+  Returns whether a given workflow execution currently advertises itself as
+  assignable via the pyck_workflow_is_assignable search attribute. Workflows
+  that never wrote the attribute are treated as assignable (returns true).
+vars:
+  input:
+    workflowID: {$placeholder: "workflow execution ID"}
+    workflowExecutionID: {$placeholder: "run ID"}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "isAssignable returned"
+    assertions:
+      - ref: res.body.data.workflowIsAssignable.isAssignable
+        isType: "boolean"

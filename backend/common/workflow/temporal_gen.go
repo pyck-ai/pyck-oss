@@ -13,11 +13,11 @@ import (
 	"strings"
 )
 
-const _WorkflowQueryTypeName = "GetStateGetUserDataInputAwaitUserDataInputGetAssigneeSetAssignee"
+const _WorkflowQueryTypeName = "GetStateGetUserDataInputAwaitUserDataInputGetAssigneeSetAssigneeGetAvailableActionsGetTargetsSetTargetsGetIsAssignableSetIsAssignable"
 
-var _WorkflowQueryTypeIndex = [...]uint8{0, 8, 24, 42, 53, 64}
+var _WorkflowQueryTypeIndex = [...]uint8{0, 8, 24, 42, 53, 64, 83, 93, 103, 118, 133}
 
-const _WorkflowQueryTypeLowerName = "getstategetuserdatainputawaituserdatainputgetassigneesetassignee"
+const _WorkflowQueryTypeLowerName = "getstategetuserdatainputawaituserdatainputgetassigneesetassigneegetavailableactionsgettargetssettargetsgetisassignablesetisassignable"
 
 func (i WorkflowQueryType) String() string {
 	i -= 1
@@ -36,21 +36,36 @@ func _WorkflowQueryTypeNoOp() {
 	_ = x[WorkflowQueryTypeAwaitUserDataInput-(3)]
 	_ = x[WorkflowQueryTypeGetAssignee-(4)]
 	_ = x[WorkflowQueryTypeSetAssignee-(5)]
+	_ = x[WorkflowQueryTypeGetAvailableActions-(6)]
+	_ = x[WorkflowQueryTypeGetTargets-(7)]
+	_ = x[WorkflowQueryTypeSetTargets-(8)]
+	_ = x[WorkflowQueryTypeGetIsAssignable-(9)]
+	_ = x[WorkflowQueryTypeSetIsAssignable-(10)]
 }
 
-var _WorkflowQueryTypeValues = []WorkflowQueryType{WorkflowQueryTypeGetState, WorkflowQueryTypeGetUserDataInput, WorkflowQueryTypeAwaitUserDataInput, WorkflowQueryTypeGetAssignee, WorkflowQueryTypeSetAssignee}
+var _WorkflowQueryTypeValues = []WorkflowQueryType{WorkflowQueryTypeGetState, WorkflowQueryTypeGetUserDataInput, WorkflowQueryTypeAwaitUserDataInput, WorkflowQueryTypeGetAssignee, WorkflowQueryTypeSetAssignee, WorkflowQueryTypeGetAvailableActions, WorkflowQueryTypeGetTargets, WorkflowQueryTypeSetTargets, WorkflowQueryTypeGetIsAssignable, WorkflowQueryTypeSetIsAssignable}
 
 var _WorkflowQueryTypeNameToValueMap = map[string]WorkflowQueryType{
-	_WorkflowQueryTypeName[0:8]:        WorkflowQueryTypeGetState,
-	_WorkflowQueryTypeLowerName[0:8]:   WorkflowQueryTypeGetState,
-	_WorkflowQueryTypeName[8:24]:       WorkflowQueryTypeGetUserDataInput,
-	_WorkflowQueryTypeLowerName[8:24]:  WorkflowQueryTypeGetUserDataInput,
-	_WorkflowQueryTypeName[24:42]:      WorkflowQueryTypeAwaitUserDataInput,
-	_WorkflowQueryTypeLowerName[24:42]: WorkflowQueryTypeAwaitUserDataInput,
-	_WorkflowQueryTypeName[42:53]:      WorkflowQueryTypeGetAssignee,
-	_WorkflowQueryTypeLowerName[42:53]: WorkflowQueryTypeGetAssignee,
-	_WorkflowQueryTypeName[53:64]:      WorkflowQueryTypeSetAssignee,
-	_WorkflowQueryTypeLowerName[53:64]: WorkflowQueryTypeSetAssignee,
+	_WorkflowQueryTypeName[0:8]:          WorkflowQueryTypeGetState,
+	_WorkflowQueryTypeLowerName[0:8]:     WorkflowQueryTypeGetState,
+	_WorkflowQueryTypeName[8:24]:         WorkflowQueryTypeGetUserDataInput,
+	_WorkflowQueryTypeLowerName[8:24]:    WorkflowQueryTypeGetUserDataInput,
+	_WorkflowQueryTypeName[24:42]:        WorkflowQueryTypeAwaitUserDataInput,
+	_WorkflowQueryTypeLowerName[24:42]:   WorkflowQueryTypeAwaitUserDataInput,
+	_WorkflowQueryTypeName[42:53]:        WorkflowQueryTypeGetAssignee,
+	_WorkflowQueryTypeLowerName[42:53]:   WorkflowQueryTypeGetAssignee,
+	_WorkflowQueryTypeName[53:64]:        WorkflowQueryTypeSetAssignee,
+	_WorkflowQueryTypeLowerName[53:64]:   WorkflowQueryTypeSetAssignee,
+	_WorkflowQueryTypeName[64:83]:        WorkflowQueryTypeGetAvailableActions,
+	_WorkflowQueryTypeLowerName[64:83]:   WorkflowQueryTypeGetAvailableActions,
+	_WorkflowQueryTypeName[83:93]:        WorkflowQueryTypeGetTargets,
+	_WorkflowQueryTypeLowerName[83:93]:   WorkflowQueryTypeGetTargets,
+	_WorkflowQueryTypeName[93:103]:       WorkflowQueryTypeSetTargets,
+	_WorkflowQueryTypeLowerName[93:103]:  WorkflowQueryTypeSetTargets,
+	_WorkflowQueryTypeName[103:118]:      WorkflowQueryTypeGetIsAssignable,
+	_WorkflowQueryTypeLowerName[103:118]: WorkflowQueryTypeGetIsAssignable,
+	_WorkflowQueryTypeName[118:133]:      WorkflowQueryTypeSetIsAssignable,
+	_WorkflowQueryTypeLowerName[118:133]: WorkflowQueryTypeSetIsAssignable,
 }
 
 var _WorkflowQueryTypeNames = []string{
@@ -59,6 +74,11 @@ var _WorkflowQueryTypeNames = []string{
 	_WorkflowQueryTypeName[24:42],
 	_WorkflowQueryTypeName[42:53],
 	_WorkflowQueryTypeName[53:64],
+	_WorkflowQueryTypeName[64:83],
+	_WorkflowQueryTypeName[83:93],
+	_WorkflowQueryTypeName[93:103],
+	_WorkflowQueryTypeName[103:118],
+	_WorkflowQueryTypeName[118:133],
 }
 
 // WorkflowQueryTypeString retrieves an enum value from the enum constants string name.

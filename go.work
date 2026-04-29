@@ -3,6 +3,7 @@ go 1.25.0
 // This workspace file is committed to ensure consistent dependency
 // versions across all backend modules in the monorepo.
 use (
+	./backend/bootstrap
 	./backend/cli
 	./backend/common
 	./backend/file
@@ -14,5 +15,6 @@ use (
 	./backend/temporal
 	./backend/workflow
 	./backend/workflowsdk
+	./tests/cli
 	./tests/nats
 )

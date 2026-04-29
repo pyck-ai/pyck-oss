@@ -1,0 +1,11 @@
+info:
+  name: User - WorkflowExecutions IsAssignable Filter
+  type: folder
+  seq: 1
+
+docs: |-
+  Verifies the new pyck_workflow_is_assignable search-attribute filter on the workflowExecutions query and its dedicated assignableWorkflowExecutions wrapper. The three filter variants must all return a valid connection envelope — no running workflow is required; this is a surface smoke test that the filter is plumbed through resolver, query builder, and Temporal client without errors.
+
+
+request:
+  auth: inherit

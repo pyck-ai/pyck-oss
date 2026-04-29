@@ -1,0 +1,189 @@
+---
+name: "Cross - Device Patch Lifecycle"
+description: >
+  Tests JSON Patch (RFC 6902) operations on devices. Creates a data type,
+  device with data, updates it, patches individual fields, and verifies
+  persistence.
+steps:
+  - id: createDT
+    name: "Create data type for devices"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Device Patch Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "device"
+        jsonSchema: '{"type":"object","properties":{"model":{"type":"string"},"firmware":{"type":"string"},"battery":{"type":"integer"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: create
+    name: "Create device with data"
+    operation: management.createDevice
+    vars:
+      input:
+        name: {$fake: "{{productname}}-{{nonce}}"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          model: "Scanner-X"
+          firmware: "1.0"
+          battery: 100
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Device created"
+        assertions:
+          - ref: res.body.data.createDevice.device.id
+            nil: false
+      - msg: "Data persisted"
+        assertions:
+          - ref: res.body.data.createDevice.device.data.model
+            equal: "Scanner-X"
+          - ref: res.body.data.createDevice.device.data.firmware
+            equal: "1.0"
+
+  - name: "Full update device"
+    operation: management.updateDevice
+    vars:
+      id: {$ref: "res[create].body.data.createDevice.device.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          model: "Scanner-X"
+          firmware: "2.0"
+          battery: 80
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Firmware updated"
+        assertions:
+          - ref: res.body.data.updateDevice.device.data.firmware
+            equal: "2.0"
+
+  - name: "Verify update persisted"
+    operation: management.getDevices
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createDevice.device.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Updated data persisted"
+        assertions:
+          - ref: res.body.data.devices.edges[].node.data.firmware
+            equal: "2.0"
+          - ref: res.body.data.devices.edges[].node.data.battery
+            equal: 80
+
+  - name: "Patch device data"
+    operation: management.patchDeviceData
+    vars:
+      id: {$ref: "res[create].body.data.createDevice.device.id"}
+      patches:
+        - op: REPLACE
+          path: "/firmware"
+          value: "\"3.0\""
+        - op: REPLACE
+          path: "/battery"
+          value: "95"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Firmware patched"
+        assertions:
+          - ref: res.body.data.patchDeviceData.device.data.firmware
+            equal: "3.0"
+      - msg: "Battery patched"
+        assertions:
+          - ref: res.body.data.patchDeviceData.device.data.battery
+            equal: 95
+      - msg: "Model preserved"
+        assertions:
+          - ref: res.body.data.patchDeviceData.device.data.model
+            equal: "Scanner-X"
+
+  - name: "Verify patch persisted"
+    operation: management.getDevices
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createDevice.device.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Patched data persisted"
+        assertions:
+          - ref: res.body.data.devices.edges[].node.data.firmware
+            equal: "3.0"
+          - ref: res.body.data.devices.edges[].node.data.battery
+            equal: 95
+          - ref: res.body.data.devices.edges[].node.data.model
+            equal: "Scanner-X"
+
+  - name: "Delete device"
+    operation: management.deleteDevice
+    vars:
+      id: {$ref: "res[create].body.data.createDevice.device.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

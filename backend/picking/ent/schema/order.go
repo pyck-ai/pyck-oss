@@ -11,6 +11,7 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
+	"github.com/pyck-ai/pyck/backend/common/importexport"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 )
 
@@ -32,7 +33,10 @@ func (Order) Annotations() []schema.Annotation {
 		entsql.Schema("picking"),
 		entsql.Table("orders"),
 		entgql.RelayConnection(),
-		entgql.Directives(keyDirective),
+		entgql.Directives(keyDirective, importexport.Importable("",
+			importexport.WithList("pickingOrders"),
+			importexport.WithCreate("createPickingOrder"),
+		)),
 		entgql.QueryField(),
 		entgql.Mutations(entgql.MutationCreate(), entgql.MutationUpdate()),
 	}

@@ -1,0 +1,27 @@
+---
+operation: PatchInventoryItemSetData
+name: "Patch Inventory Item Set Data"
+description: >
+  Applies RFC 6902 JSON Patch operations to the item set's data field.
+  Only changed fields are modified; untouched fields are preserved.
+vars:
+  id: { $placeholder: "item set id to patch" }
+  patches:
+    - op: REPLACE
+      path: "/category"
+      value: "\"promotion\""
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Patched item set returned"
+    assertions:
+      - ref: res.body.data.patchInventoryItemSetData.inventoryItemSet
+        nil: false
+      - ref: res.body.data.patchInventoryItemSetData.inventoryItemSet.id
+        equal: {$ref: req.body.variables.id}

@@ -1,0 +1,25 @@
+---
+operation: SetWorkflowTargets
+name: "Set Workflow Targets"
+description: >
+  Replaces the target client surfaces (WEB, MOBILE, SETUP) of a running
+  workflow execution. Passing an empty list clears the search attribute so the
+  workflow no longer matches any targets-based filter.
+vars:
+  input:
+    workflowID: { $placeholder: "workflow execution ID" }
+    runID: { $placeholder: "run ID" }
+    targets: ["WEB", "MOBILE"]
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Targets returned"
+    assertions:
+      - ref: res.body.data.setWorkflowTargets.targets
+        nil: false

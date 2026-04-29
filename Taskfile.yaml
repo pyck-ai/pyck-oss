@@ -120,6 +120,7 @@ tasks:
       - task: cli:{{.TASK}}
       - task: gateway:{{.TASK}}
       - task: temporal:{{.TASK}}
+      - go work sync
 
   lint:
     desc: Lint all modules
@@ -223,11 +224,6 @@ tasks:
       - task: workflow:{{.TASK}}
       - task: cli:{{.TASK}}
 
-  container:
-    desc: Build all deployable containers
-    cmds:
-      - task: container:{{.TASK}}
-
   container:up:
     desc: Run all service containers locally
     cmds:
@@ -248,42 +244,24 @@ tasks:
     cmds:
       - task: container:{{.TASK}}
 
-  setup:
+  init:
     aliases: [local-setup]
     desc: "Set up local development environment"
     env:
       GOPRIVATE: github.com/pyck-ai
     cmds:
-      - silent: true
-        defer: |-
-          {{if .SILENT}}{{else}}
-          cat >&2 <<EOF
-          {{if .EXIT_CODE}}
-          ⚠️ Local setup failed with exit code {{.EXIT_CODE}}.
-          ⚠️ Please consult the command output above and container logs for more details.
-          {{else}}
-          ✅ Local setup completed successfully.
+      - if: '!test -f .env'
+        cmd: cp .env.example .env
+      - rm -f config/keys/*.json config/keys/*.key config/keys/*.pat config/keys/*.env
+      - docker compose up --build bootstrap
 
-          You can now access the following administrative UIs:
-          - MinIO:    http://localhost:9001
-          - NATS:     http://localhost:31311
-          - Postgres: http://localhost:15432
-          - Temporal: http://localhost:3000
-          - Zitadel:  https://auth.local.pyck.cloud:8080
+  up:
+    desc: "Start all backend services"
+    deps:
+      - task: init
+    cmds:
+      - docker compose up --build --wait management inventory main-data picking receiving workflow gateway file
 
-          {{end}}
-          EOF
-          {{end}}
-      - task: cli:install
-      - mkcert -install
-      - mkcert -cert-file ./config/keys/zitadel_certificate.crt -key-file ./config/keys/zitadel_private_key.pem "auth.local.pyck.cloud"
-      - { task: _compose-up, vars: { ARGS: "--wait db db-ui" } }
-      - { task: _compose-up, vars: { ARGS: "--wait zitadel" } }
-      - sh ./config/setup/local-zitadel-setup.sh
-      - { task: _compose-up, vars: { ARGS: "--wait minio" } }
-      - sh ./config/setup/local-minio-setup.sh
-      - { task: _compose-up, vars: { ARGS: "--wait nats nats-ui" } }
-      - { task: _compose-up, vars: { ARGS: "--wait temporal temporal-ui" } }
 
   ci-ready:
     desc: "Check if the backend is ready for CI"
@@ -318,3 +296,8 @@ tasks:
           {{end}}
           EOF
       - docker compose up --build --wait jaeger
+
+  docker:
+    desc: "Build and push all container images via docker buildx bake"
+    cmds:
+      - docker buildx bake --allow=network.host

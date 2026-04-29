@@ -13,12 +13,38 @@ import (
 	"github.com/pyck-ai/pyck/backend/workflow/ent/gen/workflowsignal"
 )
 
+type ActionDefinition struct {
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
+	Enabled     bool    `json:"enabled"`
+}
+
+type CancelWorkflowInput struct {
+	WorkflowID    string `json:"workflowID"`
+	WorkflowRunID string `json:"workflowRunID"`
+}
+
+type CancelWorkflowPayload struct {
+	WorkflowID    string `json:"workflowID"`
+	WorkflowRunID string `json:"workflowRunID"`
+}
+
 type CurrentUserDataInput struct {
 	ActivityIndex uint64              `json:"activityIndex"`
 	ActivityCount *uint64             `json:"activityCount,omitempty"`
 	Type          *WorkflowUpdateType `json:"type,omitempty"`
 	Data          any                 `json:"data,omitempty"`
 	Errors        []string            `json:"errors,omitempty"`
+}
+
+type GetWorkflowActionsInput struct {
+	WorkflowID          string `json:"workflowId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+}
+
+type GetWorkflowActionsResponse struct {
+	Queries []*ActionDefinition `json:"queries"`
+	Updates []*ActionDefinition `json:"updates"`
 }
 
 type GetWorkflowAssigneeInput struct {
@@ -28,6 +54,24 @@ type GetWorkflowAssigneeInput struct {
 
 type GetWorkflowAssigneeResponse struct {
 	Assignee string `json:"assignee"`
+}
+
+type GetWorkflowIsAssignableInput struct {
+	WorkflowID          string `json:"workflowId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+}
+
+type GetWorkflowIsAssignableResponse struct {
+	IsAssignable bool `json:"isAssignable"`
+}
+
+type GetWorkflowTargetsInput struct {
+	WorkflowID          string `json:"workflowId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+}
+
+type GetWorkflowTargetsResponse struct {
+	Targets []WorkflowTarget `json:"targets"`
 }
 
 type RegisterWorkflowSignalInput struct {
@@ -58,7 +102,27 @@ type SetWorkflowAssigneeInput struct {
 }
 
 type SetWorkflowAssigneeResponse struct {
-	Assignee string `json:"assignee"`
+	Assignee *string `json:"assignee,omitempty"`
+}
+
+type SetWorkflowIsAssignableInput struct {
+	WorkflowID          string `json:"workflowId"`
+	WorkflowExecutionID string `json:"workflowExecutionId"`
+	IsAssignable        bool   `json:"isAssignable"`
+}
+
+type SetWorkflowIsAssignableResponse struct {
+	IsAssignable bool `json:"isAssignable"`
+}
+
+type SetWorkflowTargetsInput struct {
+	WorkflowID          string           `json:"workflowId"`
+	WorkflowExecutionID string           `json:"workflowExecutionId"`
+	Targets             []WorkflowTarget `json:"targets"`
+}
+
+type SetWorkflowTargetsResponse struct {
+	Targets []WorkflowTarget `json:"targets"`
 }
 
 type SubmitUserDataInputInput struct {
@@ -88,6 +152,11 @@ type TemporalWorkflow struct {
 type UserDataInputQueryInput struct {
 	WorkflowID          string `json:"workflowID"`
 	WorkflowExecutionID string `json:"workflowExecutionID"`
+}
+
+type WorkflowActionsWhereInput struct {
+	Name    *string `json:"name,omitempty"`
+	Enabled *bool   `json:"enabled,omitempty"`
 }
 
 type WorkflowDeletePayload struct {
@@ -251,6 +320,18 @@ type WorkflowExecutionsWhereInput struct {
 	AssigneeHasSuffix    *string  `json:"assigneeHasSuffix,omitempty"`
 	AssigneeEqualFold    *string  `json:"assigneeEqualFold,omitempty"`
 	AssigneeContainsFold *string  `json:"assigneeContainsFold,omitempty"`
+	// is_assignable field predicate. Matches the pyck_workflow_is_assignable
+	// Temporal search attribute.
+	//
+	// Absent-attribute semantics (default-true):
+	//   - `isAssignable: true` matches workflows with the attribute set to true
+	//     OR not set at all. Workflows that never opted in (e.g. those not
+	//     calling workflowsdk.SetupDefaults with WorkflowIsAssignableSetter)
+	//     are considered assignable by default.
+	//   - `isAssignable: false` matches only workflows that explicitly wrote
+	//     the attribute as false.
+	//   - omit the field to not filter on assignability at all.
+	IsAssignable *bool `json:"isAssignable,omitempty"`
 	// group_by field predicates
 	GroupBy             *string  `json:"groupBy,omitempty"`
 	GroupByNeq          *string  `json:"groupByNEQ,omitempty"`
@@ -349,6 +430,10 @@ type WorkflowExecutionsWhereInput struct {
 	DataIDContainsFold *string  `json:"dataIdContainsFold,omitempty"`
 	DataIDIsNil        *bool    `json:"dataIdIsNil,omitempty"`
 	DataIDNotNil       *bool    `json:"dataIdNotNil,omitempty"`
+	// targets field predicates (KeywordList — matches if the workflow's targets
+	// list contains any element of the supplied set; targetsNotIn excludes them).
+	Targets      []WorkflowTarget `json:"targets,omitempty"`
+	TargetsNotIn []WorkflowTarget `json:"targetsNotIn,omitempty"`
 }
 
 type WorkflowMemo struct {
@@ -495,6 +580,67 @@ func (e *WorkflowExecutionOrderField) UnmarshalJSON(b []byte) error {
 }
 
 func (e WorkflowExecutionOrderField) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// Client surfaces a workflow can target. Used as values of the
+// pyck_workflow_targets KeywordList search attribute. A workflow may declare
+// zero, one, or multiple targets — and queries can filter on any subset via the
+// `targets` and `targetsNotIn` predicates on WorkflowExecutionsWhereInput.
+type WorkflowTarget string
+
+const (
+	WorkflowTargetWeb    WorkflowTarget = "WEB"
+	WorkflowTargetMobile WorkflowTarget = "MOBILE"
+	WorkflowTargetSetup  WorkflowTarget = "SETUP"
+)
+
+var AllWorkflowTarget = []WorkflowTarget{
+	WorkflowTargetWeb,
+	WorkflowTargetMobile,
+	WorkflowTargetSetup,
+}
+
+func (e WorkflowTarget) IsValid() bool {
+	switch e {
+	case WorkflowTargetWeb, WorkflowTargetMobile, WorkflowTargetSetup:
+		return true
+	}
+	return false
+}
+
+func (e WorkflowTarget) String() string {
+	return string(e)
+}
+
+func (e *WorkflowTarget) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = WorkflowTarget(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid WorkflowTarget", str)
+	}
+	return nil
+}
+
+func (e WorkflowTarget) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *WorkflowTarget) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e WorkflowTarget) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

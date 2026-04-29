@@ -1,7 +1,7 @@
 services:
   gateway:
     pull_policy: always
-    container_name: gateway
+    container_name: pyck-gateway
     build:
       context: ../../../
       dockerfile: ./backend/gateway/Dockerfile
@@ -11,9 +11,6 @@ services:
     restart: always
     ports:
       - "4000:4000"
-    networks:
-      pyck:
-        ipv4_address: 172.30.0.101
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8088/health"]
       interval: 5s

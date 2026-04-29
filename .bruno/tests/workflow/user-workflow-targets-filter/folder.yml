@@ -1,0 +1,11 @@
+info:
+  name: User - Workflow Targets Filter
+  type: folder
+  seq: 1
+
+docs: |-
+  Smoke-test the targets / targetsNotIn filters on workflowExecutions. Does not require any workflow to be running — only verifies the request shape is accepted and the Temporal visibility query is rendered without errors.
+
+
+request:
+  auth: inherit

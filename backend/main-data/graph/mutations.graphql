@@ -7,6 +7,11 @@ type Mutation {
   createSupplier(input: CreateSupplierInput!): Supplier
   updateSupplier(id: ID!, input: UpdateSupplierInput!): Supplier
   deleteSupplier(id: ID!): SupplierDeletePayload!
+
+  """Apply RFC 6902 JSON Patch operations to the customer's data field."""
+  patchCustomerData(id: ID!, patches: [JSONPatchInput!]!): Customer
+  """Apply RFC 6902 JSON Patch operations to the supplier's data field."""
+  patchSupplierData(id: ID!, patches: [JSONPatchInput!]!): Supplier
 }
 
 scalar UUID

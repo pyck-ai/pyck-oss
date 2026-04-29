@@ -1,0 +1,195 @@
+---
+name: "Cross - Location Patch Lifecycle"
+description: >
+  Tests JSON Patch (RFC 6902) operations on locations. Creates a data type,
+  location with data, updates it, patches individual fields, and verifies
+  persistence.
+steps:
+  - id: createDT
+    name: "Create data type for locations"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Location Patch Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "location"
+        jsonSchema: '{"type":"object","properties":{"floor":{"type":"integer"},"zone":{"type":"string"},"capacity":{"type":"integer"},"aisle":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: create
+    name: "Create location with data"
+    operation: management.createLocation
+    vars:
+      input:
+        name: {$fake: "{{productname}}-{{nonce}}"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          floor: 3
+          zone: "A"
+          capacity: 100
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Location created"
+        assertions:
+          - ref: res.body.data.createLocation.location.id
+            nil: false
+      - msg: "Data persisted"
+        assertions:
+          - ref: res.body.data.createLocation.location.data.floor
+            equal: 3
+          - ref: res.body.data.createLocation.location.data.zone
+            equal: "A"
+
+  - name: "Full update location"
+    operation: management.updateLocation
+    vars:
+      id: {$ref: "res[create].body.data.createLocation.location.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          floor: 5
+          zone: "B"
+          capacity: 200
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "All data replaced"
+        assertions:
+          - ref: res.body.data.updateLocation.location.data.floor
+            equal: 5
+          - ref: res.body.data.updateLocation.location.data.zone
+            equal: "B"
+
+  - name: "Verify update persisted"
+    operation: management.getLocations
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createLocation.location.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Updated data persisted"
+        assertions:
+          - ref: res.body.data.locations.edges[].node.data.floor
+            equal: 5
+          - ref: res.body.data.locations.edges[].node.data.zone
+            equal: "B"
+
+  - name: "Patch location data"
+    operation: management.patchLocationData
+    vars:
+      id: {$ref: "res[create].body.data.createLocation.location.id"}
+      patches:
+        - op: REPLACE
+          path: "/zone"
+          value: "\"C\""
+        - op: ADD
+          path: "/aisle"
+          value: "\"12\""
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Zone patched"
+        assertions:
+          - ref: res.body.data.patchLocationData.location.data.zone
+            equal: "C"
+      - msg: "Aisle added"
+        assertions:
+          - ref: res.body.data.patchLocationData.location.data.aisle
+            equal: "12"
+      - msg: "Floor preserved"
+        assertions:
+          - ref: res.body.data.patchLocationData.location.data.floor
+            equal: 5
+      - msg: "Capacity preserved"
+        assertions:
+          - ref: res.body.data.patchLocationData.location.data.capacity
+            equal: 200
+
+  - name: "Verify patch persisted"
+    operation: management.getLocations
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createLocation.location.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Patched data persisted"
+        assertions:
+          - ref: res.body.data.locations.edges[].node.data.zone
+            equal: "C"
+          - ref: res.body.data.locations.edges[].node.data.aisle
+            equal: "12"
+          - ref: res.body.data.locations.edges[].node.data.floor
+            equal: 5
+
+  - name: "Delete location"
+    operation: management.deleteLocation
+    vars:
+      id: {$ref: "res[create].body.data.createLocation.location.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

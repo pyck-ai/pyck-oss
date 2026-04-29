@@ -8,7 +8,7 @@ import (
 )
 
 func ComputeTimeRangesActivity(ctx context.Context) (*TimeRange, error) {
-	now := time.Now()
+	now := time.Now().UTC()
 	startOfDay := now.Truncate(24 * time.Hour).Add(-24 * time.Hour)
 	endOfDay := startOfDay.Add(24 * time.Hour)
 	endOfYesterday := startOfDay.Add(-time.Second)

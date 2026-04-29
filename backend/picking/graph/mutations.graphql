@@ -11,6 +11,12 @@ type Mutation {
   createPickingOutboundShipmentNotification(input: CreatePickingOutboundShipmentNotificationInput!): PickingOutboundShipmentNotificationOutput
   updatePickingOutboundShipmentNotification(id: ID!, input: UpdatePickingOutboundShipmentNotificationInput!): PickingOutboundShipmentNotificationOutput
   deletePickingOutboundShipmentNotification(id: ID!): PickingOutboundShipmentNotificationDeletePayload!
+  """Apply RFC 6902 JSON Patch operations to the picking order's data field."""
+  patchPickingOrderData(id: ID!, patches: [JSONPatchInput!]!): PickingOrderOutput
+  """Apply RFC 6902 JSON Patch operations to the picking order item's data field."""
+  patchPickingOrderItemData(id: ID!, patches: [JSONPatchInput!]!): PickingOrderItemOutput
+  """Apply RFC 6902 JSON Patch operations to the picking outbound shipment notification's data field."""
+  patchPickingOutboundShipmentNotificationData(id: ID!, patches: [JSONPatchInput!]!): PickingOutboundShipmentNotificationOutput
 }
 
 input CreatePickingOrderItemsInput {

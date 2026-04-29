@@ -1,0 +1,11 @@
+info:
+  name: User - Query Workflow Actions
+  type: folder
+  seq: 1
+
+docs: |-
+  Verifies the workflowActions query rejects invalid input and returns the expected response structure for a running workflow.
+
+
+request:
+  auth: inherit

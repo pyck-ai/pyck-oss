@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"net/http"
+
+	httputil "github.com/pyck-ai/pyck/backend/common/http"
 )
 
 type HealthCheckInterface interface {
@@ -29,7 +31,6 @@ func NewHealthCheckHandler(checkComponents ...HealthCheckInterface) http.Handler
 		for _, err := range errorsHappened {
 			errorMessage += "\n\t" + err.Error()
 		}
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_, _ = w.Write([]byte(errorMessage))
+		httputil.JSONError(w, errorMessage, http.StatusServiceUnavailable)
 	})
 }

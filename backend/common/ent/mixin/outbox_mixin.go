@@ -15,6 +15,9 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 )
 
+// nowUTC returns the current time in UTC.
+func nowUTC() time.Time { return time.Now().UTC() }
+
 // OutboxMixin provides the event_outbox table schema for the Transactional Outbox Pattern.
 //
 // Field Names: The database column names defined by this mixin are the canonical
@@ -59,7 +62,7 @@ func (OutboxMixin) Fields() []ent.Field {
 
 		// Timestamp when the outbox entry was created (immutable)
 		field.Time(outboxfields.CreatedAt).
-			Default(time.Now).
+			Default(nowUTC).
 			Immutable(),
 
 		// Timestamp when the event was successfully published to NATS

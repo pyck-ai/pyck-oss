@@ -1,0 +1,11 @@
+info:
+  name: Cross - Main Data Patch Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Tests JSON Patch (RFC 6902) operations on customers and suppliers. Creates data types, entities with data, updates via full overwrite, patches individual fields, verifies changes persist, then cleans up.
+
+
+request:
+  auth: inherit

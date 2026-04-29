@@ -1,0 +1,164 @@
+---
+name: "User - Workflow Targets Lifecycle"
+description: >
+  Full round-trip of the pyck_workflow_targets KeywordList search attribute on
+  a running TargetsExample workflow. Sets targets, verifies via the getter,
+  verifies via the targets-IN filter, then replaces the targets and verifies
+  the filter now matches the new value.
+
+  THIS SUITE WILL NOT WORK WITH THE DEFAULT ZITADEL LOGIN FLOW.
+
+  Prereq: at least one TargetsExample workflow execution must be running in
+  the target tenant before this suite is run. Set env_pyck_token and
+  env_pyck_tenant_id in the Bruno environment to a tenant-scoped PAT and
+  tenant id that can reach that workflow.
+steps:
+  - id: pickRunning
+    name: "Pick first running TargetsExample workflow"
+    operation: workflow.getWorkflowExecutions
+    vars:
+      first: 1
+      where:
+        typeName: "TargetsExample"
+        status: "Running"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "At least one running TargetsExample workflow exists (if this fails: ensure a TargetsExample run is alive in the target tenant and that env_pyck_token + env_pyck_tenant_id are set in the Bruno environment)"
+        assertions:
+          - ref: res.body.data.workflowExecutions.totalCount
+            greaterOrEqual: 1
+      - msg: "workflowId and runId present"
+        assertions:
+          - ref: res.body.data.workflowExecutions.edges[0].node.execution.workflowId
+            nil: false
+          - ref: res.body.data.workflowExecutions.edges[0].node.execution.id
+            nil: false
+
+  - name: "Set targets to [WEB, MOBILE]"
+    operation: workflow.setWorkflowTargets
+    vars:
+      input:
+        workflowID: { $ref: "res[pickRunning].body.data.workflowExecutions.edges[0].node.execution.workflowId" }
+        runID: { $ref: "res[pickRunning].body.data.workflowExecutions.edges[0].node.execution.id" }
+        targets: ["WEB", "MOBILE"]
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Targets returned"
+        assertions:
+          - ref: res.body.data.setWorkflowTargets.targets
+            nil: false
+
+  - name: "Read back targets via getter"
+    operation: workflow.getWorkflowTargets
+    vars:
+      input:
+        workflowID: { $ref: "res[pickRunning].body.data.workflowExecutions.edges[0].node.execution.workflowId" }
+        runID: { $ref: "res[pickRunning].body.data.workflowExecutions.edges[0].node.execution.id" }
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Targets contain WEB and MOBILE"
+        assertions:
+          - ref: res.body.data.workflowTargets.targets
+            contains: "WEB"
+          - ref: res.body.data.workflowTargets.targets
+            contains: "MOBILE"
+
+  - name: "Filter by WEB → workflow appears"
+    operation: workflow.getWorkflowExecutions
+    vars:
+      first: 50
+      where:
+        typeName: "KeepOpenExample"
+        targets: ["WEB"]
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Workflow is included in results"
+        assertions:
+          - ref: res.body.data.workflowExecutions.edges[].node.execution.workflowId
+            contains: { $ref: "res[pickRunning].body.data.workflowExecutions.edges[0].node.execution.workflowId" }
+
+  - name: "Set targets to [SETUP] (replace, removing WEB and MOBILE)"
+    operation: workflow.setWorkflowTargets
+    vars:
+      input:
+        workflowID: { $ref: "res[pickRunning].body.data.workflowExecutions.edges[0].node.execution.workflowId" }
+        runID: { $ref: "res[pickRunning].body.data.workflowExecutions.edges[0].node.execution.id" }
+        targets: ["SETUP"]
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Filter by SETUP → workflow now appears under the new target"
+    operation: workflow.getWorkflowExecutions
+    vars:
+      first: 50
+      where:
+        typeName: "KeepOpenExample"
+        targets: ["SETUP"]
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Workflow is included under SETUP"
+        assertions:
+          - ref: res.body.data.workflowExecutions.edges[].node.execution.workflowId
+            contains: { $ref: "res[pickRunning].body.data.workflowExecutions.edges[0].node.execution.workflowId" }
+
+  - name: "Read back targets via getter — should now be [SETUP]"
+    operation: workflow.getWorkflowTargets
+    vars:
+      input:
+        workflowID: { $ref: "res[pickRunning].body.data.workflowExecutions.edges[0].node.execution.workflowId" }
+        runID: { $ref: "res[pickRunning].body.data.workflowExecutions.edges[0].node.execution.id" }
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Targets contain SETUP"
+        assertions:
+          - ref: res.body.data.workflowTargets.targets
+            contains: "SETUP"

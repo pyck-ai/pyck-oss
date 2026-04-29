@@ -67,7 +67,7 @@ var checkStockCmd = &cobra.Command{
 		ctx := context.Background()
 
 		// Define time ranges
-		startOfDay := time.Now().Truncate(24 * time.Hour).Add(-24 * time.Hour)
+		startOfDay := time.Now().UTC().Truncate(24 * time.Hour).Add(-24 * time.Hour)
 		endOfDay := startOfDay.Add(24 * time.Hour)
 		endOfYesterday := startOfDay.Add(-time.Second)
 

@@ -48,6 +48,13 @@ type Mutation {
 
   checkInUserDevice(input: CheckInUserDeviceInput!): CheckInUserDeviceOutput!
   checkOutUserDevice(input: CheckOutUserDeviceInput!): CheckOutUserDeviceOutput!
+
+  """Apply RFC 6902 JSON Patch operations to the location's data field."""
+  patchLocationData(id: ID!, patches: [JSONPatchInput!]!): LocationOutput!
+  """Apply RFC 6902 JSON Patch operations to the device's data field."""
+  patchDeviceData(id: ID!, patches: [JSONPatchInput!]!): DeviceOutput!
+  """Apply RFC 6902 JSON Patch operations to the device location's data field."""
+  patchDeviceLocationData(id: ID!, patches: [JSONPatchInput!]!): DeviceLocationOutput!
 }
 
 scalar UUID

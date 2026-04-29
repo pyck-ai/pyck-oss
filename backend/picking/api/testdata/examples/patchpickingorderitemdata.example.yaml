@@ -1,0 +1,30 @@
+---
+operation: PatchPickingOrderItemData
+name: "Patch Picking Order Item Data"
+description: >
+  Applies RFC 6902 JSON Patch operations to the picking order item's data field.
+  Only changed fields are modified; untouched fields are preserved.
+vars:
+  id: { $placeholder: "picking order item id to patch" }
+  patches:
+    - op: REPLACE
+      path: "/picked"
+      value: "true"
+    - op: REPLACE
+      path: "/actual_qty"
+      value: "10"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Patched order item returned"
+    assertions:
+      - ref: res.body.data.patchPickingOrderItemData.pickingOrderItem
+        nil: false
+      - ref: res.body.data.patchPickingOrderItemData.pickingOrderItem.id
+        equal: {$ref: req.body.variables.id}

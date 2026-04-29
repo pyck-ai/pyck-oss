@@ -51,12 +51,18 @@ type Client interface {
 	GetWorkflowExecutions(ctx context.Context, input GetWorkflowExecutionsArgs) (*GetWorkflowExecutions, error)
 	GetAssignableWorkflowExecutions(ctx context.Context, input GetAssignableWorkflowExecutionsArgs) (*GetAssignableWorkflowExecutions, error)
 	GetWorkflowHistory(ctx context.Context, input GetWorkflowHistoryArgs) (*GetWorkflowHistory, error)
+	GetWorkflowActions(ctx context.Context, input GetWorkflowActionsArgs) (*GetWorkflowActions, error)
 	GetWorkflowAssignee(ctx context.Context, input GetWorkflowAssigneeArgs) (*GetWorkflowAssignee, error)
+	GetWorkflowIsAssignable(ctx context.Context, input GetWorkflowIsAssignableArgs) (*GetWorkflowIsAssignable, error)
+	GetWorkflowTargets(ctx context.Context, input GetWorkflowTargetsArgs) (*GetWorkflowTargets, error)
 	EnsureTemporalNamespace(ctx context.Context) (*EnsureTemporalNamespace, error)
 	SubmitUserDataInput(ctx context.Context, input SubmitUserDataInputArgs) (*SubmitUserDataInput, error)
 	RegisterWorkflow(ctx context.Context, input RegisterWorkflowArgs) (*RegisterWorkflow, error)
 	DeleteWorkflow(ctx context.Context, input DeleteWorkflowArgs) (*DeleteWorkflow, error)
+	CancelWorkflow(ctx context.Context, input CancelWorkflowArgs) (*CancelWorkflow, error)
 	SetWorkflowAssignee(ctx context.Context, input SetWorkflowAssigneeArgs) (*SetWorkflowAssignee, error)
+	SetWorkflowIsAssignable(ctx context.Context, input SetWorkflowIsAssignableArgs) (*SetWorkflowIsAssignable, error)
+	SetWorkflowTargets(ctx context.Context, input SetWorkflowTargetsArgs) (*SetWorkflowTargets, error)
 }
 
 type client struct {
@@ -147,6 +153,16 @@ func (c *client) GetWorkflowHistory(ctx context.Context, input GetWorkflowHistor
 	return c.api.GetWorkflowHistory(ctx, input.Where, input.Limit)
 }
 
+// GetWorkflowActionsArgs is a sparse struct for GetWorkflowActions parameters
+type GetWorkflowActionsArgs struct {
+	Input model.GetWorkflowActionsInput
+	Where *model.WorkflowActionsWhereInput
+}
+
+func (c *client) GetWorkflowActions(ctx context.Context, input GetWorkflowActionsArgs) (*GetWorkflowActions, error) {
+	return c.api.GetWorkflowActions(ctx, input.Input, input.Where)
+}
+
 // GetWorkflowAssigneeArgs is a sparse struct for GetWorkflowAssignee parameters
 type GetWorkflowAssigneeArgs struct {
 	Input model.GetWorkflowAssigneeInput
@@ -154,6 +170,24 @@ type GetWorkflowAssigneeArgs struct {
 
 func (c *client) GetWorkflowAssignee(ctx context.Context, input GetWorkflowAssigneeArgs) (*GetWorkflowAssignee, error) {
 	return c.api.GetWorkflowAssignee(ctx, input.Input)
+}
+
+// GetWorkflowIsAssignableArgs is a sparse struct for GetWorkflowIsAssignable parameters
+type GetWorkflowIsAssignableArgs struct {
+	Input model.GetWorkflowIsAssignableInput
+}
+
+func (c *client) GetWorkflowIsAssignable(ctx context.Context, input GetWorkflowIsAssignableArgs) (*GetWorkflowIsAssignable, error) {
+	return c.api.GetWorkflowIsAssignable(ctx, input.Input)
+}
+
+// GetWorkflowTargetsArgs is a sparse struct for GetWorkflowTargets parameters
+type GetWorkflowTargetsArgs struct {
+	Input model.GetWorkflowTargetsInput
+}
+
+func (c *client) GetWorkflowTargets(ctx context.Context, input GetWorkflowTargetsArgs) (*GetWorkflowTargets, error) {
+	return c.api.GetWorkflowTargets(ctx, input.Input)
 }
 
 func (c *client) EnsureTemporalNamespace(ctx context.Context) (*EnsureTemporalNamespace, error) {
@@ -187,6 +221,15 @@ func (c *client) DeleteWorkflow(ctx context.Context, input DeleteWorkflowArgs) (
 	return c.api.DeleteWorkflow(ctx, input.Id)
 }
 
+// CancelWorkflowArgs is a sparse struct for CancelWorkflow parameters
+type CancelWorkflowArgs struct {
+	Input model.CancelWorkflowInput
+}
+
+func (c *client) CancelWorkflow(ctx context.Context, input CancelWorkflowArgs) (*CancelWorkflow, error) {
+	return c.api.CancelWorkflow(ctx, input.Input)
+}
+
 // SetWorkflowAssigneeArgs is a sparse struct for SetWorkflowAssignee parameters
 type SetWorkflowAssigneeArgs struct {
 	Input model.SetWorkflowAssigneeInput
@@ -194,4 +237,22 @@ type SetWorkflowAssigneeArgs struct {
 
 func (c *client) SetWorkflowAssignee(ctx context.Context, input SetWorkflowAssigneeArgs) (*SetWorkflowAssignee, error) {
 	return c.api.SetWorkflowAssignee(ctx, input.Input)
+}
+
+// SetWorkflowIsAssignableArgs is a sparse struct for SetWorkflowIsAssignable parameters
+type SetWorkflowIsAssignableArgs struct {
+	Input model.SetWorkflowIsAssignableInput
+}
+
+func (c *client) SetWorkflowIsAssignable(ctx context.Context, input SetWorkflowIsAssignableArgs) (*SetWorkflowIsAssignable, error) {
+	return c.api.SetWorkflowIsAssignable(ctx, input.Input)
+}
+
+// SetWorkflowTargetsArgs is a sparse struct for SetWorkflowTargets parameters
+type SetWorkflowTargetsArgs struct {
+	Input model.SetWorkflowTargetsInput
+}
+
+func (c *client) SetWorkflowTargets(ctx context.Context, input SetWorkflowTargetsArgs) (*SetWorkflowTargets, error) {
+	return c.api.SetWorkflowTargets(ctx, input.Input)
 }

@@ -1,0 +1,179 @@
+---
+name: "Cross - Receiving Inbound Shipment Notification Patch Lifecycle"
+description: >
+  Tests JSON Patch (RFC 6902) operations on receiving inbound shipment
+  notifications. Creates a data type, an inbound, then a notification
+  with data, patches individual fields, verifies changes persist,
+  then cleans up.
+steps:
+  - id: createDT
+    name: "Create data type for inbound shipment notifications"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Inbound Shipment Notification Patch Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "receivinginboundshipmentnotification"
+        jsonSchema: '{"type":"object","properties":{"carrier":{"type":"string"},"trackingNumber":{"type":"string"},"priority":{"type":"integer","minimum":0}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: createInbound
+    name: "Create parent receiving inbound"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        orderID: "PO-NOTIF-PATCH-001"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound created"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+
+  - id: createNotification
+    name: "Create notification with data"
+    operation: receiving.createReceivingInboundShipmentNotification
+    vars:
+      input:
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          carrier: "DHL"
+          trackingNumber: "TRK-001"
+          priority: 1
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Notification created"
+        assertions:
+          - ref: res.body.data.createReceivingInboundShipmentNotification.receivingInboundShipmentNotification.id
+            nil: false
+      - msg: "Initial data persisted"
+        assertions:
+          - ref: res.body.data.createReceivingInboundShipmentNotification.receivingInboundShipmentNotification.data.carrier
+            equal: "DHL"
+
+  - id: patchNotification
+    name: "Patch notification data - partial update"
+    operation: receiving.patchReceivingInboundShipmentNotificationData
+    vars:
+      id: {$ref: "res[createNotification].body.data.createReceivingInboundShipmentNotification.receivingInboundShipmentNotification.id"}
+      patches:
+        - op: REPLACE
+          path: "/carrier"
+          value: "\"UPS\""
+        - op: REPLACE
+          path: "/priority"
+          value: "5"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Carrier patched"
+        assertions:
+          - ref: res.body.data.patchReceivingInboundShipmentNotificationData.receivingInboundShipmentNotification.data.carrier
+            equal: "UPS"
+      - msg: "Priority patched"
+        assertions:
+          - ref: res.body.data.patchReceivingInboundShipmentNotificationData.receivingInboundShipmentNotification.data.priority
+            equal: 5
+      - msg: "Tracking number preserved"
+        assertions:
+          - ref: res.body.data.patchReceivingInboundShipmentNotificationData.receivingInboundShipmentNotification.data.trackingNumber
+            equal: "TRK-001"
+
+  - name: "Verify patch persisted"
+    operation: receiving.getReceivingInboundShipmentNotifications
+    vars:
+      where:
+        id: {$ref: "res[createNotification].body.data.createReceivingInboundShipmentNotification.receivingInboundShipmentNotification.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Patched data persisted"
+        assertions:
+          - ref: res.body.data.receivingInboundShipmentNotifications.edges[].node.data.carrier
+            equal: "UPS"
+          - ref: res.body.data.receivingInboundShipmentNotifications.edges[].node.data.priority
+            equal: 5
+          - ref: res.body.data.receivingInboundShipmentNotifications.edges[].node.data.trackingNumber
+            equal: "TRK-001"
+
+  - name: "Cleanup - delete notification"
+    operation: receiving.deleteReceivingInboundShipmentNotification
+    vars:
+      id: {$ref: "res[createNotification].body.data.createReceivingInboundShipmentNotification.receivingInboundShipmentNotification.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete inbound"
+    operation: receiving.deleteReceivingInbound
+    vars:
+      id: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

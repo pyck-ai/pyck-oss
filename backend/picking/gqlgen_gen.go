@@ -17,6 +17,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/99designs/gqlgen/plugin/federation/fedruntime"
 	"github.com/google/uuid"
+	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen"
 	"github.com/pyck-ai/pyck/backend/picking/model"
 	gqlparser "github.com/vektah/gqlparser/v2"
@@ -69,15 +70,18 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CreatePickingOrder                        func(childComplexity int, input model.CreatePickingOrderWithItemsInput) int
-		CreatePickingOrderItem                    func(childComplexity int, input gen.CreatePickingOrderItemInput) int
-		CreatePickingOutboundShipmentNotification func(childComplexity int, input gen.CreatePickingOutboundShipmentNotificationInput) int
-		DeletePickingOrder                        func(childComplexity int, id uuid.UUID) int
-		DeletePickingOrderItem                    func(childComplexity int, id uuid.UUID) int
-		DeletePickingOutboundShipmentNotification func(childComplexity int, id uuid.UUID) int
-		UpdatePickingOrder                        func(childComplexity int, id uuid.UUID, input gen.UpdatePickingOrderInput) int
-		UpdatePickingOrderItem                    func(childComplexity int, id uuid.UUID, input gen.UpdatePickingOrderItemInput) int
-		UpdatePickingOutboundShipmentNotification func(childComplexity int, id uuid.UUID, input gen.UpdatePickingOutboundShipmentNotificationInput) int
+		CreatePickingOrder                           func(childComplexity int, input model.CreatePickingOrderWithItemsInput) int
+		CreatePickingOrderItem                       func(childComplexity int, input gen.CreatePickingOrderItemInput) int
+		CreatePickingOutboundShipmentNotification    func(childComplexity int, input gen.CreatePickingOutboundShipmentNotificationInput) int
+		DeletePickingOrder                           func(childComplexity int, id uuid.UUID) int
+		DeletePickingOrderItem                       func(childComplexity int, id uuid.UUID) int
+		DeletePickingOutboundShipmentNotification    func(childComplexity int, id uuid.UUID) int
+		PatchPickingOrderData                        func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		PatchPickingOrderItemData                    func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		PatchPickingOutboundShipmentNotificationData func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		UpdatePickingOrder                           func(childComplexity int, id uuid.UUID, input gen.UpdatePickingOrderInput) int
+		UpdatePickingOrderItem                       func(childComplexity int, id uuid.UUID, input gen.UpdatePickingOrderItemInput) int
+		UpdatePickingOutboundShipmentNotification    func(childComplexity int, id uuid.UUID, input gen.UpdatePickingOutboundShipmentNotificationInput) int
 	}
 
 	PageInfo struct {
@@ -247,6 +251,9 @@ type MutationResolver interface {
 	CreatePickingOutboundShipmentNotification(ctx context.Context, input gen.CreatePickingOutboundShipmentNotificationInput) (*model.PickingOutboundShipmentNotificationOutput, error)
 	UpdatePickingOutboundShipmentNotification(ctx context.Context, id uuid.UUID, input gen.UpdatePickingOutboundShipmentNotificationInput) (*model.PickingOutboundShipmentNotificationOutput, error)
 	DeletePickingOutboundShipmentNotification(ctx context.Context, id uuid.UUID) (*model.PickingOutboundShipmentNotificationDeletePayload, error)
+	PatchPickingOrderData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.PickingOrderOutput, error)
+	PatchPickingOrderItemData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.PickingOrderItemOutput, error)
+	PatchPickingOutboundShipmentNotificationData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*model.PickingOutboundShipmentNotificationOutput, error)
 }
 type QueryResolver interface {
 	Node(ctx context.Context, id uuid.UUID) (gen.Noder, error)
@@ -470,6 +477,39 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.DeletePickingOutboundShipmentNotification(childComplexity, args["id"].(uuid.UUID)), true
+	case "Mutation.patchPickingOrderData":
+		if e.ComplexityRoot.Mutation.PatchPickingOrderData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchPickingOrderData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchPickingOrderData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
+	case "Mutation.patchPickingOrderItemData":
+		if e.ComplexityRoot.Mutation.PatchPickingOrderItemData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchPickingOrderItemData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchPickingOrderItemData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
+	case "Mutation.patchPickingOutboundShipmentNotificationData":
+		if e.ComplexityRoot.Mutation.PatchPickingOutboundShipmentNotificationData == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_patchPickingOutboundShipmentNotificationData_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.PatchPickingOutboundShipmentNotificationData(childComplexity, args["id"].(uuid.UUID), args["patches"].([]*jsonpatch.JSONPatchInput)), true
 	case "Mutation.updatePickingOrder":
 		if e.ComplexityRoot.Mutation.UpdatePickingOrder == nil {
 			break
@@ -1113,6 +1153,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputCreatePickingOrderWithItemsInput,
 		ec.unmarshalInputCreatePickingOutboundShipmentNotificationInput,
 		ec.unmarshalInputEntityEventsOutboxWhereInput,
+		ec.unmarshalInputJSONPatchInput,
 		ec.unmarshalInputPickingOrderItemOrder,
 		ec.unmarshalInputPickingOrderItemWhereInput,
 		ec.unmarshalInputPickingOrderOrder,
@@ -1196,7 +1237,7 @@ func newExecutionContext(
 	}
 }
 
-//go:embed "graph/ent.graphql" "graph/mutations.graphql" "graph/order.graphql" "graph/orderitem.graphql" "graph/outboundshipmentnotification.graphql" "graph/serviceinfo.graphql" "graph/temporalworkflow.graphql"
+//go:embed "graph/ent.graphql" "graph/jsonpatch.graphql" "graph/mutations.graphql" "graph/order.graphql" "graph/orderitem.graphql" "graph/outboundshipmentnotification.graphql" "graph/serviceinfo.graphql" "graph/temporalworkflow.graphql"
 var sourcesFS embed.FS
 
 func sourceData(filename string) string {
@@ -1209,6 +1250,7 @@ func sourceData(filename string) string {
 
 var sources = []*ast.Source{
 	{Name: "graph/ent.graphql", Input: sourceData("graph/ent.graphql"), BuiltIn: false},
+	{Name: "graph/jsonpatch.graphql", Input: sourceData("graph/jsonpatch.graphql"), BuiltIn: false},
 	{Name: "graph/mutations.graphql", Input: sourceData("graph/mutations.graphql"), BuiltIn: false},
 	{Name: "graph/order.graphql", Input: sourceData("graph/order.graphql"), BuiltIn: false},
 	{Name: "graph/orderitem.graphql", Input: sourceData("graph/orderitem.graphql"), BuiltIn: false},
@@ -1377,6 +1419,54 @@ func (ec *executionContext) field_Mutation_deletePickingOutboundShipmentNotifica
 		return nil, err
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchPickingOrderData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchPickingOrderItemData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_patchPickingOutboundShipmentNotificationData_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "patches", ec.unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["patches"] = arg1
 	return args, nil
 }
 
@@ -2700,6 +2790,147 @@ func (ec *executionContext) fieldContext_Mutation_deletePickingOutboundShipmentN
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_deletePickingOutboundShipmentNotification_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchPickingOrderData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchPickingOrderData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchPickingOrderData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOPickingOrderOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋpickingᚋmodelᚐPickingOrderOutput,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchPickingOrderData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "pickingOrder":
+				return ec.fieldContext_PickingOrderOutput_pickingOrder(ctx, field)
+			case "workflows":
+				return ec.fieldContext_PickingOrderOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PickingOrderOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchPickingOrderData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchPickingOrderItemData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchPickingOrderItemData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchPickingOrderItemData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOPickingOrderItemOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋpickingᚋmodelᚐPickingOrderItemOutput,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchPickingOrderItemData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "pickingOrderItem":
+				return ec.fieldContext_PickingOrderItemOutput_pickingOrderItem(ctx, field)
+			case "workflows":
+				return ec.fieldContext_PickingOrderItemOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PickingOrderItemOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchPickingOrderItemData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_patchPickingOutboundShipmentNotificationData(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_patchPickingOutboundShipmentNotificationData,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().PatchPickingOutboundShipmentNotificationData(ctx, fc.Args["id"].(uuid.UUID), fc.Args["patches"].([]*jsonpatch.JSONPatchInput))
+		},
+		nil,
+		ec.marshalOPickingOutboundShipmentNotificationOutput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋpickingᚋmodelᚐPickingOutboundShipmentNotificationOutput,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_patchPickingOutboundShipmentNotificationData(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "pickingOutboundShipmentNotification":
+				return ec.fieldContext_PickingOutboundShipmentNotificationOutput_pickingOutboundShipmentNotification(ctx, field)
+			case "workflows":
+				return ec.fieldContext_PickingOutboundShipmentNotificationOutput_workflows(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PickingOutboundShipmentNotificationOutput", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_patchPickingOutboundShipmentNotificationData_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -8658,6 +8889,57 @@ func (ec *executionContext) unmarshalInputEntityEventsOutboxWhereInput(ctx conte
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputJSONPatchInput(ctx context.Context, obj any) (jsonpatch.JSONPatchInput, error) {
+	var it jsonpatch.JSONPatchInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"op", "path", "value", "from"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "op":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("op"))
+			data, err := ec.unmarshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Op = data
+		case "path":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("path"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Path = data
+		case "value":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("value"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Value = data
+		case "from":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("from"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.From = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputPickingOrderItemOrder(ctx context.Context, obj any) (gen.PickingOrderItemOrder, error) {
 	var it gen.PickingOrderItemOrder
 	if obj == nil {
@@ -11570,6 +11852,18 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "patchPickingOrderData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchPickingOrderData(ctx, field)
+			})
+		case "patchPickingOrderItemData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchPickingOrderItemData(ctx, field)
+			})
+		case "patchPickingOutboundShipmentNotificationData":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_patchPickingOutboundShipmentNotificationData(ctx, field)
+			})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -13369,6 +13663,36 @@ func (ec *executionContext) marshalNInt2int64(ctx context.Context, sel ast.Selec
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNJSONPatchInput2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInputᚄ(ctx context.Context, v any) ([]*jsonpatch.JSONPatchInput, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*jsonpatch.JSONPatchInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNJSONPatchInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNJSONPatchInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchInput(ctx context.Context, v any) (*jsonpatch.JSONPatchInput, error) {
+	res, err := ec.unmarshalInputJSONPatchInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx context.Context, v any) (jsonpatch.JSONPatchOp, error) {
+	var res jsonpatch.JSONPatchOp
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNJSONPatchOp2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋjsonpatchᚐJSONPatchOp(ctx context.Context, sel ast.SelectionSet, v jsonpatch.JSONPatchOp) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNMap2map(ctx context.Context, v any) (map[string]any, error) {

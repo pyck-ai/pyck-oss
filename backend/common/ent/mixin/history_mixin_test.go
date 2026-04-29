@@ -252,6 +252,46 @@ func TestHistoryMixinHook(t *testing.T) {
 	})
 }
 
+func TestHistoryMixinHook_TimestampsAreUTC(t *testing.T) {
+	t.Parallel()
+
+	client := newDBClient(t)
+	defer client.Close()
+
+	ctx := requestContext(t, authn.ROLE_WRITER, userID1, tenantID1)
+
+	// 1. Create — created_at must be UTC
+	entity, err := client.EntityWithHistoryMixin.Create().
+		SetName("utc_test").
+		SetStringField("field").
+		Save(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, time.UTC, entity.CreatedAt.Location(),
+		"created_at should be in UTC")
+
+	// 2. Update — updated_at must be UTC
+	time.Sleep(1 * time.Millisecond)
+	updated, err := client.EntityWithHistoryMixin.UpdateOneID(entity.ID).
+		SetStringField("changed").
+		Save(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, time.UTC, updated.UpdatedAt.Location(),
+		"updated_at should be in UTC")
+	assert.Equal(t, time.UTC, updated.CreatedAt.Location(),
+		"created_at should remain in UTC after update")
+
+	// 3. Soft-delete — deleted_at must be UTC (set via the hook's updated_at path)
+	time.Sleep(1 * time.Millisecond)
+	deleted, err := client.EntityWithHistoryMixin.UpdateOneID(entity.ID).
+		SetDeletedAt(time.Now().UTC()).
+		Save(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, time.UTC, deleted.DeletedAt.Location(),
+		"deleted_at should be in UTC")
+	assert.Equal(t, time.UTC, deleted.CreatedAt.Location(),
+		"created_at should remain in UTC after soft-delete")
+}
+
 func TestHistoryMixinQueryFilter(t *testing.T) {
 	t.Parallel()
 

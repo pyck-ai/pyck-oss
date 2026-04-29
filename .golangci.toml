@@ -19,7 +19,7 @@ default = "@linter"
 uniq-by-line = true
 max-same-issues = 10
 new = true
-new-from-merge-base = "origin/main"
+new-from-rev = "origin/main"
 whole-files = false
 
 [formatters]

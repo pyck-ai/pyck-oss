@@ -12,9 +12,11 @@ import (
 	"strings"
 	"time"
 
+	"entgo.io/ent/dialect"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
+	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 	"github.com/pyck-ai/pyck/backend/file"
@@ -114,7 +116,7 @@ func (r *mutationResolver) DeleteFile(ctx context.Context, id uuid.UUID) (*model
 	}
 
 	file, err := tx.File.UpdateOneID(id).
-		SetDeletedAt(time.Now()).
+		SetDeletedAt(time.Now().UTC()).
 		SetDeletedBy(req.User().ID).
 		Save(ctx)
 	if err != nil {
@@ -168,6 +170,42 @@ func (r *mutationResolver) AnalyzeImageFile(ctx context.Context, id uuid.UUID) (
 		return nil, err
 	}
 	return &model.ImageAnalysisResponse{JSONData: analysisResponse.JsonData}, nil
+}
+
+// PatchFileData applies RFC 6902 JSON Patch operations to the file's data field.
+// MutationEventHook captures field-level changes automatically.
+func (r *mutationResolver) PatchFileData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*ent.File, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	q := tx.File.Query().Where(entfile.IDEQ(id))
+	if core.Config.DbDriver == dialect.Postgres {
+		q = q.ForUpdate()
+	}
+	entity, err := q.Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := jsonpatch.PatchEntityData(ctx, jsonpatch.PatchParams{
+		CurrentData:  entity.Data,
+		DataTypeID:   &entity.DataTypeID,
+		DataTypeSlug: &entity.DataTypeSlug,
+		Patches:      jsonpatch.ToOperations(patches),
+		Validator:    r.validator,
+		Executor:     tx,
+		TableName:    entfile.Table,
+		FieldName:    entfile.FieldData,
+		DbDriver:     core.Config.DbDriver,
+		EntityID:     id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return tx.File.UpdateOneID(id).SetData(patched).Save(ctx)
 }
 
 // Mutation returns file.MutationResolver implementation.
