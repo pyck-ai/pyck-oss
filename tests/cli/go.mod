@@ -18,10 +18,7 @@ require (
 	github.com/Yamashou/gqlgenc v0.33.0
 	github.com/pyck-ai/pyck/backend/common v0.0.0-00010101000000-000000000000
 	github.com/pyck-ai/pyck/backend/inventory v0.0.0-00010101000000-000000000000
-	github.com/pyck-ai/pyck/backend/main-data v0.0.0-00010101000000-000000000000
 	github.com/pyck-ai/pyck/backend/management v0.0.0-00010101000000-000000000000
-	github.com/pyck-ai/pyck/backend/picking v0.0.0-00010101000000-000000000000
-	github.com/pyck-ai/pyck/backend/receiving v0.0.0-00010101000000-000000000000
 )
 
 require (
@@ -72,6 +69,7 @@ require (
 	github.com/zitadel/schema v1.3.2 // indirect
 	github.com/zitadel/zitadel-go/v3 v3.26.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
 	go.opentelemetry.io/otel v1.40.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.38.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.38.0 // indirect

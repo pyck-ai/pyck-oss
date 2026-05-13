@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -21,7 +22,12 @@ type MinioClientInterface interface {
 	RemoveObject(ctx context.Context, bucketName, objectName string, opts minio.RemoveObjectOptions) error
 	PresignedPutObject(ctx context.Context, bucketName, objectName string, expires time.Duration) (*url.URL, error)
 	PresignedGetObject(ctx context.Context, bucketName, objectName string, expires time.Duration, reqParams url.Values) (*url.URL, error)
+	StatObject(ctx context.Context, bucketName, objectName string, opts minio.StatObjectOptions) (minio.ObjectInfo, error)
 }
+
+// ErrObjectNotFound is returned when StatObject cannot find the object in storage,
+// typically because the upload has not yet completed.
+var ErrObjectNotFound = errors.New("object not found in storage")
 
 type S3StorageService struct {
 	Bucket                   string
@@ -67,7 +73,6 @@ func NewS3StorageService(bucket, accessKey, secretKey, endpoint, region, httpEnd
 		Secure: useSSL,
 		Region: region,
 	})
-
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating new MinIO client")
 		return nil, fmt.Errorf("error creating new MinIO client: %v", err)
@@ -292,4 +297,31 @@ func (s *S3StorageService) DeleteFile(tenantID, refID uuid.UUID, filename string
 		Msg("File deleted successfully")
 
 	return nil
+}
+
+// StatObject retrieves object metadata (size, etag, etc.) from storage without
+// downloading the content. Returns ErrObjectNotFound if the object does not exist
+// yet, which typically means the client-side upload has not completed.
+func (s *S3StorageService) StatObject(tenantID, refID uuid.UUID, filename string) (minio.ObjectInfo, error) {
+	userFileName := s.CreateFileKey(tenantID, refID, filename)
+
+	log.Debug().
+		Str("userFileName", userFileName).
+		Str("bucket", s.Bucket).
+		Msg("Stat object in MinIO")
+
+	info, err := s.MinioClient.StatObject(context.Background(), s.Bucket, userFileName, minio.StatObjectOptions{})
+	if err != nil {
+		errResp := minio.ToErrorResponse(err)
+		if errResp.Code == "NoSuchKey" || errResp.StatusCode == http.StatusNotFound {
+			return minio.ObjectInfo{}, fmt.Errorf("%w: %s", ErrObjectNotFound, userFileName)
+		}
+		log.Error().Err(err).
+			Str("userFileName", userFileName).
+			Str("bucket", s.Bucket).
+			Msg("Error stating object in S3")
+		return minio.ObjectInfo{}, fmt.Errorf("error stating object: %w", err)
+	}
+
+	return info, nil
 }

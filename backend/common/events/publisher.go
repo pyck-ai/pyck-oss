@@ -166,7 +166,7 @@ func (e *EventPublisher) SendMutationEventWithReply(ctx context.Context, msg *Mu
 		OperationName: msg.Operation,
 	}
 
-	response, err := e.request(topic.String(), msg, e.replyTimeout)
+	response, err := e.request(ctx, topic.String(), msg, e.replyTimeout)
 	if err != nil {
 		if errors.Is(err, nats.ErrTimeout) {
 			mutationEventTimeouts.WithLabelValues(msg.Service, msg.Schema, msg.Operation).Inc()
@@ -244,13 +244,16 @@ func (e *EventPublisher) publish(ctx context.Context, topic string, msg any) (er
 		return fmt.Errorf("failed to marshal publish payload: %w", err)
 	}
 
+	natsMsg := &nats.Msg{Subject: topic, Data: payload}
+	injectIntoMsg(ctx, natsMsg)
+
 	// We use context.WithoutCancel() here to ensure event publishing is not
 	// cancelled when the parent context is cancelled. This is critical because
 	// the parent context typically comes from an HTTP request, which is
 	// automatically cancelled once the request body is fully sent to the client.
 	// If we used the parent context directly, events could be lost when the
 	// HTTP response completes but before NATS has acknowledged the publish.
-	_, err = e.jetstream.Publish(context.WithoutCancel(ctx), topic, payload)
+	_, err = e.jetstream.PublishMsg(context.WithoutCancel(ctx), natsMsg)
 
 	log.ForContext(ctx).Err(err).
 		Str("topic", topic).
@@ -260,13 +263,16 @@ func (e *EventPublisher) publish(ctx context.Context, topic string, msg any) (er
 	return err
 }
 
-func (e *EventPublisher) request(topic string, msg any, timeout time.Duration) (*nats.Msg, error) {
+func (e *EventPublisher) request(ctx context.Context, topic string, msg any, timeout time.Duration) (*nats.Msg, error) {
 	payload, err := std.MarshalJson(msg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request payload: %w", err)
 	}
 
-	return e.natsClient.Request(topic, payload, timeout)
+	natsMsg := &nats.Msg{Subject: topic, Data: payload}
+	injectIntoMsg(ctx, natsMsg)
+
+	return e.natsClient.RequestMsg(natsMsg, timeout)
 }
 
 // PublishRaw publishes a pre-serialized payload to the given topic via JetStream.
@@ -277,14 +283,20 @@ func (e *EventPublisher) PublishRaw(ctx context.Context, topic string, payload [
 		opts = append(opts, jetstream.WithMsgID(msgID))
 	}
 
-	_, err := e.jetstream.Publish(context.WithoutCancel(ctx), topic, payload, opts...)
+	natsMsg := &nats.Msg{Subject: topic, Data: payload}
+	injectIntoMsg(ctx, natsMsg)
+
+	_, err := e.jetstream.PublishMsg(context.WithoutCancel(ctx), natsMsg, opts...)
 	return err
 }
 
 // RequestRaw sends a pre-serialized payload using NATS request/reply pattern.
 // Returns the parsed EventReply or an error.
 func (e *EventPublisher) RequestRaw(ctx context.Context, topic string, payload []byte, timeout time.Duration) (*EventReply, error) {
-	msg, err := e.natsClient.Request(topic, payload, timeout)
+	natsMsg := &nats.Msg{Subject: topic, Data: payload}
+	injectIntoMsg(ctx, natsMsg)
+
+	msg, err := e.natsClient.RequestMsg(natsMsg, timeout)
 	if err != nil {
 		return nil, err
 	}

@@ -12,7 +12,7 @@ input CreateFileInput {
   reftype: FileReftype!
   description: String
   name: String!
-  size: Int!
+  size: Int
   contentType: String!
   publicAlias: String
 }
@@ -247,7 +247,7 @@ type File implements Node @key(fields: "id") {
   reftype: FileReftype!
   description: String
   name: String!
-  size: Int!
+  size: Int
   contentType: String!
   publicAlias: String
 }
@@ -520,6 +520,8 @@ input FileWhereInput {
   sizeGTE: Int
   sizeLT: Int
   sizeLTE: Int
+  sizeIsNil: Boolean
+  sizeNotNil: Boolean
   """
   content_type field predicates
   """

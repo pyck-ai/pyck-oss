@@ -825,6 +825,16 @@ func SizeLTE(v int64) predicate.File {
 	return predicate.File(sql.FieldLTE(FieldSize, v))
 }
 
+// SizeIsNil applies the IsNil predicate on the "size" field.
+func SizeIsNil() predicate.File {
+	return predicate.File(sql.FieldIsNull(FieldSize))
+}
+
+// SizeNotNil applies the NotNil predicate on the "size" field.
+func SizeNotNil() predicate.File {
+	return predicate.File(sql.FieldNotNull(FieldSize))
+}
+
 // ContentTypeEQ applies the EQ predicate on the "content_type" field.
 func ContentTypeEQ(v string) predicate.File {
 	return predicate.File(sql.FieldEQ(FieldContentType, v))

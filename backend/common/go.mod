@@ -46,6 +46,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.5.32
 	github.com/zitadel/oidc/v3 v3.45.5
 	github.com/zitadel/zitadel-go/v3 v3.26.1
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0
 	go.opentelemetry.io/otel v1.40.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.38.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.38.0

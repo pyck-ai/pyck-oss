@@ -23,6 +23,9 @@ var (
 	PyckDataType             = workflow.PyckDataType
 	PyckService              = workflow.PyckService
 	PyckGroupBy              = workflow.PyckGroupBy
+	PyckTitle                = workflow.PyckTitle
+	PyckGroupTitle           = workflow.PyckGroupTitle
+	PyckSortKey              = workflow.PyckSortKey
 
 	defaultWaitForCancellation     = true
 	defaultLocalActivityTimeout    = 10 * time.Second
@@ -568,35 +571,85 @@ func GetGroupBy(ctx temporalworkflow.Context) string {
 	return ""
 }
 
-// WorkflowMemo represents the standard memo fields for workflow display in UI.
-// These fields are used to show workflow information in lists and dashboards.
-type WorkflowMemo struct {
-	Title    string         `json:"title"`    // Primary display text (e.g., item name, order reference)
-	Subtitle string         `json:"subtitle"` // Secondary display text (e.g., order ID, additional context)
-	Data     map[string]any `json:"data"`     // Additional custom fields
+// SetWorkflowTitle writes the pyck_title search attribute used as the
+// per-workflow display label in the UI. Passing an empty string unsets the
+// attribute so the frontend falls back to the workflow type name.
+func SetWorkflowTitle(ctx temporalworkflow.Context, title string) error {
+	var update temporal.SearchAttributeUpdate
+	if title == "" {
+		update = PyckTitle.ValueUnset()
+	} else {
+		update = PyckTitle.ValueSet(title)
+	}
+
+	if err := temporalworkflow.UpsertTypedSearchAttributes(ctx, update); err != nil {
+		return fmt.Errorf("upsert pyck_title search attribute: %w", err)
+	}
+
+	return nil
 }
 
-// SetWorkflowMemo sets the workflow memo for UI display purposes.
-// The memo is stored with the workflow and can be queried without loading the full workflow history.
-// This is useful for displaying workflow information in lists and dashboards.
-//
-// Example:
-//
-//	workflowsdk.SetWorkflowMemo(ctx, workflowsdk.WorkflowMemo{
-//	    Title:    "SKU-123",
-//	    Subtitle: "order-uuid",
-//	    Data: map[string]any{
-//	        "priority": "high",
-//	        "customer": "Acme Inc",
-//	    },
-//	})
-//
-// Results in memo: {"title": "SKU-123", "subtitle": "order-uuid", "data": {"priority": "high", "customer": "Acme Inc"}}
-func SetWorkflowMemo(ctx temporalworkflow.Context, memo WorkflowMemo) error {
-	// TODO: use json tags instead of direct map construction
-	return temporalworkflow.UpsertMemo(ctx, map[string]any{
-		"title":    memo.Title,
-		"subtitle": memo.Subtitle,
-		"data":     memo.Data,
-	})
+// GetWorkflowTitle reads the pyck_title search attribute.
+func GetWorkflowTitle(ctx temporalworkflow.Context) string {
+	if title, ok := temporalworkflow.GetTypedSearchAttributes(ctx).GetKeyword(PyckTitle); ok {
+		return title
+	}
+
+	return ""
+}
+
+// SetGroupTitle writes the pyck_group_title search attribute used as the
+// human-readable label for the group header in the UI. It pairs with
+// pyck_group_by (the technical join key) — set both together. Passing an empty
+// string unsets the attribute so the frontend falls back to "No Group".
+func SetGroupTitle(ctx temporalworkflow.Context, groupTitle string) error {
+	var update temporal.SearchAttributeUpdate
+	if groupTitle == "" {
+		update = PyckGroupTitle.ValueUnset()
+	} else {
+		update = PyckGroupTitle.ValueSet(groupTitle)
+	}
+
+	if err := temporalworkflow.UpsertTypedSearchAttributes(ctx, update); err != nil {
+		return fmt.Errorf("upsert pyck_group_title search attribute: %w", err)
+	}
+
+	return nil
+}
+
+// GetGroupTitle reads the pyck_group_title search attribute.
+func GetGroupTitle(ctx temporalworkflow.Context) string {
+	if groupTitle, ok := temporalworkflow.GetTypedSearchAttributes(ctx).GetKeyword(PyckGroupTitle); ok {
+		return groupTitle
+	}
+
+	return ""
+}
+
+// SetSortKey writes the pyck_sort_key search attribute used by the UI to
+// impose a stable display order on workflow executions. Pass nil to unset the
+// attribute so the frontend falls back to the default ordering (start time).
+func SetSortKey(ctx temporalworkflow.Context, sortKey *int64) error {
+	var update temporal.SearchAttributeUpdate
+	if sortKey == nil {
+		update = PyckSortKey.ValueUnset()
+	} else {
+		update = PyckSortKey.ValueSet(*sortKey)
+	}
+
+	if err := temporalworkflow.UpsertTypedSearchAttributes(ctx, update); err != nil {
+		return fmt.Errorf("upsert pyck_sort_key search attribute: %w", err)
+	}
+
+	return nil
+}
+
+// GetSortKey reads the pyck_sort_key search attribute. Returns nil when the
+// attribute has never been written for this workflow.
+func GetSortKey(ctx temporalworkflow.Context) *int64 {
+	if sortKey, ok := temporalworkflow.GetTypedSearchAttributes(ctx).GetInt64(PyckSortKey); ok {
+		return &sortKey
+	}
+
+	return nil
 }

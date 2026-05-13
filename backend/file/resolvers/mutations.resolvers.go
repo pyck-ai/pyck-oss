@@ -130,6 +130,33 @@ func (r *mutationResolver) DeleteFile(ctx context.Context, id uuid.UUID) (*model
 	return &model.FileDeletePayload{DeletedID: &id}, nil
 }
 
+// FinalizeFileUpload is the resolver for the finalizeFileUpload field.
+// Reads the actual object size from S3 and persists it on the File record.
+// If the stored size already matches the object size, returns the file as-is
+// to avoid emitting a redundant mutation event.
+func (r *mutationResolver) FinalizeFileUpload(ctx context.Context, id uuid.UUID) (*ent.File, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := tx.File.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	info, err := r.s3Storage.StatObject(f.TenantID, f.Refid, f.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	if f.Size != nil && *f.Size == info.Size {
+		return f, nil
+	}
+
+	return tx.File.UpdateOneID(id).SetSize(info.Size).Save(ctx)
+}
+
 // AnalyzeImageFile is the resolver for the analyzeImageFile field.
 func (r *mutationResolver) AnalyzeImageFile(ctx context.Context, id uuid.UUID) (*model.ImageAnalysisResponse, error) {
 	file, err := r.client.File.Get(ctx, id)

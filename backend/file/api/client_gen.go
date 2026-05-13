@@ -48,6 +48,7 @@ type Client interface {
 	CreateFile(ctx context.Context, input CreateFileArgs) (*CreateFile, error)
 	UpdateFile(ctx context.Context, input UpdateFileArgs) (*UpdateFile, error)
 	DeleteFile(ctx context.Context, input DeleteFileArgs) (*DeleteFile, error)
+	FinalizeFileUpload(ctx context.Context, input FinalizeFileUploadArgs) (*FinalizeFileUpload, error)
 	AnalyzeImageFile(ctx context.Context, input AnalyzeImageFileArgs) (*AnalyzeImageFile, error)
 	PatchFileData(ctx context.Context, input PatchFileDataArgs) (*PatchFileData, error)
 }
@@ -109,6 +110,15 @@ type DeleteFileArgs struct {
 
 func (c *client) DeleteFile(ctx context.Context, input DeleteFileArgs) (*DeleteFile, error) {
 	return c.api.DeleteFile(ctx, input.Id)
+}
+
+// FinalizeFileUploadArgs is a sparse struct for FinalizeFileUpload parameters
+type FinalizeFileUploadArgs struct {
+	Id string
+}
+
+func (c *client) FinalizeFileUpload(ctx context.Context, input FinalizeFileUploadArgs) (*FinalizeFileUpload, error) {
+	return c.api.FinalizeFileUpload(ctx, input.Id)
 }
 
 // AnalyzeImageFileArgs is a sparse struct for AnalyzeImageFile parameters

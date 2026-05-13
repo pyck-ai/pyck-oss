@@ -1,0 +1,1 @@
+ALTER TABLE file.files ALTER COLUMN size DROP NOT NULL;

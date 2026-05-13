@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
@@ -50,6 +52,13 @@ func TestMain(m *testing.M) {
 	events.RegisterTestType(testEntityWithData{}, "Data")
 	// differentEntity: for type mismatch tests
 	events.RegisterTestType(differentEntity{}, "")
+
+	// Mirror the production OTel global propagator wiring (see
+	// backend/common/otel/provider.go) so carrier round-trip tests work.
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
 
 	os.Exit(m.Run())
 }

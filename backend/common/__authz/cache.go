@@ -614,8 +614,9 @@ func (c *AuthzCache) listenToEvents() {
 		}
 
 		for msg := range messages.Messages() {
-			if err := c.processEvent(ctx, msg); err != nil {
-				log.DefaultLogger().Error().Err(err).Str("subject", msg.Subject()).Msg("Failed to process event")
+			msgCtx := events.ContextFromJetstreamMessage(ctx, msg)
+			if err := c.processEvent(msgCtx, msg); err != nil {
+				log.ForContext(msgCtx).Error().Err(err).Str("subject", msg.Subject()).Msg("Failed to process event")
 			}
 			_ = msg.Ack()
 		}
@@ -665,6 +666,8 @@ func (c *AuthzCache) subscribeToCacheInvalidations() {
 
 		// Process the message
 		for msg := range messages.Messages() {
+			msgCtx := events.ContextFromJetstreamMessage(context.Background(), msg)
+
 			var invalidation struct {
 				TenantID  string    `json:"tenant_id"`
 				ServiceID string    `json:"service_id"`
@@ -672,7 +675,7 @@ func (c *AuthzCache) subscribeToCacheInvalidations() {
 			}
 
 			if err := json.Unmarshal(msg.Data(), &invalidation); err != nil {
-				log.DefaultLogger().Error().Err(err).Msg("Failed to unmarshal cache invalidation")
+				log.ForContext(msgCtx).Error().Err(err).Msg("Failed to unmarshal cache invalidation")
 				_ = msg.Ack()
 				continue
 			}

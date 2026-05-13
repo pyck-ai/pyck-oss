@@ -168,6 +168,48 @@ func TestFormatPredicate(t *testing.T) {
 			operator:      "=",
 			expected:      "",
 		},
+		{
+			name:          "int pointer with equals operator",
+			temporalField: "pyck_sort_key",
+			value:         intPtr(42),
+			operator:      "=",
+			expected:      `pyck_sort_key = 42`,
+		},
+		{
+			name:          "int pointer with greater-than operator",
+			temporalField: "pyck_sort_key",
+			value:         intPtr(100),
+			operator:      ">",
+			expected:      `pyck_sort_key > 100`,
+		},
+		{
+			name:          "nil int pointer - empty result",
+			temporalField: "pyck_sort_key",
+			value:         (*int)(nil),
+			operator:      "=",
+			expected:      "",
+		},
+		{
+			name:          "int slice with IN operator",
+			temporalField: "pyck_sort_key",
+			value:         []int{1, 2, 3},
+			operator:      "IN",
+			expected:      `pyck_sort_key IN (1, 2, 3)`,
+		},
+		{
+			name:          "int slice with NOT IN operator",
+			temporalField: "pyck_sort_key",
+			value:         []int{10, 20},
+			operator:      "NOT IN",
+			expected:      `pyck_sort_key NOT IN (10, 20)`,
+		},
+		{
+			name:          "empty int slice - empty result",
+			temporalField: "pyck_sort_key",
+			value:         []int{},
+			operator:      "IN",
+			expected:      "",
+		},
 	}
 
 	for _, tt := range tests {
@@ -409,6 +451,77 @@ func TestBuildWhereClause(t *testing.T) {
 				Targets: []model.WorkflowTarget{model.WorkflowTargetWeb},
 			},
 			expected: `ExecutionStatus = "Running" AND pyck_workflow_targets IN ("WEB")`,
+		},
+		{
+			name: "title equality emits pyck_title",
+			where: &model.WorkflowExecutionsWhereInput{
+				Title: stringPtr("SKU-123"),
+			},
+			expected: `pyck_title = "SKU-123"`,
+		},
+		{
+			name: "titleIsNil treats missing or empty as null (nullIncludesEmpty)",
+			where: &model.WorkflowExecutionsWhereInput{
+				TitleIsNil: boolPtr(true),
+			},
+			expected: `(pyck_title IS NULL OR pyck_title = "")`,
+		},
+		{
+			name: "groupTitle equality emits pyck_group_title",
+			where: &model.WorkflowExecutionsWhereInput{
+				GroupTitle: stringPtr("ORDER-42"),
+			},
+			expected: `pyck_group_title = "ORDER-42"`,
+		},
+		{
+			name: "groupTitleIsNil treats missing or empty as null (nullIncludesEmpty)",
+			where: &model.WorkflowExecutionsWhereInput{
+				GroupTitleIsNil: boolPtr(true),
+			},
+			expected: `(pyck_group_title IS NULL OR pyck_group_title = "")`,
+		},
+		{
+			name: "sortKey equality emits pyck_sort_key",
+			where: &model.WorkflowExecutionsWhereInput{
+				SortKey: intPtr(42),
+			},
+			expected: `pyck_sort_key = 42`,
+		},
+		{
+			name: "sortKeyGt emits range predicate",
+			where: &model.WorkflowExecutionsWhereInput{
+				SortKeyGt: intPtr(100),
+			},
+			expected: `pyck_sort_key > 100`,
+		},
+		{
+			name: "sortKeyIn emits IN against pyck_sort_key",
+			where: &model.WorkflowExecutionsWhereInput{
+				SortKeyIn: []int{1, 2, 3},
+			},
+			expected: `pyck_sort_key IN (1, 2, 3)`,
+		},
+		{
+			name: "sortKeyIsNil emits IS NULL",
+			where: &model.WorkflowExecutionsWhereInput{
+				SortKeyIsNil: boolPtr(true),
+			},
+			expected: `pyck_sort_key IS NULL`,
+		},
+		{
+			name: "sortKeyNotNil emits IS NOT NULL",
+			where: &model.WorkflowExecutionsWhereInput{
+				SortKeyNotNil: boolPtr(true),
+			},
+			expected: `pyck_sort_key IS NOT NULL`,
+		},
+		{
+			name: "sortKeyGte and sortKeyLte combine with AND",
+			where: &model.WorkflowExecutionsWhereInput{
+				SortKeyGte: intPtr(10),
+				SortKeyLte: intPtr(99),
+			},
+			expected: `pyck_sort_key >= 10 AND pyck_sort_key <= 99`,
 		},
 	}
 

@@ -6,8 +6,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/log"
+	"github.com/pyck-ai/pyck/backend/common/requestid"
 	"github.com/pyck-ai/pyck/backend/common/tenant"
-	"go.opentelemetry.io/otel/trace"
 )
 
 func Context(ctx context.Context, user *authn.User, tenantIDs ...uuid.UUID) context.Context {
@@ -17,25 +17,11 @@ func Context(ctx context.Context, user *authn.User, tenantIDs ...uuid.UUID) cont
 }
 
 func ForContext(ctx context.Context) RequestContext {
-	logger := log.ForContext(ctx)
-	trace := trace.SpanFromContext(ctx).SpanContext()
-
-	if !trace.HasTraceID() {
-		logger.Warn().
-			Msg("request context created without trace ID")
-	}
-
-	var traceID string
-
-	if trace.HasTraceID() {
-		traceID = trace.TraceID().String()
-	}
-
 	return RequestContext{
-		logger:    logger,
+		logger:    log.ForContext(ctx),
 		user:      authn.ForContext(ctx),
 		tenantIDs: tenant.ForContext(ctx),
-		traceID:   traceID,
+		requestID: requestid.FromContext(ctx),
 	}
 }
 
@@ -43,7 +29,7 @@ type RequestContext struct {
 	logger    *log.Logger
 	user      authn.User
 	tenantIDs []uuid.UUID
-	traceID   string
+	requestID string
 }
 
 // Log returns the logger for the request context.
@@ -85,6 +71,8 @@ func (rc RequestContext) HasMutationTenantID() bool {
 	return len(rc.tenantIDs) == 1
 }
 
-func (rc RequestContext) TraceID() string {
-	return rc.traceID
+// RequestID returns the server-generated request ID propagated via OTel
+// baggage. Stable across retries and independent of trace sampling.
+func (rc RequestContext) RequestID() string {
+	return rc.requestID
 }

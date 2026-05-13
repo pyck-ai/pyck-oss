@@ -5,6 +5,7 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/pyck-ai/pyck/backend/common/memkv"
 	"github.com/pyck-ai/pyck/backend/common/std"
 	ent "github.com/pyck-ai/pyck/backend/management/ent/gen"
@@ -29,12 +30,14 @@ func (e *EventRegistryService) ListenToEvents(ctx context.Context, consumer jets
 	ctx = authn.Context(ctx, authn.SystemUser())
 
 	_, err := consumer.Consume(func(msg jetstream.Msg) {
+		msgCtx := events.ContextFromJetstreamMessage(ctx, msg)
+
 		payload, err := std.UnmarshalJson[map[string]interface{}](msg.Data())
 		if err != nil {
-			log.Error().Stack().Err(err).Msg("Error when unmarshaling event payload")
+			log.Ctx(msgCtx).Error().Stack().Err(err).Msg("Error when unmarshaling event payload")
 			ackErr := msg.Ack() // we acknowledge also when error
 			if ackErr != nil {
-				log.Error().Stack().Err(err).Msg("Error when acknowledging event")
+				log.Ctx(msgCtx).Error().Stack().Err(err).Msg("Error when acknowledging event")
 			}
 			return
 		}

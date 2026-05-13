@@ -1,10 +1,12 @@
 package resolvers_test
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -105,6 +107,15 @@ var (
 		}
 	}`)
 
+	finalizeFileUpload = resolver.ParseTemplate(`mutation {
+		finalizeFileUpload(id: "{{ .ID }}") {
+			id
+			tenantID
+			name
+			size
+		}
+	}`)
+
 	queryFiles = resolver.ParseTemplate(`query {
 		files(
 			{{- if .First }}
@@ -193,6 +204,15 @@ type updateFileData struct {
 
 type deleteFileData struct {
 	DeleteFile struct{ DeletedID uuid.UUID }
+}
+
+type finalizeFileUploadData struct {
+	FinalizeFileUpload struct {
+		ID       uuid.UUID
+		TenantID uuid.UUID
+		Name     string
+		Size     int64
+	}
 }
 
 type queryFilesData struct {
@@ -395,6 +415,101 @@ func TestFile_Delete(t *testing.T) {
 		}, "")
 
 		te.assertNoEvents(ctxA)
+	})
+}
+
+// =============================================================================
+// FINALIZE UPLOAD TESTS
+// =============================================================================
+
+func TestFile_FinalizeUpload(t *testing.T) {
+	t.Parallel()
+
+	t.Run("populates size from storage after upload", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		te.mockMinio.SetStatObjectInfo(minio.ObjectInfo{Size: 12345})
+
+		f := te.newFile(ctx, userA).Create()
+		te.clearEvents(ctx)
+
+		data := execOK[finalizeFileUploadData](te, ctx, finalizeFileUpload, map[string]any{
+			"ID": f.ID.String(),
+		})
+
+		assert.Equal(t, f.ID, data.FinalizeFileUpload.ID)
+		assert.Equal(t, int64(12345), data.FinalizeFileUpload.Size)
+
+		// Verify persisted
+		stored, err := te.Ent.File.Get(ctx, f.ID)
+		require.NoError(t, err)
+		require.NotNil(t, stored.Size)
+		assert.Equal(t, int64(12345), *stored.Size)
+	})
+
+	t.Run("is idempotent when size already matches", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		te.mockMinio.SetStatObjectInfo(minio.ObjectInfo{Size: 12345})
+
+		f := te.newFile(ctx, userA).Create()
+		te.clearEvents(ctx)
+
+		// First call: persists size and emits update event.
+		execOK[finalizeFileUploadData](te, ctx, finalizeFileUpload, map[string]any{
+			"ID": f.ID.String(),
+		})
+		te.assertEvents(ctx, Update("file", f.ID))
+		te.clearEvents(ctx)
+
+		// Second call with unchanged size: no update, no event.
+		data := execOK[finalizeFileUploadData](te, ctx, finalizeFileUpload, map[string]any{
+			"ID": f.ID.String(),
+		})
+		assert.Equal(t, int64(12345), data.FinalizeFileUpload.Size)
+		te.assertNoEvents(ctx)
+	})
+
+	t.Run("rejects finalize of other tenant's file", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+
+		ctxB := te.ctx(userB)
+		f := te.newFile(ctxB, userB).Create()
+		te.clearEvents(ctxB)
+
+		ctxA := te.ctx(userA)
+		execErr(te, ctxA, finalizeFileUpload, map[string]any{
+			"ID": f.ID.String(),
+		}, "")
+
+		te.assertNoEvents(ctxA)
+	})
+
+	t.Run("returns error when object not found in storage", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		te.mockMinio.SetStatObjectError(minio.ErrorResponse{
+			Code:       "NoSuchKey",
+			StatusCode: http.StatusNotFound,
+		})
+
+		f := te.newFile(ctx, userA).Create()
+		te.clearEvents(ctx)
+
+		execErr(te, ctx, finalizeFileUpload, map[string]any{
+			"ID": f.ID.String(),
+		}, "object not found")
 	})
 }
 

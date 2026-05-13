@@ -1,13 +1,14 @@
 package resolvers
 
 import (
+	"github.com/99designs/gqlgen/graphql"
+
 	"github.com/pyck-ai/pyck/backend/common/validator"
 	"github.com/pyck-ai/pyck/backend/common/workflow"
+
 	m "github.com/pyck-ai/pyck/backend/file"
 	ent "github.com/pyck-ai/pyck/backend/file/ent/gen"
 	"github.com/pyck-ai/pyck/backend/file/services"
-
-	"github.com/99designs/gqlgen/graphql"
 )
 
 // Resolver is the resolver root.

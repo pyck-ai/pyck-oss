@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,7 +16,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/iancoleman/strcase"
 	"github.com/nats-io/nats.go/jetstream"
-	"github.com/rs/zerolog/log"
+	"github.com/pyck-ai/pyck/backend/common/events"
+	"github.com/pyck-ai/pyck/backend/common/log"
 )
 
 // Define static errors to avoid dynamic error creation
@@ -57,21 +59,23 @@ func NewQuickwitSyncService(quickwitURL string, batchSize int, batchTimeout time
 func (s *QuickwitSyncService) ListenToEvents(consumer jetstream.Consumer) {
 	s.startBatchTimer()
 
+	logger := log.DefaultLogger()
+
 	cons, err := consumer.Messages()
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to create consumer messages")
+		logger.Error().Err(err).Msg("Failed to create consumer messages")
 		return
 	}
 
 	for {
 		select {
 		case <-s.shutdownCh:
-			log.Info().Msg("QuickwitSyncService shutting down")
+			logger.Info().Msg("QuickwitSyncService shutting down")
 			return
 		default:
 			msg, err := cons.Next()
 			if err != nil {
-				log.Error().Err(err).Msg("Error getting next message")
+				logger.Error().Err(err).Msg("Error getting next message")
 				continue
 			}
 
@@ -81,6 +85,9 @@ func (s *QuickwitSyncService) ListenToEvents(consumer jetstream.Consumer) {
 }
 
 func (s *QuickwitSyncService) processMessage(msg jetstream.Msg) {
+	ctx := events.ContextFromJetstreamMessage(context.Background(), msg)
+	logger := log.ForContext(ctx)
+
 	metadata, _ := msg.Metadata()
 	subject := msg.Subject()
 
@@ -91,17 +98,17 @@ func (s *QuickwitSyncService) processMessage(msg jetstream.Msg) {
 	} else {
 		// Validate the UUID is not malformed
 		if *tenantID == uuid.Nil {
-			log.Warn().Str("subject", subject).Msg("Invalid tenant ID in subject - using system tenant")
+			logger.Warn().Str("subject", subject).Msg("Invalid tenant ID in subject - using system tenant")
 			systemID := uuid.Max
 			tenantID = &systemID
 		}
 	}
 
-	event := s.parseEvent(msg, subject, metadata)
+	event := s.parseEvent(ctx, msg, subject, metadata)
 	if event == nil {
 		// ACK even if we can't parse, to avoid redelivery of bad messages
 		if err := msg.Ack(); err != nil {
-			log.Error().Err(err).Msg("Failed to ACK unparseable message")
+			logger.Error().Err(err).Msg("Failed to ACK unparseable message")
 		}
 		return
 	}
@@ -127,7 +134,7 @@ func (s *QuickwitSyncService) processMessage(msg jetstream.Msg) {
 	}
 }
 
-func (s *QuickwitSyncService) parseEvent(msg jetstream.Msg, subject string, metadata *jetstream.MsgMetadata) any {
+func (s *QuickwitSyncService) parseEvent(ctx context.Context, msg jetstream.Msg, subject string, metadata *jetstream.MsgMetadata) any {
 	// Create base event with common fields
 	event := map[string]any{
 		"timestamp":   time.Now().UTC().Format(time.RFC3339),
@@ -145,7 +152,7 @@ func (s *QuickwitSyncService) parseEvent(msg jetstream.Msg, subject string, meta
 	// Unmarshal message data as generic map
 	var msgData map[string]any
 	if err := json.Unmarshal(msg.Data(), &msgData); err != nil {
-		log.Error().Err(err).Msg("Failed to unmarshal message data")
+		log.ForContext(ctx).Error().Err(err).Msg("Failed to unmarshal message data")
 		// Store raw data if unmarshal fails
 		event["event_type"] = "unknown"
 		event["raw_data"] = string(msg.Data())
@@ -319,7 +326,7 @@ func (s *QuickwitSyncService) flushAllBatches() {
 // processBatch handles ingestion and ACK/NAK for a batch of events
 func (s *QuickwitSyncService) processBatch(tenantID uuid.UUID, batch []EventWithMessage) {
 	// Create logger with tenant context
-	logger := log.With().Str("tenant_id", tenantID.String()).Logger()
+	logger := log.DefaultLogger().With().Str("tenant_id", tenantID.String()).Logger()
 
 	// Extract just the events for ingestion
 	events := make([]any, len(batch))
@@ -370,7 +377,7 @@ func (s *QuickwitSyncService) ingestEventsForTenant(tenantID uuid.UUID, events [
 
 func (s *QuickwitSyncService) postToQuickwit(indexName string, events []any) error {
 	// Create logger with index context
-	logger := log.With().Str("index_name", indexName).Logger()
+	logger := log.DefaultLogger().With().Str("index_name", indexName).Logger()
 
 	url := fmt.Sprintf("%s/api/v1/%s/ingest", s.quickwitURL, indexName)
 
@@ -420,7 +427,7 @@ func (s *QuickwitSyncService) postToQuickwit(indexName string, events []any) err
 
 func (s *QuickwitSyncService) createIndex(indexName string, tenantID uuid.UUID) error {
 	// Create logger with tenant context
-	logger := log.With().Str("tenant_id", tenantID.String()).Str("index_name", indexName).Logger()
+	logger := log.DefaultLogger().With().Str("tenant_id", tenantID.String()).Str("index_name", indexName).Logger()
 	indexConfig := map[string]any{
 		"version":  "0.7",
 		"index_id": indexName,
@@ -570,7 +577,8 @@ func extractTenantID(subject string) *uuid.UUID {
 
 // Shutdown gracefully stops the QuickwitSyncService
 func (s *QuickwitSyncService) Shutdown() {
-	log.Info().Msg("Shutting down QuickwitSyncService")
+	logger := log.DefaultLogger()
+	logger.Info().Msg("Shutting down QuickwitSyncService")
 
 	if s.ticker != nil {
 		s.ticker.Stop()

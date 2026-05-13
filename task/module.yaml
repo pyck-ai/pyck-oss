@@ -33,6 +33,11 @@ tasks:
         --timeout=5m
         ./...
 
+  govulncheck:
+    desc: Scan module for known vulnerabilities
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
   lint:fix:
     desc: Lint module and fix issues
     cmds:
@@ -72,5 +77,6 @@ tasks:
         --packages=./...
         --
         -race
+        -timeout=20m
         -cover -coverprofile=cover.out
         {{.CLI_ARGS}}

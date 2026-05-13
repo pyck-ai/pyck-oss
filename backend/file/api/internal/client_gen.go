@@ -17,6 +17,7 @@ type APIClient interface {
 	CreateFile(ctx context.Context, input CreateFileInput, interceptors ...clientv2.RequestInterceptor) (*CreateFile, error)
 	UpdateFile(ctx context.Context, id string, input UpdateFileInput, interceptors ...clientv2.RequestInterceptor) (*UpdateFile, error)
 	DeleteFile(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeleteFile, error)
+	FinalizeFileUpload(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*FinalizeFileUpload, error)
 	AnalyzeImageFile(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*AnalyzeImageFile, error)
 	PatchFileData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchFileData, error)
 }
@@ -77,7 +78,7 @@ type GetFiles_Files_Edges_Node struct {
 	PublicURL    *string        "json:\"publicURL,omitempty\" graphql:\"publicURL\""
 	Refid        uuid.UUID      "json:\"refid\" graphql:\"refid\""
 	Reftype      file.Reftype   "json:\"reftype\" graphql:\"reftype\""
-	Size         int            "json:\"size\" graphql:\"size\""
+	Size         *int           "json:\"size,omitempty\" graphql:\"size\""
 	TenantID     uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
 	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
 	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
@@ -174,7 +175,7 @@ func (t *GetFiles_Files_Edges_Node) GetReftype() *file.Reftype {
 	}
 	return &t.Reftype
 }
-func (t *GetFiles_Files_Edges_Node) GetSize() int {
+func (t *GetFiles_Files_Edges_Node) GetSize() *int {
 	if t == nil {
 		t = &GetFiles_Files_Edges_Node{}
 	}
@@ -282,7 +283,7 @@ type CreateFile_CreateFile_File struct {
 	PublicURL    *string        "json:\"publicURL,omitempty\" graphql:\"publicURL\""
 	Refid        uuid.UUID      "json:\"refid\" graphql:\"refid\""
 	Reftype      file.Reftype   "json:\"reftype\" graphql:\"reftype\""
-	Size         int            "json:\"size\" graphql:\"size\""
+	Size         *int           "json:\"size,omitempty\" graphql:\"size\""
 	TenantID     uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
 	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
 	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
@@ -379,7 +380,7 @@ func (t *CreateFile_CreateFile_File) GetReftype() *file.Reftype {
 	}
 	return &t.Reftype
 }
-func (t *CreateFile_CreateFile_File) GetSize() int {
+func (t *CreateFile_CreateFile_File) GetSize() *int {
 	if t == nil {
 		t = &CreateFile_CreateFile_File{}
 	}
@@ -451,7 +452,7 @@ type UpdateFile_UpdateFile struct {
 	PublicURL    *string        "json:\"publicURL,omitempty\" graphql:\"publicURL\""
 	Refid        uuid.UUID      "json:\"refid\" graphql:\"refid\""
 	Reftype      file.Reftype   "json:\"reftype\" graphql:\"reftype\""
-	Size         int            "json:\"size\" graphql:\"size\""
+	Size         *int           "json:\"size,omitempty\" graphql:\"size\""
 	TenantID     uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
 	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
 	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
@@ -548,7 +549,7 @@ func (t *UpdateFile_UpdateFile) GetReftype() *file.Reftype {
 	}
 	return &t.Reftype
 }
-func (t *UpdateFile_UpdateFile) GetSize() int {
+func (t *UpdateFile_UpdateFile) GetSize() *int {
 	if t == nil {
 		t = &UpdateFile_UpdateFile{}
 	}
@@ -590,6 +591,150 @@ func (t *DeleteFile_DeleteFile) GetDeletedID() *string {
 	return t.DeletedID
 }
 
+type FinalizeFileUpload_FinalizeFileUpload struct {
+	ContentType  string         "json:\"contentType\" graphql:\"contentType\""
+	CreatedAt    time.Time      "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy    uuid.UUID      "json:\"createdBy\" graphql:\"createdBy\""
+	Data         map[string]any "json:\"data,omitempty\" graphql:\"data\""
+	DataTypeID   *uuid.UUID     "json:\"dataTypeID,omitempty\" graphql:\"dataTypeID\""
+	DataTypeSlug *string        "json:\"dataTypeSlug,omitempty\" graphql:\"dataTypeSlug\""
+	DeletedAt    *time.Time     "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy    *uuid.UUID     "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	Description  *string        "json:\"description,omitempty\" graphql:\"description\""
+	ID           string         "json:\"id\" graphql:\"id\""
+	Name         string         "json:\"name\" graphql:\"name\""
+	PublicAlias  *string        "json:\"publicAlias,omitempty\" graphql:\"publicAlias\""
+	PublicURL    *string        "json:\"publicURL,omitempty\" graphql:\"publicURL\""
+	Refid        uuid.UUID      "json:\"refid\" graphql:\"refid\""
+	Reftype      file.Reftype   "json:\"reftype\" graphql:\"reftype\""
+	Size         *int           "json:\"size,omitempty\" graphql:\"size\""
+	TenantID     uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+	URL          *string        "json:\"url,omitempty\" graphql:\"url\""
+}
+
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetContentType() string {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return t.ContentType
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return &t.CreatedAt
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return &t.CreatedBy
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetData() map[string]any {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return t.Data
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetDataTypeID() *uuid.UUID {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return t.DataTypeID
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetDataTypeSlug() *string {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return t.DataTypeSlug
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return t.DeletedAt
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return t.DeletedBy
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetDescription() *string {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return t.Description
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetID() string {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return t.ID
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetName() string {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return t.Name
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetPublicAlias() *string {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return t.PublicAlias
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetPublicURL() *string {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return t.PublicURL
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetRefid() *uuid.UUID {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return &t.Refid
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetReftype() *file.Reftype {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return &t.Reftype
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetSize() *int {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return t.Size
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return &t.TenantID
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return t.UpdatedAt
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return t.UpdatedBy
+}
+func (t *FinalizeFileUpload_FinalizeFileUpload) GetURL() *string {
+	if t == nil {
+		t = &FinalizeFileUpload_FinalizeFileUpload{}
+	}
+	return t.URL
+}
+
 type AnalyzeImageFile_AnalyzeImageFile struct {
 	JSONData string "json:\"jsonData\" graphql:\"jsonData\""
 }
@@ -617,7 +762,7 @@ type PatchFileData_PatchFileData struct {
 	PublicURL    *string        "json:\"publicURL,omitempty\" graphql:\"publicURL\""
 	Refid        uuid.UUID      "json:\"refid\" graphql:\"refid\""
 	Reftype      file.Reftype   "json:\"reftype\" graphql:\"reftype\""
-	Size         int            "json:\"size\" graphql:\"size\""
+	Size         *int           "json:\"size,omitempty\" graphql:\"size\""
 	TenantID     uuid.UUID      "json:\"tenantID\" graphql:\"tenantID\""
 	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
 	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
@@ -714,7 +859,7 @@ func (t *PatchFileData_PatchFileData) GetReftype() *file.Reftype {
 	}
 	return &t.Reftype
 }
-func (t *PatchFileData_PatchFileData) GetSize() int {
+func (t *PatchFileData_PatchFileData) GetSize() *int {
 	if t == nil {
 		t = &PatchFileData_PatchFileData{}
 	}
@@ -798,6 +943,17 @@ func (t *DeleteFile) GetDeleteFile() *DeleteFile_DeleteFile {
 		t = &DeleteFile{}
 	}
 	return &t.DeleteFile
+}
+
+type FinalizeFileUpload struct {
+	FinalizeFileUpload FinalizeFileUpload_FinalizeFileUpload "json:\"finalizeFileUpload\" graphql:\"finalizeFileUpload\""
+}
+
+func (t *FinalizeFileUpload) GetFinalizeFileUpload() *FinalizeFileUpload_FinalizeFileUpload {
+	if t == nil {
+		t = &FinalizeFileUpload{}
+	}
+	return &t.FinalizeFileUpload
 }
 
 type AnalyzeImageFile struct {
@@ -1020,6 +1176,49 @@ func (c *Client) DeleteFile(ctx context.Context, id string, interceptors ...clie
 	return &res, nil
 }
 
+const FinalizeFileUploadDocument = `mutation FinalizeFileUpload ($id: ID!) {
+	finalizeFileUpload(id: $id) {
+		contentType
+		createdAt
+		createdBy
+		data
+		dataTypeID
+		dataTypeSlug
+		deletedAt
+		deletedBy
+		description
+		id
+		name
+		publicAlias
+		publicURL
+		refid
+		reftype
+		size
+		tenantID
+		updatedAt
+		updatedBy
+		url
+	}
+}
+`
+
+func (c *Client) FinalizeFileUpload(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*FinalizeFileUpload, error) {
+	vars := map[string]any{
+		"id": id,
+	}
+
+	var res FinalizeFileUpload
+	if err := c.Client.Post(ctx, "FinalizeFileUpload", FinalizeFileUploadDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 const AnalyzeImageFileDocument = `mutation AnalyzeImageFile ($id: ID!) {
 	analyzeImageFile(id: $id) {
 		jsonData
@@ -1094,6 +1293,7 @@ var DocumentOperationNames = map[string]string{
 	CreateFileDocument:         "CreateFile",
 	UpdateFileDocument:         "UpdateFile",
 	DeleteFileDocument:         "DeleteFile",
+	FinalizeFileUploadDocument: "FinalizeFileUpload",
 	AnalyzeImageFileDocument:   "AnalyzeImageFile",
 	PatchFileDataDocument:      "PatchFileData",
 }

@@ -20,6 +20,8 @@ type MockMinioClient struct {
 	deleteObjectError error
 	bucketExistsError error
 	makeBucketError   error
+	statObjectError   error
+	statObjectInfo    minio.ObjectInfo
 }
 
 // NewMockMinioClient creates a new mock MinIO client
@@ -108,4 +110,26 @@ func (m *MockMinioClient) SetBucketExistsError(err error) {
 // SetMakeBucketError sets the error for MakeBucket operations
 func (m *MockMinioClient) SetMakeBucketError(err error) {
 	m.makeBucketError = err
+}
+
+// StatObject mocks the StatObject method
+func (m *MockMinioClient) StatObject(ctx context.Context, bucketName, objectName string, opts minio.StatObjectOptions) (minio.ObjectInfo, error) {
+	if m.statObjectError != nil {
+		return minio.ObjectInfo{}, m.statObjectError
+	}
+	info := m.statObjectInfo
+	if info.Key == "" {
+		info.Key = objectName
+	}
+	return info, nil
+}
+
+// SetStatObjectInfo sets the ObjectInfo returned by StatObject operations
+func (m *MockMinioClient) SetStatObjectInfo(info minio.ObjectInfo) {
+	m.statObjectInfo = info
+}
+
+// SetStatObjectError sets the error for StatObject operations
+func (m *MockMinioClient) SetStatObjectError(err error) {
+	m.statObjectError = err
 }

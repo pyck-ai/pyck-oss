@@ -72,6 +72,10 @@ func (testPublisher) RequestRaw(context.Context, string, []byte, time.Duration) 
 // GroupByCorrelation exports the internal groupByCorrelation function for testing.
 var GroupByCorrelation = groupByCorrelation
 
+// InjectIntoMsg exposes the internal injectIntoMsg helper for testing the
+// NATS baggage carrier round-trip.
+var InjectIntoMsg = injectIntoMsg
+
 // BuildMessageID exports the OutboxHandler.buildMessageID logic for testing.
 // Creates a test handler and calls the method.
 func BuildMessageID(entry OutboxRow) string {

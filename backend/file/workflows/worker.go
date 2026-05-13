@@ -1,10 +1,11 @@
 package workflows
 
 import (
-	imageanalyzer "github.com/pyck-ai/pyck/backend/file/workflows/image-analyzer"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
+
+	imageanalyzer "github.com/pyck-ai/pyck/backend/file/workflows/image-analyzer"
 )
 
 const (

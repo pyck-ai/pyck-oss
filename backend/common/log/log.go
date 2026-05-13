@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pyck-ai/pyck/backend/common/env/config"
+	"github.com/pyck-ai/pyck/backend/common/requestid"
 	"github.com/pyck-ai/pyck/backend/common/typing"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -42,7 +43,13 @@ func Enabled(logger Logger, level zerolog.Level) bool {
 }
 
 func ForContext(ctx context.Context) *Logger {
-	return log.Ctx(ctx)
+	// zerolog's log.Ctx returns the logger stored in ctx but does not attach
+	// ctx to the returned logger. Without that attachment, hooks that read
+	// e.GetCtx() (addTraces, addRequestID) see context.Background() and
+	// silently drop their fields. We materialize a derived logger that
+	// carries ctx so events inherit it via Logger.newEvent.
+	l := log.Ctx(ctx).With().Ctx(ctx).Logger()
+	return &l
 }
 
 func Context(ctx context.Context, logger Logger) context.Context {
@@ -68,7 +75,8 @@ func SetupLogger(ctx context.Context, serviceName string, config config.LogConfi
 		Str("service", serviceName).
 		Logger().
 		Hook(zerolog.HookFunc(addCallers)).
-		Hook(zerolog.HookFunc(addTraces))
+		Hook(zerolog.HookFunc(addTraces)).
+		Hook(zerolog.HookFunc(addRequestID))
 
 	switch config.LogFormat {
 	case "console":
@@ -150,4 +158,18 @@ func addTraces(e *zerolog.Event, level zerolog.Level, message string) {
 		TraceID: spanCtx.TraceID().String(),
 		SpanID:  spanCtx.SpanID().String(),
 	})
+}
+
+func addRequestID(e *zerolog.Event, level zerolog.Level, message string) {
+	ctx := e.GetCtx()
+	if ctx == nil {
+		return
+	}
+
+	id := requestid.FromContext(ctx)
+	if id == "" {
+		return
+	}
+
+	e.Str(requestid.LogField, id)
 }

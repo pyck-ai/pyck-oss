@@ -138,6 +138,26 @@ tasks:
       - task: cli:{{.TASK}}
       - task: temporal:{{.TASK}}
 
+  scan:
+    desc: Scan all modules for known vulnerabilities
+    cmds:
+      - task: govulncheck
+
+  govulncheck:
+    desc: Run govulncheck on all modules
+    cmds:
+      - task: common:{{.TASK}}
+      - task: file:{{.TASK}}
+      - task: inventory:{{.TASK}}
+      - task: main-data:{{.TASK}}
+      - task: management:{{.TASK}}
+      - task: picking:{{.TASK}}
+      - task: receiving:{{.TASK}}
+      - task: workflow:{{.TASK}}
+      - task: workflowsdk:{{.TASK}}
+      - task: cli:{{.TASK}}
+      - task: temporal:{{.TASK}}
+
   lint:fix:
     desc: Lint all modules and fix issues
     cmds:

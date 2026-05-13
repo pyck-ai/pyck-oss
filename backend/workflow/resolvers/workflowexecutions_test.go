@@ -12,6 +12,7 @@ import (
 	common "go.temporal.io/api/common/v1"
 	workflowpb "go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
+	"go.temporal.io/sdk/converter"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
@@ -178,6 +179,42 @@ var (
 				{{- if .Where.TargetsNotIn }}
 				targetsNotIn: [{{range $i, $v := .Where.TargetsNotIn}}{{if $i}}, {{end}}{{$v}}{{end}}]
 				{{- end }}
+				{{- if .Where.Title }}
+				title: "{{.Where.Title}}"
+				{{- end }}
+				{{- if .Where.TitleIn }}
+				titleIn: [{{range $i, $v := .Where.TitleIn}}{{if $i}}, {{end}}"{{$v}}"{{end}}]
+				{{- end }}
+				{{- if .Where.TitleHasPrefix }}
+				titleHasPrefix: "{{.Where.TitleHasPrefix}}"
+				{{- end }}
+				{{- if ne .Where.TitleIsNil nil }}
+				titleIsNil: {{.Where.TitleIsNil}}
+				{{- end }}
+				{{- if .Where.GroupTitle }}
+				groupTitle: "{{.Where.GroupTitle}}"
+				{{- end }}
+				{{- if .Where.GroupTitleIn }}
+				groupTitleIn: [{{range $i, $v := .Where.GroupTitleIn}}{{if $i}}, {{end}}"{{$v}}"{{end}}]
+				{{- end }}
+				{{- if .Where.GroupTitleHasPrefix }}
+				groupTitleHasPrefix: "{{.Where.GroupTitleHasPrefix}}"
+				{{- end }}
+				{{- if ne .Where.GroupTitleIsNil nil }}
+				groupTitleIsNil: {{.Where.GroupTitleIsNil}}
+				{{- end }}
+				{{- if .Where.SortKey }}
+				sortKey: {{.Where.SortKey}}
+				{{- end }}
+				{{- if .Where.SortKeyGt }}
+				sortKeyGT: {{.Where.SortKeyGt}}
+				{{- end }}
+				{{- if .Where.SortKeyIn }}
+				sortKeyIn: [{{range $i, $v := .Where.SortKeyIn}}{{if $i}}, {{end}}{{$v}}{{end}}]
+				{{- end }}
+				{{- if ne .Where.SortKeyIsNil nil }}
+				sortKeyIsNil: {{.Where.SortKeyIsNil}}
+				{{- end }}
 			}
 			{{- end }}
 			{{- if .First }}
@@ -335,6 +372,18 @@ type workflowExecutionsWhereInput struct {
 	DataIdNotNil         *bool
 	Targets              []string
 	TargetsNotIn         []string
+	Title                *string
+	TitleIn              []string
+	TitleHasPrefix       *string
+	TitleIsNil           *bool
+	GroupTitle           *string
+	GroupTitleIn         []string
+	GroupTitleHasPrefix  *string
+	GroupTitleIsNil      *bool
+	SortKey              *int
+	SortKeyGt            *int
+	SortKeyIn            []int
+	SortKeyIsNil         *bool
 }
 
 type workflowExecutionOrderInput struct {
@@ -956,6 +1005,357 @@ func TestWorkflowExecutions_DataIdFilters(t *testing.T) {
 }
 
 // =============================================================================
+// TITLE FILTER TESTS
+// =============================================================================
+
+func TestWorkflowExecutions_TitleFilters(t *testing.T) {
+	t.Parallel()
+
+	t.Run("title equals", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		var capturedQuery string
+		te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+			capturedQuery = request.GetQuery()
+			return &workflowservice.ListWorkflowExecutionsResponse{
+				Executions: []*workflowpb.WorkflowExecutionInfo{},
+			}, nil
+		}
+
+		execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+			"Where": &workflowExecutionsWhereInput{
+				Title: stringPtr("SKU-123"),
+			},
+		})
+
+		assert.Contains(t, capturedQuery, `pyck_title = "SKU-123"`)
+	})
+
+	t.Run("title IN", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		var capturedQuery string
+		te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+			capturedQuery = request.GetQuery()
+			return &workflowservice.ListWorkflowExecutionsResponse{
+				Executions: []*workflowpb.WorkflowExecutionInfo{},
+			}, nil
+		}
+
+		execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+			"Where": &workflowExecutionsWhereInput{
+				TitleIn: []string{"SKU-123", "SKU-456"},
+			},
+		})
+
+		assert.Contains(t, capturedQuery, `pyck_title IN ("SKU-123", "SKU-456")`)
+	})
+
+	t.Run("title STARTS_WITH", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		var capturedQuery string
+		te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+			capturedQuery = request.GetQuery()
+			return &workflowservice.ListWorkflowExecutionsResponse{
+				Executions: []*workflowpb.WorkflowExecutionInfo{},
+			}, nil
+		}
+
+		execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+			"Where": &workflowExecutionsWhereInput{
+				TitleHasPrefix: stringPtr("SKU-"),
+			},
+		})
+
+		assert.Contains(t, capturedQuery, `pyck_title STARTS_WITH "SKU-"`)
+	})
+
+	t.Run("titleIsNil treats missing or empty as null", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		var capturedQuery string
+		te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+			capturedQuery = request.GetQuery()
+			return &workflowservice.ListWorkflowExecutionsResponse{
+				Executions: []*workflowpb.WorkflowExecutionInfo{},
+			}, nil
+		}
+
+		execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+			"Where": &workflowExecutionsWhereInput{
+				TitleIsNil: boolPtr(true),
+			},
+		})
+
+		assert.Contains(t, capturedQuery, `(pyck_title IS NULL OR pyck_title = "")`)
+	})
+}
+
+// =============================================================================
+// GROUP TITLE FILTER TESTS
+// =============================================================================
+
+func TestWorkflowExecutions_GroupTitleFilters(t *testing.T) {
+	t.Parallel()
+
+	t.Run("groupTitle equals", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		var capturedQuery string
+		te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+			capturedQuery = request.GetQuery()
+			return &workflowservice.ListWorkflowExecutionsResponse{
+				Executions: []*workflowpb.WorkflowExecutionInfo{},
+			}, nil
+		}
+
+		execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+			"Where": &workflowExecutionsWhereInput{
+				GroupTitle: stringPtr("ORDER-42"),
+			},
+		})
+
+		assert.Contains(t, capturedQuery, `pyck_group_title = "ORDER-42"`)
+	})
+
+	t.Run("groupTitle IN", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		var capturedQuery string
+		te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+			capturedQuery = request.GetQuery()
+			return &workflowservice.ListWorkflowExecutionsResponse{
+				Executions: []*workflowpb.WorkflowExecutionInfo{},
+			}, nil
+		}
+
+		execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+			"Where": &workflowExecutionsWhereInput{
+				GroupTitleIn: []string{"ORDER-42", "ORDER-43"},
+			},
+		})
+
+		assert.Contains(t, capturedQuery, `pyck_group_title IN ("ORDER-42", "ORDER-43")`)
+	})
+
+	t.Run("groupTitle STARTS_WITH", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		var capturedQuery string
+		te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+			capturedQuery = request.GetQuery()
+			return &workflowservice.ListWorkflowExecutionsResponse{
+				Executions: []*workflowpb.WorkflowExecutionInfo{},
+			}, nil
+		}
+
+		execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+			"Where": &workflowExecutionsWhereInput{
+				GroupTitleHasPrefix: stringPtr("ORDER-"),
+			},
+		})
+
+		assert.Contains(t, capturedQuery, `pyck_group_title STARTS_WITH "ORDER-"`)
+	})
+
+	t.Run("groupTitleIsNil treats missing or empty as null", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		var capturedQuery string
+		te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+			capturedQuery = request.GetQuery()
+			return &workflowservice.ListWorkflowExecutionsResponse{
+				Executions: []*workflowpb.WorkflowExecutionInfo{},
+			}, nil
+		}
+
+		execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+			"Where": &workflowExecutionsWhereInput{
+				GroupTitleIsNil: boolPtr(true),
+			},
+		})
+
+		assert.Contains(t, capturedQuery, `(pyck_group_title IS NULL OR pyck_group_title = "")`)
+	})
+}
+
+// =============================================================================
+// SORT KEY FILTER TESTS
+// =============================================================================
+
+func TestWorkflowExecutions_SortKeyFilters(t *testing.T) {
+	t.Parallel()
+
+	t.Run("sortKey equals", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		var capturedQuery string
+		te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+			capturedQuery = request.GetQuery()
+			return &workflowservice.ListWorkflowExecutionsResponse{
+				Executions: []*workflowpb.WorkflowExecutionInfo{},
+			}, nil
+		}
+
+		execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+			"Where": &workflowExecutionsWhereInput{
+				SortKey: intPtr(42),
+			},
+		})
+
+		assert.Contains(t, capturedQuery, `pyck_sort_key = 42`)
+	})
+
+	t.Run("sortKey GT", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		var capturedQuery string
+		te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+			capturedQuery = request.GetQuery()
+			return &workflowservice.ListWorkflowExecutionsResponse{
+				Executions: []*workflowpb.WorkflowExecutionInfo{},
+			}, nil
+		}
+
+		execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+			"Where": &workflowExecutionsWhereInput{
+				SortKeyGt: intPtr(100),
+			},
+		})
+
+		assert.Contains(t, capturedQuery, `pyck_sort_key > 100`)
+	})
+
+	t.Run("sortKey IN", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		var capturedQuery string
+		te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+			capturedQuery = request.GetQuery()
+			return &workflowservice.ListWorkflowExecutionsResponse{
+				Executions: []*workflowpb.WorkflowExecutionInfo{},
+			}, nil
+		}
+
+		execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+			"Where": &workflowExecutionsWhereInput{
+				SortKeyIn: []int{1, 2, 3},
+			},
+		})
+
+		assert.Contains(t, capturedQuery, `pyck_sort_key IN (1, 2, 3)`)
+	})
+
+	t.Run("sortKeyIsNil emits bare IS NULL", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		var capturedQuery string
+		te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+			capturedQuery = request.GetQuery()
+			return &workflowservice.ListWorkflowExecutionsResponse{
+				Executions: []*workflowpb.WorkflowExecutionInfo{},
+			}, nil
+		}
+
+		execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+			"Where": &workflowExecutionsWhereInput{
+				SortKeyIsNil: boolPtr(true),
+			},
+		})
+
+		assert.Contains(t, capturedQuery, `pyck_sort_key IS NULL`)
+		assert.NotContains(t, capturedQuery, `pyck_sort_key = ""`)
+	})
+}
+
+// execWithSortKey constructs a minimal proto execution carrying a pyck_sort_key
+// Int64 search attribute encoded with the default Temporal data converter.
+func execWithSortKey(t *testing.T, id string, sortKey int64) *workflowpb.WorkflowExecutionInfo {
+	t.Helper()
+	payload, err := converter.GetDefaultDataConverter().ToPayload(sortKey)
+	require.NoError(t, err)
+	return &workflowpb.WorkflowExecutionInfo{
+		Execution: &common.WorkflowExecution{WorkflowId: id, RunId: id + "-run"},
+		Type:      &common.WorkflowType{Name: "Test"},
+		SearchAttributes: &common.SearchAttributes{
+			IndexedFields: map[string]*common.Payload{
+				"pyck_sort_key": payload,
+			},
+		},
+	}
+}
+
+func TestWorkflowExecutions_OrderBy_SortKeyIsNumeric(t *testing.T) {
+	t.Parallel()
+	te := setupWithMockWorkflow(t)
+	defer te.Close(t)
+	ctx := te.ctx(userA)
+
+	te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+		return &workflowservice.ListWorkflowExecutionsResponse{
+			Executions: []*workflowpb.WorkflowExecutionInfo{
+				execWithSortKey(t, "a", 10),
+				execWithSortKey(t, "b", 2),
+				execWithSortKey(t, "c", 9),
+			},
+		}, nil
+	}
+
+	data := execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+		"OrderBy": &workflowExecutionOrderInput{
+			Field:     "SORT_KEY",
+			Direction: "ASC",
+		},
+	})
+
+	require.NotNil(t, data.WorkflowExecutions)
+	require.Len(t, data.WorkflowExecutions.Edges, 3)
+	ids := []string{
+		data.WorkflowExecutions.Edges[0].Node.Execution.WorkflowID,
+		data.WorkflowExecutions.Edges[1].Node.Execution.WorkflowID,
+		data.WorkflowExecutions.Edges[2].Node.Execution.WorkflowID,
+	}
+	assert.Equal(t, []string{"b", "c", "a"}, ids, "expected numeric sort 2, 9, 10 — lexicographic would give 10, 2, 9")
+}
+
+// =============================================================================
 // COMBINED NEW FILTERS TEST
 // =============================================================================
 
@@ -1203,24 +1603,40 @@ func TestWorkflowExecutions_TemporalError(t *testing.T) {
 
 func TestWorkflowExecutions_OrderBy(t *testing.T) {
 	t.Parallel()
-	te := setupWithMockWorkflow(t)
-	defer te.Close(t)
-	ctx := te.ctx(userA)
 
-	te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
-		return &workflowservice.ListWorkflowExecutionsResponse{
-			Executions: []*workflowpb.WorkflowExecutionInfo{},
-		}, nil
+	tests := []struct {
+		name  string
+		field string
+	}{
+		{name: "by start time", field: "START_TIME"},
+		{name: "by title", field: "TITLE"},
+		{name: "by group title", field: "GROUP_TITLE"},
+		{name: "by sort key", field: "SORT_KEY"},
 	}
 
-	data := execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
-		"OrderBy": &workflowExecutionOrderInput{
-			Field:     "START_TIME",
-			Direction: "DESC",
-		},
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			te := setupWithMockWorkflow(t)
+			defer te.Close(t)
+			ctx := te.ctx(userA)
 
-	require.NotNil(t, data.WorkflowExecutions)
+			te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+				return &workflowservice.ListWorkflowExecutionsResponse{
+					Executions: []*workflowpb.WorkflowExecutionInfo{},
+				}, nil
+			}
+
+			data := execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+				"OrderBy": &workflowExecutionOrderInput{
+					Field:     tt.field,
+					Direction: "DESC",
+				},
+			})
+
+			require.NotNil(t, data.WorkflowExecutions)
+		})
+	}
 }
 
 // =============================================================================

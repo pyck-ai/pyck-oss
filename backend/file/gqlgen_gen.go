@@ -136,11 +136,12 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		AnalyzeImageFile func(childComplexity int, id uuid.UUID) int
-		CreateFile       func(childComplexity int, input gen.CreateFileInput) int
-		DeleteFile       func(childComplexity int, id uuid.UUID) int
-		PatchFileData    func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
-		UpdateFile       func(childComplexity int, id uuid.UUID, input gen.UpdateFileInput) int
+		AnalyzeImageFile   func(childComplexity int, id uuid.UUID) int
+		CreateFile         func(childComplexity int, input gen.CreateFileInput) int
+		DeleteFile         func(childComplexity int, id uuid.UUID) int
+		FinalizeFileUpload func(childComplexity int, id uuid.UUID) int
+		PatchFileData      func(childComplexity int, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) int
+		UpdateFile         func(childComplexity int, id uuid.UUID, input gen.UpdateFileInput) int
 	}
 
 	PageInfo struct {
@@ -200,6 +201,7 @@ type MutationResolver interface {
 	CreateFile(ctx context.Context, input gen.CreateFileInput) (*model.CreateFileResult, error)
 	UpdateFile(ctx context.Context, id uuid.UUID, input gen.UpdateFileInput) (*gen.File, error)
 	DeleteFile(ctx context.Context, id uuid.UUID) (*model.FileDeletePayload, error)
+	FinalizeFileUpload(ctx context.Context, id uuid.UUID) (*gen.File, error)
 	AnalyzeImageFile(ctx context.Context, id uuid.UUID) (*model.ImageAnalysisResponse, error)
 	PatchFileData(ctx context.Context, id uuid.UUID, patches []*jsonpatch.JSONPatchInput) (*gen.File, error)
 }
@@ -641,6 +643,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.DeleteFile(childComplexity, args["id"].(uuid.UUID)), true
+	case "Mutation.finalizeFileUpload":
+		if e.ComplexityRoot.Mutation.FinalizeFileUpload == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_finalizeFileUpload_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.FinalizeFileUpload(childComplexity, args["id"].(uuid.UUID)), true
 	case "Mutation.patchFileData":
 		if e.ComplexityRoot.Mutation.PatchFileData == nil {
 			break
@@ -1082,6 +1095,17 @@ func (ec *executionContext) field_Mutation_createFile_args(ctx context.Context, 
 }
 
 func (ec *executionContext) field_Mutation_deleteFile_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_finalizeFileUpload_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID)
@@ -2683,9 +2707,9 @@ func (ec *executionContext) _File_size(ctx context.Context, field graphql.Collec
 			return obj.Size, nil
 		},
 		nil,
-		ec.marshalNInt2int64,
+		ec.marshalOInt2ᚖint64,
 		true,
-		true,
+		false,
 	)
 }
 
@@ -3379,6 +3403,89 @@ func (ec *executionContext) fieldContext_Mutation_deleteFile(ctx context.Context
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_deleteFile_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_finalizeFileUpload(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_finalizeFileUpload,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().FinalizeFileUpload(ctx, fc.Args["id"].(uuid.UUID))
+		},
+		nil,
+		ec.marshalNFile2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋfileᚋentᚋgenᚐFile,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_finalizeFileUpload(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_File_id(ctx, field)
+			case "tenantID":
+				return ec.fieldContext_File_tenantID(ctx, field)
+			case "dataTypeID":
+				return ec.fieldContext_File_dataTypeID(ctx, field)
+			case "dataTypeSlug":
+				return ec.fieldContext_File_dataTypeSlug(ctx, field)
+			case "data":
+				return ec.fieldContext_File_data(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_File_createdAt(ctx, field)
+			case "createdBy":
+				return ec.fieldContext_File_createdBy(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_File_updatedAt(ctx, field)
+			case "updatedBy":
+				return ec.fieldContext_File_updatedBy(ctx, field)
+			case "deletedAt":
+				return ec.fieldContext_File_deletedAt(ctx, field)
+			case "deletedBy":
+				return ec.fieldContext_File_deletedBy(ctx, field)
+			case "refid":
+				return ec.fieldContext_File_refid(ctx, field)
+			case "reftype":
+				return ec.fieldContext_File_reftype(ctx, field)
+			case "description":
+				return ec.fieldContext_File_description(ctx, field)
+			case "name":
+				return ec.fieldContext_File_name(ctx, field)
+			case "size":
+				return ec.fieldContext_File_size(ctx, field)
+			case "contentType":
+				return ec.fieldContext_File_contentType(ctx, field)
+			case "publicAlias":
+				return ec.fieldContext_File_publicAlias(ctx, field)
+			case "url":
+				return ec.fieldContext_File_url(ctx, field)
+			case "publicURL":
+				return ec.fieldContext_File_publicURL(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type File", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_finalizeFileUpload_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -5879,7 +5986,7 @@ func (ec *executionContext) unmarshalInputCreateFileInput(ctx context.Context, o
 			it.Name = data
 		case "size":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("size"))
-			data, err := ec.unmarshalNInt2int64(ctx, v)
+			data, err := ec.unmarshalOInt2ᚖint64(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -7007,7 +7114,7 @@ func (ec *executionContext) unmarshalInputFileWhereInput(ctx context.Context, ob
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"not", "and", "or", "id", "idNEQ", "idIn", "idNotIn", "idGT", "idGTE", "idLT", "idLTE", "tenantID", "tenantIDNEQ", "tenantIDIn", "tenantIDNotIn", "tenantIDGT", "tenantIDGTE", "tenantIDLT", "tenantIDLTE", "dataTypeID", "dataTypeIDNEQ", "dataTypeIDIn", "dataTypeIDNotIn", "dataTypeIDGT", "dataTypeIDGTE", "dataTypeIDLT", "dataTypeIDLTE", "dataTypeIDIsNil", "dataTypeIDNotNil", "dataTypeSlug", "dataTypeSlugNEQ", "dataTypeSlugIn", "dataTypeSlugNotIn", "dataTypeSlugGT", "dataTypeSlugGTE", "dataTypeSlugLT", "dataTypeSlugLTE", "dataTypeSlugContains", "dataTypeSlugHasPrefix", "dataTypeSlugHasSuffix", "dataTypeSlugIsNil", "dataTypeSlugNotNil", "dataTypeSlugEqualFold", "dataTypeSlugContainsFold", "createdAt", "createdAtNEQ", "createdAtIn", "createdAtNotIn", "createdAtGT", "createdAtGTE", "createdAtLT", "createdAtLTE", "createdBy", "createdByNEQ", "createdByIn", "createdByNotIn", "createdByGT", "createdByGTE", "createdByLT", "createdByLTE", "updatedAt", "updatedAtNEQ", "updatedAtIn", "updatedAtNotIn", "updatedAtGT", "updatedAtGTE", "updatedAtLT", "updatedAtLTE", "updatedAtIsNil", "updatedAtNotNil", "updatedBy", "updatedByNEQ", "updatedByIn", "updatedByNotIn", "updatedByGT", "updatedByGTE", "updatedByLT", "updatedByLTE", "updatedByIsNil", "updatedByNotNil", "refid", "refidNEQ", "refidIn", "refidNotIn", "refidGT", "refidGTE", "refidLT", "refidLTE", "reftype", "reftypeNEQ", "reftypeIn", "reftypeNotIn", "description", "descriptionNEQ", "descriptionIn", "descriptionNotIn", "descriptionGT", "descriptionGTE", "descriptionLT", "descriptionLTE", "descriptionContains", "descriptionHasPrefix", "descriptionHasSuffix", "descriptionIsNil", "descriptionNotNil", "descriptionEqualFold", "descriptionContainsFold", "name", "nameNEQ", "nameIn", "nameNotIn", "nameGT", "nameGTE", "nameLT", "nameLTE", "nameContains", "nameHasPrefix", "nameHasSuffix", "nameEqualFold", "nameContainsFold", "size", "sizeNEQ", "sizeIn", "sizeNotIn", "sizeGT", "sizeGTE", "sizeLT", "sizeLTE", "contentType", "contentTypeNEQ", "contentTypeIn", "contentTypeNotIn", "contentTypeGT", "contentTypeGTE", "contentTypeLT", "contentTypeLTE", "contentTypeContains", "contentTypeHasPrefix", "contentTypeHasSuffix", "contentTypeEqualFold", "contentTypeContainsFold", "publicAlias", "publicAliasNEQ", "publicAliasIn", "publicAliasNotIn", "publicAliasGT", "publicAliasGTE", "publicAliasLT", "publicAliasLTE", "publicAliasContains", "publicAliasHasPrefix", "publicAliasHasSuffix", "publicAliasIsNil", "publicAliasNotNil", "publicAliasEqualFold", "publicAliasContainsFold", "Data", "DataHasKey", "DataIn", "DataContains"}
+	fieldsInOrder := [...]string{"not", "and", "or", "id", "idNEQ", "idIn", "idNotIn", "idGT", "idGTE", "idLT", "idLTE", "tenantID", "tenantIDNEQ", "tenantIDIn", "tenantIDNotIn", "tenantIDGT", "tenantIDGTE", "tenantIDLT", "tenantIDLTE", "dataTypeID", "dataTypeIDNEQ", "dataTypeIDIn", "dataTypeIDNotIn", "dataTypeIDGT", "dataTypeIDGTE", "dataTypeIDLT", "dataTypeIDLTE", "dataTypeIDIsNil", "dataTypeIDNotNil", "dataTypeSlug", "dataTypeSlugNEQ", "dataTypeSlugIn", "dataTypeSlugNotIn", "dataTypeSlugGT", "dataTypeSlugGTE", "dataTypeSlugLT", "dataTypeSlugLTE", "dataTypeSlugContains", "dataTypeSlugHasPrefix", "dataTypeSlugHasSuffix", "dataTypeSlugIsNil", "dataTypeSlugNotNil", "dataTypeSlugEqualFold", "dataTypeSlugContainsFold", "createdAt", "createdAtNEQ", "createdAtIn", "createdAtNotIn", "createdAtGT", "createdAtGTE", "createdAtLT", "createdAtLTE", "createdBy", "createdByNEQ", "createdByIn", "createdByNotIn", "createdByGT", "createdByGTE", "createdByLT", "createdByLTE", "updatedAt", "updatedAtNEQ", "updatedAtIn", "updatedAtNotIn", "updatedAtGT", "updatedAtGTE", "updatedAtLT", "updatedAtLTE", "updatedAtIsNil", "updatedAtNotNil", "updatedBy", "updatedByNEQ", "updatedByIn", "updatedByNotIn", "updatedByGT", "updatedByGTE", "updatedByLT", "updatedByLTE", "updatedByIsNil", "updatedByNotNil", "refid", "refidNEQ", "refidIn", "refidNotIn", "refidGT", "refidGTE", "refidLT", "refidLTE", "reftype", "reftypeNEQ", "reftypeIn", "reftypeNotIn", "description", "descriptionNEQ", "descriptionIn", "descriptionNotIn", "descriptionGT", "descriptionGTE", "descriptionLT", "descriptionLTE", "descriptionContains", "descriptionHasPrefix", "descriptionHasSuffix", "descriptionIsNil", "descriptionNotNil", "descriptionEqualFold", "descriptionContainsFold", "name", "nameNEQ", "nameIn", "nameNotIn", "nameGT", "nameGTE", "nameLT", "nameLTE", "nameContains", "nameHasPrefix", "nameHasSuffix", "nameEqualFold", "nameContainsFold", "size", "sizeNEQ", "sizeIn", "sizeNotIn", "sizeGT", "sizeGTE", "sizeLT", "sizeLTE", "sizeIsNil", "sizeNotNil", "contentType", "contentTypeNEQ", "contentTypeIn", "contentTypeNotIn", "contentTypeGT", "contentTypeGTE", "contentTypeLT", "contentTypeLTE", "contentTypeContains", "contentTypeHasPrefix", "contentTypeHasSuffix", "contentTypeEqualFold", "contentTypeContainsFold", "publicAlias", "publicAliasNEQ", "publicAliasIn", "publicAliasNotIn", "publicAliasGT", "publicAliasGTE", "publicAliasLT", "publicAliasLTE", "publicAliasContains", "publicAliasHasPrefix", "publicAliasHasSuffix", "publicAliasIsNil", "publicAliasNotNil", "publicAliasEqualFold", "publicAliasContainsFold", "Data", "DataHasKey", "DataIn", "DataContains"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -7910,6 +8017,20 @@ func (ec *executionContext) unmarshalInputFileWhereInput(ctx context.Context, ob
 				return it, err
 			}
 			it.SizeLTE = data
+		case "sizeIsNil":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sizeIsNil"))
+			data, err := ec.unmarshalOBoolean2bool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SizeIsNil = data
+		case "sizeNotNil":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sizeNotNil"))
+			data, err := ec.unmarshalOBoolean2bool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SizeNotNil = data
 		case "contentType":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("contentType"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -8798,9 +8919,6 @@ func (ec *executionContext) _File(ctx context.Context, sel ast.SelectionSet, obj
 			}
 		case "size":
 			out.Values[i] = ec._File_size(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "contentType":
 			out.Values[i] = ec._File_contentType(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -9166,6 +9284,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "deleteFile":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteFile(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "finalizeFileUpload":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_finalizeFileUpload(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++

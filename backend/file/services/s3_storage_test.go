@@ -1,12 +1,16 @@
 package services
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pyck-ai/pyck/backend/common/test/mocks"
+	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/pyck-ai/pyck/backend/common/test/mocks"
 )
 
 func TestS3Service(t *testing.T) {
@@ -78,5 +82,32 @@ func TestS3Service(t *testing.T) {
 
 		err := s3Service.DeleteFile(uuid.New(), uuid.New(), "example.pdf")
 		assert.NoError(t, err)
+	})
+
+	t.Run("success stat object", func(t *testing.T) {
+		t.Parallel()
+		mc := mocks.NewMockMinioClient()
+		mc.SetStatObjectInfo(minio.ObjectInfo{Size: 5000})
+		s3Service := &S3StorageService{
+			Bucket:      "my-bucket",
+			MinioClient: mc,
+		}
+
+		info, err := s3Service.StatObject(uuid.New(), uuid.New(), "example.pdf")
+		require.NoError(t, err)
+		assert.Equal(t, int64(5000), info.Size)
+	})
+
+	t.Run("stat object returns ErrObjectNotFound when missing", func(t *testing.T) {
+		t.Parallel()
+		mc := mocks.NewMockMinioClient()
+		mc.SetStatObjectError(minio.ErrorResponse{Code: "NoSuchKey", StatusCode: http.StatusNotFound})
+		s3Service := &S3StorageService{
+			Bucket:      "my-bucket",
+			MinioClient: mc,
+		}
+
+		_, err := s3Service.StatObject(uuid.New(), uuid.New(), "example.pdf")
+		require.ErrorIs(t, err, ErrObjectNotFound)
 	})
 }

@@ -24,6 +24,7 @@ type CreateFile_CreateFile_File = internalapi.CreateFile_CreateFile_File
 type CreateFile_CreateFile = internalapi.CreateFile_CreateFile
 type UpdateFile_UpdateFile = internalapi.UpdateFile_UpdateFile
 type DeleteFile_DeleteFile = internalapi.DeleteFile_DeleteFile
+type FinalizeFileUpload_FinalizeFileUpload = internalapi.FinalizeFileUpload_FinalizeFileUpload
 type AnalyzeImageFile_AnalyzeImageFile = internalapi.AnalyzeImageFile_AnalyzeImageFile
 type PatchFileData_PatchFileData = internalapi.PatchFileData_PatchFileData
 type GetFiles = internalapi.GetFiles
@@ -31,6 +32,7 @@ type GetFileServiceInfo = internalapi.GetFileServiceInfo
 type CreateFile = internalapi.CreateFile
 type UpdateFile = internalapi.UpdateFile
 type DeleteFile = internalapi.DeleteFile
+type FinalizeFileUpload = internalapi.FinalizeFileUpload
 type AnalyzeImageFile = internalapi.AnalyzeImageFile
 type PatchFileData = internalapi.PatchFileData
 

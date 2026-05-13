@@ -60,6 +60,10 @@ func (m *mockMinioClient) PresignedGetObject(ctx context.Context, bucketName, ob
 	return mockURL, nil
 }
 
+func (m *mockMinioClient) StatObject(ctx context.Context, bucketName, objectName string, opts minio.StatObjectOptions) (minio.ObjectInfo, error) {
+	return minio.ObjectInfo{Key: objectName, Size: 1024}, nil
+}
+
 // createMockS3Storage creates a mock S3 storage service for testing
 func createMockS3Storage() *services.S3StorageService {
 	return &services.S3StorageService{
@@ -283,7 +287,8 @@ func TestGetFilesReturnsAllFields(t *testing.T) {
 	assert.Equal(t, testFile.ID.String(), node.ID)
 	assert.Equal(t, testUser.TenantID, node.TenantID)
 	assert.Equal(t, "test-document.pdf", node.Name)
-	assert.Equal(t, 2048, node.Size) // GraphQL returns int, not int64
+	require.NotNil(t, node.Size, "Size is now optional but must be populated for this fixture")
+	assert.Equal(t, 2048, *node.Size) // GraphQL returns int, not int64
 	assert.Equal(t, "application/pdf", node.ContentType)
 	assert.Equal(t, "Test description", *node.Description) // Description is now *string
 }

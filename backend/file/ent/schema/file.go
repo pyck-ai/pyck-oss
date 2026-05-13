@@ -78,6 +78,8 @@ func (f File) Fields() []ent.Field {
 			),
 		field.Int64("size").
 			Min(0).
+			Optional().
+			Nillable().
 			Annotations(
 				entgql.Skip(entgql.SkipMutationUpdateInput),
 				entgql.OrderField("SIZE"),

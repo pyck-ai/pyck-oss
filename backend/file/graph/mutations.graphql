@@ -4,6 +4,13 @@ type Mutation {
   updateFile(id: ID!, input: UpdateFileInput!): File
   deleteFile(id: ID!): FileDeletePayload!
 
+  """
+  Finalize a file upload by reading the actual size from object storage and
+  persisting it on the File record. Call this after the client has successfully
+  uploaded bytes to the pre-signed URL returned by createFile.
+  """
+  finalizeFileUpload(id: ID!): File!
+
   analyzeImageFile(id: ID!): ImageAnalysisResponse!
 
   """Apply RFC 6902 JSON Patch operations to the file's data field."""

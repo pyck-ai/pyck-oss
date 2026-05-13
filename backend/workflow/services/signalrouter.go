@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/google/uuid"
@@ -239,11 +240,12 @@ func (wr *SignalRouter) Start(ctx context.Context) error {
 		wr.wg.Add(1)
 		defer wr.wg.Done()
 
-		logger := log.ForContext(ctx).With().
+		msgCtx := events.ContextFromMessage(ctx, msg)
+		logger := log.ForContext(msgCtx).With().
 			Str("topic", msg.Subject).
 			Logger()
 
-		startedWorkflows, err := wr.HandleMutationEvent(ctx, msg)
+		startedWorkflows, err := wr.HandleMutationEvent(msgCtx, msg)
 		if err != nil {
 			logger.Error().
 				Err(err).
@@ -265,21 +267,22 @@ func (wr *SignalRouter) Start(ctx context.Context) error {
 		wr.wg.Add(1)
 		defer wr.wg.Done()
 
-		logger := log.ForContext(ctx).With().
+		msgCtx := events.ContextFromMessage(ctx, msg)
+		logger := log.ForContext(msgCtx).With().
 			Str("topic", msg.Subject).
 			Logger()
 
-		startedWorkflows, err := wr.HandleMutationEventWithReply(ctx, msg)
+		startedWorkflows, err := wr.HandleMutationEventWithReply(msgCtx, msg)
 		if err != nil {
 			logger.Error().
 				Err(err).
 				Msg("failed to process request/reply mutation event")
-			wr.sendErrorReply(ctx, msg.Reply, err)
+			wr.sendErrorReply(msgCtx, msg.Reply, err)
 			return
 		}
 
-		if err := wr.sendSuccessReply(ctx, msg.Reply, startedWorkflows); err != nil {
-			log.ForContext(ctx).Error().
+		if err := wr.sendSuccessReply(msgCtx, msg.Reply, startedWorkflows); err != nil {
+			log.ForContext(msgCtx).Error().
 				Err(err).
 				Msg("failed to send success reply")
 			return
@@ -299,16 +302,17 @@ func (wr *SignalRouter) Start(ctx context.Context) error {
 		wr.wg.Add(1)
 		defer wr.wg.Done()
 
-		logger := log.ForContext(ctx).With().
+		msgCtx := events.ContextFromMessage(ctx, msg)
+		logger := log.ForContext(msgCtx).With().
 			Str("topic", msg.Subject).
 			Logger()
 
-		startedWorkflows, err := wr.handleTemporalWorkflowStateChange(ctx, msg)
+		startedWorkflows, err := wr.handleTemporalWorkflowStateChange(msgCtx, msg)
 		if err != nil {
 			logger.Error().
 				Err(err).
 				Msg("failed to process temporal workflow state change event")
-			wr.sendErrorReply(ctx, msg.Reply, err)
+			wr.sendErrorReply(msgCtx, msg.Reply, err)
 			return
 		}
 
@@ -552,6 +556,20 @@ func (wr *SignalRouter) handleWorkflowSignalTriggers(ctx context.Context, event 
 					searchAttrs = append(searchAttrs, workflow.PyckWorkflowAssignee.ValueSet(v))
 				case "pyck_group_by":
 					searchAttrs = append(searchAttrs, workflow.PyckGroupBy.ValueSet(v))
+				case "pyck_title":
+					searchAttrs = append(searchAttrs, workflow.PyckTitle.ValueSet(v))
+				case "pyck_group_title":
+					searchAttrs = append(searchAttrs, workflow.PyckGroupTitle.ValueSet(v))
+				case "pyck_sort_key":
+					sortKey, parseErr := strconv.ParseInt(v, 10, 64)
+					if parseErr != nil {
+						log.ForContext(ctx).Warn().
+							Err(parseErr).
+							Str("value", v).
+							Msg("ignored non-integer pyck_sort_key search attribute")
+						continue
+					}
+					searchAttrs = append(searchAttrs, workflow.PyckSortKey.ValueSet(sortKey))
 				default:
 					log.ForContext(ctx).Warn().
 						Str("attribute", k).

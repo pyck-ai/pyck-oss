@@ -848,14 +848,16 @@ type FileWhereInput struct {
 	NameContainsFold *string  `json:"nameContainsFold,omitempty"`
 
 	// "size" field predicates.
-	Size      *int64  `json:"size,omitempty"`
-	SizeNEQ   *int64  `json:"sizeNEQ,omitempty"`
-	SizeIn    []int64 `json:"sizeIn,omitempty"`
-	SizeNotIn []int64 `json:"sizeNotIn,omitempty"`
-	SizeGT    *int64  `json:"sizeGT,omitempty"`
-	SizeGTE   *int64  `json:"sizeGTE,omitempty"`
-	SizeLT    *int64  `json:"sizeLT,omitempty"`
-	SizeLTE   *int64  `json:"sizeLTE,omitempty"`
+	Size       *int64  `json:"size,omitempty"`
+	SizeNEQ    *int64  `json:"sizeNEQ,omitempty"`
+	SizeIn     []int64 `json:"sizeIn,omitempty"`
+	SizeNotIn  []int64 `json:"sizeNotIn,omitempty"`
+	SizeGT     *int64  `json:"sizeGT,omitempty"`
+	SizeGTE    *int64  `json:"sizeGTE,omitempty"`
+	SizeLT     *int64  `json:"sizeLT,omitempty"`
+	SizeLTE    *int64  `json:"sizeLTE,omitempty"`
+	SizeIsNil  bool    `json:"sizeIsNil,omitempty"`
+	SizeNotNil bool    `json:"sizeNotNil,omitempty"`
 
 	// "content_type" field predicates.
 	ContentType             *string  `json:"contentType,omitempty"`
@@ -1335,6 +1337,12 @@ func (i *FileWhereInput) P() (predicate.File, error) {
 	}
 	if i.SizeLTE != nil {
 		predicates = append(predicates, file.SizeLTE(*i.SizeLTE))
+	}
+	if i.SizeIsNil {
+		predicates = append(predicates, file.SizeIsNil())
+	}
+	if i.SizeNotNil {
+		predicates = append(predicates, file.SizeNotNil())
 	}
 	if i.ContentType != nil {
 		predicates = append(predicates, file.ContentTypeEQ(*i.ContentType))

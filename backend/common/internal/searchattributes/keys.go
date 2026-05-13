@@ -14,4 +14,7 @@ const (
 	PyckDataTypeKey             = "pyck_data_type"
 	PyckServiceKey              = "pyck_service"
 	PyckGroupByKey              = "pyck_group_by"
+	PyckTitleKey                = "pyck_title"
+	PyckGroupTitleKey           = "pyck_group_title"
+	PyckSortKeyKey              = "pyck_sort_key"
 )

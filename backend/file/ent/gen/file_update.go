@@ -246,6 +246,12 @@ func (_u *FileUpdate) AddSize(v int64) *FileUpdate {
 	return _u
 }
 
+// ClearSize clears the value of the "size" field.
+func (_u *FileUpdate) ClearSize() *FileUpdate {
+	_u.mutation.ClearSize()
+	return _u
+}
+
 // SetContentType sets the "content_type" field.
 func (_u *FileUpdate) SetContentType(v string) *FileUpdate {
 	_u.mutation.SetContentType(v)
@@ -416,6 +422,9 @@ func (_u *FileUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedSize(); ok {
 		_spec.AddField(file.FieldSize, field.TypeInt64, value)
+	}
+	if _u.mutation.SizeCleared() {
+		_spec.ClearField(file.FieldSize, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.ContentType(); ok {
 		_spec.SetField(file.FieldContentType, field.TypeString, value)
@@ -663,6 +672,12 @@ func (_u *FileUpdateOne) AddSize(v int64) *FileUpdateOne {
 	return _u
 }
 
+// ClearSize clears the value of the "size" field.
+func (_u *FileUpdateOne) ClearSize() *FileUpdateOne {
+	_u.mutation.ClearSize()
+	return _u
+}
+
 // SetContentType sets the "content_type" field.
 func (_u *FileUpdateOne) SetContentType(v string) *FileUpdateOne {
 	_u.mutation.SetContentType(v)
@@ -863,6 +878,9 @@ func (_u *FileUpdateOne) sqlSave(ctx context.Context) (_node *File, err error) {
 	}
 	if value, ok := _u.mutation.AddedSize(); ok {
 		_spec.AddField(file.FieldSize, field.TypeInt64, value)
+	}
+	if _u.mutation.SizeCleared() {
+		_spec.ClearField(file.FieldSize, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.ContentType(); ok {
 		_spec.SetField(file.FieldContentType, field.TypeString, value)

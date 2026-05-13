@@ -684,31 +684,6 @@ func (t *GetWorkflowExecutions_WorkflowExecutions_Edges_Node_Execution) GetWorkf
 	return t.WorkflowID
 }
 
-type GetWorkflowExecutions_WorkflowExecutions_Edges_Node_Memo struct {
-	Data     map[string]any "json:\"data,omitempty\" graphql:\"data\""
-	Subtitle *string        "json:\"subtitle,omitempty\" graphql:\"subtitle\""
-	Title    *string        "json:\"title,omitempty\" graphql:\"title\""
-}
-
-func (t *GetWorkflowExecutions_WorkflowExecutions_Edges_Node_Memo) GetData() map[string]any {
-	if t == nil {
-		t = &GetWorkflowExecutions_WorkflowExecutions_Edges_Node_Memo{}
-	}
-	return t.Data
-}
-func (t *GetWorkflowExecutions_WorkflowExecutions_Edges_Node_Memo) GetSubtitle() *string {
-	if t == nil {
-		t = &GetWorkflowExecutions_WorkflowExecutions_Edges_Node_Memo{}
-	}
-	return t.Subtitle
-}
-func (t *GetWorkflowExecutions_WorkflowExecutions_Edges_Node_Memo) GetTitle() *string {
-	if t == nil {
-		t = &GetWorkflowExecutions_WorkflowExecutions_Edges_Node_Memo{}
-	}
-	return t.Title
-}
-
 type GetWorkflowExecutions_WorkflowExecutions_Edges_Node_ParentExecution struct {
 	ID         string "json:\"id\" graphql:\"id\""
 	WorkflowID string "json:\"workflowId\" graphql:\"workflowId\""
@@ -782,7 +757,6 @@ type GetWorkflowExecutions_WorkflowExecutions_Edges_Node struct {
 	ExecutionTime                *string                                                                 "json:\"executionTime,omitempty\" graphql:\"executionTime\""
 	HistoryLength                int                                                                     "json:\"historyLength\" graphql:\"historyLength\""
 	HistorySizeBytes             int                                                                     "json:\"historySizeBytes\" graphql:\"historySizeBytes\""
-	Memo                         *GetWorkflowExecutions_WorkflowExecutions_Edges_Node_Memo               "json:\"memo,omitempty\" graphql:\"memo\""
 	MostRecentWorkerVersionStamp map[string]any                                                          "json:\"mostRecentWorkerVersionStamp,omitempty\" graphql:\"mostRecentWorkerVersionStamp\""
 	ParentExecution              *GetWorkflowExecutions_WorkflowExecutions_Edges_Node_ParentExecution    "json:\"parentExecution,omitempty\" graphql:\"parentExecution\""
 	ParentNamespaceID            *string                                                                 "json:\"parentNamespaceId,omitempty\" graphql:\"parentNamespaceId\""
@@ -836,12 +810,6 @@ func (t *GetWorkflowExecutions_WorkflowExecutions_Edges_Node) GetHistorySizeByte
 		t = &GetWorkflowExecutions_WorkflowExecutions_Edges_Node{}
 	}
 	return t.HistorySizeBytes
-}
-func (t *GetWorkflowExecutions_WorkflowExecutions_Edges_Node) GetMemo() *GetWorkflowExecutions_WorkflowExecutions_Edges_Node_Memo {
-	if t == nil {
-		t = &GetWorkflowExecutions_WorkflowExecutions_Edges_Node{}
-	}
-	return t.Memo
 }
 func (t *GetWorkflowExecutions_WorkflowExecutions_Edges_Node) GetMostRecentWorkerVersionStamp() map[string]any {
 	if t == nil {
@@ -997,31 +965,6 @@ func (t *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node
 	return t.WorkflowID
 }
 
-type GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_Memo struct {
-	Data     map[string]any "json:\"data,omitempty\" graphql:\"data\""
-	Subtitle *string        "json:\"subtitle,omitempty\" graphql:\"subtitle\""
-	Title    *string        "json:\"title,omitempty\" graphql:\"title\""
-}
-
-func (t *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_Memo) GetData() map[string]any {
-	if t == nil {
-		t = &GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_Memo{}
-	}
-	return t.Data
-}
-func (t *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_Memo) GetSubtitle() *string {
-	if t == nil {
-		t = &GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_Memo{}
-	}
-	return t.Subtitle
-}
-func (t *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_Memo) GetTitle() *string {
-	if t == nil {
-		t = &GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_Memo{}
-	}
-	return t.Title
-}
-
 type GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_ParentExecution struct {
 	ID         string "json:\"id\" graphql:\"id\""
 	WorkflowID string "json:\"workflowId\" graphql:\"workflowId\""
@@ -1095,7 +1038,6 @@ type GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node str
 	ExecutionTime                *string                                                                                     "json:\"executionTime,omitempty\" graphql:\"executionTime\""
 	HistoryLength                int                                                                                         "json:\"historyLength\" graphql:\"historyLength\""
 	HistorySizeBytes             int                                                                                         "json:\"historySizeBytes\" graphql:\"historySizeBytes\""
-	Memo                         *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_Memo               "json:\"memo,omitempty\" graphql:\"memo\""
 	MostRecentWorkerVersionStamp map[string]any                                                                              "json:\"mostRecentWorkerVersionStamp,omitempty\" graphql:\"mostRecentWorkerVersionStamp\""
 	ParentExecution              *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_ParentExecution    "json:\"parentExecution,omitempty\" graphql:\"parentExecution\""
 	ParentNamespaceID            *string                                                                                     "json:\"parentNamespaceId,omitempty\" graphql:\"parentNamespaceId\""
@@ -1149,12 +1091,6 @@ func (t *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node
 		t = &GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node{}
 	}
 	return t.HistorySizeBytes
-}
-func (t *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node) GetMemo() *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_Memo {
-	if t == nil {
-		t = &GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node{}
-	}
-	return t.Memo
 }
 func (t *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node) GetMostRecentWorkerVersionStamp() map[string]any {
 	if t == nil {
@@ -2306,11 +2242,6 @@ const GetWorkflowExecutionsDocument = `query GetWorkflowExecutions ($where: Work
 				executionTime
 				historyLength
 				historySizeBytes
-				memo {
-					data
-					subtitle
-					title
-				}
 				mostRecentWorkerVersionStamp
 				parentExecution {
 					id
@@ -2380,11 +2311,6 @@ const GetAssignableWorkflowExecutionsDocument = `query GetAssignableWorkflowExec
 				executionTime
 				historyLength
 				historySizeBytes
-				memo {
-					data
-					subtitle
-					title
-				}
 				mostRecentWorkerVersionStamp
 				parentExecution {
 					id

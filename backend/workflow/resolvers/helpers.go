@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -61,19 +62,57 @@ func FormatPredicate(temporalField string, value any, operator string) string {
 			}
 		case reflect.Bool:
 			return fmt.Sprintf("%s %s %t", temporalField, operator, v.Elem().Bool())
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			return fmt.Sprintf("%s %s %d", temporalField, operator, v.Elem().Int())
 		}
 	case reflect.Slice:
 		if v.Len() > 0 {
-			strSlice := make([]string, v.Len())
-			for i := range v.Len() {
-				strSlice[i] = v.Index(i).String()
+			switch v.Type().Elem().Kind() {
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				parts := make([]string, v.Len())
+				for i := range v.Len() {
+					parts[i] = strconv.FormatInt(v.Index(i).Int(), 10)
+				}
+				return fmt.Sprintf("%s %s (%s)", temporalField, operator, strings.Join(parts, ", "))
+			default:
+				strSlice := make([]string, v.Len())
+				for i := range v.Len() {
+					strSlice[i] = v.Index(i).String()
+				}
+				return fmt.Sprintf("%s %s (%s)", temporalField, operator, QuotedValues(strSlice))
 			}
-
-			return fmt.Sprintf("%s %s (%s)", temporalField, operator, QuotedValues(strSlice))
 		}
 	}
 
 	return ""
+}
+
+// searchAttributeValue returns the value of the given search attribute key on
+// an execution, or empty string when absent. Used by sortExecutions for fields
+// that are not promoted to the top-level WorkflowExecutionInfo struct.
+func searchAttributeValue(exec *model.WorkflowExecutionInfo, key string) string {
+	for _, attr := range exec.SearchAttributes {
+		if attr.Key == key {
+			return attr.Value
+		}
+	}
+	return ""
+}
+
+// searchAttributeInt returns the integer value of the given search attribute,
+// or 0 when the attribute is absent or its value does not parse. Workflows
+// without a sort_key are therefore grouped together at one end of the order,
+// letting callers reserve positive/negative values to surface or push items.
+func searchAttributeInt(exec *model.WorkflowExecutionInfo, key string) int64 {
+	raw := searchAttributeValue(exec, key)
+	if raw == "" {
+		return 0
+	}
+	n, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return n
 }
 
 // sortExecutions sorts workflow executions based on the provided order.
@@ -109,6 +148,12 @@ func sortExecutions(executions []*model.WorkflowExecutionInfo, orderBy *model.Wo
 			less = executions[i].Execution.WorkflowID < executions[j].Execution.WorkflowID
 		case model.WorkflowExecutionOrderFieldStatus:
 			less = executions[i].Status < executions[j].Status
+		case model.WorkflowExecutionOrderFieldTitle:
+			less = searchAttributeValue(executions[i], commonworkflow.PyckTitleKey) < searchAttributeValue(executions[j], commonworkflow.PyckTitleKey)
+		case model.WorkflowExecutionOrderFieldGroupTitle:
+			less = searchAttributeValue(executions[i], commonworkflow.PyckGroupTitleKey) < searchAttributeValue(executions[j], commonworkflow.PyckGroupTitleKey)
+		case model.WorkflowExecutionOrderFieldSortKey:
+			less = searchAttributeInt(executions[i], commonworkflow.PyckSortKeyKey) < searchAttributeInt(executions[j], commonworkflow.PyckSortKeyKey)
 		default:
 			less = executions[i].StartTime < executions[j].StartTime
 		}
@@ -155,6 +200,7 @@ var (
 		{"Lt", "<"},
 		{"Lte", "<="},
 	}
+	intPredicates = timePredicates
 	// keywordListPredicates covers the operators Temporal supports against
 	// KeywordList search attributes. The bare suffix uses IN because the input
 	// is always a slice — `targets: [WEB, MOBILE]` becomes
@@ -261,6 +307,9 @@ func buildFieldPredicates(where *model.WorkflowExecutionsWhereInput) string {
 		{field: "pyck_workflow_assignee", inputPrefix: "Assignee", predicates: stringPredicates, isNil: where.AssigneeIsNil, notNil: where.AssigneeNotNil, nullIncludesEmpty: true},
 		{field: "pyck_workflow_is_assignable", inputPrefix: "IsAssignable", predicates: boolPredicates, nullMatchesTrue: true},
 		{field: "pyck_group_by", inputPrefix: "GroupBy", predicates: stringPredicates, isNil: where.GroupByIsNil, notNil: where.GroupByNotNil, nullIncludesEmpty: true},
+		{field: "pyck_title", inputPrefix: "Title", predicates: stringPredicates, isNil: where.TitleIsNil, notNil: where.TitleNotNil, nullIncludesEmpty: true},
+		{field: "pyck_group_title", inputPrefix: "GroupTitle", predicates: stringPredicates, isNil: where.GroupTitleIsNil, notNil: where.GroupTitleNotNil, nullIncludesEmpty: true},
+		{field: "pyck_sort_key", inputPrefix: "SortKey", predicates: intPredicates, isNil: where.SortKeyIsNil, notNil: where.SortKeyNotNil},
 		{field: "WorkflowId", inputPrefix: "WorkflowID", predicates: stringPredicates},
 		{field: "RunId", inputPrefix: "RunID", predicates: stringPredicates},
 		{field: "ExecutionStatus", inputPrefix: "Status", predicates: stringPredicates},

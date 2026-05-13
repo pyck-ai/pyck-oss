@@ -226,8 +226,6 @@ type WorkflowExecutionInfo struct {
 	ParentExecution *WorkflowExecution `json:"parentExecution,omitempty"`
 	// The time when the workflow was scheduled to execute.
 	ExecutionTime *string `json:"executionTime,omitempty"`
-	// Custom memo data attached to the workflow.
-	Memo *WorkflowMemo `json:"memo,omitempty"`
 	// Search attributes for querying workflows.
 	SearchAttributes []*TemporalMetadata `json:"searchAttributes"`
 	// Auto reset points for the workflow.
@@ -344,6 +342,44 @@ type WorkflowExecutionsWhereInput struct {
 	GroupByHasSuffix    *string  `json:"groupByHasSuffix,omitempty"`
 	GroupByEqualFold    *string  `json:"groupByEqualFold,omitempty"`
 	GroupByContainsFold *string  `json:"groupByContainsFold,omitempty"`
+	// title field predicates. Matches the pyck_title Temporal search attribute,
+	// the per-workflow display label.
+	Title             *string  `json:"title,omitempty"`
+	TitleNeq          *string  `json:"titleNEQ,omitempty"`
+	TitleIn           []string `json:"titleIn,omitempty"`
+	TitleNotIn        []string `json:"titleNotIn,omitempty"`
+	TitleIsNil        *bool    `json:"titleIsNil,omitempty"`
+	TitleNotNil       *bool    `json:"titleNotNil,omitempty"`
+	TitleContains     *string  `json:"titleContains,omitempty"`
+	TitleHasPrefix    *string  `json:"titleHasPrefix,omitempty"`
+	TitleHasSuffix    *string  `json:"titleHasSuffix,omitempty"`
+	TitleEqualFold    *string  `json:"titleEqualFold,omitempty"`
+	TitleContainsFold *string  `json:"titleContainsFold,omitempty"`
+	// group_title field predicates. Matches the pyck_group_title Temporal search
+	// attribute, the human-readable label for the workflow group header.
+	GroupTitle             *string  `json:"groupTitle,omitempty"`
+	GroupTitleNeq          *string  `json:"groupTitleNEQ,omitempty"`
+	GroupTitleIn           []string `json:"groupTitleIn,omitempty"`
+	GroupTitleNotIn        []string `json:"groupTitleNotIn,omitempty"`
+	GroupTitleIsNil        *bool    `json:"groupTitleIsNil,omitempty"`
+	GroupTitleNotNil       *bool    `json:"groupTitleNotNil,omitempty"`
+	GroupTitleContains     *string  `json:"groupTitleContains,omitempty"`
+	GroupTitleHasPrefix    *string  `json:"groupTitleHasPrefix,omitempty"`
+	GroupTitleHasSuffix    *string  `json:"groupTitleHasSuffix,omitempty"`
+	GroupTitleEqualFold    *string  `json:"groupTitleEqualFold,omitempty"`
+	GroupTitleContainsFold *string  `json:"groupTitleContainsFold,omitempty"`
+	// sort_key field predicates. Matches the pyck_sort_key Temporal search
+	// attribute, a numeric value used by the UI to impose a stable display order.
+	SortKey       *int  `json:"sortKey,omitempty"`
+	SortKeyNeq    *int  `json:"sortKeyNEQ,omitempty"`
+	SortKeyIn     []int `json:"sortKeyIn,omitempty"`
+	SortKeyNotIn  []int `json:"sortKeyNotIn,omitempty"`
+	SortKeyGt     *int  `json:"sortKeyGT,omitempty"`
+	SortKeyGte    *int  `json:"sortKeyGTE,omitempty"`
+	SortKeyLt     *int  `json:"sortKeyLT,omitempty"`
+	SortKeyLte    *int  `json:"sortKeyLTE,omitempty"`
+	SortKeyIsNil  *bool `json:"sortKeyIsNil,omitempty"`
+	SortKeyNotNil *bool `json:"sortKeyNotNil,omitempty"`
 	// workflow_id field predicates
 	WorkflowID             *string  `json:"workflowID,omitempty"`
 	WorkflowIdneq          *string  `json:"workflowIDNEQ,omitempty"`
@@ -434,12 +470,6 @@ type WorkflowExecutionsWhereInput struct {
 	// list contains any element of the supplied set; targetsNotIn excludes them).
 	Targets      []WorkflowTarget `json:"targets,omitempty"`
 	TargetsNotIn []WorkflowTarget `json:"targetsNotIn,omitempty"`
-}
-
-type WorkflowMemo struct {
-	Title    *string        `json:"title,omitempty"`
-	Subtitle *string        `json:"subtitle,omitempty"`
-	Data     map[string]any `json:"data,omitempty"`
 }
 
 // Page info for workflow connections.
@@ -533,6 +563,12 @@ const (
 	WorkflowExecutionOrderFieldWorkflowID WorkflowExecutionOrderField = "WORKFLOW_ID"
 	// Order by status.
 	WorkflowExecutionOrderFieldStatus WorkflowExecutionOrderField = "STATUS"
+	// Order by the pyck_title search attribute (per-workflow display label).
+	WorkflowExecutionOrderFieldTitle WorkflowExecutionOrderField = "TITLE"
+	// Order by the pyck_group_title search attribute (group header label).
+	WorkflowExecutionOrderFieldGroupTitle WorkflowExecutionOrderField = "GROUP_TITLE"
+	// Order by the pyck_sort_key search attribute (numeric display order).
+	WorkflowExecutionOrderFieldSortKey WorkflowExecutionOrderField = "SORT_KEY"
 )
 
 var AllWorkflowExecutionOrderField = []WorkflowExecutionOrderField{
@@ -540,11 +576,14 @@ var AllWorkflowExecutionOrderField = []WorkflowExecutionOrderField{
 	WorkflowExecutionOrderFieldCloseTime,
 	WorkflowExecutionOrderFieldWorkflowID,
 	WorkflowExecutionOrderFieldStatus,
+	WorkflowExecutionOrderFieldTitle,
+	WorkflowExecutionOrderFieldGroupTitle,
+	WorkflowExecutionOrderFieldSortKey,
 }
 
 func (e WorkflowExecutionOrderField) IsValid() bool {
 	switch e {
-	case WorkflowExecutionOrderFieldStartTime, WorkflowExecutionOrderFieldCloseTime, WorkflowExecutionOrderFieldWorkflowID, WorkflowExecutionOrderFieldStatus:
+	case WorkflowExecutionOrderFieldStartTime, WorkflowExecutionOrderFieldCloseTime, WorkflowExecutionOrderFieldWorkflowID, WorkflowExecutionOrderFieldStatus, WorkflowExecutionOrderFieldTitle, WorkflowExecutionOrderFieldGroupTitle, WorkflowExecutionOrderFieldSortKey:
 		return true
 	}
 	return false

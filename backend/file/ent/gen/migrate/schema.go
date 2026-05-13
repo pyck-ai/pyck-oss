@@ -81,7 +81,7 @@ var (
 		{Name: "reftype", Type: field.TypeEnum, Enums: []string{"collection_movement", "customer", "device", "device_location", "device_user", "inbound", "inbound_item", "inbound_shipment_notification", "item", "item_movement", "item_set", "key_value", "location", "order", "order_items", "outbound_shipment_notification", "replenishment_order", "replenishment_order_item", "repository", "repository_movement", "supplier", "tenant", "workflow"}},
 		{Name: "description", Type: field.TypeString, Nullable: true},
 		{Name: "name", Type: field.TypeString},
-		{Name: "size", Type: field.TypeInt64},
+		{Name: "size", Type: field.TypeInt64, Nullable: true},
 		{Name: "content_type", Type: field.TypeString},
 		{Name: "public_alias", Type: field.TypeString, Nullable: true},
 	}

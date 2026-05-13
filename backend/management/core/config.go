@@ -14,16 +14,17 @@ import (
 
 // FrontendConfig holds environment variables for the frontend settings endpoint.
 type FrontendConfig struct {
-	AppURL      string `env:"PYCK_FRONTEND_APP_URL" envDefault:"http://localhost:3000"`
-	AuthURL     string `env:"PYCK_FRONTEND_AUTH_URL" envDefault:"http://localhost:8080"`
-	Environment string `env:"PYCK_FRONTEND_ENVIRONMENT" envDefault:"development"`
-	ClientID    string `env:"PYCK_FRONTEND_CLIENT_ID"`
-	RedirectURI string `env:"PYCK_FRONTEND_REDIRECT_URI" envDefault:"http://localhost:3000/auth/oauth2/callback/zitadel"`
-	Debug       bool   `env:"PYCK_FRONTEND_DEBUG" envDefault:"true"`
-	Features    string `env:"PYCK_FRONTEND_FEATURES" envDefault:"{}"`
-	Version     string `env:"PYCK_FRONTEND_VERSION" envDefault:"unknown"`
-	OtelURL     string `env:"PYCK_FRONTEND_OTEL_URL"`
-	OtelKey     string `env:"PYCK_FRONTEND_OTEL_INGEST_KEY"`
+	AppURL           string `env:"PYCK_FRONTEND_APP_URL" envDefault:"http://localhost:3000"`
+	AuthURL          string `env:"PYCK_FRONTEND_AUTH_URL" envDefault:"http://localhost:8080"`
+	Environment      string `env:"PYCK_FRONTEND_ENVIRONMENT" envDefault:"development"`
+	ClientID         string `env:"PYCK_FRONTEND_CLIENT_ID"`
+	RedirectURI      string `env:"PYCK_FRONTEND_REDIRECT_URI" envDefault:"http://localhost:3000/auth/oauth2/callback/zitadel"`
+	Debug            bool   `env:"PYCK_FRONTEND_DEBUG" envDefault:"true"`
+	Features         string `env:"PYCK_FRONTEND_FEATURES" envDefault:"{}"`
+	Version          string `env:"PYCK_FRONTEND_VERSION" envDefault:"unknown"`
+	OtelURL          string `env:"PYCK_FRONTEND_OTEL_URL"`
+	OtelKey          string `env:"PYCK_FRONTEND_OTEL_INGEST_KEY"`
+	FeedbackEndpoint string `env:"PYCK_FRONTEND_FEEDBACK_ENDPOINT"`
 }
 
 type config struct {

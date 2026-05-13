@@ -2015,7 +2015,7 @@ func (m *FileMutation) Size() (r int64, exists bool) {
 // OldSize returns the old "size" field's value of the File entity.
 // If the File object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *FileMutation) OldSize(ctx context.Context) (v int64, err error) {
+func (m *FileMutation) OldSize(ctx context.Context) (v *int64, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldSize is only allowed on UpdateOne operations")
 	}
@@ -2047,10 +2047,24 @@ func (m *FileMutation) AddedSize() (r int64, exists bool) {
 	return *v, true
 }
 
+// ClearSize clears the value of the "size" field.
+func (m *FileMutation) ClearSize() {
+	m.size = nil
+	m.addsize = nil
+	m.clearedFields[file.FieldSize] = struct{}{}
+}
+
+// SizeCleared returns if the "size" field was cleared in this mutation.
+func (m *FileMutation) SizeCleared() bool {
+	_, ok := m.clearedFields[file.FieldSize]
+	return ok
+}
+
 // ResetSize resets all changes to the "size" field.
 func (m *FileMutation) ResetSize() {
 	m.size = nil
 	m.addsize = nil
+	delete(m.clearedFields, file.FieldSize)
 }
 
 // SetContentType sets the "content_type" field.
@@ -2506,6 +2520,9 @@ func (m *FileMutation) ClearedFields() []string {
 	if m.FieldCleared(file.FieldDescription) {
 		fields = append(fields, file.FieldDescription)
 	}
+	if m.FieldCleared(file.FieldSize) {
+		fields = append(fields, file.FieldSize)
+	}
 	if m.FieldCleared(file.FieldPublicAlias) {
 		fields = append(fields, file.FieldPublicAlias)
 	}
@@ -2546,6 +2563,9 @@ func (m *FileMutation) ClearField(name string) error {
 		return nil
 	case file.FieldDescription:
 		m.ClearDescription()
+		return nil
+	case file.FieldSize:
+		m.ClearSize()
 		return nil
 	case file.FieldPublicAlias:
 		m.ClearPublicAlias()

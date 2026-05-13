@@ -1,6 +1,7 @@
 package zitadel
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -70,7 +71,7 @@ func HttpClient(baseURL string, audience string, serviceKeyPath string, tlsSecur
 }
 
 // Introspect verifies an OAuth2 token using JWT profile client authentication.
-func (cli *ZitadelHttpClient) Introspect(token string) (*IntrospectionResponse, error) {
+func (cli *ZitadelHttpClient) Introspect(ctx context.Context, token string) (*IntrospectionResponse, error) {
 	reqUrl := cli.oauth2URL + pathOAuthIntrospect
 
 	assertion, err := cli.generateJwt()
@@ -84,7 +85,7 @@ func (cli *ZitadelHttpClient) Introspect(token string) (*IntrospectionResponse, 
 		"token":                 {token},
 	}
 
-	response, err := cli.postForm(reqUrl, form)
+	response, err := cli.postForm(ctx, reqUrl, form)
 	if err != nil {
 		return nil, fmt.Errorf("introspect request failed: %w", err)
 	}
@@ -138,11 +139,11 @@ func (cli *ZitadelHttpClient) generateJwt() (string, error) {
 	return bearerToken, nil
 }
 
-func (cli *ZitadelHttpClient) postForm(reqUrl string, form url.Values) ([]byte, error) {
+func (cli *ZitadelHttpClient) postForm(ctx context.Context, reqUrl string, form url.Values) ([]byte, error) {
 	headers := map[string]string{
 		"Content-Type": "application/x-www-form-urlencoded",
 	}
-	response, err := httpclient.MakeRequest("POST", reqUrl, headers, nil, []byte(form.Encode()), cli.tlsSecure)
+	response, err := httpclient.MakeRequest(ctx, "POST", reqUrl, headers, nil, []byte(form.Encode()), cli.tlsSecure)
 	if err != nil {
 		return nil, err
 	}

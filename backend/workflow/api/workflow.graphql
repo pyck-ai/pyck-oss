@@ -225,11 +225,6 @@ fragment workflowExecutionInfo on WorkflowExecutionInfo {
     ...workflowExecution
   }
   executionTime
-  memo {
-    title
-    subtitle
-    data
-  }
   searchAttributes {
     ...workflowMetadata
   }

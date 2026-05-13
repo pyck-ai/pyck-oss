@@ -16,7 +16,7 @@ type CreateFileInput struct {
 	Reftype      file.Reftype
 	Description  *string
 	Name         string
-	Size         int64
+	Size         *int64
 	ContentType  string
 	PublicAlias  *string
 }
@@ -38,7 +38,9 @@ func (i *CreateFileInput) Mutate(m *FileMutation) {
 		m.SetDescription(*v)
 	}
 	m.SetName(i.Name)
-	m.SetSize(i.Size)
+	if v := i.Size; v != nil {
+		m.SetSize(*v)
+	}
 	m.SetContentType(i.ContentType)
 	if v := i.PublicAlias; v != nil {
 		m.SetPublicAlias(*v)

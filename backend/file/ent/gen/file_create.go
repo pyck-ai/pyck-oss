@@ -170,6 +170,14 @@ func (_c *FileCreate) SetSize(v int64) *FileCreate {
 	return _c
 }
 
+// SetNillableSize sets the "size" field if the given value is not nil.
+func (_c *FileCreate) SetNillableSize(v *int64) *FileCreate {
+	if v != nil {
+		_c.SetSize(*v)
+	}
+	return _c
+}
+
 // SetContentType sets the "content_type" field.
 func (_c *FileCreate) SetContentType(v string) *FileCreate {
 	_c.mutation.SetContentType(v)
@@ -280,9 +288,6 @@ func (_c *FileCreate) check() error {
 		if err := file.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`gen: validator failed for field "File.name": %w`, err)}
 		}
-	}
-	if _, ok := _c.mutation.Size(); !ok {
-		return &ValidationError{Name: "size", err: errors.New(`gen: missing required field "File.size"`)}
 	}
 	if v, ok := _c.mutation.Size(); ok {
 		if err := file.SizeValidator(v); err != nil {
@@ -397,7 +402,7 @@ func (_c *FileCreate) createSpec() (*File, *sqlgraph.CreateSpec) {
 	}
 	if value, ok := _c.mutation.Size(); ok {
 		_spec.SetField(file.FieldSize, field.TypeInt64, value)
-		_node.Size = value
+		_node.Size = &value
 	}
 	if value, ok := _c.mutation.ContentType(); ok {
 		_spec.SetField(file.FieldContentType, field.TypeString, value)
@@ -654,6 +659,12 @@ func (u *FileUpsert) UpdateSize() *FileUpsert {
 // AddSize adds v to the "size" field.
 func (u *FileUpsert) AddSize(v int64) *FileUpsert {
 	u.Add(file.FieldSize, v)
+	return u
+}
+
+// ClearSize clears the value of the "size" field.
+func (u *FileUpsert) ClearSize() *FileUpsert {
+	u.SetNull(file.FieldSize)
 	return u
 }
 
@@ -972,6 +983,13 @@ func (u *FileUpsertOne) AddSize(v int64) *FileUpsertOne {
 func (u *FileUpsertOne) UpdateSize() *FileUpsertOne {
 	return u.Update(func(s *FileUpsert) {
 		s.UpdateSize()
+	})
+}
+
+// ClearSize clears the value of the "size" field.
+func (u *FileUpsertOne) ClearSize() *FileUpsertOne {
+	return u.Update(func(s *FileUpsert) {
+		s.ClearSize()
 	})
 }
 
@@ -1462,6 +1480,13 @@ func (u *FileUpsertBulk) AddSize(v int64) *FileUpsertBulk {
 func (u *FileUpsertBulk) UpdateSize() *FileUpsertBulk {
 	return u.Update(func(s *FileUpsert) {
 		s.UpdateSize()
+	})
+}
+
+// ClearSize clears the value of the "size" field.
+func (u *FileUpsertBulk) ClearSize() *FileUpsertBulk {
+	return u.Update(func(s *FileUpsert) {
+		s.ClearSize()
 	})
 }
 

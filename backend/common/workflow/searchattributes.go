@@ -17,6 +17,9 @@ const (
 	PyckDataTypeKey             = searchattributes.PyckDataTypeKey
 	PyckServiceKey              = searchattributes.PyckServiceKey
 	PyckGroupByKey              = searchattributes.PyckGroupByKey
+	PyckTitleKey                = searchattributes.PyckTitleKey
+	PyckGroupTitleKey           = searchattributes.PyckGroupTitleKey
+	PyckSortKeyKey              = searchattributes.PyckSortKeyKey
 )
 
 var (
@@ -29,6 +32,9 @@ var (
 	PyckDataType             = temporal.NewSearchAttributeKeyKeyword(searchattributes.PyckDataTypeKey)
 	PyckService              = temporal.NewSearchAttributeKeyKeyword(searchattributes.PyckServiceKey)
 	PyckGroupBy              = temporal.NewSearchAttributeKeyKeyword(searchattributes.PyckGroupByKey)
+	PyckTitle                = temporal.NewSearchAttributeKeyKeyword(searchattributes.PyckTitleKey)
+	PyckGroupTitle           = temporal.NewSearchAttributeKeyKeyword(searchattributes.PyckGroupTitleKey)
+	PyckSortKey              = temporal.NewSearchAttributeKeyInt64(searchattributes.PyckSortKeyKey)
 )
 
 var SearchAttributes = []temporal.SearchAttributeKey{
@@ -41,4 +47,7 @@ var SearchAttributes = []temporal.SearchAttributeKey{
 	PyckDataType,
 	PyckService,
 	PyckGroupBy,
+	PyckTitle,
+	PyckGroupTitle,
+	PyckSortKey,
 }

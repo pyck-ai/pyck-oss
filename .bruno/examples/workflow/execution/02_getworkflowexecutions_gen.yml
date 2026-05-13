@@ -42,11 +42,6 @@ graphql:
               executionTime
               historyLength
               historySizeBytes
-              memo {
-                data
-                subtitle
-                title
-              }
               mostRecentWorkerVersionStamp
               parentExecution {
                 id

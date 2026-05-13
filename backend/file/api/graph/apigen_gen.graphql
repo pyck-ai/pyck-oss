@@ -111,6 +111,32 @@ mutation DeleteFile($id: ID!) {
 }
 
 
+mutation FinalizeFileUpload($id: ID!) {
+  finalizeFileUpload(id: $id) {
+    contentType
+    createdAt
+    createdBy
+    data
+    dataTypeID
+    dataTypeSlug
+    deletedAt
+    deletedBy
+    description
+    id
+    name
+    publicAlias
+    publicURL
+    refid
+    reftype
+    size
+    tenantID
+    updatedAt
+    updatedBy
+    url
+  }
+}
+
+
 mutation AnalyzeImageFile($id: ID!) {
   analyzeImageFile(id: $id) {
     jsonData

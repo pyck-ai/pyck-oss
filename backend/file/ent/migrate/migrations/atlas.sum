@@ -1,4 +1,4 @@
-h1:H5w8fvVVaHxcPh8RazbmKkf5hiLMpO41OZTflXLywCE=
+h1:igCoEN+KZTFi6S58Cx8iTjGIg6UkeBIdxJiXYxzZZ88=
 20250527045549_default_state.down.sql h1:2dNtXFMbNdBtZCj0txKUvU5VtEKQbDYbzsGN47SYHic=
 20250527045549_default_state.up.sql h1:Y1tM5glhiEEmzchzLYS1kT01WXznE/qYGjIIydaJLI8=
 20250619212559_consistent_nulls.down.sql h1:MdPN710JreBt7D1ysVRaOdZ3uQaBKB+thngH2tnp1/o=
@@ -13,3 +13,5 @@ h1:H5w8fvVVaHxcPh8RazbmKkf5hiLMpO41OZTflXLywCE=
 20260324120000_add_file_alias.up.sql h1:JfUNn1fdWuDlezHSp+ffOUDvAZw0XsASu5mkMKXefzM=
 20260327120000_outbox_backoff_and_columns.down.sql h1:6JPTWKfb5DeC7teZeN0ta6mz+XkZ9LXgsfcWuMQwlXs=
 20260327120000_outbox_backoff_and_columns.up.sql h1:s+lCY1KvvIBAzBDv0PsP2PmJ/FdlU6QlEDUjnmFArnw=
+20260507120000_make_size_optional.down.sql h1:gihf6dvJvkQoGA1nGl/dh7aBoLVmtmI2/nOUoQVG0Po=
+20260507120000_make_size_optional.up.sql h1:FfIkWZ7vIsAIotrJITKaTH7xICWrs0GYSzu9WLrhXH8=

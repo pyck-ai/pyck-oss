@@ -23,7 +23,7 @@ type CreateFileInput struct {
 	Reftype      file.Reftype   `json:"reftype"`
 	Description  *string        `json:"description,omitempty"`
 	Name         string         `json:"name"`
-	Size         int            `json:"size"`
+	Size         *int           `json:"size,omitempty"`
 	ContentType  string         `json:"contentType"`
 	PublicAlias  *string        `json:"publicAlias,omitempty"`
 }
@@ -176,14 +176,16 @@ type FileWhereInput struct {
 	NameEqualFold    *string  `json:"nameEqualFold,omitempty"`
 	NameContainsFold *string  `json:"nameContainsFold,omitempty"`
 	// size field predicates
-	Size      *int  `json:"size,omitempty"`
-	SizeNeq   *int  `json:"sizeNEQ,omitempty"`
-	SizeIn    []int `json:"sizeIn,omitempty"`
-	SizeNotIn []int `json:"sizeNotIn,omitempty"`
-	SizeGt    *int  `json:"sizeGT,omitempty"`
-	SizeGte   *int  `json:"sizeGTE,omitempty"`
-	SizeLt    *int  `json:"sizeLT,omitempty"`
-	SizeLte   *int  `json:"sizeLTE,omitempty"`
+	Size       *int  `json:"size,omitempty"`
+	SizeNeq    *int  `json:"sizeNEQ,omitempty"`
+	SizeIn     []int `json:"sizeIn,omitempty"`
+	SizeNotIn  []int `json:"sizeNotIn,omitempty"`
+	SizeGt     *int  `json:"sizeGT,omitempty"`
+	SizeGte    *int  `json:"sizeGTE,omitempty"`
+	SizeLt     *int  `json:"sizeLT,omitempty"`
+	SizeLte    *int  `json:"sizeLTE,omitempty"`
+	SizeIsNil  *bool `json:"sizeIsNil,omitempty"`
+	SizeNotNil *bool `json:"sizeNotNil,omitempty"`
 	// content_type field predicates
 	ContentType             *string  `json:"contentType,omitempty"`
 	ContentTypeNeq          *string  `json:"contentTypeNEQ,omitempty"`

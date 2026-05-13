@@ -437,7 +437,7 @@ input CreateFileInput
   reftype: FileReftype!
   description: String
   name: String!
-  size: Int!
+  size: Int
   contentType: String!
   publicAlias: String
 }
@@ -2447,7 +2447,7 @@ type File implements Node
   reftype: FileReftype!
   description: String
   name: String!
-  size: Int!
+  size: Int
   contentType: String!
   publicAlias: String
   url: String
@@ -2711,6 +2711,8 @@ input FileWhereInput
   sizeGTE: Int
   sizeLT: Int
   sizeLTE: Int
+  sizeIsNil: Boolean
+  sizeNotNil: Boolean
 
   """content_type field predicates"""
   contentType: String
@@ -4707,6 +4709,13 @@ type Mutation
   createFile(input: CreateFileInput!): CreateFileResult @join__field(graph: FILE)
   updateFile(id: ID!, input: UpdateFileInput!): File @join__field(graph: FILE)
   deleteFile(id: ID!): FileDeletePayload! @join__field(graph: FILE)
+
+  """
+  Finalize a file upload by reading the actual size from object storage and
+  persisting it on the File record. Call this after the client has successfully
+  uploaded bytes to the pre-signed URL returned by createFile.
+  """
+  finalizeFileUpload(id: ID!): File! @join__field(graph: FILE)
   analyzeImageFile(id: ID!): ImageAnalysisResponse! @join__field(graph: FILE)
 
   """Apply RFC 6902 JSON Patch operations to the file's data field."""
@@ -11049,9 +11058,6 @@ type WorkflowExecutionInfo
   """The time when the workflow was scheduled to execute."""
   executionTime: String
 
-  """Custom memo data attached to the workflow."""
-  memo: WorkflowMemo
-
   """Search attributes for querying workflows."""
   searchAttributes: [TemporalMetadata!]!
 
@@ -11139,6 +11145,15 @@ enum WorkflowExecutionOrderField
 
   """Order by status."""
   STATUS @join__enumValue(graph: WORKFLOW)
+
+  """Order by the pyck_title search attribute (per-workflow display label)."""
+  TITLE @join__enumValue(graph: WORKFLOW)
+
+  """Order by the pyck_group_title search attribute (group header label)."""
+  GROUP_TITLE @join__enumValue(graph: WORKFLOW)
+
+  """Order by the pyck_sort_key search attribute (numeric display order)."""
+  SORT_KEY @join__enumValue(graph: WORKFLOW)
 }
 
 """Information about pagination in a connection."""
@@ -11227,6 +11242,53 @@ input WorkflowExecutionsWhereInput
   groupByHasSuffix: String
   groupByEqualFold: String
   groupByContainsFold: String
+
+  """
+  title field predicates. Matches the pyck_title Temporal search attribute,
+  the per-workflow display label.
+  """
+  title: String
+  titleNEQ: String
+  titleIn: [String!]
+  titleNotIn: [String!]
+  titleIsNil: Boolean
+  titleNotNil: Boolean
+  titleContains: String
+  titleHasPrefix: String
+  titleHasSuffix: String
+  titleEqualFold: String
+  titleContainsFold: String
+
+  """
+  group_title field predicates. Matches the pyck_group_title Temporal search
+  attribute, the human-readable label for the workflow group header.
+  """
+  groupTitle: String
+  groupTitleNEQ: String
+  groupTitleIn: [String!]
+  groupTitleNotIn: [String!]
+  groupTitleIsNil: Boolean
+  groupTitleNotNil: Boolean
+  groupTitleContains: String
+  groupTitleHasPrefix: String
+  groupTitleHasSuffix: String
+  groupTitleEqualFold: String
+  groupTitleContainsFold: String
+
+  """
+  sort_key field predicates. Matches the pyck_sort_key Temporal search
+  attribute, a numeric value used by the UI to impose a stable display order.
+  """
+  sortKey: Int
+  sortKeyNEQ: Int
+  sortKeyIn: [Int!]
+  sortKeyNotIn: [Int!]
+  sortKeyGT: Int
+  sortKeyGTE: Int
+  sortKeyLT: Int
+  sortKeyLTE: Int
+  sortKeyIsNil: Boolean
+  sortKeyNotNil: Boolean
 
   """workflow_id field predicates"""
   workflowID: String
@@ -11328,14 +11390,6 @@ input WorkflowExecutionsWhereInput
   """
   targets: [WorkflowTarget!]
   targetsNotIn: [WorkflowTarget!]
-}
-
-type WorkflowMemo
-  @join__type(graph: WORKFLOW)
-{
-  title: String
-  subtitle: String
-  data: Map
 }
 
 """Ordering options for Workflow connections"""

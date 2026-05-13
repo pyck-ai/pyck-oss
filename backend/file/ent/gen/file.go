@@ -48,7 +48,7 @@ type File struct {
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// Size holds the value of the "size" field.
-	Size int64 `json:"size,omitempty"`
+	Size *int64 `json:"size,omitempty"`
 	// ContentType holds the value of the "content_type" field.
 	ContentType string `json:"content_type,omitempty"`
 	// PublicAlias holds the value of the "public_alias" field.
@@ -182,7 +182,8 @@ func (_m *File) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field size", values[i])
 			} else if value.Valid {
-				_m.Size = value.Int64
+				_m.Size = new(int64)
+				*_m.Size = value.Int64
 			}
 		case file.FieldContentType:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -275,8 +276,10 @@ func (_m *File) String() string {
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)
 	builder.WriteString(", ")
-	builder.WriteString("size=")
-	builder.WriteString(fmt.Sprintf("%v", _m.Size))
+	if v := _m.Size; v != nil {
+		builder.WriteString("size=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("content_type=")
 	builder.WriteString(_m.ContentType)

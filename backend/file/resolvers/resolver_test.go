@@ -74,15 +74,19 @@ var (
 
 type testEnv struct {
 	*resolver.TestEnvironment[*ent.Client]
-	t *testing.T
+	t         *testing.T
+	mockMinio *mocks.MockMinioClient
 }
 
 func setup(t *testing.T) *testEnv {
 	t.Helper()
 
+	mockMinio := mocks.NewMockMinioClient()
+
 	te := &testEnv{
 		TestEnvironment: resolver.NewTestEnvironment[*ent.Client](t),
 		t:               t,
+		mockMinio:       mockMinio,
 	}
 
 	client := enttest.Open(t, dialect.SQLite, resolver.DatabaseURI(t),
@@ -102,7 +106,7 @@ func setup(t *testing.T) *testEnv {
 		SecretKey:    "test-secret-key",
 		HTTPScheme:   "http",
 		HTTPEndpoint: "endpoint",
-		MinioClient:  mocks.NewMockMinioClient(),
+		MinioClient:  mockMinio,
 	}
 
 	v := validator.NewValidator(te.DataTypeProvider)

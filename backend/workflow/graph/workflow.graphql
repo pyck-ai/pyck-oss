@@ -117,6 +117,50 @@ input WorkflowExecutionsWhereInput {
   groupByEqualFold: String
   groupByContainsFold: String
   """
+  title field predicates. Matches the pyck_title Temporal search attribute,
+  the per-workflow display label.
+  """
+  title: String
+  titleNEQ: String
+  titleIn: [String!]
+  titleNotIn: [String!]
+  titleIsNil: Boolean
+  titleNotNil: Boolean
+  titleContains: String
+  titleHasPrefix: String
+  titleHasSuffix: String
+  titleEqualFold: String
+  titleContainsFold: String
+  """
+  group_title field predicates. Matches the pyck_group_title Temporal search
+  attribute, the human-readable label for the workflow group header.
+  """
+  groupTitle: String
+  groupTitleNEQ: String
+  groupTitleIn: [String!]
+  groupTitleNotIn: [String!]
+  groupTitleIsNil: Boolean
+  groupTitleNotNil: Boolean
+  groupTitleContains: String
+  groupTitleHasPrefix: String
+  groupTitleHasSuffix: String
+  groupTitleEqualFold: String
+  groupTitleContainsFold: String
+  """
+  sort_key field predicates. Matches the pyck_sort_key Temporal search
+  attribute, a numeric value used by the UI to impose a stable display order.
+  """
+  sortKey: Int
+  sortKeyNEQ: Int
+  sortKeyIn: [Int!]
+  sortKeyNotIn: [Int!]
+  sortKeyGT: Int
+  sortKeyGTE: Int
+  sortKeyLT: Int
+  sortKeyLTE: Int
+  sortKeyIsNil: Boolean
+  sortKeyNotNil: Boolean
+  """
   workflow_id field predicates
   """
   workflowID: String
@@ -339,6 +383,21 @@ enum WorkflowExecutionOrderField {
   Order by status.
   """
   STATUS
+
+  """
+  Order by the pyck_title search attribute (per-workflow display label).
+  """
+  TITLE
+
+  """
+  Order by the pyck_group_title search attribute (group header label).
+  """
+  GROUP_TITLE
+
+  """
+  Order by the pyck_sort_key search attribute (numeric display order).
+  """
+  SORT_KEY
 }
 
 """
@@ -365,8 +424,6 @@ type WorkflowExecutionInfo {
     parentExecution: WorkflowExecution
     """The time when the workflow was scheduled to execute."""
     executionTime: String
-    """Custom memo data attached to the workflow."""
-    memo: WorkflowMemo
     """Search attributes for querying workflows."""
     searchAttributes: [TemporalMetadata!]!
     """Auto reset points for the workflow."""
@@ -441,12 +498,6 @@ type WorkflowExecution {
 
 type WorkflowType {
     name: String!
-}
-
-type WorkflowMemo {
-  title: String
-  subtitle: String
-  data: Map
 }
 
 type WorkflowEvent {

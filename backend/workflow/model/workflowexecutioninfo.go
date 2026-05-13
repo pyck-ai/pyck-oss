@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strings"
 	"time"
 
 	historypb "go.temporal.io/api/history/v1"
@@ -130,35 +129,6 @@ func (info *WorkflowExecutionInfo) FromProto(
 				Value: fmt.Sprintf("%v", value),
 			})
 		}
-	}
-
-	// Add memo if available
-	if proto.GetMemo() != nil && len(proto.GetMemo().GetFields()) > 0 {
-		var memo WorkflowMemo
-		for key, payload := range proto.GetMemo().GetFields() {
-			var value interface{}
-			if err := dataConverter.FromPayload(payload, &value); err != nil {
-				// If deserialization fails, skip this field
-				continue
-			}
-
-			switch strings.ToLower(key) {
-			case "title":
-				if v, ok := value.(string); ok && v != "" {
-					memo.Title = &v
-				}
-			case "subtitle":
-				if v, ok := value.(string); ok && v != "" {
-					memo.Subtitle = &v
-				}
-			case "data":
-				if v, ok := value.(map[string]interface{}); ok && len(v) > 0 {
-					memo.Data = v
-				}
-			}
-		}
-
-		executionInfo.Memo = &memo
 	}
 
 	// Add auto reset points if available

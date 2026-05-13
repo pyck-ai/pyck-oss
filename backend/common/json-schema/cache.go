@@ -82,6 +82,9 @@ func (dc *DataTypesCache) ListenToEvents(ctx context.Context) {
 	logger := log.ForContext(ctx)
 
 	_, err := dc.consumer.Consume(func(msg jetstream.Msg) {
+		msgCtx := events.ContextFromJetstreamMessage(ctx, msg)
+		logger := log.ForContext(msgCtx)
+
 		payload, err := std.UnmarshalJson[events.MutationEventMessage](msg.Data())
 		if err != nil {
 			logger.Err(err).Str("service", dc.serviceName).Str("payload", string(msg.Data())).
@@ -107,7 +110,7 @@ func (dc *DataTypesCache) ListenToEvents(ctx context.Context) {
 
 			dc.Update(payload.ID, payloadData)
 		case "delete":
-			dc.Delete(ctx, payload.ID)
+			dc.Delete(msgCtx, payload.ID)
 		default:
 			logger.Warn().Str("operation", payload.Operation).Msg("operation is unknown")
 		}

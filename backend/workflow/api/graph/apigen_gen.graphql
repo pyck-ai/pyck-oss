@@ -134,11 +134,6 @@ query GetWorkflowExecutions($where: WorkflowExecutionsWhereInput, $first: Int, $
         executionTime
         historyLength
         historySizeBytes
-        memo {
-          data
-          subtitle
-          title
-        }
         mostRecentWorkerVersionStamp
         parentExecution {
           id
@@ -188,11 +183,6 @@ query GetAssignableWorkflowExecutions($where: WorkflowExecutionsWhereInput, $fir
         executionTime
         historyLength
         historySizeBytes
-        memo {
-          data
-          subtitle
-          title
-        }
         mostRecentWorkerVersionStamp
         parentExecution {
           id

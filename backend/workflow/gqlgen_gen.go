@@ -234,7 +234,6 @@ type ComplexityRoot struct {
 		ExecutionTime                func(childComplexity int) int
 		HistoryLength                func(childComplexity int) int
 		HistorySizeBytes             func(childComplexity int) int
-		Memo                         func(childComplexity int) int
 		MostRecentWorkerVersionStamp func(childComplexity int) int
 		ParentExecution              func(childComplexity int) int
 		ParentNamespaceID            func(childComplexity int) int
@@ -263,12 +262,6 @@ type ComplexityRoot struct {
 		HasNextPage     func(childComplexity int) int
 		HasPreviousPage func(childComplexity int) int
 		StartCursor     func(childComplexity int) int
-	}
-
-	WorkflowMemo struct {
-		Data     func(childComplexity int) int
-		Subtitle func(childComplexity int) int
-		Title    func(childComplexity int) int
 	}
 
 	WorkflowPageInfo struct {
@@ -1149,12 +1142,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.WorkflowExecutionInfo.HistorySizeBytes(childComplexity), true
-	case "WorkflowExecutionInfo.memo":
-		if e.ComplexityRoot.WorkflowExecutionInfo.Memo == nil {
-			break
-		}
-
-		return e.ComplexityRoot.WorkflowExecutionInfo.Memo(childComplexity), true
 	case "WorkflowExecutionInfo.mostRecentWorkerVersionStamp":
 		if e.ComplexityRoot.WorkflowExecutionInfo.MostRecentWorkerVersionStamp == nil {
 			break
@@ -1272,25 +1259,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.WorkflowExecutionPageInfo.StartCursor(childComplexity), true
-
-	case "WorkflowMemo.data":
-		if e.ComplexityRoot.WorkflowMemo.Data == nil {
-			break
-		}
-
-		return e.ComplexityRoot.WorkflowMemo.Data(childComplexity), true
-	case "WorkflowMemo.subtitle":
-		if e.ComplexityRoot.WorkflowMemo.Subtitle == nil {
-			break
-		}
-
-		return e.ComplexityRoot.WorkflowMemo.Subtitle(childComplexity), true
-	case "WorkflowMemo.title":
-		if e.ComplexityRoot.WorkflowMemo.Title == nil {
-			break
-		}
-
-		return e.ComplexityRoot.WorkflowMemo.Title(childComplexity), true
 
 	case "WorkflowPageInfo.endCursor":
 		if e.ComplexityRoot.WorkflowPageInfo.EndCursor == nil {
@@ -5900,43 +5868,6 @@ func (ec *executionContext) fieldContext_WorkflowExecutionInfo_executionTime(_ c
 	return fc, nil
 }
 
-func (ec *executionContext) _WorkflowExecutionInfo_memo(ctx context.Context, field graphql.CollectedField, obj *model.WorkflowExecutionInfo) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_WorkflowExecutionInfo_memo,
-		func(ctx context.Context) (any, error) {
-			return obj.Memo, nil
-		},
-		nil,
-		ec.marshalOWorkflowMemo2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowMemo,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_WorkflowExecutionInfo_memo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "WorkflowExecutionInfo",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "title":
-				return ec.fieldContext_WorkflowMemo_title(ctx, field)
-			case "subtitle":
-				return ec.fieldContext_WorkflowMemo_subtitle(ctx, field)
-			case "data":
-				return ec.fieldContext_WorkflowMemo_data(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type WorkflowMemo", field.Name)
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _WorkflowExecutionInfo_searchAttributes(ctx context.Context, field graphql.CollectedField, obj *model.WorkflowExecutionInfo) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6326,8 +6257,6 @@ func (ec *executionContext) fieldContext_WorkflowExecutionInfoEdge_node(_ contex
 				return ec.fieldContext_WorkflowExecutionInfo_parentExecution(ctx, field)
 			case "executionTime":
 				return ec.fieldContext_WorkflowExecutionInfo_executionTime(ctx, field)
-			case "memo":
-				return ec.fieldContext_WorkflowExecutionInfo_memo(ctx, field)
 			case "searchAttributes":
 				return ec.fieldContext_WorkflowExecutionInfo_searchAttributes(ctx, field)
 			case "autoResetPoints":
@@ -6491,93 +6420,6 @@ func (ec *executionContext) fieldContext_WorkflowExecutionPageInfo_endCursor(_ c
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _WorkflowMemo_title(ctx context.Context, field graphql.CollectedField, obj *model.WorkflowMemo) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_WorkflowMemo_title,
-		func(ctx context.Context) (any, error) {
-			return obj.Title, nil
-		},
-		nil,
-		ec.marshalOString2ᚖstring,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_WorkflowMemo_title(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "WorkflowMemo",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _WorkflowMemo_subtitle(ctx context.Context, field graphql.CollectedField, obj *model.WorkflowMemo) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_WorkflowMemo_subtitle,
-		func(ctx context.Context) (any, error) {
-			return obj.Subtitle, nil
-		},
-		nil,
-		ec.marshalOString2ᚖstring,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_WorkflowMemo_subtitle(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "WorkflowMemo",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _WorkflowMemo_data(ctx context.Context, field graphql.CollectedField, obj *model.WorkflowMemo) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_WorkflowMemo_data,
-		func(ctx context.Context) (any, error) {
-			return obj.Data, nil
-		},
-		nil,
-		ec.marshalOMap2map,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_WorkflowMemo_data(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "WorkflowMemo",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Map does not have child fields")
 		},
 	}
 	return fc, nil
@@ -10827,7 +10669,7 @@ func (ec *executionContext) unmarshalInputWorkflowExecutionsWhereInput(ctx conte
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"not", "and", "or", "typeName", "typeNameNEQ", "typeNameIn", "typeNameNotIn", "typeNameContains", "typeNameHasPrefix", "typeNameHasSuffix", "typeNameEqualFold", "typeNameContainsFold", "workflowName", "workflowNameNEQ", "workflowNameIn", "workflowNameNotIn", "workflowNameContains", "workflowNameHasPrefix", "workflowNameHasSuffix", "workflowNameEqualFold", "workflowNameContainsFold", "assignee", "assigneeNEQ", "assigneeIn", "assigneeNotIn", "assigneeIsNil", "assigneeNotNil", "assigneeContains", "assigneeHasPrefix", "assigneeHasSuffix", "assigneeEqualFold", "assigneeContainsFold", "isAssignable", "groupBy", "groupByNEQ", "groupByIn", "groupByNotIn", "groupByIsNil", "groupByNotNil", "groupByContains", "groupByHasPrefix", "groupByHasSuffix", "groupByEqualFold", "groupByContainsFold", "workflowID", "workflowIDNEQ", "workflowIDIn", "workflowIDNotIn", "workflowIDContains", "workflowIDHasPrefix", "workflowIDHasSuffix", "workflowIDEqualFold", "workflowIDContainsFold", "runID", "runIDNEQ", "runIDIn", "runIDNotIn", "runIDContains", "runIDHasPrefix", "runIDHasSuffix", "runIDEqualFold", "runIDContainsFold", "status", "statusNEQ", "statusIn", "statusNotIn", "statusContains", "statusHasPrefix", "statusHasSuffix", "statusEqualFold", "statusContainsFold", "startTime", "startTimeNEQ", "startTimeIn", "startTimeNotIn", "startTimeGT", "startTimeGTE", "startTimeLT", "startTimeLTE", "closeTime", "closeTimeNEQ", "closeTimeIn", "closeTimeNotIn", "closeTimeGT", "closeTimeGTE", "closeTimeLT", "closeTimeLTE", "closeTimeIsNil", "closeTimeNotNil", "service", "serviceNEQ", "serviceIn", "serviceNotIn", "serviceContains", "serviceHasPrefix", "serviceHasSuffix", "serviceEqualFold", "serviceContainsFold", "serviceIsNil", "serviceNotNil", "dataType", "dataTypeNEQ", "dataTypeIn", "dataTypeNotIn", "dataTypeContains", "dataTypeHasPrefix", "dataTypeHasSuffix", "dataTypeEqualFold", "dataTypeContainsFold", "dataTypeIsNil", "dataTypeNotNil", "dataId", "dataIdNEQ", "dataIdIn", "dataIdNotIn", "dataIdContains", "dataIdHasPrefix", "dataIdHasSuffix", "dataIdEqualFold", "dataIdContainsFold", "dataIdIsNil", "dataIdNotNil", "targets", "targetsNotIn"}
+	fieldsInOrder := [...]string{"not", "and", "or", "typeName", "typeNameNEQ", "typeNameIn", "typeNameNotIn", "typeNameContains", "typeNameHasPrefix", "typeNameHasSuffix", "typeNameEqualFold", "typeNameContainsFold", "workflowName", "workflowNameNEQ", "workflowNameIn", "workflowNameNotIn", "workflowNameContains", "workflowNameHasPrefix", "workflowNameHasSuffix", "workflowNameEqualFold", "workflowNameContainsFold", "assignee", "assigneeNEQ", "assigneeIn", "assigneeNotIn", "assigneeIsNil", "assigneeNotNil", "assigneeContains", "assigneeHasPrefix", "assigneeHasSuffix", "assigneeEqualFold", "assigneeContainsFold", "isAssignable", "groupBy", "groupByNEQ", "groupByIn", "groupByNotIn", "groupByIsNil", "groupByNotNil", "groupByContains", "groupByHasPrefix", "groupByHasSuffix", "groupByEqualFold", "groupByContainsFold", "title", "titleNEQ", "titleIn", "titleNotIn", "titleIsNil", "titleNotNil", "titleContains", "titleHasPrefix", "titleHasSuffix", "titleEqualFold", "titleContainsFold", "groupTitle", "groupTitleNEQ", "groupTitleIn", "groupTitleNotIn", "groupTitleIsNil", "groupTitleNotNil", "groupTitleContains", "groupTitleHasPrefix", "groupTitleHasSuffix", "groupTitleEqualFold", "groupTitleContainsFold", "sortKey", "sortKeyNEQ", "sortKeyIn", "sortKeyNotIn", "sortKeyGT", "sortKeyGTE", "sortKeyLT", "sortKeyLTE", "sortKeyIsNil", "sortKeyNotNil", "workflowID", "workflowIDNEQ", "workflowIDIn", "workflowIDNotIn", "workflowIDContains", "workflowIDHasPrefix", "workflowIDHasSuffix", "workflowIDEqualFold", "workflowIDContainsFold", "runID", "runIDNEQ", "runIDIn", "runIDNotIn", "runIDContains", "runIDHasPrefix", "runIDHasSuffix", "runIDEqualFold", "runIDContainsFold", "status", "statusNEQ", "statusIn", "statusNotIn", "statusContains", "statusHasPrefix", "statusHasSuffix", "statusEqualFold", "statusContainsFold", "startTime", "startTimeNEQ", "startTimeIn", "startTimeNotIn", "startTimeGT", "startTimeGTE", "startTimeLT", "startTimeLTE", "closeTime", "closeTimeNEQ", "closeTimeIn", "closeTimeNotIn", "closeTimeGT", "closeTimeGTE", "closeTimeLT", "closeTimeLTE", "closeTimeIsNil", "closeTimeNotNil", "service", "serviceNEQ", "serviceIn", "serviceNotIn", "serviceContains", "serviceHasPrefix", "serviceHasSuffix", "serviceEqualFold", "serviceContainsFold", "serviceIsNil", "serviceNotNil", "dataType", "dataTypeNEQ", "dataTypeIn", "dataTypeNotIn", "dataTypeContains", "dataTypeHasPrefix", "dataTypeHasSuffix", "dataTypeEqualFold", "dataTypeContainsFold", "dataTypeIsNil", "dataTypeNotNil", "dataId", "dataIdNEQ", "dataIdIn", "dataIdNotIn", "dataIdContains", "dataIdHasPrefix", "dataIdHasSuffix", "dataIdEqualFold", "dataIdContainsFold", "dataIdIsNil", "dataIdNotNil", "targets", "targetsNotIn"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -11142,6 +10984,230 @@ func (ec *executionContext) unmarshalInputWorkflowExecutionsWhereInput(ctx conte
 				return it, err
 			}
 			it.GroupByContainsFold = data
+		case "title":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("title"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Title = data
+		case "titleNEQ":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("titleNEQ"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TitleNeq = data
+		case "titleIn":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("titleIn"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TitleIn = data
+		case "titleNotIn":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("titleNotIn"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TitleNotIn = data
+		case "titleIsNil":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("titleIsNil"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TitleIsNil = data
+		case "titleNotNil":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("titleNotNil"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TitleNotNil = data
+		case "titleContains":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("titleContains"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TitleContains = data
+		case "titleHasPrefix":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("titleHasPrefix"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TitleHasPrefix = data
+		case "titleHasSuffix":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("titleHasSuffix"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TitleHasSuffix = data
+		case "titleEqualFold":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("titleEqualFold"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TitleEqualFold = data
+		case "titleContainsFold":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("titleContainsFold"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TitleContainsFold = data
+		case "groupTitle":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("groupTitle"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.GroupTitle = data
+		case "groupTitleNEQ":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("groupTitleNEQ"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.GroupTitleNeq = data
+		case "groupTitleIn":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("groupTitleIn"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.GroupTitleIn = data
+		case "groupTitleNotIn":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("groupTitleNotIn"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.GroupTitleNotIn = data
+		case "groupTitleIsNil":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("groupTitleIsNil"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.GroupTitleIsNil = data
+		case "groupTitleNotNil":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("groupTitleNotNil"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.GroupTitleNotNil = data
+		case "groupTitleContains":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("groupTitleContains"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.GroupTitleContains = data
+		case "groupTitleHasPrefix":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("groupTitleHasPrefix"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.GroupTitleHasPrefix = data
+		case "groupTitleHasSuffix":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("groupTitleHasSuffix"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.GroupTitleHasSuffix = data
+		case "groupTitleEqualFold":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("groupTitleEqualFold"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.GroupTitleEqualFold = data
+		case "groupTitleContainsFold":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("groupTitleContainsFold"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.GroupTitleContainsFold = data
+		case "sortKey":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortKey"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SortKey = data
+		case "sortKeyNEQ":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortKeyNEQ"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SortKeyNeq = data
+		case "sortKeyIn":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortKeyIn"))
+			data, err := ec.unmarshalOInt2ᚕintᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SortKeyIn = data
+		case "sortKeyNotIn":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortKeyNotIn"))
+			data, err := ec.unmarshalOInt2ᚕintᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SortKeyNotIn = data
+		case "sortKeyGT":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortKeyGT"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SortKeyGt = data
+		case "sortKeyGTE":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortKeyGTE"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SortKeyGte = data
+		case "sortKeyLT":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortKeyLT"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SortKeyLt = data
+		case "sortKeyLTE":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortKeyLTE"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SortKeyLte = data
+		case "sortKeyIsNil":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortKeyIsNil"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SortKeyIsNil = data
+		case "sortKeyNotNil":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sortKeyNotNil"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SortKeyNotNil = data
 		case "workflowID":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workflowID"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -15120,8 +15186,6 @@ func (ec *executionContext) _WorkflowExecutionInfo(ctx context.Context, sel ast.
 			out.Values[i] = ec._WorkflowExecutionInfo_parentExecution(ctx, field, obj)
 		case "executionTime":
 			out.Values[i] = ec._WorkflowExecutionInfo_executionTime(ctx, field, obj)
-		case "memo":
-			out.Values[i] = ec._WorkflowExecutionInfo_memo(ctx, field, obj)
 		case "searchAttributes":
 			out.Values[i] = ec._WorkflowExecutionInfo_searchAttributes(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -15291,46 +15355,6 @@ func (ec *executionContext) _WorkflowExecutionPageInfo(ctx context.Context, sel 
 			out.Values[i] = ec._WorkflowExecutionPageInfo_startCursor(ctx, field, obj)
 		case "endCursor":
 			out.Values[i] = ec._WorkflowExecutionPageInfo_endCursor(ctx, field, obj)
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.ProcessDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var workflowMemoImplementors = []string{"WorkflowMemo"}
-
-func (ec *executionContext) _WorkflowMemo(ctx context.Context, sel ast.SelectionSet, obj *model.WorkflowMemo) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, workflowMemoImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("WorkflowMemo")
-		case "title":
-			out.Values[i] = ec._WorkflowMemo_title(ctx, field, obj)
-		case "subtitle":
-			out.Values[i] = ec._WorkflowMemo_subtitle(ctx, field, obj)
-		case "data":
-			out.Values[i] = ec._WorkflowMemo_data(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -17696,13 +17720,6 @@ func (ec *executionContext) unmarshalOWorkflowExecutionsWhereInput2ᚖgithubᚗc
 	}
 	res, err := ec.unmarshalInputWorkflowExecutionsWhereInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOWorkflowMemo2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowMemo(ctx context.Context, sel ast.SelectionSet, v *model.WorkflowMemo) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._WorkflowMemo(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOWorkflowOrder2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋentᚋgenᚐWorkflowOrder(ctx context.Context, v any) (*gen.WorkflowOrder, error) {

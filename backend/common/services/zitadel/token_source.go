@@ -1,6 +1,7 @@
 package zitadel
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -106,7 +107,10 @@ func (ts *jwtProfileTokenSource) Token() (*oauth2.Token, error) {
 	headers := map[string]string{
 		"Content-Type": "application/x-www-form-urlencoded",
 	}
-	response, err := httpclient.MakeRequest("POST", ts.tokenURL, headers, nil, []byte(form.Encode()), false)
+	// oauth2.TokenSource.Token() has no context; use Background. Token refresh
+	// is a self-contained service-to-service call and not part of any user
+	// request, so there's no upstream baggage worth propagating here.
+	response, err := httpclient.MakeRequest(context.Background(), "POST", ts.tokenURL, headers, nil, []byte(form.Encode()), false)
 	if err != nil {
 		return nil, fmt.Errorf("token request failed: %w", err)
 	}

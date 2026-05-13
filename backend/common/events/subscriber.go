@@ -17,6 +17,11 @@ type EventSubscriber struct {
 }
 
 // Subscribe subscribes to the subject for events.
+//
+// The subscriber forwards raw nats.Msg values into eventsChannel. Consumers
+// must call ContextFromMessage(ctx, msg) at the start of each handler to
+// extract OTel trace context and baggage (including request-id) carried in
+// the message headers.
 func (s *EventSubscriber) Subscribe(eventsChannel chan *nats.Msg) (*nats.Subscription, error) {
 	sub, err := s.client.Subscribe(s.streamName, func(msg *nats.Msg) {
 		eventsChannel <- msg
