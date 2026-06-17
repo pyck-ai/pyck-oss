@@ -46,6 +46,8 @@ const (
 	FieldOwnIncomingStock = "own_incoming_stock"
 	// FieldOwnOutgoingStock holds the string denoting the own_outgoing_stock field in the database.
 	FieldOwnOutgoingStock = "own_outgoing_stock"
+	// FieldVersion holds the string denoting the version field in the database.
+	FieldVersion = "version"
 	// EdgeItem holds the string denoting the item edge name in mutations.
 	EdgeItem = "item"
 	// EdgeRepository holds the string denoting the repository edge name in mutations.
@@ -87,6 +89,7 @@ var Columns = []string{
 	FieldOwnQuantity,
 	FieldOwnIncomingStock,
 	FieldOwnOutgoingStock,
+	FieldVersion,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -130,6 +133,8 @@ var (
 	DefaultOwnOutgoingStock int64
 	// OwnOutgoingStockValidator is a validator for the "own_outgoing_stock" field. It is called by the builders before save.
 	OwnOutgoingStockValidator func(int64) error
+	// DefaultVersion holds the default value on creation for the "version" field.
+	DefaultVersion int64
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -220,6 +225,11 @@ func ByOwnIncomingStock(opts ...sql.OrderTermOption) OrderOption {
 // ByOwnOutgoingStock orders the results by the own_outgoing_stock field.
 func ByOwnOutgoingStock(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldOwnOutgoingStock, opts...).ToFunc()
+}
+
+// ByVersion orders the results by the version field.
+func ByVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVersion, opts...).ToFunc()
 }
 
 // ByItemField orders the results by item field.

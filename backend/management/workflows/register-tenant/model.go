@@ -1,6 +1,10 @@
 package registertenant
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type RegisterTenantWorkflowInput struct {
 	Name           string
@@ -10,6 +14,12 @@ type RegisterTenantWorkflowInput struct {
 	AdminLastName  string
 	AdminPassword  string
 	Data           map[string]any
+	// Optional expiry. When non-nil, written directly to the
+	// tenant.expires_at column by CreateTenantInDbActivity so the
+	// periodic tenant-expiry-check workflow soft-deletes the tenant
+	// once the timestamp is reached. Not propagated to Zitadel
+	// metadata — DB is the source of truth for this field.
+	ExpiresAt *time.Time
 	// K8s worker deployment config
 	WorkerImage    string            // e.g. "ghcr.io/pyck-ai/pyck-go/worker:latest"
 	WorkerReplicas int32             // number of worker replicas (defaults to 2 if zero)
@@ -86,6 +96,11 @@ type createTemporalNamespaceInput struct {
 	Namespace   string
 }
 
+// SetOrgMetadataActivityInput drives the round-trip that sets the
+// caller-supplied `Data` keys on the Zitadel organization metadata.
+// Tenant expiry is NOT carried here — it's a DB-only field written
+// by CreateTenantInDbActivity (registration) and the
+// setTenantExpiry resolver (post-registration updates).
 type SetOrgMetadataActivityInput struct {
 	OrganizationID string
 	Data           map[string]any
@@ -95,6 +110,10 @@ type CreateTenantInDbActivityInput struct {
 	OrganizationID string
 	Name           string
 	Data           map[string]any
+	// Optional initial expiry. Written directly to the
+	// tenant.expires_at column when non-nil. The DB column is the
+	// source of truth that tenant-expiry-check reads.
+	ExpiresAt *time.Time
 }
 
 type DeleteTenantFromDbActivityInput struct {

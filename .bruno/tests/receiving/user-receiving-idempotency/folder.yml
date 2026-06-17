@@ -1,0 +1,11 @@
+info:
+  name: User - Receiving Idempotency
+  type: folder
+  seq: 1
+
+docs: |-
+  Idempotency-Key middleware exercise on the receiving service via createReceivingInbound. See backend/inventory/api/testdata/tests/cross-inventory-idempotency.test.yaml for the full design notes — this fixture mirrors it.
+
+
+request:
+  auth: inherit

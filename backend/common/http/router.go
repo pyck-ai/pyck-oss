@@ -5,18 +5,19 @@ import (
 	"fmt"
 	nethttp "net/http"
 	"runtime/debug"
+	"slices"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/httplog"
+	"github.com/go-chi/httplog/v3"
+	"github.com/rs/zerolog"
+
+	logadapter "github.com/pyck-ai/pyck/backend/common/log/adapter"
 	"github.com/pyck-ai/pyck/backend/common/otel"
 	"github.com/pyck-ai/pyck/backend/common/requestid"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
-	"github.com/rs/zerolog"
 )
 
-var (
-	routerSkipPaths = []string{"/health", "/metrics"}
-)
+var routerSkipPaths = []string{"/health", "/metrics"}
 
 type Middleware func(nethttp.Handler) nethttp.Handler
 
@@ -38,7 +39,11 @@ func NewRouter(config RouterConfig) *chi.Mux {
 	mx.Use(RequestIDMiddleware)
 
 	// Add request logger middleware
-	mx.Use(httplog.RequestLogger(*config.Logger, routerSkipPaths))
+	mx.Use(httplog.RequestLogger(logadapter.SlogAdapter(*config.Logger), &httplog.Options{
+		Skip: func(req *nethttp.Request, _ int) bool {
+			return slices.Contains(routerSkipPaths, req.URL.Path)
+		},
+	}))
 
 	// Add custom middlewares
 	for _, mw := range config.Middlewares {

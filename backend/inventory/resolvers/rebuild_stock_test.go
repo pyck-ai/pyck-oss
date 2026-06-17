@@ -14,12 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
+	"github.com/pyck-ai/pyck/backend/common/txid"
 
 	"github.com/pyck-ai/pyck/backend/inventory/api"
 	ent "github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	entrepository "github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
 	entstock "github.com/pyck-ai/pyck/backend/inventory/ent/gen/stock"
-	"github.com/pyck-ai/pyck/backend/inventory/services"
+	"github.com/pyck-ai/pyck/backend/inventory/service/stock"
 )
 
 // TestRebuildInventoryStock verifies that the rebuildInventoryStock mutation
@@ -525,15 +527,15 @@ func rebuildAndAssert(
 	entClient *ent.Client,
 	repos []rebuildTestRepo,
 	itemIDs []string,
-	stockSvc ...*services.InventoryStockService,
+	stockSvc ...stock.Service,
 ) {
 	t.Helper()
 
 	// Enable debug logging on stock service if provided
 	var debugBuf bytes.Buffer
 	if len(stockSvc) > 0 && stockSvc[0] != nil {
-		stockSvc[0].DebugLog = &debugBuf
-		defer func() { stockSvc[0].DebugLog = nil }()
+		stockSvc[0].SetDebugLog(&debugBuf)
+		defer func() { stockSvc[0].SetDebugLog(nil) }()
 	}
 
 	// 1. Capture expected stock state
@@ -558,7 +560,7 @@ func rebuildAndAssert(
 	// Debug: dump all non-zero stock rows and compare with expected
 	allStockRows, err := entClient.Stock.Query().
 		Where(entstock.TenantID(tenantA)).
-		All(ctx)
+		AllPages(ctx, mixin.Limit)
 	require.NoError(t, err)
 
 	// Build repo ID → label map for readable output
@@ -1838,30 +1840,40 @@ func runFuzzRebuildTestViaMovementFlow(t *testing.T, cfg fuzzConfig) {
 //
 // Corruption uses a large sentinel value (999_999_999) rather than deleting rows,
 // so a no-op rebuild would be caught by the snapshot comparison.
+// fuzzSeedCase is one named fuzz configuration in the movement-flow rebuild
+// suite. Light seeds live in this file and run in the fast PR gate; heavy seeds
+// live in rebuild_stock_slow_test.go and skip under -short.
+type fuzzSeedCase struct {
+	name string
+	cfg  fuzzConfig
+}
+
+// runFuzzSeeds runs each seed as a parallel sub-test. Shared by the fast suite
+// here and the slow suite in rebuild_stock_slow_test.go.
+func runFuzzSeeds(t *testing.T, seeds []fuzzSeedCase) {
+	t.Helper()
+	for _, tt := range seeds {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel() // safe: each sub-test creates its own isolated DB via setup(t)
+			runFuzzRebuildTestViaMovementFlow(t, tt.cfg)
+		})
+	}
+}
+
+// TestRebuildInventoryStock_FuzzViaMovementFlow runs the light, fast-completing
+// fuzz seeds (a few seconds each) as smoke coverage in the PR merge gate. The
+// heavy seeds run in TestRebuildInventoryStock_FuzzViaMovementFlow_Slow
+// (rebuild_stock_slow_test.go), which skips under -short.
 func TestRebuildInventoryStock_FuzzViaMovementFlow(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name string
-		cfg  fuzzConfig
-	}{
-		// ── Original representative seeds ────────────────────────────────────────
-
+	runFuzzSeeds(t, []fuzzSeedCase{
 		// seed=42 complexity=1 — baseline, simple tree, mixed execute ratio
 		{"seed-42-c1", fuzzConfig{
 			Seed: 42, Complexity: 1, Iterations: 20, ItemCount: 2, RootCount: 1,
 			VirtualTreeCount: 1, MinBreadth: 1, MaxBreadth: 2, MinDepth: 1, MaxDepth: 2, MaxLeaves: 8,
 			ExecuteRatio: 0.64921134441865302, DynamicProb: 0.3,
 			SeedQtyMin: 294, SeedQtyMax: 372, MoveQtyMin: 10, MoveQtyMax: 19,
-			AllowMixedTrees: false,
-		}},
-
-		// seed=42 complexity=3 — same seed but more complex tree
-		{"seed-42-c3", fuzzConfig{
-			Seed: 42, Complexity: 3, Iterations: 60, ItemCount: 4, RootCount: 3,
-			VirtualTreeCount: 1, MinBreadth: 1, MaxBreadth: 3, MinDepth: 2, MaxDepth: 4, MaxLeaves: 24,
-			ExecuteRatio: 0.64921134441865302, DynamicProb: 0.3,
-			SeedQtyMin: 504, SeedQtyMax: 597, MoveQtyMin: 17, MoveQtyMax: 32,
 			AllowMixedTrees: false,
 		}},
 
@@ -1874,15 +1886,6 @@ func TestRebuildInventoryStock_FuzzViaMovementFlow(t *testing.T) {
 			AllowMixedTrees: false,
 		}},
 
-		// seed=99 complexity=4 — deep tree (3-5 levels), many repos, 80 iterations
-		{"seed-99-c4", fuzzConfig{
-			Seed: 99, Complexity: 4, Iterations: 80, ItemCount: 5, RootCount: 4,
-			VirtualTreeCount: 1, MinBreadth: 1, MaxBreadth: 4, MinDepth: 3, MaxDepth: 5, MaxLeaves: 32,
-			ExecuteRatio: 0.60543104582618790, DynamicProb: 0.3,
-			SeedQtyMin: 651, SeedQtyMax: 825, MoveQtyMin: 30, MoveQtyMax: 32,
-			AllowMixedTrees: false,
-		}},
-
 		// seed=1337 complexity=2 — different seed, moderate complexity
 		{"seed-1337-c2", fuzzConfig{
 			Seed: 1337, Complexity: 2, Iterations: 40, ItemCount: 3, RootCount: 2,
@@ -1892,69 +1895,6 @@ func TestRebuildInventoryStock_FuzzViaMovementFlow(t *testing.T) {
 			AllowMixedTrees: false,
 		}},
 
-		// ── Pagination boundary tests ─────────────────────────────────────────────
-		// Goal: verify that paginated queries in RebuildStockTable and
-		// GetRepositoriesDetails collect ALL records when total > 200 (LimitMixin cap).
-
-		// ~20 repos × 11 items = ~220 seed moves — just over the 200-row page boundary.
-		{"pagination-over-200-movements", fuzzConfig{
-			Seed: 555, Complexity: 2, Iterations: 10, ItemCount: 11, RootCount: 2,
-			VirtualTreeCount: 1, MinBreadth: 2, MaxBreadth: 3, MinDepth: 2, MaxDepth: 3, MaxLeaves: 20,
-			ExecuteRatio: 1.0, DynamicProb: 0.0,
-			SeedQtyMin: 300, SeedQtyMax: 400, MoveQtyMin: 10, MoveQtyMax: 20,
-			AllowMixedTrees: false,
-		}},
-
-		// ~20 repos × 15 items = ~300 seed moves + 50 random = ~350 total.
-		// Tests rebuild spanning multiple pagination pages.
-		{"pagination-multi-page-350", fuzzConfig{
-			Seed: 777, Complexity: 3, Iterations: 50, ItemCount: 15, RootCount: 2,
-			VirtualTreeCount: 1, MinBreadth: 2, MaxBreadth: 3, MinDepth: 2, MaxDepth: 3, MaxLeaves: 20,
-			ExecuteRatio: 0.7, DynamicProb: 0.0,
-			SeedQtyMin: 300, SeedQtyMax: 500, MoveQtyMin: 10, MoveQtyMax: 20,
-			AllowMixedTrees: false,
-		}},
-
-		// ── Execute ratio extremes ────────────────────────────────────────────────
-
-		// 100% executed: fully settled state, no incoming/outgoing.
-		{"all-executed-no-pending", fuzzConfig{
-			Seed: 111, Complexity: 2, Iterations: 60, ItemCount: 3, RootCount: 2,
-			VirtualTreeCount: 1, MinBreadth: 1, MaxBreadth: 3, MinDepth: 2, MaxDepth: 3, MaxLeaves: 16,
-			ExecuteRatio: 1.0, DynamicProb: 0.0,
-			SeedQtyMin: 300, SeedQtyMax: 400, MoveQtyMin: 10, MoveQtyMax: 20,
-			AllowMixedTrees: false,
-		}},
-
-		// 0% executed: all random moves are pending reservations (incoming/outgoing only).
-		{"all-random-pending-no-exec", fuzzConfig{
-			Seed: 222, Complexity: 2, Iterations: 60, ItemCount: 3, RootCount: 2,
-			VirtualTreeCount: 1, MinBreadth: 1, MaxBreadth: 3, MinDepth: 2, MaxDepth: 3, MaxLeaves: 16,
-			ExecuteRatio: 0.0, DynamicProb: 0.0,
-			SeedQtyMin: 300, SeedQtyMax: 400, MoveQtyMin: 5, MoveQtyMax: 10,
-			AllowMixedTrees: false,
-		}},
-
-		// ~25% of random moves are deleted — rebuild must ignore them entirely.
-		{"high-delete-rate", fuzzConfig{
-			Seed: 333, Complexity: 2, Iterations: 60, ItemCount: 3, RootCount: 2,
-			VirtualTreeCount: 1, MinBreadth: 1, MaxBreadth: 2, MinDepth: 2, MaxDepth: 3, MaxLeaves: 16,
-			ExecuteRatio: 0.0, DynamicProb: 0.0, // 0% exec → ~25% deleted, 75% pending
-			SeedQtyMin: 400, SeedQtyMax: 500, MoveQtyMin: 5, MoveQtyMax: 10,
-			AllowMixedTrees: false,
-		}},
-
-		// ~65% executed, ~9% deleted, ~26% pending.
-		{"mixed-exec-delete-pending", fuzzConfig{
-			Seed: 444, Complexity: 3, Iterations: 60, ItemCount: 4, RootCount: 3,
-			VirtualTreeCount: 1, MinBreadth: 1, MaxBreadth: 3, MinDepth: 2, MaxDepth: 3, MaxLeaves: 24,
-			ExecuteRatio: 0.65, DynamicProb: 0.0,
-			SeedQtyMin: 300, SeedQtyMax: 400, MoveQtyMin: 10, MoveQtyMax: 20,
-			AllowMixedTrees: false,
-		}},
-
-		// ── Tree structure extremes ───────────────────────────────────────────────
-
 		// Very deep single path: 5-level chain. Stock must propagate up all levels.
 		{"deep-single-path-5-levels", fuzzConfig{
 			Seed: 10, Complexity: 2, Iterations: 30, ItemCount: 2, RootCount: 1,
@@ -1963,102 +1903,7 @@ func TestRebuildInventoryStock_FuzzViaMovementFlow(t *testing.T) {
 			SeedQtyMin: 200, SeedQtyMax: 300, MoveQtyMin: 10, MoveQtyMax: 20,
 			AllowMixedTrees: false,
 		}},
-
-		// Many roots (15), shallow tree — tests broad stock aggregation.
-		{"many-roots-shallow", fuzzConfig{
-			Seed: 20, Complexity: 2, Iterations: 40, ItemCount: 3, RootCount: 15,
-			VirtualTreeCount: 1, MinBreadth: 2, MaxBreadth: 2, MinDepth: 1, MaxDepth: 2, MaxLeaves: 60,
-			ExecuteRatio: 0.7, DynamicProb: 0.0,
-			SeedQtyMin: 200, SeedQtyMax: 300, MoveQtyMin: 10, MoveQtyMax: 20,
-			AllowMixedTrees: false,
-		}},
-
-		// Many nodes: large breadth (4) across 4 levels → many intermediate nodes.
-		// Tests that stock aggregation is correct at every level of a bushy tree.
-		{"many-nodes-wide-breadth", fuzzConfig{
-			Seed: 60, Complexity: 3, Iterations: 50, ItemCount: 3, RootCount: 3,
-			VirtualTreeCount: 1, MinBreadth: 4, MaxBreadth: 4, MinDepth: 2, MaxDepth: 4, MaxLeaves: 50,
-			ExecuteRatio: 0.7, DynamicProb: 0.0,
-			SeedQtyMin: 300, SeedQtyMax: 400, MoveQtyMin: 10, MoveQtyMax: 20,
-			AllowMixedTrees: false,
-		}},
-
-		// Many leaves: MaxLeaves=60 with multiple roots and breadth.
-		// All leaves receive seed stock; tests per-leaf and aggregated parent stock.
-		{"many-leaves", fuzzConfig{
-			Seed: 70, Complexity: 3, Iterations: 40, ItemCount: 2, RootCount: 4,
-			VirtualTreeCount: 1, MinBreadth: 3, MaxBreadth: 4, MinDepth: 2, MaxDepth: 3, MaxLeaves: 60,
-			ExecuteRatio: 0.8, DynamicProb: 0.0,
-			SeedQtyMin: 200, SeedQtyMax: 300, MoveQtyMin: 10, MoveQtyMax: 15,
-			AllowMixedTrees: false,
-		}},
-
-		// Many branches (MaxBreadth=5): tests correct fan-out at each level.
-		{"many-branches-per-level", fuzzConfig{
-			Seed: 80, Complexity: 3, Iterations: 40, ItemCount: 3, RootCount: 2,
-			VirtualTreeCount: 1, MinBreadth: 5, MaxBreadth: 5, MinDepth: 2, MaxDepth: 3, MaxLeaves: 50,
-			ExecuteRatio: 0.7, DynamicProb: 0.0,
-			SeedQtyMin: 300, SeedQtyMax: 400, MoveQtyMin: 10, MoveQtyMax: 20,
-			AllowMixedTrees: false,
-		}},
-
-		// Many items (15 items × ~12 repos = ~180 seed moves): tests per-item
-		// isolation and correct stock tracking for many distinct item types.
-		{"many-items", fuzzConfig{
-			Seed: 90, Complexity: 2, Iterations: 30, ItemCount: 15, RootCount: 2,
-			VirtualTreeCount: 1, MinBreadth: 2, MaxBreadth: 3, MinDepth: 2, MaxDepth: 3, MaxLeaves: 12,
-			ExecuteRatio: 0.75, DynamicProb: 0.0,
-			SeedQtyMin: 200, SeedQtyMax: 300, MoveQtyMin: 5, MoveQtyMax: 15,
-			AllowMixedTrees: false,
-		}},
-
-		// Dynamic repos only: all repos moveable (DynamicProb=1.0).
-		// Tests rewind+replay of reparenting during rebuild.
-		{"fully-dynamic-repos", fuzzConfig{
-			Seed: 30, Complexity: 2, Iterations: 30, ItemCount: 2, RootCount: 2,
-			VirtualTreeCount: 1, MinBreadth: 1, MaxBreadth: 2, MinDepth: 2, MaxDepth: 3, MaxLeaves: 12,
-			ExecuteRatio: 0.75, DynamicProb: 1.0,
-			SeedQtyMin: 300, SeedQtyMax: 400, MoveQtyMin: 10, MoveQtyMax: 15,
-			AllowMixedTrees: false,
-		}},
-
-		// Multiple virtual injection sources (3 virtual trees).
-		{"multiple-virtual-trees", fuzzConfig{
-			Seed: 50, Complexity: 2, Iterations: 40, ItemCount: 3, RootCount: 2,
-			VirtualTreeCount: 3, MinBreadth: 1, MaxBreadth: 2, MinDepth: 2, MaxDepth: 3, MaxLeaves: 12,
-			ExecuteRatio: 0.7, DynamicProb: 0.0,
-			SeedQtyMin: 300, SeedQtyMax: 400, MoveQtyMin: 10, MoveQtyMax: 15,
-			AllowMixedTrees: false,
-		}},
-
-		// ── Combined stress tests ─────────────────────────────────────────────────
-
-		// Deep tree + many items + mixed execute/delete/pending + dynamic repos.
-		// High item count pushes toward pagination boundaries.
-		{"stress-combined-deep-mixed", fuzzConfig{
-			Seed: 9999, Complexity: 4, Iterations: 80, ItemCount: 8, RootCount: 4,
-			VirtualTreeCount: 2, MinBreadth: 2, MaxBreadth: 3, MinDepth: 3, MaxDepth: 4, MaxLeaves: 30,
-			ExecuteRatio: 0.65, DynamicProb: 0.2,
-			SeedQtyMin: 500, SeedQtyMax: 700, MoveQtyMin: 15, MoveQtyMax: 30,
-			AllowMixedTrees: false,
-		}},
-
-		// Diverse seed, moderate complexity.
-		{"stress-seed-12345", fuzzConfig{
-			Seed: 12345, Complexity: 3, Iterations: 60, ItemCount: 5, RootCount: 3,
-			VirtualTreeCount: 1, MinBreadth: 2, MaxBreadth: 3, MinDepth: 3, MaxDepth: 4, MaxLeaves: 24,
-			ExecuteRatio: 0.75, DynamicProb: 0.3,
-			SeedQtyMin: 400, SeedQtyMax: 600, MoveQtyMin: 10, MoveQtyMax: 25,
-			AllowMixedTrees: false,
-		}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel() // safe: each sub-test creates its own isolated DB via setup(t)
-			runFuzzRebuildTestViaMovementFlow(t, tt.cfg)
-		})
-	}
+	})
 }
 
 // =============================================================================
@@ -2446,4 +2291,247 @@ func TestRebuildInventoryStock_FromTestData(t *testing.T) {
 			runMovementFlowWithRebuild(t, scenario)
 		})
 	}
+}
+
+// TestRebuildInventoryStock_LargeClosureChunksOverWireLimit_Postgres asserts
+// that rebuildInventoryStock succeeds when a single movement's stock-map
+// closure exceeds floor(65535/14) = 4,681 (repo, item) pairs — the hard
+// PostgreSQL wire-protocol parameter ceiling that previously aborted the
+// rebuild mid-replay with
+//
+//	pq: got 165424 parameters but PostgreSQL only supports 65535 parameters
+//
+// on rich tenants (observed live on pyck-dev / RMD-Logistics).
+//
+// Regression for pyck-ai/pyck#1227. The fix is the chunked
+// stockCreateBulkChunked helper in backend/inventory/service/stock/impl.go
+// that splits oversized rebuild-path Stock.CreateBulk invocations into
+// 4,500-row batches inside the surrounding rebuild transaction.
+//
+// ─── Why Postgres-only ────────────────────────────────────────────────
+//
+// The wire-protocol parameter limit is intrinsic to PostgreSQL's
+// extended-query Bind message (an int16 count, hence 65,535 max). SQLite
+// has its own much lower variable ceiling (~32K in the default
+// go-sqlite3 build) which would trip on the seeding INSERTs long before
+// we could simulate the production fan-out — and SQLite's failure mode
+// ("too many SQL variables") is a different error class than the one
+// being regressed. We therefore run this test against an embedded
+// Postgres container (same harness used by stocks_race_test.go's
+// READ COMMITTED snapshot tests) where the production constraint is real.
+//
+// ─── Seeding strategy ─────────────────────────────────────────────────
+//
+// The test seeds entities directly via the ent client instead of the
+// GraphQL resolver. Going through the API for ~500 placements would
+// take minutes; the direct path lands in seconds. Crucially, the
+// rebuild's `replayRebuildEvent` reads movements straight from the
+// database and reconstructs stock from scratch, so seeded entities are
+// equivalent to API-created ones once they hit the table.
+//
+// Topology (chosen to push one movement's snapshot past 4,681 rows
+// with as few items as possible, because the rebuild replay scales
+// super-linearly in the placement count — quadratic stock-table scans
+// dominate runtime once N ≳ 500 placements. Trading items for depth
+// keeps the fan-out high while shrinking the per-event replay cost):
+//
+//	virtual                                              (stock source)
+//	root ─ l1 ─ l2 ─ ... ─ l(treeDepth-2) ─ moving_repo  (deep chain — items live at the leaf)
+//	root ─ to_repo                                       (pending RM destination)
+//
+// itemCount distinct items each placed at moving_repo via an executed
+// virtual → moving_repo ItemMovement produce a rolled-up stock row at
+// every ancestor (moving_repo + l(treeDepth-2)..l1 + root) =
+// treeDepth × itemCount (repo, item) entries on the snapshot before
+// simulate adds to_repo entries. With itemCount=100 / treeDepth=50,
+// that's 5,000 rolled-up entries — past the 4,681 ceiling and on the
+// same order of magnitude as the production reproducer (11,816 rows).
+//
+// A single pending repository movement (moving_repo → to_repo) drives
+// the failing path: `rebuildPendingRepo` → `rebuildInsertNestedStockMap`
+// → `Stock.CreateBulk` (now chunked).
+//
+// Pre-fix expectation: the mutation returns the `pq: got NNNNN
+// parameters` error and gqltx rolls back.
+//
+// Post-fix expectation: success=true; the seeded entities and rebuilt
+// stocks remain consistent (verified by a row-count check on the
+// stocks table after rebuild).
+func TestRebuildInventoryStock_LargeClosureChunksOverWireLimit_Postgres(t *testing.T) {
+	t.Parallel()
+
+	pg := startEmbeddedPostgres(t)
+	te := setupPostgres(t, pg)
+	apiClient := setupAPIClient(t, te)
+	ctx := te.ctx(userA)
+
+	const (
+		itemCount = 100
+		treeDepth = 50 // ancestor levels above moving_repo (root + l1..l(treeDepth-2))
+	)
+
+	// ── Seed everything in one transaction ───────────────────────────
+	//
+	// All ent operations on this client run through the
+	// events.MutationEventHook installed by setupPostgres, which
+	// expects a transaction in the context (it writes an outbox row
+	// per mutation). withTx wires the tx + txid context plumbing the
+	// hook needs, mirroring what gqltx does in production.
+	var (
+		virtualID    uuid.UUID
+		leafParentID uuid.UUID // direct parent of moving_repo (l9), used as the pending RM's from_id
+		movingRepoID uuid.UUID
+		toRepoID     uuid.UUID
+		itemIDs      = make([]uuid.UUID, 0, itemCount)
+	)
+
+	mkRepo := func(tx *ent.Tx, name string, parentID *uuid.UUID, virtual bool) uuid.UUID {
+		t.Helper()
+		b := tx.Repository.Create().
+			SetTenantID(tenantA).
+			SetName(name).
+			SetType(entrepository.TypeStatic).
+			SetVirtualRepo(virtual)
+		if parentID != nil {
+			b.SetParentID(*parentID)
+		}
+		repo, err := b.Save(ent.NewTxContext(txid.With(ctx, txid.New()), tx))
+		require.NoError(t, err, "create repo %q", name)
+		return repo.ID
+	}
+
+	err := te.withTx(ctx, func(tx *ent.Tx) error {
+		// ── Topology ──────────────────────────────────────────────
+		virtualID = mkRepo(tx, "virtual", nil, true)
+		rootID := mkRepo(tx, "root", nil, false)
+
+		// Chain: root → l1 → l2 → ... → l(treeDepth-1) → moving_repo
+		// treeDepth-1 intermediate levels plus the moving_repo leaf
+		// gives a closure of `treeDepth` repos above virtual.
+		parent := rootID
+		for level := 1; level < treeDepth; level++ {
+			parent = mkRepo(tx, fmt.Sprintf("l%d", level), &parent, false)
+		}
+		leafParentID = parent
+		movingRepoID = mkRepo(tx, "moving_repo", &leafParentID, false)
+		toRepoID = mkRepo(tx, "to_repo", &rootID, false)
+
+		// ── Items ─────────────────────────────────────────────────
+		// CreateBulk in batches of 500 so each underlying INSERT
+		// stays well under PostgreSQL's wire-protocol parameter
+		// ceiling — we are emphatically NOT dogfooding the helper
+		// here because the SUT is the rebuild path, not the seed
+		// path. ~15 cols × 500 rows = 7,500 params, comfortable.
+		const seedBatch = 500
+
+		for batchStart := 0; batchStart < itemCount; batchStart += seedBatch {
+			batchEnd := batchStart + seedBatch
+			if batchEnd > itemCount {
+				batchEnd = itemCount
+			}
+			itemCreates := make([]*ent.ItemCreate, 0, batchEnd-batchStart)
+			for i := batchStart; i < batchEnd; i++ {
+				itemCreates = append(itemCreates, tx.Item.Create().
+					SetTenantID(tenantA).
+					SetSku(fmt.Sprintf("CHUNK-LIMIT-ITEM-%05d", i)))
+			}
+			batch, err := tx.Item.CreateBulk(itemCreates...).
+				Save(ent.NewTxContext(txid.With(ctx, txid.New()), tx))
+			if err != nil {
+				return fmt.Errorf("seed items batch %d-%d: %w", batchStart, batchEnd, err)
+			}
+			for _, item := range batch {
+				itemIDs = append(itemIDs, item.ID)
+			}
+		}
+
+		// ── Executed ItemMovements (virtual → moving_repo, qty=1) ─
+		//
+		// executed_at = created_at + 1ns so the EXECUTE_ITEM event
+		// strictly follows the PENDING_ITEM event in chronological
+		// order during rebuild replay.
+		now := time.Now().UTC()
+		for batchStart := 0; batchStart < itemCount; batchStart += seedBatch {
+			batchEnd := batchStart + seedBatch
+			if batchEnd > itemCount {
+				batchEnd = itemCount
+			}
+			movCreates := make([]*ent.ItemMovementCreate, 0, batchEnd-batchStart)
+			for i := batchStart; i < batchEnd; i++ {
+				createdAt := now.Add(time.Duration(i) * time.Microsecond)
+				executedAt := createdAt.Add(time.Nanosecond)
+				movCreates = append(movCreates, tx.ItemMovement.Create().
+					SetTenantID(tenantA).
+					SetCreatedAt(createdAt).
+					SetItemID(itemIDs[i]).
+					SetFromID(virtualID).
+					SetToID(movingRepoID).
+					SetQuantity(1).
+					SetHandler("test").
+					SetExecuted(true).
+					SetExecutedAt(executedAt))
+			}
+			if _, err := tx.ItemMovement.CreateBulk(movCreates...).
+				Save(ent.NewTxContext(txid.With(ctx, txid.New()), tx)); err != nil {
+				return fmt.Errorf("seed item movements batch %d-%d: %w", batchStart, batchEnd, err)
+			}
+		}
+
+		// ── One pending repository movement ───────────────────────
+		//
+		// This is the event whose replay triggers
+		//   rebuildPendingRepo → rebuildInsertNestedStockMap
+		//   → Stock.CreateBulk
+		// with a closure of ~10,500 (repo, item) entries — the path
+		// that fails on `main` without stockCreateBulkChunked.
+		if _, err := tx.RepositoryMovement.Create().
+			SetTenantID(tenantA).
+			SetCreatedAt(now.Add(time.Duration(itemCount+1) * time.Microsecond)).
+			SetRepositoryID(movingRepoID).
+			SetFromID(leafParentID).
+			SetToID(toRepoID).
+			SetHandler("test").
+			SetExecuted(false).
+			Save(ent.NewTxContext(txid.With(ctx, txid.New()), tx)); err != nil {
+			return fmt.Errorf("seed pending repo movement: %w", err)
+		}
+		return nil
+	})
+	require.NoError(t, err, "seeding tx must commit cleanly")
+	require.Len(t, itemIDs, itemCount)
+
+	// ── Trigger the rebuild ──────────────────────────────────────────
+	result, err := apiClient.RebuildInventoryStock(ctx)
+	require.NoError(t, err, "rebuildInventoryStock must succeed when the per-movement closure exceeds the 4,681-row wire-limit ceiling")
+	require.NotNil(t, result)
+	require.True(t, result.GetRebuildInventoryStock().GetSuccess(),
+		"rebuildInventoryStock must report success after chunked CreateBulk")
+
+	// Sanity-check that the rebuild actually wrote stock rows. The
+	// exact count is implementation-defined (depends on simulate's
+	// no-op skipping), but it must be non-zero — a zero count would
+	// indicate either a silent rebuild failure or a seeding bug
+	// rather than the regression we're guarding against.
+	postCount, err := te.Ent.Stock.Query().Where(entstock.TenantID(tenantA)).Count(ctx)
+	require.NoError(t, err)
+	require.Positive(t, postCount,
+		"rebuild produced zero stock rows — either seeding is wrong or the rebuild silently failed")
+
+	// Sanity-check the moving repo's rolled-up own_quantity for one item
+	// is 1 (the placement we seeded). This pins that the rebuild's
+	// chunked write produced semantically correct rows, not just any
+	// rows. We check exactly one item to keep the assertion focused:
+	// the full property is exercised by the existing
+	// TestRebuildInventoryStock_FromTestData scenarios.
+	movingItemStock, err := te.Ent.Stock.Query().
+		Where(
+			entstock.TenantID(tenantA),
+			entstock.RepositoryID(movingRepoID),
+			entstock.ItemID(itemIDs[0]),
+		).
+		Order(ent.Desc(entstock.FieldVersion)).
+		First(ctx)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), movingItemStock.OwnQuantity,
+		"rebuilt own_quantity at moving_repo for the first item must equal the placed quantity")
 }

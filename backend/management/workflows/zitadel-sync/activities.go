@@ -15,8 +15,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
-	"github.com/pyck-ai/pyck/backend/common/services/zitadel"
+	"github.com/pyck-ai/pyck/backend/common/services/zitadel/sdk"
 	common_tenant "github.com/pyck-ai/pyck/backend/common/tenant"
+	"github.com/pyck-ai/pyck/backend/common/txid"
+
 	"github.com/pyck-ai/pyck/backend/management/core"
 	ent "github.com/pyck-ai/pyck/backend/management/ent/gen"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
@@ -79,14 +81,9 @@ func (a *Activities) FetchDbTenantsActivity(ctx context.Context, _ FetchDbTenant
 	logger := activity.GetLogger(ctx)
 	serviceUserCtx := authn.Context(ctx, authn.SystemUser())
 
-	dbTenants, err := paginateQuery(
-		func(limit, offset int) ([]*ent.Tenant, error) {
-			return a.Ent.Tenant.Query().
-				Where(tenant.DeletedAtIsNil()).
-				Limit(limit).
-				Offset(offset).
-				All(serviceUserCtx)
-		}, 100)
+	dbTenants, err := a.Ent.Tenant.Query().
+		Where(tenant.DeletedAtIsNil()).
+		AllPages(serviceUserCtx, 100)
 	if err != nil {
 		logger.Error("failed to fetch tenants from DB", "err", err)
 		return nil, err
@@ -129,6 +126,7 @@ func (a *Activities) ReconcileTenantsActivity(ctx context.Context, input Reconci
 	// Fetch metadata for all matched orgs in parallel using a single gRPC connection
 	allMetadata := a.fetchAllOrgMetadata(ctx, matchedOrgIDs)
 
+	serviceUserCtx = txid.With(serviceUserCtx, txid.New())
 	tx, err := a.Ent.Tx(serviceUserCtx)
 	if err != nil {
 		logger.Error("failed to start transaction", "err", err)
@@ -328,19 +326,14 @@ func (a *Activities) FetchDbUsersActivity(ctx context.Context, input FetchDbUser
 		return nil, err
 	}
 
-	dbUsers, err := paginateQuery(
-		func(limit, offset int) ([]*ent.User, error) {
-			return a.Ent.User.Query().
-				Where(
-					user.And(
-						user.TenantID(tenantObj.ID),
-						user.DeletedByIsNil(),
-					),
-				).
-				Limit(limit).
-				Offset(offset).
-				All(serviceUserCtx)
-		}, 100)
+	dbUsers, err := a.Ent.User.Query().
+		Where(
+			user.And(
+				user.TenantID(tenantObj.ID),
+				user.DeletedByIsNil(),
+			),
+		).
+		AllPages(serviceUserCtx, 100)
 	if err != nil {
 		logger.Error("failed to fetch users from DB", "tenant_id", input.TenantID, "err", err)
 		return nil, err
@@ -392,6 +385,7 @@ func (a *Activities) ReconcileUsersActivity(ctx context.Context, input Reconcile
 		dbUsersMap[u.ID] = u
 	}
 
+	serviceUserCtx = txid.With(serviceUserCtx, txid.New())
 	tx, err := a.Ent.Tx(serviceUserCtx)
 	if err != nil {
 		logger.Error("failed to start transaction", "err", err)
@@ -537,27 +531,10 @@ func (a *Activities) fetchAllOrgMetadata(ctx context.Context, orgIDs []string) m
 }
 
 // GetZitadelClient builds a Zitadel SDK client for the given API URL and audience.
-func GetZitadelClient(ctx context.Context, apiURL, grpcAddr, audience, keyFilePath string, tlsInsecure bool, orgID string) (*zitadel.ZitadelSdkClient, error) {
-	return zitadel.SdkClient(ctx, audience, grpcAddr, apiURL, keyFilePath, orgID, tlsInsecure)
+func GetZitadelClient(ctx context.Context, apiURL, grpcAddr, audience, keyFilePath string, tlsInsecure bool, orgID string) (*sdk.ZitadelSdkClient, error) {
+	return sdk.SdkClient(ctx, audience, grpcAddr, apiURL, keyFilePath, orgID, tlsInsecure)
 }
 
-// paginateQuery runs a paginated Ent query builder until exhaustion.
-func paginateQuery[T any](builder func(limit, offset int) ([]*T, error), pageSize int) ([]*T, error) {
-	var all []*T
-	offset := 0
-	for {
-		items, err := builder(pageSize, offset)
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, items...)
-		if len(items) < pageSize {
-			break
-		}
-		offset += pageSize
-	}
-	return all, nil
-}
 
 // stringSlicesEqual compares two string slices as sets (order-insensitive).
 func stringSlicesEqual(a, b []string) bool {

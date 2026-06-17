@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Yamashou/gqlgenc/clientv2"
+	"github.com/gqlgo/gqlgenc/clientv2"
 
 	"github.com/pyck-ai/pyck/backend/common/importexport"
 	inventoryapi "github.com/pyck-ai/pyck/backend/inventory/api"

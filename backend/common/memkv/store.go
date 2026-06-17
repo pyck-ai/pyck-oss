@@ -6,7 +6,7 @@ import (
 )
 
 type entry struct {
-	value      interface{}
+	value      any
 	expiration int64
 }
 
@@ -28,7 +28,7 @@ func NewInMemoryKVStore(cleanupInterval time.Duration) *InMemoryKVStore {
 	return kv
 }
 
-func (kv *InMemoryKVStore) Set(key string, value interface{}, ttl time.Duration) {
+func (kv *InMemoryKVStore) Set(key string, value any, ttl time.Duration) {
 	kv.mu.Lock()
 	defer kv.mu.Unlock()
 
@@ -43,7 +43,7 @@ func (kv *InMemoryKVStore) Set(key string, value interface{}, ttl time.Duration)
 	}
 }
 
-func (kv *InMemoryKVStore) Get(key string) (interface{}, bool) {
+func (kv *InMemoryKVStore) Get(key string) (any, bool) {
 	kv.mu.RLock()
 	defer kv.mu.RUnlock()
 
@@ -72,7 +72,7 @@ func (kv *InMemoryKVStore) cleanupExpiredEntries() {
 	}
 }
 
-func (kv *InMemoryKVStore) ForEach(f func(key string, value interface{})) {
+func (kv *InMemoryKVStore) ForEach(f func(key string, value any)) {
 	kv.mu.RLock()
 	defer kv.mu.RUnlock()
 
@@ -82,4 +82,21 @@ func (kv *InMemoryKVStore) ForEach(f func(key string, value interface{})) {
 		}
 		f(key, entry.value)
 	}
+}
+
+// DeleteWhere removes all entries for which pred returns true and returns
+// the count deleted. Holds the write lock for one pass; the predicate must
+// not block or call back into the store. Safe to delete during range in Go.
+func (kv *InMemoryKVStore) DeleteWhere(pred func(key string, value any) bool) int {
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+
+	n := 0
+	for key, entry := range kv.store {
+		if pred(key, entry.value) {
+			delete(kv.store, key)
+			n++
+		}
+	}
+	return n
 }

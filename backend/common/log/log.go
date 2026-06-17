@@ -8,6 +8,7 @@ import (
 
 	"github.com/pyck-ai/pyck/backend/common/env/config"
 	"github.com/pyck-ai/pyck/backend/common/requestid"
+	"github.com/pyck-ai/pyck/backend/common/tenantid"
 	"github.com/pyck-ai/pyck/backend/common/typing"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -76,7 +77,8 @@ func SetupLogger(ctx context.Context, serviceName string, config config.LogConfi
 		Logger().
 		Hook(zerolog.HookFunc(addCallers)).
 		Hook(zerolog.HookFunc(addTraces)).
-		Hook(zerolog.HookFunc(addRequestID))
+		Hook(zerolog.HookFunc(addRequestID)).
+		Hook(zerolog.HookFunc(addTenantID))
 
 	switch config.LogFormat {
 	case "console":
@@ -154,9 +156,20 @@ func addTraces(e *zerolog.Event, level zerolog.Level, message string) {
 		return
 	}
 
+	traceID := spanCtx.TraceID().String()
+	spanID := spanCtx.SpanID().String()
+
+	// Flat, snake_case fields (Elastic Common Schema / OTel logs data model).
+	// The log collector reads these to populate the indexed
+	// otel_logs.TraceId / SpanId columns, enabling log<->trace correlation.
+	e.Str("trace_id", traceID)
+	e.Str("span_id", spanID)
+
+	// Nested object retained for backwards compatibility with existing
+	// queries and dashboards.
 	e.Any("trace", &traceInfo{
-		TraceID: spanCtx.TraceID().String(),
-		SpanID:  spanCtx.SpanID().String(),
+		TraceID: traceID,
+		SpanID:  spanID,
 	})
 }
 
@@ -172,4 +185,18 @@ func addRequestID(e *zerolog.Event, level zerolog.Level, message string) {
 	}
 
 	e.Str(requestid.LogField, id)
+}
+
+func addTenantID(e *zerolog.Event, level zerolog.Level, message string) {
+	ctx := e.GetCtx()
+	if ctx == nil {
+		return
+	}
+
+	tenantIDs := tenantid.FromContext(ctx)
+	if len(tenantIDs) == 0 {
+		return
+	}
+
+	e.Str(tenantid.LogField, tenantid.String(tenantIDs))
 }

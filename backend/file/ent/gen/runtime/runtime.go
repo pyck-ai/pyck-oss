@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/file/ent/gen/entityeventsoutbox"
 	"github.com/pyck-ai/pyck/backend/file/ent/gen/file"
+	"github.com/pyck-ai/pyck/backend/file/ent/gen/idempotencykey"
 	"github.com/pyck-ai/pyck/backend/file/ent/schema"
 
 	"entgo.io/ent"
@@ -28,20 +29,16 @@ func init() {
 	entityeventsoutboxDescCreatedAt := entityeventsoutboxMixinFields0[1].Descriptor()
 	// entityeventsoutbox.DefaultCreatedAt holds the default value on creation for the created_at field.
 	entityeventsoutbox.DefaultCreatedAt = entityeventsoutboxDescCreatedAt.Default.(func() time.Time)
-	// entityeventsoutboxDescCorrelationID is the schema descriptor for correlation_id field.
-	entityeventsoutboxDescCorrelationID := entityeventsoutboxMixinFields0[4].Descriptor()
-	// entityeventsoutbox.CorrelationIDValidator is a validator for the "correlation_id" field. It is called by the builders before save.
-	entityeventsoutbox.CorrelationIDValidator = entityeventsoutboxDescCorrelationID.Validators[0].(func(string) error)
 	// entityeventsoutboxDescTopic is the schema descriptor for topic field.
-	entityeventsoutboxDescTopic := entityeventsoutboxMixinFields0[5].Descriptor()
+	entityeventsoutboxDescTopic := entityeventsoutboxMixinFields0[7].Descriptor()
 	// entityeventsoutbox.TopicValidator is a validator for the "topic" field. It is called by the builders before save.
 	entityeventsoutbox.TopicValidator = entityeventsoutboxDescTopic.Validators[0].(func(string) error)
 	// entityeventsoutboxDescWithReply is the schema descriptor for with_reply field.
-	entityeventsoutboxDescWithReply := entityeventsoutboxMixinFields0[7].Descriptor()
+	entityeventsoutboxDescWithReply := entityeventsoutboxMixinFields0[9].Descriptor()
 	// entityeventsoutbox.DefaultWithReply holds the default value on creation for the with_reply field.
 	entityeventsoutbox.DefaultWithReply = entityeventsoutboxDescWithReply.Default.(bool)
 	// entityeventsoutboxDescRetryCount is the schema descriptor for retry_count field.
-	entityeventsoutboxDescRetryCount := entityeventsoutboxMixinFields0[8].Descriptor()
+	entityeventsoutboxDescRetryCount := entityeventsoutboxMixinFields0[10].Descriptor()
 	// entityeventsoutbox.DefaultRetryCount holds the default value on creation for the retry_count field.
 	entityeventsoutbox.DefaultRetryCount = entityeventsoutboxDescRetryCount.Default.(int)
 	// entityeventsoutboxDescID is the schema descriptor for id field.
@@ -88,9 +85,50 @@ func init() {
 	fileDescID := fileFields[0].Descriptor()
 	// file.DefaultID holds the default value on creation for the id field.
 	file.DefaultID = fileDescID.Default.(func() uuid.UUID)
+	idempotencykeyMixin := schema.IdempotencyKey{}.Mixin()
+	idempotencykeyMixinFields0 := idempotencykeyMixin[0].Fields()
+	_ = idempotencykeyMixinFields0
+	idempotencykeyFields := schema.IdempotencyKey{}.Fields()
+	_ = idempotencykeyFields
+	// idempotencykeyDescKey is the schema descriptor for key field.
+	idempotencykeyDescKey := idempotencykeyMixinFields0[1].Descriptor()
+	// idempotencykey.KeyValidator is a validator for the "key" field. It is called by the builders before save.
+	idempotencykey.KeyValidator = idempotencykeyDescKey.Validators[0].(func(string) error)
+	// idempotencykeyDescOperationChecksum is the schema descriptor for operation_checksum field.
+	idempotencykeyDescOperationChecksum := idempotencykeyMixinFields0[5].Descriptor()
+	// idempotencykey.OperationChecksumValidator is a validator for the "operation_checksum" field. It is called by the builders before save.
+	idempotencykey.OperationChecksumValidator = func() func([]byte) error {
+		validators := idempotencykeyDescOperationChecksum.Validators
+		fns := [...]func([]byte) error{
+			validators[0].(func([]byte) error),
+			validators[1].(func([]byte) error),
+		}
+		return func(operation_checksum []byte) error {
+			for _, fn := range fns {
+				if err := fn(operation_checksum); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// idempotencykeyDescCreatedAt is the schema descriptor for created_at field.
+	idempotencykeyDescCreatedAt := idempotencykeyMixinFields0[8].Descriptor()
+	// idempotencykey.DefaultCreatedAt holds the default value on creation for the created_at field.
+	idempotencykey.DefaultCreatedAt = idempotencykeyDescCreatedAt.Default.(func() time.Time)
+	// idempotencykeyDescUpdatedAt is the schema descriptor for updated_at field.
+	idempotencykeyDescUpdatedAt := idempotencykeyMixinFields0[9].Descriptor()
+	// idempotencykey.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	idempotencykey.DefaultUpdatedAt = idempotencykeyDescUpdatedAt.Default.(func() time.Time)
+	// idempotencykey.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	idempotencykey.UpdateDefaultUpdatedAt = idempotencykeyDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// idempotencykeyDescID is the schema descriptor for id field.
+	idempotencykeyDescID := idempotencykeyMixinFields0[0].Descriptor()
+	// idempotencykey.DefaultID holds the default value on creation for the id field.
+	idempotencykey.DefaultID = idempotencykeyDescID.Default.(func() uuid.UUID)
 }
 
 const (
-	Version = "v0.14.5"                                         // Version of ent codegen.
-	Sum     = "h1:Rj2WOYJtCkWyFo6a+5wB3EfBRP0rnx1fMk6gGA0UUe4=" // Sum of ent codegen.
+	Version = "v0.14.6"                                         // Version of ent codegen.
+	Sum     = "h1:/f2696BpwuWAEEG6PVGWflg6+Inrpq4pRWuNlWz/Skk=" // Sum of ent codegen.
 )

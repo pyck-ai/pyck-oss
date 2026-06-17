@@ -16,11 +16,11 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/validator"
-	m "github.com/pyck-ai/pyck/backend/main-data"
 	"github.com/pyck-ai/pyck/backend/main-data/core"
 	ent "github.com/pyck-ai/pyck/backend/main-data/ent/gen"
 	entcustomer "github.com/pyck-ai/pyck/backend/main-data/ent/gen/customer"
 	entsupplier "github.com/pyck-ai/pyck/backend/main-data/ent/gen/supplier"
+	"github.com/pyck-ai/pyck/backend/main-data/exec"
 	"github.com/pyck-ai/pyck/backend/main-data/model"
 )
 
@@ -276,7 +276,7 @@ func (r *mutationResolver) PatchSupplierData(ctx context.Context, id uuid.UUID, 
 	return tx.Supplier.UpdateOneID(id).SetData(patched).Save(ctx)
 }
 
-// Mutation returns m.MutationResolver implementation.
-func (r *Resolver) Mutation() m.MutationResolver { return &mutationResolver{r} }
+// Mutation returns exec.MutationResolver implementation.
+func (r *Resolver) Mutation() exec.MutationResolver { return &mutationResolver{r} }
 
 type mutationResolver struct{ *Resolver }

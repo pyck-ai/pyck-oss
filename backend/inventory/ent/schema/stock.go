@@ -84,6 +84,12 @@ func (Stock) Fields() []ent.Field {
 			Annotations(
 				entgql.OrderField("OWN_OUTGOING_STOCK"),
 			),
+
+		field.Int64("version").
+			Default(0).
+			Annotations(
+				entgql.Skip(entgql.SkipAll),
+			),
 	}
 }
 
@@ -107,6 +113,16 @@ func (Stock) Edges() []ent.Edge {
 func (Stock) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("tenant_id", "repository_id", "item_id", "created_at"),
+		index.Fields("movement_id"),
+		index.Fields("tenant_id", "repository_id", "item_id", "version").Unique(),
+		// Lets the tenant-less NOT EXISTS-on-self stock subqueries in
+		// loadAncestorStocks / loadLatestStockPerRepo (repository_id, item_id,
+		// created_at > outer) index-scan instead of seq-scanning: they don't
+		// filter by tenant, so they can't use the tenant-prefixed index. Added
+		// in migration 20260521135054; kept as created_at DESC to match the
+		// existing index (no rebuild).
+		index.Fields("repository_id", "item_id", "created_at").
+			Annotations(entsql.DescColumns("created_at")),
 	}
 }
 

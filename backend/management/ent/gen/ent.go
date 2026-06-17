@@ -20,6 +20,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/entityeventsoutbox"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/event"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/group"
+	"github.com/pyck-ai/pyck/backend/management/ent/gen/idempotencykey"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/keyvalue"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/location"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/role"
@@ -93,6 +94,7 @@ func checkColumn(t, c string) error {
 			entityeventsoutbox.Table: entityeventsoutbox.ValidColumn,
 			event.Table:              event.ValidColumn,
 			group.Table:              group.ValidColumn,
+			idempotencykey.Table:     idempotencykey.ValidColumn,
 			keyvalue.Table:           keyvalue.ValidColumn,
 			location.Table:           location.ValidColumn,
 			role.Table:               role.ValidColumn,

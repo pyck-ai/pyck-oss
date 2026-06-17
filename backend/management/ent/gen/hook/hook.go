@@ -105,6 +105,18 @@ func (f GroupFunc) Mutate(ctx context.Context, m gen.Mutation) (gen.Value, error
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *gen.GroupMutation", m)
 }
 
+// The IdempotencyKeyFunc type is an adapter to allow the use of ordinary
+// function as IdempotencyKey mutator.
+type IdempotencyKeyFunc func(context.Context, *gen.IdempotencyKeyMutation) (gen.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f IdempotencyKeyFunc) Mutate(ctx context.Context, m gen.Mutation) (gen.Value, error) {
+	if mv, ok := m.(*gen.IdempotencyKeyMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *gen.IdempotencyKeyMutation", m)
+}
+
 // The KeyValueFunc type is an adapter to allow the use of ordinary
 // function as KeyValue mutator.
 type KeyValueFunc func(context.Context, *gen.KeyValueMutation) (gen.Value, error)

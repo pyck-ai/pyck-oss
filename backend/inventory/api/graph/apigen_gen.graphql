@@ -121,32 +121,6 @@ query GetInventoryItemSets($after: Cursor, $first: Int, $before: Cursor, $last: 
         deletedAt
         deletedBy
         id
-        items {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              id
-              sku
-              tenantID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         sku
         tenantID
         updatedAt
@@ -177,34 +151,6 @@ query GetReplenishmentOrders($after: Cursor, $first: Int, $before: Cursor, $last
         deletedAt
         deletedBy
         id
-        replenishmentOrderItems {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              id
-              quantity
-              replenishmentOrderID
-              sku
-              tenantID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         supplierID
         tenantID
         updatedAt
@@ -259,37 +205,6 @@ query GetRepositories($after: Cursor, $first: Int, $before: Cursor, $last: Int, 
     edges {
       cursor
       node {
-        children {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              id
-              layout
-              locationID
-              name
-              parentID
-              tenantID
-              type
-              updatedAt
-              updatedBy
-              virtualRepo
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         createdAt
         createdBy
         data
@@ -298,244 +213,10 @@ query GetRepositories($after: Cursor, $first: Int, $before: Cursor, $last: Int, 
         deletedAt
         deletedBy
         id
-        itemMovementFromRepositories {
-          edges {
-            cursor
-            node {
-              blockedBy
-              collectionID
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              executed
-              executedAt
-              fromID
-              handler
-              id
-              itemID
-              orderID
-              position
-              quantity
-              tenantID
-              toID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
-        itemMovementToRepositories {
-          edges {
-            cursor
-            node {
-              blockedBy
-              collectionID
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              executed
-              executedAt
-              fromID
-              handler
-              id
-              itemID
-              orderID
-              position
-              quantity
-              tenantID
-              toID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         layout
         locationID
         name
         parentID
-        repositoryMovementFromRepositories {
-          edges {
-            cursor
-            node {
-              blockedBy
-              collectionID
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              executed
-              executedAt
-              fromID
-              handler
-              id
-              orderID
-              position
-              repositoryID
-              tenantID
-              toID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
-        repositoryMovementRepositories {
-          edges {
-            cursor
-            node {
-              blockedBy
-              collectionID
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              executed
-              executedAt
-              fromID
-              handler
-              id
-              orderID
-              position
-              repositoryID
-              tenantID
-              toID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
-        repositoryMovementToRepositories {
-          edges {
-            cursor
-            node {
-              blockedBy
-              collectionID
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              executed
-              executedAt
-              fromID
-              handler
-              id
-              orderID
-              position
-              repositoryID
-              tenantID
-              toID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
-        repositoryStocks {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              deletedAt
-              deletedBy
-              id
-              incomingStock
-              itemID
-              movementID
-              outgoingStock
-              ownIncomingStock
-              ownOutgoingStock
-              ownQuantity
-              quantity
-              repositoryID
-              tenantID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
-        repositoryTransactions {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              deletedAt
-              deletedBy
-              id
-              itemID
-              quantity
-              repositoryID
-              tenantID
-              type
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         tenantID
         type
         updatedAt
@@ -794,18 +475,6 @@ mutation DeleteInventoryItem($id: ID!) {
 mutation CreateInventoryRepository($input: CreateRepositoryInput!) {
   createInventoryRepository(input: $input) {
     inventoryRepository {
-      children {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       createdAt
       createdBy
       data
@@ -814,94 +483,10 @@ mutation CreateInventoryRepository($input: CreateRepositoryInput!) {
       deletedAt
       deletedBy
       id
-      itemMovementFromRepositories {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      itemMovementToRepositories {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       layout
       locationID
       name
       parentID
-      repositoryMovementFromRepositories {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      repositoryMovementRepositories {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      repositoryMovementToRepositories {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      repositoryStocks {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      repositoryTransactions {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       tenantID
       type
       updatedAt
@@ -920,18 +505,6 @@ mutation CreateInventoryRepository($input: CreateRepositoryInput!) {
 mutation UpdateInventoryRepository($id: ID!, $input: UpdateRepositoryInput!) {
   updateInventoryRepository(id: $id, input: $input) {
     inventoryRepository {
-      children {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       createdAt
       createdBy
       data
@@ -940,94 +513,10 @@ mutation UpdateInventoryRepository($id: ID!, $input: UpdateRepositoryInput!) {
       deletedAt
       deletedBy
       id
-      itemMovementFromRepositories {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      itemMovementToRepositories {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       layout
       locationID
       name
       parentID
-      repositoryMovementFromRepositories {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      repositoryMovementRepositories {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      repositoryMovementToRepositories {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      repositoryStocks {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      repositoryTransactions {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       tenantID
       type
       updatedAt
@@ -1364,18 +853,6 @@ mutation CreateInventoryItemSet($input: CreateInventoryItemSetInput!) {
       deletedAt
       deletedBy
       id
-      items {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       sku
       tenantID
       updatedAt
@@ -1401,18 +878,6 @@ mutation UpdateInventoryItemSet($id: ID!, $input: UpdateInventoryItemSetInput!) 
       deletedAt
       deletedBy
       id
-      items {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       sku
       tenantID
       updatedAt
@@ -1450,18 +915,6 @@ mutation CreateReplenishmentOrder($input: CreateReplenishmentOrderWithItemsInput
       deletedAt
       deletedBy
       id
-      replenishmentOrderItems {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       supplierID
       tenantID
       updatedAt
@@ -1487,18 +940,6 @@ mutation UpdateReplenishmentOrder($id: ID!, $input: UpdateReplenishmentOrderInpu
       deletedAt
       deletedBy
       id
-      replenishmentOrderItems {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       supplierID
       tenantID
       updatedAt
@@ -1619,18 +1060,6 @@ mutation PatchInventoryItemData($id: ID!, $patches: [JSONPatchInput!]!) {
 mutation PatchInventoryRepositoryData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchInventoryRepositoryData(id: $id, patches: $patches) {
     inventoryRepository {
-      children {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       createdAt
       createdBy
       data
@@ -1639,94 +1068,10 @@ mutation PatchInventoryRepositoryData($id: ID!, $patches: [JSONPatchInput!]!) {
       deletedAt
       deletedBy
       id
-      itemMovementFromRepositories {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      itemMovementToRepositories {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       layout
       locationID
       name
       parentID
-      repositoryMovementFromRepositories {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      repositoryMovementRepositories {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      repositoryMovementToRepositories {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      repositoryStocks {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      repositoryTransactions {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       tenantID
       type
       updatedAt
@@ -1847,18 +1192,6 @@ mutation PatchInventoryItemSetData($id: ID!, $patches: [JSONPatchInput!]!) {
       deletedAt
       deletedBy
       id
-      items {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       sku
       tenantID
       updatedAt
@@ -1884,18 +1217,6 @@ mutation PatchReplenishmentOrderData($id: ID!, $patches: [JSONPatchInput!]!) {
       deletedAt
       deletedBy
       id
-      replenishmentOrderItems {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       supplierID
       tenantID
       updatedAt

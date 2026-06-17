@@ -8,7 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
+	"github.com/pyck-ai/pyck/backend/common/txid"
 
 	ent "github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 )
@@ -236,7 +238,7 @@ func TestItemSet_Create(t *testing.T) {
 		assert.Equal(t, item.ID, created.Items.Edges[0].Node.ID)
 
 		// Verify persisted
-		itemSets, err := te.Ent.ItemSet.Query().All(ctx)
+		itemSets, err := te.Ent.ItemSet.Query().AllPages(ctx, mixin.Limit)
 		require.NoError(t, err)
 		require.Len(t, itemSets, 1)
 		assert.Equal(t, created.ID, itemSets[0].ID)
@@ -285,7 +287,7 @@ func TestItemSet_Update(t *testing.T) {
 				SetTenantID(userA.TenantID).
 				SetSku(item1.Sku).
 				AddItems(item1).
-				Save(ent.NewTxContext(ctx, tx))
+				Save(ent.NewTxContext(txid.With(ctx, txid.New()), tx))
 			return err
 		})
 		require.NoError(t, err)
@@ -422,7 +424,7 @@ func TestItemSet_QueryWithFilters(t *testing.T) {
 			SetDataTypeID(itemDataTypeID).
 			SetData(testItem1.Data).
 			AddItems(item).
-			Save(ent.NewTxContext(ctx, tx))
+			Save(ent.NewTxContext(txid.With(ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(t, err)
@@ -434,7 +436,7 @@ func TestItemSet_QueryWithFilters(t *testing.T) {
 		itemset2, err = tx.ItemSet.Create().
 			SetTenantID(userA.TenantID).
 			SetSku("MK-ENT-QFND1").
-			Save(ent.NewTxContext(ctx, tx))
+			Save(ent.NewTxContext(txid.With(ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(t, err)

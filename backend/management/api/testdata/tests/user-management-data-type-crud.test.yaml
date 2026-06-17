@@ -67,8 +67,14 @@ steps:
         assertions:
           - ref: res.body.data.dataTypes.totalCount
             equal: 1
-      - msg: "Schema persisted"
+      - msg: "Cache projection fields populated (id, slug, tenantID, jsonSchema)"
         assertions:
+          - ref: res.body.data.dataTypes.edges[].node.id
+            equal: {$ref: "res[create].body.data.createDataType.id"}
+          - ref: res.body.data.dataTypes.edges[].node.slug
+            equal: {$ref: "res[create].body.data.createDataType.slug"}
+          - ref: res.body.data.dataTypes.edges[].node.tenantID
+            nil: false
           - ref: res.body.data.dataTypes.edges[].node.jsonSchema
             nil: false
 

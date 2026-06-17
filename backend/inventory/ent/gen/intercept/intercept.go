@@ -10,6 +10,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/collection_movement"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/entityeventsoutbox"
+	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/idempotencykey"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/item"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/itemmovement"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/itemset"
@@ -130,6 +131,33 @@ func (f TraverseEntityEventsOutbox) Traverse(ctx context.Context, q gen.Query) e
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *gen.EntityEventsOutboxQuery", q)
+}
+
+// The IdempotencyKeyFunc type is an adapter to allow the use of ordinary function as a Querier.
+type IdempotencyKeyFunc func(context.Context, *gen.IdempotencyKeyQuery) (gen.Value, error)
+
+// Query calls f(ctx, q).
+func (f IdempotencyKeyFunc) Query(ctx context.Context, q gen.Query) (gen.Value, error) {
+	if q, ok := q.(*gen.IdempotencyKeyQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *gen.IdempotencyKeyQuery", q)
+}
+
+// The TraverseIdempotencyKey type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseIdempotencyKey func(context.Context, *gen.IdempotencyKeyQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseIdempotencyKey) Intercept(next gen.Querier) gen.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseIdempotencyKey) Traverse(ctx context.Context, q gen.Query) error {
+	if q, ok := q.(*gen.IdempotencyKeyQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *gen.IdempotencyKeyQuery", q)
 }
 
 // The ItemFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -382,6 +410,8 @@ func NewQuery(q gen.Query) (Query, error) {
 		return &query[*gen.CollectionMovementQuery, predicate.Collection_Movement, collection_movement.OrderOption]{typ: gen.TypeCollectionMovement, tq: q}, nil
 	case *gen.EntityEventsOutboxQuery:
 		return &query[*gen.EntityEventsOutboxQuery, predicate.EntityEventsOutbox, entityeventsoutbox.OrderOption]{typ: gen.TypeEntityEventsOutbox, tq: q}, nil
+	case *gen.IdempotencyKeyQuery:
+		return &query[*gen.IdempotencyKeyQuery, predicate.IdempotencyKey, idempotencykey.OrderOption]{typ: gen.TypeIdempotencyKey, tq: q}, nil
 	case *gen.ItemQuery:
 		return &query[*gen.ItemQuery, predicate.Item, item.OrderOption]{typ: gen.TypeItem, tq: q}, nil
 	case *gen.ItemMovementQuery:

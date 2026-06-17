@@ -108,7 +108,9 @@ func (File) Indexes() []ent.Index {
 			Annotations(mixin.HistoryMixinNotDeletedIndexAnnotation()),
 		index.Fields(mixin.TenantFieldTenantID, "public_alias").
 			Unique().
-			Annotations(mixin.HistoryMixinNotDeletedIndexAnnotation()),
+			// Partial on public_alias IS NOT NULL too: the unique constraint must
+			// only apply to rows that actually have an alias (matches the DB).
+			Annotations(entsql.IndexWhere("deleted_at IS NULL AND public_alias IS NOT NULL")),
 	}
 }
 

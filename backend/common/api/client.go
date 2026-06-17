@@ -8,8 +8,8 @@ import (
 	"net/http"
 
 	"entgo.io/contrib/entgql"
-	"github.com/Yamashou/gqlgenc/clientv2"
 	"github.com/google/uuid"
+	"github.com/gqlgo/gqlgenc/clientv2"
 
 	"github.com/pyck-ai/pyck/backend/common/env"
 	envconfig "github.com/pyck-ai/pyck/backend/common/env/config"

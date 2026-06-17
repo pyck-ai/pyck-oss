@@ -52,6 +52,8 @@ type Stock struct {
 	OwnIncomingStock int64 `json:"own_incoming_stock,omitempty"`
 	// OwnOutgoingStock holds the value of the "own_outgoing_stock" field.
 	OwnOutgoingStock int64 `json:"own_outgoing_stock,omitempty"`
+	// Version holds the value of the "version" field.
+	Version int64 `json:"version,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the StockQuery when eager-loading is set.
 	Edges        StockEdges `json:"edges"`
@@ -98,7 +100,7 @@ func (*Stock) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case stock.FieldQuantity, stock.FieldIncomingStock, stock.FieldOutgoingStock, stock.FieldOwnQuantity, stock.FieldOwnIncomingStock, stock.FieldOwnOutgoingStock:
+		case stock.FieldQuantity, stock.FieldIncomingStock, stock.FieldOutgoingStock, stock.FieldOwnQuantity, stock.FieldOwnIncomingStock, stock.FieldOwnOutgoingStock, stock.FieldVersion:
 			values[i] = new(sql.NullInt64)
 		case stock.FieldCreatedAt, stock.FieldUpdatedAt, stock.FieldDeletedAt:
 			values[i] = new(sql.NullTime)
@@ -221,6 +223,12 @@ func (_m *Stock) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.OwnOutgoingStock = value.Int64
 			}
+		case stock.FieldVersion:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field version", values[i])
+			} else if value.Valid {
+				_m.Version = value.Int64
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -314,6 +322,9 @@ func (_m *Stock) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("own_outgoing_stock=")
 	builder.WriteString(fmt.Sprintf("%v", _m.OwnOutgoingStock))
+	builder.WriteString(", ")
+	builder.WriteString("version=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Version))
 	builder.WriteByte(')')
 	return builder.String()
 }

@@ -36,6 +36,8 @@ const (
 	FieldName = "name"
 	// FieldIdpOrgRef holds the string denoting the idp_org_ref field in the database.
 	FieldIdpOrgRef = "idp_org_ref"
+	// FieldExpiresAt holds the string denoting the expires_at field in the database.
+	FieldExpiresAt = "expires_at"
 	// EdgeTenantUsers holds the string denoting the tenantusers edge name in mutations.
 	EdgeTenantUsers = "tenantUsers"
 	// Table holds the table name of the tenant in the database.
@@ -63,6 +65,7 @@ var Columns = []string{
 	FieldDeletedBy,
 	FieldName,
 	FieldIdpOrgRef,
+	FieldExpiresAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -146,6 +149,11 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByIdpOrgRef orders the results by the idp_org_ref field.
 func ByIdpOrgRef(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldIdpOrgRef, opts...).ToFunc()
+}
+
+// ByExpiresAt orders the results by the expires_at field.
+func ByExpiresAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldExpiresAt, opts...).ToFunc()
 }
 
 // ByTenantUsersCount orders the results by tenantUsers count.

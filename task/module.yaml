@@ -26,12 +26,19 @@ tasks:
     desc: Lint module
     cmds:
       - go mod verify
-      - golangci-lint config verify --schema '{{.TASKFILE_DIR}}/../.golangci-lint/golangci.v2.5.jsonschema.json'
+      - golangci-lint config verify
       - >-
         golangci-lint run
         --allow-serial-runners
-        --timeout=5m
+        --timeout=10m
         ./...
+      - task: limitlint
+
+  limitlint:
+    desc: Flag .All(ctx) on LimitMixin entities (issue #1116)
+    internal: true
+    cmds:
+      - go run github.com/pyck-ai/pyck/backend/common/cmd/limitlint ./...
 
   govulncheck:
     desc: Scan module for known vulnerabilities
@@ -46,7 +53,7 @@ tasks:
       - >-
         golangci-lint run
         --allow-serial-runners
-        --timeout=5m
+        --timeout=10m
         --fix
         ./...
 
@@ -61,13 +68,21 @@ tasks:
       - golangci-lint fmt --diff-colored ./... || true
 
   test:
-    desc: Test module
-    cmds:
+    desc: Test module — fast suite only (skips slow tests via -short); PR merge gate
+    vars:
+      GO_TEST_FLAGS: -short
+      TEST_TIMEOUT: '{{.TEST_TIMEOUT | default "20m"}}'
+    env: &gotestsum-env
+      # Output format precedence: explicit FORMAT > -v/--verbose (standard-verbose)
+      # > -s/--silent (standard-quiet) > github-actions when running in GitHub
+      # Actions (GITHUB_ACTIONS=true, set automatically) > pkgname.
+      GOTESTSUM_FORMAT: '{{if .FORMAT}}{{.FORMAT}}{{else if .CLI_VERBOSE}}standard-verbose{{else if .CLI_SILENT}}standard-quiet{{else if eq (.GITHUB_ACTIONS | default "") "true"}}github-actions{{else}}pkgname{{end}}'
+    # Shared gotestsum invocation; behaviour varies only via the vars/env above.
+    cmds: &gotestsum-cmds
       - >-
         gotestsum
         --format-icons=text
         --format-hide-empty-pkg
-        "--format={{if .FORMAT}}{{.FORMAT}}{{else}}pkgname{{end}}"
         {{if .RERUN}}
         --rerun-fails{{if .RERUN}}={{.RERUN}}{{end}}
         --rerun-fails-max-failures=5
@@ -77,6 +92,23 @@ tasks:
         --packages=./...
         --
         -race
-        -timeout=20m
+        -timeout={{.TEST_TIMEOUT | default "20m"}}
+        {{.GO_TEST_FLAGS}}
+        {{if .RUN_PATTERN}}-run {{.RUN_PATTERN | q}}{{end}}
         -cover -coverprofile=cover.out
         {{.CLI_ARGS}}
+
+  test:slow:
+    desc: Test module — ONLY the slow tests (-run '_Slow$'); main + nightly
+    vars:
+      RUN_PATTERN: _Slow$
+      TEST_TIMEOUT: '{{.TEST_TIMEOUT | default "60m"}}'
+    env: *gotestsum-env
+    cmds: *gotestsum-cmds
+
+  test:full:
+    desc: Test module — full suite, fast + slow tests (no -short, no -run filter)
+    vars:
+      TEST_TIMEOUT: '{{.TEST_TIMEOUT | default "60m"}}'
+    env: *gotestsum-env
+    cmds: *gotestsum-cmds

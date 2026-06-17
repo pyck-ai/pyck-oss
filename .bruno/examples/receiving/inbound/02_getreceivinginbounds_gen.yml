@@ -40,60 +40,6 @@ graphql:
               deletedAt
               deletedBy
               id
-              inboundItems {
-                edges {
-                  cursor
-                  node {
-                    createdAt
-                    createdBy
-                    data
-                    dataTypeID
-                    dataTypeSlug
-                    deletedAt
-                    deletedBy
-                    id
-                    inboundID
-                    quantity
-                    sku
-                    tenantID
-                    updatedAt
-                    updatedBy
-                  }
-                }
-                pageInfo {
-                  endCursor
-                  hasNextPage
-                  hasPreviousPage
-                  startCursor
-                }
-                totalCount
-              }
-              inboundShipmentNotifications {
-                edges {
-                  cursor
-                  node {
-                    createdAt
-                    createdBy
-                    data
-                    dataTypeID
-                    dataTypeSlug
-                    deletedAt
-                    deletedBy
-                    id
-                    inboundID
-                    tenantID
-                    updatedAt
-                    updatedBy
-                  }
-                }
-                pageInfo {
-                  endCursor
-                  hasNextPage
-                  hasPreviousPage
-                  startCursor
-                }
-                totalCount
-              }
               orderID
               supplierID
               tenantID

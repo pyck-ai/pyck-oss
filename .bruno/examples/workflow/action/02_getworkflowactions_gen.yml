@@ -58,7 +58,8 @@ graphql:
           "workflowId": null // PLACEHOLDER: workflow execution ID
         },
         "where": {
-          "enabled": true
+          "enabled": true,
+          "nameHasPrefix": "ship"
         }
       }
 

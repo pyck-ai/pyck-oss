@@ -30,6 +30,7 @@ type FrontendConfig struct {
 type config struct {
 	envconfig.DbConfig
 	envconfig.EnvironmentConfig
+	envconfig.IdempotencyConfig
 	envconfig.EventOutboxConfig
 	envconfig.GraphQLConfig
 	envconfig.HTTPConfig
@@ -45,7 +46,31 @@ type config struct {
 	otel.OTelConfig
 
 	ZitadelServiceKeyPath string `env:"PYCK_ZITADEL_SERVICE_KEYFILE,notEmpty,required"`
-	ZitadelSyncEvery      string `env:"PYCK_ZITADEL_SYNC_EVERY,notEmpty" envDefault:"10m"`
+
+	ZitadelSyncEvery string `env:"PYCK_ZITADEL_SYNC_EVERY,notEmpty" envDefault:"10m"`
+
+	// TenantReconcileInterval is how often the tenant-reconcile workflow
+	// heals DB ↔ Zitadel drift (deleted_at vs org state). Lower = drift
+	// closes faster, more list-orgs calls to Zitadel.
+	TenantReconcileInterval string `env:"PYCK_TENANT_RECONCILE_INTERVAL,notEmpty" envDefault:"5m"`
+
+	// TenantExpiryCheckInterval is how often the tenant-expiry-check
+	// workflow scans for tenants whose expires_at has passed and
+	// soft-deletes them. Lower = tighter expiry pickup, more DB sweeps.
+	TenantExpiryCheckInterval string `env:"PYCK_TENANT_EXPIRY_CHECK_INTERVAL,notEmpty" envDefault:"1m"`
+
+	// Shared HMAC key Zitadel uses to sign Actions v2 webhook callbacks
+	// (e.g. /webhook/zitadel/actions/pre-token). Generated and exported by
+	// the bootstrap-zitadel container; management refuses to start without
+	// it. Every inbound webhook request is signature-verified — there is no
+	// empty-key bypass.
+	ZitadelActionSigningKey string `env:"PYCK_ZITADEL_ACTION_SIGNING_KEY,notEmpty,required" json:"-"`
+
+	// HMAC key for the login-event webhook (/webhook/zitadel/login), minted by
+	// bootstrap-zitadel. Optional: when empty the route isn't mounted, so a
+	// deploy can roll out management before the key lands in its secret. When
+	// mounted, every request is verified.
+	ZitadelLoginActionSigningKey string `env:"PYCK_ZITADEL_LOGIN_ACTION_SIGNING_KEY" json:"-"`
 
 	NatsAuthKeySeed string `env:"PYCK_NATS_AUTH_KEY_SEED,notEmpty,required" json:"-"`
 

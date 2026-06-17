@@ -7,6 +7,7 @@ import (
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
 
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
@@ -40,6 +41,17 @@ func (OutboundShipmentNotification) Fields() []ent.Field {
 			Annotations(
 				entgql.OrderField("ORDER_ID"),
 			),
+	}
+}
+
+// Indexes of the OutboundShipmentNotification.
+func (OutboundShipmentNotification) Indexes() []ent.Index {
+	return []ent.Index{
+		// FK-lookup index for the order edge and tenant filtering. These
+		// previously existed only in the DB (idx_outbound_shipment_notifications_*),
+		// declared here so the schema-diff keeps them instead of dropping them.
+		index.Fields("order_id"),
+		index.Fields("tenant_id"),
 	}
 }
 

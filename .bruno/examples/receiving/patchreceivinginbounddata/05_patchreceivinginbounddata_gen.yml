@@ -38,30 +38,6 @@ graphql:
             deletedAt
             deletedBy
             id
-            inboundItems {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
-            inboundShipmentNotifications {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
             orderID
             supplierID
             tenantID

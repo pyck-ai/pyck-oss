@@ -9,6 +9,7 @@ vars:
     workflowId: { $placeholder: "workflow execution ID" }
     workflowExecutionId: { $placeholder: "run ID" }
   where:
+    nameHasPrefix: "ship"
     enabled: true
 expect:
   - msg: "Status is 200"

@@ -216,13 +216,12 @@ process_directory() {
   
   if [[ -n "$node_suffix" ]]; then
     log "  Applying node transformation: Node → Node${node_suffix}"
-    awk -v node_suffix="${node_suffix}" '
-    {
-        gsub(/node\(/, "node" node_suffix "(")
-        gsub(/nodes\(/, "nodes" node_suffix "(")
-        gsub(/(\<|\B)Node(\>|\B)/, "Node" node_suffix)
-        print
-    }' "$temp_file" > "$output_file"
+    # sed instead of awk: the previous awk regex relied on GNU gawk word
+    # boundaries (\< \B) and silently no-ops on mawk, corrupting the output
+    sed -e "s/node(/node${node_suffix}(/g" \
+        -e "s/nodes(/nodes${node_suffix}(/g" \
+        -e "s/Node/Node${node_suffix}/g" \
+        "$temp_file" > "$output_file"
     rm "$temp_file"
   else
     log "  No node transformation needed"
@@ -291,7 +290,7 @@ process_input() {
       services_found+=("$service_info")
       found_services=true
     fi
-  done < <(find "$input_dir" -mindepth 2 -maxdepth 2 -type d -name "graph" -print0 2>/dev/null)
+  done < <(find "$input_dir" -mindepth 2 -maxdepth 2 -type d -name "graph" -print0 2>/dev/null | sort -z)
   
   # Case 3: If no graph subdirectories, check if directory itself has .graphql files
   if [[ "$found_services" == false ]]; then

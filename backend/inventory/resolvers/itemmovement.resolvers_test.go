@@ -9,6 +9,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 
 	entitemmovement "github.com/pyck-ai/pyck/backend/inventory/ent/gen/itemmovement"
@@ -230,7 +231,7 @@ func TestItemMovement_Create(t *testing.T) {
 		assert.Equal(t, int64(5), created.Quantity)
 
 		// Verify persisted
-		stored, err := te.Ent.ItemMovement.Query().All(ctx)
+		stored, err := te.Ent.ItemMovement.Query().AllPages(ctx, mixin.Limit)
 		require.NoError(t, err)
 		require.Len(t, stored, 1)
 		assert.Equal(t, created.ID, stored[0].ID)

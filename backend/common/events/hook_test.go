@@ -19,6 +19,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/pyck-ai/pyck/backend/common/feature"
+	"github.com/pyck-ai/pyck/backend/common/txid"
 )
 
 // testEntity is a test struct for field comparison tests (without special Data handling).
@@ -164,7 +165,10 @@ func TestMutationEventHook_OutboxEntryTimestampIsUTC(t *testing.T) {
 	mutator := hook(next)
 	m := &mockMutation{op: ent.OpCreate, typ: "TestEntity", ids: []uuid.UUID{entityID}}
 
-	// OTel trace context is required by buildOutboxEntry for correlation ID.
+	// buildOutboxEntry requires a transaction ID on ctx (the gqltx
+	// middleware would install this at BeginTx in production). An OTel
+	// trace context is optional now — it only feeds the trace_id
+	// observability column.
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithSpanProcessor(tracetest.NewSpanRecorder()),
@@ -177,12 +181,57 @@ func TestMutationEventHook_OutboxEntryTimestampIsUTC(t *testing.T) {
 		TenantID: tenantID,
 		Roles:    map[uuid.UUID]authn.Role{tenantID: authn.ROLE_WRITER},
 	})
+	ctx = txid.With(ctx, txid.New())
 
 	_, err := mutator.Mutate(ctx, m)
 	require.NoError(t, err)
 	require.NotNil(t, captured, "outbox entry should have been captured")
 	assert.Equal(t, time.UTC, captured.CreatedAt.Location(),
 		"outbox entry CreatedAt should be in UTC")
+}
+
+func TestMutationEventHook_SuppressEvents_SkipsOutbox(t *testing.T) {
+	t.Parallel()
+
+	entityID := uuid.MustParse("00000000-0000-0000-0000-000000000011")
+	tenantID := uuid.MustParse("00000000-0000-0000-0000-000000000012")
+
+	outboxInserted := false
+	fetcherCalled := false
+
+	hook := events.MutationEventHook(events.HookConfig{
+		Service:    "test",
+		StreamName: "test-stream",
+		EntityFetcher: func(_ context.Context, _ string, _ uuid.UUID) (any, error) {
+			fetcherCalled = true
+			return nil, nil //nolint:nilnil // test stub
+		},
+		OutboxInserter: func(_ context.Context, _ *events.OutboxEntry) error {
+			outboxInserted = true
+			return nil
+		},
+	})
+
+	mutated := false
+	next := ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+		mutated = true
+		return &testEntity{ID: entityID, TenantID: tenantID, Name: "test"}, nil
+	})
+
+	mutator := hook(next)
+	m := &mockMutation{op: ent.OpUpdate, typ: "TestEntity", ids: []uuid.UUID{entityID}}
+
+	// With the suppress feature set, the hook must run the mutation but skip the
+	// before-state fetch and the outbox write entirely — no transaction ID on
+	// ctx is required because no outbox entry is built.
+	ctx := feature.Context(context.Background(), feature.FEATURE_SUPPRESS_EVENTS)
+
+	value, err := mutator.Mutate(ctx, m)
+	require.NoError(t, err)
+	assert.True(t, mutated, "underlying mutation must still run")
+	assert.False(t, outboxInserted, "outbox must not be written when update events are suppressed")
+	assert.False(t, fetcherCalled, "before-state fetch must be skipped when update events are suppressed")
+	_ = value
 }
 
 func TestMutationEventHook_BulkUpdateZeroMatches_SkipsEventEmission(t *testing.T) {
@@ -848,7 +897,9 @@ func TestMutationEventHook_SystemUserNoTenant_SkipsOutbox(t *testing.T) {
 	m := &mockMutation{op: ent.OpUpdateOne, typ: "Tenant", ids: []uuid.UUID{entityID}}
 
 	// System user context without tenant — exactly the scenario that caused the panic.
-	// OTel trace context is required by buildOutboxEntry for correlation ID.
+	// buildOutboxEntry requires a transaction ID on ctx (gqltx middleware installs
+	// this at BeginTx in production). The OTel trace context is optional and only
+	// feeds the trace_id observability column.
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithSpanProcessor(tracetest.NewSpanRecorder()),
@@ -857,6 +908,7 @@ func TestMutationEventHook_SystemUserNoTenant_SkipsOutbox(t *testing.T) {
 	ctx, span := tp.Tracer("test").Start(context.Background(), "test-span")
 	defer span.End()
 	ctx = authn.Context(ctx, authn.SystemUser())
+	ctx = txid.With(ctx, txid.New())
 
 	value, err := mutator.Mutate(ctx, m)
 

@@ -132,15 +132,8 @@ func TestGuard_IndividualTimeout(t *testing.T) {
 			if !hasDeadline {
 				return false, errors.New("expected deadline in context")
 			}
-			// Check if we effectively timed out
-			select {
-			case <-ctx.Done():
-				// Correct behavior
-				return false, nil
-			case <-time.After(20 * time.Millisecond):
-				// Should not happen if timeout works
-				return true, nil
-			}
+			<-ctx.Done()
+			return false, nil
 		},
 	})
 

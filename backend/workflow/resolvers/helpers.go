@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -716,16 +717,67 @@ func buildExecutionHistoryConnection(histories []*model.WorkflowExecutionHistory
 	}
 }
 
-// matchesFilter checks if an action definition matches the optional where filter.
-func matchesFilter(where *model.WorkflowActionsWhereInput, name string, enabled bool) bool {
+// MatchesFilter reports whether an action definition matches the optional where
+// filter. Unlike WorkflowExecutions filtering (which is pushed down into a
+// Temporal visibility query), workflow actions are filtered in memory after the
+// full set is fetched, so each predicate is evaluated directly here. All set
+// predicates must hold (they are AND-joined).
+func MatchesFilter(where *model.WorkflowActionsWhereInput, name string, enabled bool) bool {
 	if where == nil {
 		return true
 	}
-	if where.Name != nil && *where.Name != name {
+	if !matchesNamePredicates(where, name) {
 		return false
 	}
 	if where.Enabled != nil && *where.Enabled != enabled {
 		return false
 	}
 	return true
+}
+
+// matchesNamePredicates evaluates every set string predicate on the action name.
+// Following the convention in FormatPredicate, nil/empty-string pointers and
+// empty slices are treated as "predicate not set" and skipped, so they match
+// everything rather than nothing.
+func matchesNamePredicates(where *model.WorkflowActionsWhereInput, name string) bool {
+	if v, ok := strPredicate(where.Name); ok && v != name {
+		return false
+	}
+	if v, ok := strPredicate(where.NameNeq); ok && v == name {
+		return false
+	}
+	if len(where.NameIn) > 0 && !slices.Contains(where.NameIn, name) {
+		return false
+	}
+	if len(where.NameNotIn) > 0 && slices.Contains(where.NameNotIn, name) {
+		return false
+	}
+	if v, ok := strPredicate(where.NameContains); ok && !strings.Contains(name, v) {
+		return false
+	}
+	if v, ok := strPredicate(where.NameHasPrefix); ok && !strings.HasPrefix(name, v) {
+		return false
+	}
+	if v, ok := strPredicate(where.NameHasSuffix); ok && !strings.HasSuffix(name, v) {
+		return false
+	}
+	if v, ok := strPredicate(where.NameEqualFold); ok && !strings.EqualFold(name, v) {
+		return false
+	}
+	if v, ok := strPredicate(where.NameContainsFold); ok &&
+		!strings.Contains(strings.ToLower(name), strings.ToLower(v)) {
+		return false
+	}
+	return true
+}
+
+// strPredicate returns the predicate value and whether it is set. A nil pointer
+// or an empty-string pointer is treated as unset, mirroring FormatPredicate's
+// handling of string predicates in the WorkflowExecutions query path so the two
+// filtering endpoints agree on what an empty value means.
+func strPredicate(p *string) (string, bool) {
+	if p == nil || *p == "" {
+		return "", false
+	}
+	return *p, true
 }

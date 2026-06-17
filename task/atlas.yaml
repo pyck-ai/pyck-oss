@@ -16,13 +16,20 @@ tasks:
         "{{.NAME}}"
         go run -mod=readonly ent/migrate/main.go {{.CLI_ARGS}}
 
-  # atlas.rehash:
-  #   desc: Rehash atlas migrations
-  #   cmds:
-  #     - >-
-  #       docker run
-  #       --rm --interactive --tty
-  #       --volume "$(pwd)/ent/migrate/migrations/:/migrations/:z"
-  #       arigaio/atlas
-  #       migrate hash
-  #       {{.CLI_ARGS}}
+  atlas:rehash:
+    # Rehash with the golang-migrate dir format so the sum hashes up-files only,
+    # matching the library path (atlas:migrate -> sqltool.NewGolangMigrateDir).
+    # Without ?format=golang-migrate atlas defaults to its own dir format, which
+    # also hashes .down.sql files and produces a sum the migrate tool rejects.
+    # The image tag is pinned to the ariga.io/atlas version used in go.mod so the
+    # CLI and library hashing stay in lockstep.
+    desc: Rehash atlas migrations (golang-migrate format, up-files only)
+    cmds:
+      - >-
+        docker run
+        --rm --interactive --tty
+        --volume "$(pwd)/ent/migrate/migrations/:/migrations/:z"
+        arigaio/atlas:0.38.0
+        migrate hash
+        --dir "file:///migrations?format=golang-migrate"
+        {{.CLI_ARGS}}

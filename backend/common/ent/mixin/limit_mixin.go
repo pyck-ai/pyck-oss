@@ -37,7 +37,9 @@ func LimitInterceptor() ent.Interceptor {
 				c.Limit = &Limit
 				ctx = ent.NewQueryContext(ctx, c)
 				implicitLimit = true
-			} else if *ctxLimit > Limit {
+			} else if *ctxLimit > Limit+1 {
+				// +1 leaves room for Relay's lookahead row (paginateLimit), so the
+				// caller-visible budget stays at Limit.
 				return nil, fmt.Errorf("%w: the maximum accepted limit is %d", ErrLimitExceeded, Limit)
 			}
 

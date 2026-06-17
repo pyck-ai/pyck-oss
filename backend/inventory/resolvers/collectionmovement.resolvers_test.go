@@ -300,11 +300,36 @@ func TestCollectionMovement_Create(t *testing.T) {
 			assert.NotEqual(t, uuid.Nil, v.ID)
 		}
 
+		// Stock count dropped from 17 (Step 3.4) to 13 in Step 9.3 once
+		// the collection-create loop began calling the direct
+		// CreateItemMovement / CreateRepositoryMovement service methods.
+		// Each direct call now does its own ancestor load and writes
+		// only the rows touched by *its* FROM/TO walk; the previous
+		// implementation shared a single stockMap across positions and
+		// re-inserted entries owned by a prior position whenever the
+		// next position's walk touched them. Those re-inserts were
+		// byte-identical no-ops that insertStockMap eventually filtered
+		// (Step 3.4), but the LCA-trimmed walks per direct call now
+		// avoid them at the source. The repository sub-movement still
+		// walks to the root via its own bookkeeping, unchanged.
+		//
+		// The next drop, from 13 to 9, lands with the
+		// CreateRepositoryMovement fan-out fix that constrains the
+		// per-(repo, item) write set to items physically present on
+		// the moving repository. Position 3 here moves repo7, which
+		// holds no stock; previously the fan-out still re-stamped
+		// every (closure ancestor, item) pair the loader returned
+		// — four byte-identical no-op rows for the item touched by
+		// positions 1-2 at repo7's ancestors — even though none of
+		// repo7's contents are changing. Skipping those four no-ops
+		// also closes the Postgres-65,535-parameter wire-protocol
+		// overflow that the same fan-out hits on tenants whose
+		// closure stock-row count is larger.
 		te.assertEventCounts(ctx, map[string]int{
 			"collection-movement": 1,
 			"itemmovement":        2,
 			"repositorymovement":  1,
-			"stock":               21,
+			"stock":               9,
 		})
 	})
 
@@ -453,6 +478,108 @@ func TestCollectionMovement_CreateFromVirtualRepo(t *testing.T) {
 			assert.Len(t, data.CreateInventoryCollectionMovement.Movements, 1)
 		})
 	}
+}
+
+// TestCollectionMovement_CreatePlanAheadChain pins the Phase 9.3
+// plan-ahead semantics: a chain A->B->C planned in a single collection
+// must succeed even when only A holds stock at submission time. The
+// individual CreateInventoryItemMovement direct path would reject the
+// second leg with errInsufficientStock because B has no quantity until
+// the first leg's stock-map fan-out has been written, but
+// CreateInventoryCollectionMovement wraps the loop with
+// WithDeferredUnderflow so each per-call rejection is suppressed; the
+// post-loop consistencyCheckSourceRows then validates the final state
+// against the only true source (A). This is the
+// runbook §0.3 two-pass plan-ahead contract end-to-end.
+func TestCollectionMovement_CreatePlanAheadChain(t *testing.T) {
+	t.Parallel()
+	te := setup(t)
+	defer te.Close(t)
+
+	ctx := te.ctx(userA)
+
+	// Three sibling leaf repos under a common root so FROM/TO walks
+	// share repo1 as their LCA and the item-movement direct path has
+	// to walk through it. A starts with 4 units; B and C are empty.
+	root := te.newRepository(ctx, userA).Name("plan-root").Create()
+	repoA := te.newRepository(ctx, userA).Name("plan-A").Parent(root.ID).Create()
+	repoB := te.newRepository(ctx, userA).Name("plan-B").Parent(root.ID).Create()
+	repoC := te.newRepository(ctx, userA).Name("plan-C").Parent(root.ID).Create()
+	item := te.newItem(ctx, userA).Sku("PLAN-AHEAD-CHAIN").Create()
+
+	te.newStock(ctx, userA, item.ID, repoA.ID).Quantity(4).Create()
+	te.clearEvents(ctx)
+
+	data := execOK[createCollectionMovementData](te, ctx, createCollectionMovement, map[string]any{
+		"DataTypeID": itemDataTypeID,
+		"Collection": []collectionMovementItem{
+			{
+				ItemID:   &item.ID,
+				FromID:   repoA.ID,
+				ToID:     repoB.ID,
+				Handler:  testHandler,
+				Quantity: ptrInt64(4),
+			},
+			{
+				ItemID:   &item.ID,
+				FromID:   repoB.ID,
+				ToID:     repoC.ID,
+				Handler:  testHandler,
+				Quantity: ptrInt64(4),
+			},
+		},
+	})
+
+	assert.NotEqual(t, uuid.Nil, data.CreateInventoryCollectionMovement.ID)
+	require.Len(t, data.CreateInventoryCollectionMovement.Movements, 2)
+	for _, m := range data.CreateInventoryCollectionMovement.Movements {
+		assert.NotEqual(t, uuid.Nil, m.ID)
+		assert.Equal(t, "itemMovement", m.MovementType)
+	}
+}
+
+// TestCollectionMovement_CreateInternallyInconsistentChain pins the
+// other half of the deferred-underflow contract: a collection whose
+// source rows cannot satisfy the targets even after the chain settles
+// must be rejected by consistencyCheckSourceRows. The error rolls the
+// surrounding tx back, leaving zero collection_movement,
+// item_movement, or stock rows persisted.
+//
+// Scenario: A holds 2 units; the collection plans A->B (qty=3). The
+// per-call gate is suppressed by WithDeferredUnderflow, the movement
+// row writes briefly inside the tx, and the post-loop consistency
+// check then surfaces "stock underflow" against A. gqltx middleware
+// rolls everything back.
+func TestCollectionMovement_CreateInternallyInconsistentChain(t *testing.T) {
+	t.Parallel()
+	te := setup(t)
+	defer te.Close(t)
+
+	ctx := te.ctx(userA)
+
+	root := te.newRepository(ctx, userA).Name("inconsistent-root").Create()
+	repoA := te.newRepository(ctx, userA).Name("inconsistent-A").Parent(root.ID).Create()
+	repoB := te.newRepository(ctx, userA).Name("inconsistent-B").Parent(root.ID).Create()
+	item := te.newItem(ctx, userA).Sku("INCONSISTENT-CHAIN").Create()
+
+	te.newStock(ctx, userA, item.ID, repoA.ID).Quantity(2).Create()
+	te.clearEvents(ctx)
+
+	execErr(te, ctx, createCollectionMovement, map[string]any{
+		"DataTypeID": itemDataTypeID,
+		"Collection": []collectionMovementItem{
+			{
+				ItemID:   &item.ID,
+				FromID:   repoA.ID,
+				ToID:     repoB.ID,
+				Handler:  testHandler,
+				Quantity: ptrInt64(3),
+			},
+		},
+	}, "stock underflow")
+
+	// Tx rollback contract: nothing committed.
+	te.assertNoEvents(ctx)
 }
 
 // =============================================================================

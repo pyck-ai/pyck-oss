@@ -101,15 +101,18 @@ func (m *WorkflowReplyMiddleware) InterceptField(ctx context.Context, next graph
 
 	logger.Debug().Str("field", fc.Field.Name).Msg("intercepting mutation field")
 
-	// Set up reply registration before the resolver executes
-	correlationID, err := events.CorrelationIDFromContext(ctx)
+	// Set up reply registration before the resolver executes.
+	// Use the per-tx UUID (regenerated on every OCC retry) so the rolled-back
+	// attempt's waiter cannot accidentally absorb the successful attempt's reply.
+	transactionID, err := events.TransactionIDFromContext(ctx)
 	if err != nil {
-		// No correlation ID - proceed without reply handling
-		logger.Debug().Err(err).Msg("no correlation ID, skipping workflow reply")
+		// No transaction ID — gqltx middleware did not run on this ctx;
+		// proceed without reply handling.
+		logger.Debug().Err(err).Msg("no transaction ID on ctx, skipping workflow reply")
 		return next(ctx)
 	}
 
-	logger.Debug().Str("correlation_id", correlationID).Msg("registering workflow reply")
+	logger.Debug().Str("transaction_id", transactionID.String()).Msg("registering workflow reply")
 
 	// When async signals are enabled, skip reply registration entirely.
 	// The outbox handler will publish fire-and-forget instead of request/reply,
@@ -128,7 +131,7 @@ func (m *WorkflowReplyMiddleware) InterceptField(ctx context.Context, next graph
 
 	// Mark context for reply and register
 	ctx = events.WithExpectReply(ctx, true)
-	replyCh := m.replyRegistry.Register(correlationID, m.replyTimeout)
+	replyCh := m.replyRegistry.Register(transactionID, m.replyTimeout)
 
 	// Execute the resolver
 	result, err := next(ctx)
@@ -158,17 +161,17 @@ func (m *WorkflowReplyMiddleware) InterceptField(ctx context.Context, next graph
 	// by the time the patch executes — we must patch r.Data directly.
 	replyTimeout := m.replyTimeout
 	AddResponsePatch(ctx, func(r *graphql.Response) error {
-		logger.Debug().Str("correlation_id", correlationID).Msg("waiting for workflow reply")
+		logger.Debug().Str("transaction_id", transactionID.String()).Msg("waiting for workflow reply")
 
 		var workflows []*events.WorkflowDetails
 		select {
 		case workflows = <-replyCh:
-			logger.Debug().Str("correlation_id", correlationID).Int("count", len(workflows)).Msg("received workflows from reply")
+			logger.Debug().Str("transaction_id", transactionID.String()).Int("count", len(workflows)).Msg("received workflows from reply")
 		case <-time.After(replyTimeout):
-			logger.Debug().Str("correlation_id", correlationID).Msg("timed out waiting for workflow reply")
+			logger.Debug().Str("transaction_id", transactionID.String()).Msg("timed out waiting for workflow reply")
 			return nil
 		case <-ctx.Done():
-			logger.Debug().Str("correlation_id", correlationID).Msg("context cancelled while waiting for workflow reply")
+			logger.Debug().Str("transaction_id", transactionID.String()).Msg("context cancelled while waiting for workflow reply")
 			return nil
 		}
 

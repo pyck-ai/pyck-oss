@@ -11,6 +11,7 @@ import (
 type config struct {
 	envconfig.DbConfig
 	envconfig.EnvironmentConfig
+	envconfig.IdempotencyConfig
 	envconfig.GatewayConfig
 	envconfig.HTTPConfig
 	envconfig.LogConfig

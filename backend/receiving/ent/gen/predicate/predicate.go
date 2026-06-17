@@ -9,6 +9,9 @@ import (
 // EntityEventsOutbox is the predicate function for entityeventsoutbox builders.
 type EntityEventsOutbox func(*sql.Selector)
 
+// IdempotencyKey is the predicate function for idempotencykey builders.
+type IdempotencyKey func(*sql.Selector)
+
 // Inbound is the predicate function for inbound builders.
 type Inbound func(*sql.Selector)
 

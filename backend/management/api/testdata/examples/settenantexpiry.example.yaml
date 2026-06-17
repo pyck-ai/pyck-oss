@@ -1,0 +1,28 @@
+---
+operation: SetTenantExpiry
+name: "Set Tenant Expiry"
+description: >
+  Sets or clears the tenant's expiry timestamp. Pass null to clear.
+  System role required. The value is written directly to
+  tenant.expires_at; the periodic tenant-expiry-check workflow
+  soft-deletes the tenant once the timestamp is reached. Returns an
+  error when the tenant does not exist; soft-deleted tenants are
+  invisible to this mutation. Idempotent on the
+  already-at-target-state cases.
+vars:
+  input:
+    id: { $placeholder: "tenant ID" }
+    expiresAt: { $placeholder: "RFC3339 timestamp, or null to clear" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "setTenantExpiry succeeded"
+    assertions:
+      - ref: res.body.data.setTenantExpiry.success
+        equal: true

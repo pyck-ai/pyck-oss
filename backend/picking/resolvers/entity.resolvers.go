@@ -11,8 +11,8 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-	"github.com/pyck-ai/pyck/backend/picking"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen"
+	"github.com/pyck-ai/pyck/backend/picking/exec"
 )
 
 // FindPickingOrderByID is the resolver for the findPickingOrderByID field.
@@ -39,7 +39,7 @@ func (r *entityResolver) FindPickingOrderItemBySku(ctx context.Context, sku stri
 	return orderItem, nil
 }
 
-// Entity returns picking.EntityResolver implementation.
-func (r *Resolver) Entity() picking.EntityResolver { return &entityResolver{r} }
+// Entity returns exec.EntityResolver implementation.
+func (r *Resolver) Entity() exec.EntityResolver { return &entityResolver{r} }
 
 type entityResolver struct{ *Resolver }

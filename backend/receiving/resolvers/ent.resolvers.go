@@ -10,11 +10,11 @@ import (
 
 	"entgo.io/contrib/entgql"
 	"github.com/google/uuid"
-	"github.com/pyck-ai/pyck/backend/receiving"
 	"github.com/pyck-ai/pyck/backend/receiving/ent/gen"
 	"github.com/pyck-ai/pyck/backend/receiving/ent/gen/inbound"
 	"github.com/pyck-ai/pyck/backend/receiving/ent/gen/inbounditem"
 	"github.com/pyck-ai/pyck/backend/receiving/ent/gen/inboundshipmentnotification"
+	"github.com/pyck-ai/pyck/backend/receiving/exec"
 )
 
 // Node is the resolver for the node field.
@@ -54,21 +54,21 @@ func (r *queryResolver) ReceivingInboundShipmentNotifications(ctx context.Contex
 		)
 }
 
-// Query returns receiving.QueryResolver implementation.
-func (r *Resolver) Query() receiving.QueryResolver { return &queryResolver{r} }
+// Query returns exec.QueryResolver implementation.
+func (r *Resolver) Query() exec.QueryResolver { return &queryResolver{r} }
 
-// ReceivingInboundItemWhereInput returns receiving.ReceivingInboundItemWhereInputResolver implementation.
-func (r *Resolver) ReceivingInboundItemWhereInput() receiving.ReceivingInboundItemWhereInputResolver {
+// ReceivingInboundItemWhereInput returns exec.ReceivingInboundItemWhereInputResolver implementation.
+func (r *Resolver) ReceivingInboundItemWhereInput() exec.ReceivingInboundItemWhereInputResolver {
 	return &receivingInboundItemWhereInputResolver{r}
 }
 
-// ReceivingInboundShipmentNotificationWhereInput returns receiving.ReceivingInboundShipmentNotificationWhereInputResolver implementation.
-func (r *Resolver) ReceivingInboundShipmentNotificationWhereInput() receiving.ReceivingInboundShipmentNotificationWhereInputResolver {
+// ReceivingInboundShipmentNotificationWhereInput returns exec.ReceivingInboundShipmentNotificationWhereInputResolver implementation.
+func (r *Resolver) ReceivingInboundShipmentNotificationWhereInput() exec.ReceivingInboundShipmentNotificationWhereInputResolver {
 	return &receivingInboundShipmentNotificationWhereInputResolver{r}
 }
 
-// ReceivingInboundWhereInput returns receiving.ReceivingInboundWhereInputResolver implementation.
-func (r *Resolver) ReceivingInboundWhereInput() receiving.ReceivingInboundWhereInputResolver {
+// ReceivingInboundWhereInput returns exec.ReceivingInboundWhereInputResolver implementation.
+func (r *Resolver) ReceivingInboundWhereInput() exec.ReceivingInboundWhereInputResolver {
 	return &receivingInboundWhereInputResolver{r}
 }
 

@@ -202,6 +202,20 @@ func (_c *StockCreate) SetNillableOwnOutgoingStock(v *int64) *StockCreate {
 	return _c
 }
 
+// SetVersion sets the "version" field.
+func (_c *StockCreate) SetVersion(v int64) *StockCreate {
+	_c.mutation.SetVersion(v)
+	return _c
+}
+
+// SetNillableVersion sets the "version" field if the given value is not nil.
+func (_c *StockCreate) SetNillableVersion(v *int64) *StockCreate {
+	if v != nil {
+		_c.SetVersion(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *StockCreate) SetID(v uuid.UUID) *StockCreate {
 	_c.mutation.SetID(v)
@@ -283,6 +297,10 @@ func (_c *StockCreate) defaults() error {
 		v := stock.DefaultOwnOutgoingStock
 		_c.mutation.SetOwnOutgoingStock(v)
 	}
+	if _, ok := _c.mutation.Version(); !ok {
+		v := stock.DefaultVersion
+		_c.mutation.SetVersion(v)
+	}
 	if _, ok := _c.mutation.ID(); !ok {
 		if stock.DefaultID == nil {
 			return fmt.Errorf("gen: uninitialized stock.DefaultID (forgotten import gen/runtime?)")
@@ -357,6 +375,9 @@ func (_c *StockCreate) check() error {
 		if err := stock.OwnOutgoingStockValidator(v); err != nil {
 			return &ValidationError{Name: "own_outgoing_stock", err: fmt.Errorf(`gen: validator failed for field "Stock.own_outgoing_stock": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.Version(); !ok {
+		return &ValidationError{Name: "version", err: errors.New(`gen: missing required field "Stock.version"`)}
 	}
 	if len(_c.mutation.ItemIDs()) == 0 {
 		return &ValidationError{Name: "item", err: errors.New(`gen: missing required edge "Stock.item"`)}
@@ -456,6 +477,10 @@ func (_c *StockCreate) createSpec() (*Stock, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.OwnOutgoingStock(); ok {
 		_spec.SetField(stock.FieldOwnOutgoingStock, field.TypeInt64, value)
 		_node.OwnOutgoingStock = value
+	}
+	if value, ok := _c.mutation.Version(); ok {
+		_spec.SetField(stock.FieldVersion, field.TypeInt64, value)
+		_node.Version = value
 	}
 	if nodes := _c.mutation.ItemIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -764,6 +789,24 @@ func (u *StockUpsert) UpdateOwnOutgoingStock() *StockUpsert {
 // AddOwnOutgoingStock adds v to the "own_outgoing_stock" field.
 func (u *StockUpsert) AddOwnOutgoingStock(v int64) *StockUpsert {
 	u.Add(stock.FieldOwnOutgoingStock, v)
+	return u
+}
+
+// SetVersion sets the "version" field.
+func (u *StockUpsert) SetVersion(v int64) *StockUpsert {
+	u.Set(stock.FieldVersion, v)
+	return u
+}
+
+// UpdateVersion sets the "version" field to the value that was provided on create.
+func (u *StockUpsert) UpdateVersion() *StockUpsert {
+	u.SetExcluded(stock.FieldVersion)
+	return u
+}
+
+// AddVersion adds v to the "version" field.
+func (u *StockUpsert) AddVersion(v int64) *StockUpsert {
+	u.Add(stock.FieldVersion, v)
 	return u
 }
 
@@ -1080,6 +1123,27 @@ func (u *StockUpsertOne) AddOwnOutgoingStock(v int64) *StockUpsertOne {
 func (u *StockUpsertOne) UpdateOwnOutgoingStock() *StockUpsertOne {
 	return u.Update(func(s *StockUpsert) {
 		s.UpdateOwnOutgoingStock()
+	})
+}
+
+// SetVersion sets the "version" field.
+func (u *StockUpsertOne) SetVersion(v int64) *StockUpsertOne {
+	return u.Update(func(s *StockUpsert) {
+		s.SetVersion(v)
+	})
+}
+
+// AddVersion adds v to the "version" field.
+func (u *StockUpsertOne) AddVersion(v int64) *StockUpsertOne {
+	return u.Update(func(s *StockUpsert) {
+		s.AddVersion(v)
+	})
+}
+
+// UpdateVersion sets the "version" field to the value that was provided on create.
+func (u *StockUpsertOne) UpdateVersion() *StockUpsertOne {
+	return u.Update(func(s *StockUpsert) {
+		s.UpdateVersion()
 	})
 }
 
@@ -1563,6 +1627,27 @@ func (u *StockUpsertBulk) AddOwnOutgoingStock(v int64) *StockUpsertBulk {
 func (u *StockUpsertBulk) UpdateOwnOutgoingStock() *StockUpsertBulk {
 	return u.Update(func(s *StockUpsert) {
 		s.UpdateOwnOutgoingStock()
+	})
+}
+
+// SetVersion sets the "version" field.
+func (u *StockUpsertBulk) SetVersion(v int64) *StockUpsertBulk {
+	return u.Update(func(s *StockUpsert) {
+		s.SetVersion(v)
+	})
+}
+
+// AddVersion adds v to the "version" field.
+func (u *StockUpsertBulk) AddVersion(v int64) *StockUpsertBulk {
+	return u.Update(func(s *StockUpsert) {
+		s.AddVersion(v)
+	})
+}
+
+// UpdateVersion sets the "version" field to the value that was provided on create.
+func (u *StockUpsertBulk) UpdateVersion() *StockUpsertBulk {
+	return u.Update(func(s *StockUpsert) {
+		s.UpdateVersion()
 	})
 }
 

@@ -23,6 +23,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/test"
 	"github.com/pyck-ai/pyck/backend/common/test/mocks"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
+	"github.com/pyck-ai/pyck/backend/common/txid"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 
@@ -272,7 +273,7 @@ func (b *fileBuilder) Create() *ent.File {
 		}
 
 		var err error
-		f, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		f, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -280,6 +281,10 @@ func (b *fileBuilder) Create() *ent.File {
 }
 
 func (te *testEnv) withTx(ctx context.Context, fn func(tx *ent.Tx) error) error {
+	// Inject a fresh transaction ID so the MutationEventHook (which now
+	// requires one for the outbox row's dedup key) is satisfied — this
+	// mirrors what the gqltx middleware does at BeginTx in production.
+	ctx = txid.With(ctx, txid.New())
 	tx, err := te.Ent.Tx(ctx)
 	if err != nil {
 		return err

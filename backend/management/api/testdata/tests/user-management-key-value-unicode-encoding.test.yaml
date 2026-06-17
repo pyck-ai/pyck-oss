@@ -1,0 +1,99 @@
+---
+name: "User - Key Value Unicode Encoding"
+description: "Demonstrates the NFC vs NFD Unicode encoding on the KeyValue.name field — create with NFC, query with NFD returns zero rows pre-fix, one row post-fix."
+steps:
+  # KeyValue.data is validated against a DataType's JSON schema. Create one
+  # first with a permissive schema so the rest of the scenario can run.
+  - id: createDT
+    name: Create permissive KeyValue DataType
+    operation: management.createDataType
+    vars:
+      input:
+        name: "kv-unicode-test"
+        jsonSchema: '{"type":"object"}'
+        entity: "keyvalue-unicode-{{$randomInt}}"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: No GraphQL errors
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: DataType created
+        assertions:
+          - ref: res.body.data.createDataType.id
+            notNil: true
+
+  - id: createNFC
+    name: Set KeyValue with NFC Unicode name
+    operation: management.setKeyValue
+    vars:
+      input:
+        name: "Caf\u00E9 M\u00FCnchner"
+        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        data: {note: "nfc-test"}
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: No GraphQL errors
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: KeyValue created
+        assertions:
+          - ref: res.body.data.setKeyValue.id
+            notNil: true
+
+  - name: Query by NFC name — control case, must find
+    operation: management.getKeyValues
+    vars:
+      where:
+        name: "Caf\u00E9 M\u00FCnchner"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: NFC query finds the row
+        assertions:
+          - ref: res.body.data.keyValues.totalCount
+            equal: 1
+
+  - name: Query by NFD name (decomposed) — fixed, must return one row
+    operation: management.getKeyValues
+    vars:
+      where:
+        name: "Cafe\u0301 Mu\u0308nchner"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "NFD-encoded query now matches NFC-stored row"
+        assertions:
+          - ref: res.body.data.keyValues.totalCount
+            equal: 1
+
+  - name: Cleanup — delete KeyValue
+    operation: management.deleteKeyValue
+    vars:
+      id: {$ref: "res[createNFC].body.data.setKeyValue.id"}
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+
+  - name: Cleanup — delete DataType
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200

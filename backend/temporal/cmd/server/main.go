@@ -66,6 +66,11 @@ func buildCLI() *cli.App {
 			Usage:   "availability zone",
 			EnvVars: []string{temporalconfig.EnvKeyAvailabilityZone},
 		},
+		&cli.StringFlag{
+			Name:    "config-file",
+			Usage:   "path to config file (absolute or relative to current working directory)",
+			EnvVars: []string{temporalconfig.EnvKeyConfigFile},
+		},
 		&cli.BoolFlag{
 			Name:    "allow-no-auth",
 			Usage:   "allow no authorizer",
@@ -106,14 +111,29 @@ func buildCLI() *cli.App {
 			},
 		},
 		{
+			Name:      "health",
+			Usage:     "Check Temporal frontend health",
+			ArgsUsage: " ",
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "address",
+					Aliases: []string{"a"},
+					Value:   "127.0.0.1:7236",
+					Usage:   "address of the Temporal frontend to check",
+					EnvVars: []string{"TEMPORAL_ADDRESS"},
+				},
+			},
+			Action: checkHealth,
+		},
+		{
 			Name:      "render-config",
 			Usage:     "Render server config template",
 			ArgsUsage: " ",
 			Action: func(c *cli.Context) error {
-				cfg, err := temporalconfig.LoadConfig(
-					c.String("env"),
-					c.String("config"),
-					c.String("zone"),
+				cfg, err := temporalconfig.Load(
+					temporalconfig.WithEnv(c.String("env")),
+					temporalconfig.WithConfigDir(c.String("config")),
+					temporalconfig.WithZone(c.String("zone")),
 				)
 				if err != nil {
 					return cli.Exit(fmt.Errorf("unable to load configuration: %w", err), 1)

@@ -6,11 +6,7 @@ import (
 	"reflect"
 	"time"
 
-	"entgo.io/ent/dialect"
-	entsql "entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-
-	outboxfields "github.com/pyck-ai/pyck/backend/common/internal/ent/mixin"
 )
 
 // Export internal functions for testing in events_test package.
@@ -69,22 +65,55 @@ func (testPublisher) RequestRaw(context.Context, string, []byte, time.Duration) 
 	return nil, nil //nolint:nilnil // Test mock returns no data, no error
 }
 
-// GroupByCorrelation exports the internal groupByCorrelation function for testing.
-var GroupByCorrelation = groupByCorrelation
+// GroupByTransaction exports the internal groupByTransaction function for testing.
+var GroupByTransaction = groupByTransaction
+
+// NextPollDelayForTest exposes OutboxHandler.nextPollDelay for testing the poll
+// interval jitter.
+func NextPollDelayForTest(pollInterval time.Duration) time.Duration {
+	h := &OutboxHandler{config: OutboxHandlerConfig{PollInterval: pollInterval}}
+	return h.nextPollDelay()
+}
 
 // InjectIntoMsg exposes the internal injectIntoMsg helper for testing the
 // NATS baggage carrier round-trip.
 var InjectIntoMsg = injectIntoMsg
 
 // BuildMessageID exports the OutboxHandler.buildMessageID logic for testing.
-// Creates a test handler and calls the method.
-func BuildMessageID(entry OutboxRow) string {
-	h := &OutboxHandler{config: OutboxHandlerConfig{}}
+// Creates a test handler with the given service name and calls the method.
+func BuildMessageID(serviceName string, entry OutboxRow) string {
+	h := &OutboxHandler{config: OutboxHandlerConfig{ServiceName: serviceName}}
 	return h.buildMessageID(entry)
 }
 
-// ProcessEntryForTest exposes the processEntry logic for unit testing.
-// It processes a single outbox entry with the provided dependencies.
+// applyMarkWithFuncs applies a single post-publish mark via the provided mark
+// functions, mirroring persistMarks but without needing a real *sql.DB so unit
+// tests can pass a nil tx and mock functions.
+func applyMarkWithFuncs(
+	ctx context.Context,
+	tx *sql.Tx,
+	mark outboxMark,
+	markPublished OutboxMarkPublishedFunc,
+	markFailed OutboxMarkFailedFunc,
+	markDead OutboxMarkTransactionDeadFunc,
+) error {
+	switch mark.kind {
+	case markKindPublished:
+		return markPublished(ctx, tx, mark.id)
+	case markKindFailed:
+		return markFailed(ctx, tx, mark.id, mark.errMsg)
+	case markKindDead:
+		if markDead != nil {
+			return markDead(ctx, tx, mark.transactionID, mark.errMsg)
+		}
+	}
+	return nil
+}
+
+// ProcessEntryForTest exposes the publish-then-persist logic for a single outbox
+// entry for unit testing. It publishes the entry (no DB transaction held) and
+// then applies the resulting mark via the provided mark functions, returning any
+// error from the persist step.
 func ProcessEntryForTest(
 	ctx context.Context,
 	tx *sql.Tx,
@@ -97,51 +126,99 @@ func ProcessEntryForTest(
 ) error {
 	h := &OutboxHandler{
 		config: OutboxHandlerConfig{
-			Publisher:           publisher,
-			ReplyRegistry:       registry,
-			OutboxMarkPublished: markPublished,
-			OutboxMarkFailed:    markFailed,
-			ReplyTimeout:        replyTimeout,
-			StreamName:          "pyck",
+			Publisher:     publisher,
+			ReplyRegistry: registry,
+			ReplyTimeout:  replyTimeout,
+			StreamName:    "pyck",
 		},
 	}
-	return h.processEntry(ctx, tx, entry)
+	mark := h.publishEntry(ctx, entry)
+	return applyMarkWithFuncs(ctx, tx, mark, markPublished, markFailed, nil)
 }
 
-// ProcessCorrelationGroupForTest exposes the processCorrelationGroup logic for unit testing.
-func ProcessCorrelationGroupForTest(
+// ProcessTransactionGroupForTest exposes the publish-then-persist logic for a
+// transaction group for unit testing. It publishes the group (no DB transaction
+// held) and applies the resulting marks via the provided mark functions in
+// order, stopping at the first persist error (mirroring persistMarks).
+func ProcessTransactionGroupForTest(
 	ctx context.Context,
 	tx *sql.Tx,
-	correlationID string,
+	transactionID uuid.UUID,
 	entries []OutboxRow,
 	publisher Publisher,
 	registry *ReplyRegistry,
 	markPublished OutboxMarkPublishedFunc,
 	markFailed OutboxMarkFailedFunc,
-	markDead OutboxMarkCorrelationDeadFunc,
+	markDead OutboxMarkTransactionDeadFunc,
 	maxRetries int,
 	replyTimeout time.Duration,
 ) {
 	h := &OutboxHandler{
 		config: OutboxHandlerConfig{
-			Publisher:                 publisher,
-			ReplyRegistry:             registry,
-			OutboxMarkPublished:       markPublished,
-			OutboxMarkFailed:          markFailed,
-			OutboxMarkCorrelationDead: markDead,
-			MaxRetries:                maxRetries,
-			ReplyTimeout:              replyTimeout,
-			StreamName:                "pyck",
+			Publisher:     publisher,
+			ReplyRegistry: registry,
+			MaxRetries:    maxRetries,
+			ReplyTimeout:  replyTimeout,
+			StreamName:    "pyck",
 		},
 	}
-	h.processCorrelationGroup(ctx, tx, correlationID, entries)
+	marks := h.publishTransactionGroup(ctx, transactionID, entries)
+	for _, mark := range marks {
+		if err := applyMarkWithFuncs(ctx, tx, mark, markPublished, markFailed, markDead); err != nil {
+			return
+		}
+	}
+}
+
+// PublishGroupCounts holds the per-kind outcome of publishing a transaction
+// group, for asserting metric/dead-letter accounting in tests.
+type PublishGroupCounts struct {
+	Published int
+	Failed    int
+	Dead      int
+	Dropped   int // total entries dead-lettered (summed droppedCount)
+}
+
+// PublishTransactionGroupCountsForTest publishes a transaction group (no DB) and
+// returns the counts derived from the resulting marks.
+func PublishTransactionGroupCountsForTest(
+	ctx context.Context,
+	transactionID uuid.UUID,
+	entries []OutboxRow,
+	publisher Publisher,
+	registry *ReplyRegistry,
+	maxRetries int,
+	replyTimeout time.Duration,
+) PublishGroupCounts {
+	h := &OutboxHandler{
+		config: OutboxHandlerConfig{
+			Publisher:     publisher,
+			ReplyRegistry: registry,
+			MaxRetries:    maxRetries,
+			ReplyTimeout:  replyTimeout,
+			StreamName:    "pyck",
+		},
+	}
+	var counts PublishGroupCounts
+	for _, mark := range h.publishTransactionGroup(ctx, transactionID, entries) {
+		switch mark.kind {
+		case markKindPublished:
+			counts.Published++
+		case markKindFailed:
+			counts.Failed++
+		case markKindDead:
+			counts.Dead++
+			counts.Dropped += mark.droppedCount
+		}
+	}
+	return counts
 }
 
 // NewOutboxRowForTest creates an OutboxRow for testing.
-func NewOutboxRowForTest(id uuid.UUID, correlationID, topic string, payload []byte, withReply bool, retryCount int, entityType string) OutboxRow {
+func NewOutboxRowForTest(id, transactionID uuid.UUID, topic string, payload []byte, withReply bool, retryCount int, entityType string) OutboxRow {
 	return OutboxRow{
 		ID:            id,
-		CorrelationID: correlationID,
+		TransactionID: transactionID,
 		Topic:         topic,
 		Payload:       payload,
 		WithReply:     withReply,
@@ -150,70 +227,63 @@ func NewOutboxRowForTest(id uuid.UUID, correlationID, topic string, payload []by
 	}
 }
 
+// The SQL export helpers below delegate to the same query builders the
+// production OutboxMark*/OutboxSelector closures use, so the white-box SQL
+// assertions exercise the exact production query and cannot drift from it.
+// A fixed timestamp is passed where production passes time.Now().UTC(); the
+// value is bound as a parameter, so it never appears in the query string.
+
+var fixedSQLTime = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
 // MarkFailedSQL returns the SQL query generated by NewOutboxMarkFailed without executing it.
 func MarkFailedSQL(tableName string, id uuid.UUID, errMsg string) (string, []any) {
-	schema, table := parseTableName(tableName)
-	update := entsql.Dialect(dialect.Postgres).
-		Update(table).
-		Set(outboxfields.RetryCount, entsql.Raw(outboxfields.RetryCount+" + 1")).
-		Set(outboxfields.LastError, errMsg).
-		Set(outboxfields.NextRetryAt, entsql.Raw(
-			"NOW() + (LEAST(POWER(2, "+outboxfields.RetryCount+"), 3600)::integer * INTERVAL '1 second')",
-		)).
-		Where(entsql.EQ(outboxfields.ID, id))
-	if schema != "" {
-		update = update.Schema(schema)
-	}
-	return update.Query()
+	return markFailedQuery(tableName, id, errMsg)
 }
 
 // MarkPublishedSQL returns the SQL query generated by NewOutboxMarkPublished without executing it.
 func MarkPublishedSQL(tableName string, id uuid.UUID) (string, []any) {
-	schema, table := parseTableName(tableName)
-	update := entsql.Dialect(dialect.Postgres).
-		Update(table).
-		Set(outboxfields.PublishedAt, entsql.Raw("NOW()")).
-		SetNull(outboxfields.LastError).
-		SetNull(outboxfields.NextRetryAt).
-		Where(entsql.EQ(outboxfields.ID, id))
-	if schema != "" {
-		update = update.Schema(schema)
-	}
-	return update.Query()
+	return markPublishedQuery(tableName, id, fixedSQLTime)
 }
 
-// MarkCorrelationDeadSQL returns the SQL query generated by NewOutboxMarkCorrelationDead without executing it.
-func MarkCorrelationDeadSQL(tableName string, correlationID string) (string, []any) {
-	schema, table := parseTableName(tableName)
-	del := entsql.Dialect(dialect.Postgres).
-		Delete(table).
-		Where(entsql.And(
-			entsql.EQ(outboxfields.CorrelationID, correlationID),
-			entsql.IsNull(outboxfields.PublishedAt),
-		))
-	if schema != "" {
-		del = del.Schema(schema)
-	}
-	return del.Query()
+// MarkTransactionDeadSQL returns the SQL query generated by NewOutboxMarkTransactionDead without executing it.
+func MarkTransactionDeadSQL(tableName string, transactionID uuid.UUID, reason string) (string, []any) {
+	return markTransactionDeadQuery(tableName, transactionID, reason, fixedSQLTime)
+}
+
+// ClaimSQL returns the SQL query generated by NewOutboxClaim without executing it.
+func ClaimSQL(tableName string, ids []uuid.UUID) (string, []any) {
+	return claimQuery(tableName, ids, fixedSQLTime)
 }
 
 // SelectorSQL returns the step 1 SQL query generated by NewOutboxSelector without executing it.
 func SelectorSQL(tableName string, batchSize, maxRetries int) (string, []any) {
-	t := makeTable(tableName)
-	cidSelector := entsql.Dialect(dialect.Postgres).
-		Select(t.C(outboxfields.CorrelationID)).
-		From(t).
-		Where(entsql.And(
-			entsql.IsNull(t.C(outboxfields.PublishedAt)),
-			entsql.IsNull(t.C(outboxfields.DeadAt)),
-			entsql.LT(t.C(outboxfields.RetryCount), maxRetries),
-			entsql.Or(
-				entsql.IsNull(t.C(outboxfields.NextRetryAt)),
-				entsql.LTE(t.C(outboxfields.NextRetryAt), entsql.Raw("NOW()")),
-			),
-		)).
-		GroupBy(t.C(outboxfields.CorrelationID)).
-		OrderExpr(entsql.Expr("MIN(" + t.C(outboxfields.CreatedAt) + ")")).
-		Limit(batchSize)
-	return cidSelector.Query()
+	return selectTransactionIDsQuery(tableName, batchSize, maxRetries, fixedSQLTime)
+}
+
+// SelectDeadSQL returns the SQL query generated by NewOutboxSelectDead without executing it.
+func SelectDeadSQL(tableName string, batchSize int) (string, []any) {
+	return selectDeadRowsQuery(tableName, batchSize)
+}
+
+// DeleteByIDsSQL returns the SQL query generated by NewOutboxDelete without executing it.
+func DeleteByIDsSQL(tableName string, ids []uuid.UUID) (string, []any) {
+	return deleteByIDsQuery(tableName, ids)
+}
+
+// PublishDeadLettersForTest runs the DLQ publish-decision loop (no DB) and
+// returns the IDs of the rows the publisher accepted.
+func PublishDeadLettersForTest(ctx context.Context, serviceName, streamName string, rows []OutboxRow, publisher Publisher) []uuid.UUID {
+	h := &OutboxHandler{
+		config: OutboxHandlerConfig{
+			ServiceName: serviceName,
+			StreamName:  streamName,
+			Publisher:   publisher,
+		},
+	}
+	acked := h.publishDeadLetters(ctx, rows)
+	ids := make([]uuid.UUID, len(acked))
+	for i, row := range acked {
+		ids[i] = row.ID
+	}
+	return ids
 }

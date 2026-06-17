@@ -54,7 +54,7 @@ func TestLimitMixinDefaultLimit(t *testing.T) {
 
 		// Query without specifying limit - should return only default limit
 		ctx := context.Background()
-		entities, err := client.EntityWithLimitMixin.Query().All(ctx)
+		entities, err := client.EntityWithLimitMixin.Query().All(ctx) //limitlint:allow exercising the silent cap is the point of this test
 		require.NoError(t, err)
 		assert.Len(t, entities, mixin.Limit, "Should return default limit number of entities")
 	})
@@ -112,6 +112,24 @@ func TestLimitMixinDefaultLimit(t *testing.T) {
 		assert.Len(t, entities, maxAllowedLimit, "Should return maximum allowed limit number of entities")
 	})
 
+	t.Run("allows Relay lookahead row at maximum", func(t *testing.T) {
+		t.Parallel()
+
+		client := createDBClientForEntityWithLimit(t)
+		defer client.Close()
+
+		// `first: 200` becomes an effective limit of 201 via paginateLimit's
+		// lookahead row; it must be accepted or the real ceiling drops to 199.
+		totalEntities := mixin.Limit + 10
+		createMultipleEntitiesWithLimit(t, client, totalEntities)
+
+		lookaheadLimit := mixin.Limit + 1
+		ctx := context.Background()
+		entities, err := client.EntityWithLimitMixin.Query().Limit(lookaheadLimit).All(ctx)
+		require.NoError(t, err, "Should accept the Relay lookahead row (Limit+1)")
+		assert.Len(t, entities, lookaheadLimit, "Should return up to Limit+1 entities")
+	})
+
 	t.Run("rejects limit exceeding maximum", func(t *testing.T) {
 		t.Parallel()
 
@@ -121,8 +139,9 @@ func TestLimitMixinDefaultLimit(t *testing.T) {
 		// Create some entities
 		createMultipleEntitiesWithLimit(t, client, 10)
 
-		// Query with limit exceeding maximum
-		exceedingLimit := mixin.Limit + 1
+		// Limit+1 is reserved for the Relay lookahead row, so the first
+		// rejected value is Limit+2.
+		exceedingLimit := mixin.Limit + 2
 		ctx := context.Background()
 		_, err := client.EntityWithLimitMixin.Query().Limit(exceedingLimit).All(ctx)
 		require.Error(t, err, "Should reject limit exceeding maximum")
@@ -142,7 +161,7 @@ func TestLimitMixinDefaultLimit(t *testing.T) {
 		ctx := context.Background()
 
 		// Test with All()
-		entities, err := client.EntityWithLimitMixin.Query().All(ctx)
+		entities, err := client.EntityWithLimitMixin.Query().All(ctx) //limitlint:allow exercising the silent cap is the point of this test
 		require.NoError(t, err)
 		assert.Len(t, entities, mixin.Limit, "All() should respect default limit")
 
@@ -166,7 +185,7 @@ func TestLimitMixinDefaultLimit(t *testing.T) {
 
 		// Test with offset
 		offset := 10
-		entities, err := client.EntityWithLimitMixin.Query().Offset(offset).All(ctx)
+		entities, err := client.EntityWithLimitMixin.Query().Offset(offset).All(ctx) //limitlint:allow exercising the silent cap is the point of this test
 		require.NoError(t, err)
 		assert.Len(t, entities, mixin.Limit, "Should still apply default limit with offset")
 
@@ -190,7 +209,7 @@ func TestLimitMixinDefaultLimit(t *testing.T) {
 		ctx := context.Background()
 
 		// Test with ordering
-		entities, err := client.EntityWithLimitMixin.Query().Order(gen.Asc("id")).All(ctx)
+		entities, err := client.EntityWithLimitMixin.Query().Order(gen.Asc("id")).All(ctx) //limitlint:allow exercising the silent cap is the point of this test
 		require.NoError(t, err)
 		assert.Len(t, entities, mixin.Limit, "Should apply default limit with ordering")
 
@@ -220,6 +239,7 @@ func TestLimitMixinDefaultLimit(t *testing.T) {
 		}
 
 		// Query with where condition
+		//limitlint:allow exercising the silent cap is the point of this test
 		entities, err := client.EntityWithLimitMixin.Query().
 			Where(entitywithlimitmixin.StringFieldEQ("test")).
 			All(ctx)
@@ -328,7 +348,7 @@ func TestLimitMixinDefaultLimit(t *testing.T) {
 		}
 
 		// Query within transaction should respect limit
-		entities, err := tx.EntityWithLimitMixin.Query().All(ctx)
+		entities, err := tx.EntityWithLimitMixin.Query().All(ctx) //limitlint:allow exercising the silent cap is the point of this test
 		require.NoError(t, err)
 		assert.Len(t, entities, mixin.Limit, "Should apply default limit within transaction")
 
@@ -337,7 +357,7 @@ func TestLimitMixinDefaultLimit(t *testing.T) {
 		require.NoError(t, err)
 
 		// Query after commit should still respect limit
-		entities2, err := client.EntityWithLimitMixin.Query().All(ctx)
+		entities2, err := client.EntityWithLimitMixin.Query().All(ctx) //limitlint:allow exercising the silent cap is the point of this test
 		require.NoError(t, err)
 		assert.Len(t, entities2, mixin.Limit, "Should apply default limit after transaction commit")
 	})
@@ -354,7 +374,7 @@ func TestLimitMixinDefaultLimit(t *testing.T) {
 		ctx := context.Background()
 
 		// Query should return all entities
-		entities, err := client.EntityWithLimitMixin.Query().All(ctx)
+		entities, err := client.EntityWithLimitMixin.Query().All(ctx) //limitlint:allow exercising the silent cap is the point of this test
 		require.NoError(t, err)
 		assert.Len(t, entities, mixin.Limit, "Should return all entities when count equals default limit")
 
@@ -380,7 +400,7 @@ func TestLimitMixinDefaultLimit(t *testing.T) {
 		ctx := context.Background()
 
 		// Query without any entities
-		entities, err := client.EntityWithLimitMixin.Query().All(ctx)
+		entities, err := client.EntityWithLimitMixin.Query().All(ctx) //limitlint:allow exercising the silent cap is the point of this test
 		require.NoError(t, err)
 		assert.Empty(t, entities, "Should return empty result set when no entities exist")
 

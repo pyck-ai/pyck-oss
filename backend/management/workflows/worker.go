@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	zitadelsdk "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
@@ -11,10 +12,14 @@ import (
 
 	commonworkflow "github.com/pyck-ai/pyck/backend/common/workflow"
 
-	"github.com/pyck-ai/pyck/backend/management"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen"
+	"github.com/pyck-ai/pyck/backend/management/exec"
+	disabletenant "github.com/pyck-ai/pyck/backend/management/workflows/disable-tenant"
 	generatejsonschema "github.com/pyck-ai/pyck/backend/management/workflows/generate-json-schema"
 	registertenant "github.com/pyck-ai/pyck/backend/management/workflows/register-tenant"
+	restoretenant "github.com/pyck-ai/pyck/backend/management/workflows/restore-tenant"
+	tenantexpirycheck "github.com/pyck-ai/pyck/backend/management/workflows/tenant-expiry-check"
+	tenantreconcile "github.com/pyck-ai/pyck/backend/management/workflows/tenant-reconcile"
 	zitadelsync "github.com/pyck-ai/pyck/backend/management/workflows/zitadel-sync"
 )
 
@@ -25,13 +30,17 @@ const (
 	GenerateJsonSchemaWorkflow = "GenerateJsonSchemaWorkflow"
 	ZitadelSyncWorkflow        = "ZitadelSyncWorkflow"
 	TenantSyncWorkflow         = "TenantSyncWorkflow"
+	DisableTenantWorkflow      = "DisableTenantWorkflow"
+	RestoreTenantWorkflow      = "RestoreTenantWorkflow"
+	TenantReconcileWorkflow    = "TenantReconcileWorkflow"
+	TenantExpiryCheckWorkflow  = "TenantExpiryCheckWorkflow"
 )
 
 type TemporalWorker struct {
 	temporalWorker   worker.Worker
 	tenantSyncWorker worker.Worker
 	taskQueueName    string
-	resolver         management.MutationResolver
+	resolver         exec.MutationResolver
 	cli              client.Client
 }
 
@@ -39,7 +48,7 @@ type WorkerOptions struct {
 	EnableTenantSync bool
 }
 
-func NewTemporalWorker(cli client.Client, taskQueue string, resolver management.MutationResolver, opts WorkerOptions) (*TemporalWorker, error) {
+func NewTemporalWorker(cli client.Client, taskQueue string, resolver exec.MutationResolver, opts WorkerOptions) (*TemporalWorker, error) {
 	var tenantSync worker.Worker
 	if opts.EnableTenantSync {
 		tenantSync = worker.New(cli, zitadelsync.TenantSyncTaskQueue, worker.Options{
@@ -160,4 +169,87 @@ func (tw *TemporalWorker) RegisterZitadelSyncWorkflow(entClient *gen.Client, api
 // EnsureZitadelSyncOrchestratorSchedule ensures/updates the top-level schedule that spawns per-tenant schedules.
 func (tw *TemporalWorker) EnsureZitadelSyncOrchestratorSchedule(ctx context.Context, temporalClient client.Client, every time.Duration) error {
 	return zitadelsync.EnsureOrchestratorSchedule(ctx, temporalClient, tw.taskQueueName, every)
+}
+
+// RegisterDisableTenantWorkflow registers the DisableTenantWorkflow and
+// the shared disable-tenant activities on the management task queue.
+// The workflow is triggered externally by the tenant-lifecycle NATS
+// subscriber after the resolver has already updated deleted_at + state.
+//
+// Must be called before RegisterRestoreTenantWorkflow because the shared
+// Activities struct is registered here — calling RegisterActivity twice
+// with the same struct would cause Temporal to panic on duplicate
+// registration.
+func (tw *TemporalWorker) RegisterDisableTenantWorkflow(zitadelConn *zitadelsdk.Connection) {
+	tw.temporalWorker.RegisterWorkflowWithOptions(
+		disabletenant.DisableTenantWorkflow,
+		workflow.RegisterOptions{Name: DisableTenantWorkflow},
+	)
+	tw.temporalWorker.RegisterActivity(disabletenant.NewActivities(zitadelConn))
+}
+
+// RegisterRestoreTenantWorkflow registers the RestoreTenantWorkflow and
+// its activities on the management task queue.
+func (tw *TemporalWorker) RegisterRestoreTenantWorkflow(zitadelConn *zitadelsdk.Connection) {
+	tw.temporalWorker.RegisterWorkflowWithOptions(
+		restoretenant.RestoreTenantWorkflow,
+		workflow.RegisterOptions{Name: RestoreTenantWorkflow},
+	)
+	tw.temporalWorker.RegisterActivity(restoretenant.NewActivities(zitadelConn))
+}
+
+// RegisterTenantReconcileWorkflow registers the tenant reconcile
+// orchestrator workflow and its activities on the management task
+// queue. The reconciler sweeps tenants and dispatches corrective
+// disable/restore workflows when the DB's deleted_at disagrees with
+// Zitadel's org state — it is the eventual-consistency safety net for
+// the NATS-driven trigger (see events/tenants/trigger.go).
+func (tw *TemporalWorker) RegisterTenantReconcileWorkflow(entClient *gen.Client, zitadelConn *zitadelsdk.Connection) {
+	tw.temporalWorker.RegisterWorkflowWithOptions(
+		tenantreconcile.TenantReconcileWorkflow,
+		workflow.RegisterOptions{Name: TenantReconcileWorkflow},
+	)
+
+	acts := tenantreconcile.NewActivities(entClient, tw.cli, zitadelConn, tenantreconcile.Config{
+		TaskQueue:           tw.taskQueueName,
+		DisableWorkflowName: DisableTenantWorkflow,
+		RestoreWorkflowName: RestoreTenantWorkflow,
+		LifecycleWorkflowID: TenantLifecycleWorkflowID,
+	})
+
+	// Register the whole struct so each method's default reflected name
+	// is used (FetchTenantsActivity, ReconcileTenantActivity). The
+	// workflow references these via method values on a nil receiver,
+	// which gives us compile-time checking instead of string matching.
+	tw.temporalWorker.RegisterActivity(acts)
+}
+
+// EnsureTenantReconcileSchedule creates/updates the reconcile sweeper's
+// Temporal schedule. The `every` duration must exceed the NATS
+// redelivery window (see maxRedeliver in events/tenants/config.go) so
+// the sweeper only runs after a stuck lifecycle would have dropped.
+func (tw *TemporalWorker) EnsureTenantReconcileSchedule(ctx context.Context, temporalClient client.Client, every time.Duration) error {
+	return tenantreconcile.EnsureSchedule(ctx, temporalClient, tw.taskQueueName, every)
+}
+
+// RegisterTenantExpiryCheckWorkflow registers the periodic
+// tenant-expiry-check workflow on the management task queue. The
+// workflow soft-deletes tenants whose expires_at is in the past by
+// going through the same Ent + outbox + NATS path as the
+// disableTenant resolver — the existing tenant-lifecycle subscriber
+// then picks it up and starts DisableTenantWorkflow.
+func (tw *TemporalWorker) RegisterTenantExpiryCheckWorkflow(entClient *gen.Client) {
+	tw.temporalWorker.RegisterWorkflowWithOptions(
+		tenantexpirycheck.TenantExpiryCheckWorkflow,
+		workflow.RegisterOptions{Name: TenantExpiryCheckWorkflow},
+	)
+	tw.temporalWorker.RegisterActivity(tenantexpirycheck.NewActivities(entClient))
+}
+
+// EnsureTenantExpiryCheckSchedule creates/updates the expiry-check
+// schedule. Unlike the reconcile sweeper, the cadence is bounded only
+// by how soon you want expired tenants to be disabled — there's no
+// NATS-redelivery interaction to avoid.
+func (tw *TemporalWorker) EnsureTenantExpiryCheckSchedule(ctx context.Context, temporalClient client.Client, every time.Duration) error {
+	return tenantexpirycheck.EnsureSchedule(ctx, temporalClient, tw.taskQueueName, every)
 }

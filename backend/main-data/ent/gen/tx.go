@@ -18,6 +18,8 @@ type Tx struct {
 	Customer *CustomerClient
 	// EntityEventsOutbox is the client for interacting with the EntityEventsOutbox builders.
 	EntityEventsOutbox *EntityEventsOutboxClient
+	// IdempotencyKey is the client for interacting with the IdempotencyKey builders.
+	IdempotencyKey *IdempotencyKeyClient
 	// Supplier is the client for interacting with the Supplier builders.
 	Supplier *SupplierClient
 
@@ -153,6 +155,7 @@ func (tx *Tx) Client() *Client {
 func (tx *Tx) init() {
 	tx.Customer = NewCustomerClient(tx.config)
 	tx.EntityEventsOutbox = NewEntityEventsOutboxClient(tx.config)
+	tx.IdempotencyKey = NewIdempotencyKeyClient(tx.config)
 	tx.Supplier = NewSupplierClient(tx.config)
 }
 

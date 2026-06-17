@@ -2,7 +2,7 @@
 # BUILD
 # ==============================================================================
 
-FROM ghcr.io/pyck-ai/baseimages/golang:1.25-alpine AS builder
+FROM ghcr.io/pyck-ai/baseimages/golang:1.26-alpine AS builder
 
 ARG SERVICE_NAME
 
@@ -81,9 +81,6 @@ ENV PYCK_DATABASE_DEBUG=false
 # TODO: we should not need nc in the final image, but it is currently used in the health check.
 # This is for the docker-compose setup only. Remove this line we switch to k8s.
 COPY --from=builder /bin/busybox.static /usr/local/bin/nc
-
-WORKDIR /data/migrations/
-COPY ./backend/${SERVICE_NAME}/ent/migrate/migrations/ ./
 
 WORKDIR /usr/local/bin/
 COPY --from=builder /tmp/service ./service

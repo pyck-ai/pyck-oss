@@ -12,12 +12,12 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-	file "github.com/pyck-ai/pyck/backend/inventory"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/item"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/predicate"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/stock"
+	"github.com/pyck-ai/pyck/backend/inventory/exec"
 	"github.com/pyck-ai/pyck/backend/inventory/model"
 )
 
@@ -103,7 +103,7 @@ func (r *entityResolver) FindRepositoryByID(ctx context.Context, id uuid.UUID) (
 	return repository, nil
 }
 
-// Entity returns file.EntityResolver implementation.
-func (r *Resolver) Entity() file.EntityResolver { return &entityResolver{r} }
+// Entity returns exec.EntityResolver implementation.
+func (r *Resolver) Entity() exec.EntityResolver { return &entityResolver{r} }
 
 type entityResolver struct{ *Resolver }

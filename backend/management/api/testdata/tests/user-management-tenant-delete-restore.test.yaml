@@ -1,0 +1,156 @@
+---
+name: "User - Tenant Delete Restore Lifecycle"
+description: >
+  Exercises the synchronous half of the tenant delete/restore
+  pipeline: registers a fresh tenant, deletes it, restores it
+  without supplying a new expiry, exercises the already-active
+  idempotent restore path, restores once more with an explicit new
+  expiry, and finally deletes the tenant for cleanup. Does NOT
+  wait for the async DisableTenantWorkflow / RestoreTenantWorkflow
+  side-effects on Zitadel — that path is exercised end-to-end by
+  the integration suite at
+  integrations/tests/tenants/tn_lifecycle_test.go. Bruno covers
+  only the resolver's direct DB writes to tenant.deleted_at and
+  tenant.expires_at. Runs against the management subgraph through
+  the gateway as the authenticated Bruno user; the resolver bumps
+  to system context internally.
+steps:
+  - id: register
+    name: "Register tenant"
+    operation: management.registerTenant
+    vars:
+      input:
+        name: { $fake: "{{loremslug}}-{{nonce}}" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@example.com" }
+        adminFirstName: "Test"
+        adminLastName: "Admin"
+        adminPassword: "Test1234!"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Tenant created"
+        assertions:
+          - ref: res.body.data.registerTenant.tenant.id
+            nil: false
+
+  - name: "Delete the freshly-registered tenant"
+    operation: management.deleteTenant
+    vars:
+      input:
+        id: { $ref: "res[register].body.data.registerTenant.tenant.id" }
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "deleteTenant succeeded"
+        assertions:
+          - ref: res.body.data.deleteTenant.success
+            equal: true
+
+  - name: "Restore the deleted tenant (no new expiry)"
+    operation: management.restoreTenant
+    vars:
+      input:
+        id: { $ref: "res[register].body.data.registerTenant.tenant.id" }
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "restoreTenant succeeded"
+        assertions:
+          - ref: res.body.data.restoreTenant.success
+            equal: true
+
+  - name: "Restore is idempotent on an already-active tenant"
+    operation: management.restoreTenant
+    vars:
+      input:
+        id: { $ref: "res[register].body.data.registerTenant.tenant.id" }
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Idempotent restore succeeded"
+        assertions:
+          - ref: res.body.data.restoreTenant.success
+            equal: true
+
+  - name: "Delete again, then restore with a fresh expiry"
+    operation: management.deleteTenant
+    vars:
+      input:
+        id: { $ref: "res[register].body.data.registerTenant.tenant.id" }
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "deleteTenant succeeded"
+        assertions:
+          - ref: res.body.data.deleteTenant.success
+            equal: true
+
+  - name: "Restore with a new expiresAt overrides the prior expiry"
+    operation: management.restoreTenant
+    vars:
+      input:
+        id: { $ref: "res[register].body.data.registerTenant.tenant.id" }
+        expiresAt: "2099-12-31T23:59:59Z"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "restoreTenant succeeded"
+        assertions:
+          - ref: res.body.data.restoreTenant.success
+            equal: true
+
+  - name: "Cleanup - delete tenant"
+    operation: management.deleteTenant
+    vars:
+      input:
+        id: { $ref: "res[register].body.data.registerTenant.tenant.id" }
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Delete succeeded"
+        assertions:
+          - ref: res.body.data.deleteTenant.success
+            equal: true

@@ -1,0 +1,36 @@
+-- Add (repository_id, item_id, created_at) composite index on stocks.
+--
+-- Background: the correlated NOT EXISTS subquery in
+-- backend/inventory/service/stock/ancestor_loader.go::loadAncestorStocks
+-- (and the matching subquery in impl.go::loadLatestStockPerRepo) filters
+-- on (s2.repository_id, s2.item_id, s2.created_at > outer.created_at)
+-- without a s2.tenant_id predicate. The existing composite index
+-- stock_tenant_id_repository_id_item_id_created_at is leading-prefixed
+-- on tenant_id, so Postgres on PG17 and earlier cannot use it for this
+-- lookup and falls back to a parallel sequential scan of the entire
+-- stocks table.
+--
+-- Observed in the RMD picking suite as ~14 s + 15 s + 11 s of latency
+-- inside a single CreateInventoryCollectionMovement that performs N+1
+-- correlated lookups (N positions plus the post-loop
+-- consistencyCheckSourceRows).
+--
+-- This index is a workaround that gives Postgres a usable plan without
+-- touching the Go subquery. A proper code-side fix (adding
+-- s2.tenant_id = outer.tenant_id to both call sites, which lets the
+-- existing tenant-prefixed index serve the lookup) is a separate
+-- concern tracked outside this PR; once that lands, this index becomes
+-- redundant and should be dropped.
+--
+-- Note on CONCURRENTLY: the project's migration framework
+-- (golang-migrate via backend/common/db/migrate.go) wraps each
+-- migration in a transaction, and CREATE INDEX CONCURRENTLY cannot run
+-- inside a transaction block, so this migration ships as a plain
+-- CREATE INDEX. The inventory pod runs migrations before opening the
+-- GraphQL listener, so the brief write lock on stocks during the
+-- index build (~5-10 s on 234k rows) is invisible to live traffic.
+-- For an online build on a hot production tenant, an operator can run
+-- CREATE INDEX CONCURRENTLY manually via psql before the app deploy
+-- lands; the IF NOT EXISTS clause below then no-ops at deploy time.
+CREATE INDEX IF NOT EXISTS "stock_repository_id_item_id_created_at"
+ON "stocks" ("repository_id", "item_id", "created_at" DESC);

@@ -10,11 +10,11 @@ import (
 
 	"entgo.io/contrib/entgql"
 	"github.com/google/uuid"
-	"github.com/pyck-ai/pyck/backend/picking"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen/order"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen/orderitems"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen/outboundshipmentnotification"
+	"github.com/pyck-ai/pyck/backend/picking/exec"
 )
 
 // Node is the resolver for the node field.
@@ -54,21 +54,21 @@ func (r *queryResolver) PickingOutboundShipmentNotifications(ctx context.Context
 		)
 }
 
-// Query returns picking.QueryResolver implementation.
-func (r *Resolver) Query() picking.QueryResolver { return &queryResolver{r} }
+// Query returns exec.QueryResolver implementation.
+func (r *Resolver) Query() exec.QueryResolver { return &queryResolver{r} }
 
-// PickingOrderItemWhereInput returns picking.PickingOrderItemWhereInputResolver implementation.
-func (r *Resolver) PickingOrderItemWhereInput() picking.PickingOrderItemWhereInputResolver {
+// PickingOrderItemWhereInput returns exec.PickingOrderItemWhereInputResolver implementation.
+func (r *Resolver) PickingOrderItemWhereInput() exec.PickingOrderItemWhereInputResolver {
 	return &pickingOrderItemWhereInputResolver{r}
 }
 
-// PickingOrderWhereInput returns picking.PickingOrderWhereInputResolver implementation.
-func (r *Resolver) PickingOrderWhereInput() picking.PickingOrderWhereInputResolver {
+// PickingOrderWhereInput returns exec.PickingOrderWhereInputResolver implementation.
+func (r *Resolver) PickingOrderWhereInput() exec.PickingOrderWhereInputResolver {
 	return &pickingOrderWhereInputResolver{r}
 }
 
-// PickingOutboundShipmentNotificationWhereInput returns picking.PickingOutboundShipmentNotificationWhereInputResolver implementation.
-func (r *Resolver) PickingOutboundShipmentNotificationWhereInput() picking.PickingOutboundShipmentNotificationWhereInputResolver {
+// PickingOutboundShipmentNotificationWhereInput returns exec.PickingOutboundShipmentNotificationWhereInputResolver implementation.
+func (r *Resolver) PickingOutboundShipmentNotificationWhereInput() exec.PickingOutboundShipmentNotificationWhereInputResolver {
 	return &pickingOutboundShipmentNotificationWhereInputResolver{r}
 }
 

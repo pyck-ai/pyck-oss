@@ -18,6 +18,8 @@ headers:
           named: "X-Pyck-Tenant-Id"
       - propagate:
           named: "X-Pyck-Feature"
+      - propagate:
+          named: "Idempotency-Key"
 telemetry:
   exporters:
     logging:

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 )
 
@@ -154,7 +155,7 @@ func TestItem_Create(t *testing.T) {
 		assert.NotEqual(t, uuid.Nil, created.ID)
 
 		// Verify persisted
-		items, err := te.Ent.Item.Query().All(ctx)
+		items, err := te.Ent.Item.Query().AllPages(ctx, mixin.Limit)
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 		assert.Equal(t, created.ID, items[0].ID)

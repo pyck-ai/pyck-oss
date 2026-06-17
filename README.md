@@ -26,7 +26,6 @@ The platform enforces **multi-tenancy** at the database level and uses **UUID v7
 ```
 pyck/
 ├── backend/              # Backend microservices and shared code
-│   ├── cli/              # Command-line interface utilities
 │   ├── common/           # Shared libraries and utilities
 │   ├── file/             # File service
 │   ├── gateway/          # GraphQL gateway (federation)

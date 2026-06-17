@@ -139,6 +139,20 @@ func (_c *TenantCreate) SetIdpOrgRef(v string) *TenantCreate {
 	return _c
 }
 
+// SetExpiresAt sets the "expires_at" field.
+func (_c *TenantCreate) SetExpiresAt(v time.Time) *TenantCreate {
+	_c.mutation.SetExpiresAt(v)
+	return _c
+}
+
+// SetNillableExpiresAt sets the "expires_at" field if the given value is not nil.
+func (_c *TenantCreate) SetNillableExpiresAt(v *time.Time) *TenantCreate {
+	if v != nil {
+		_c.SetExpiresAt(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *TenantCreate) SetID(v uuid.UUID) *TenantCreate {
 	_c.mutation.SetID(v)
@@ -314,6 +328,10 @@ func (_c *TenantCreate) createSpec() (*Tenant, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.IdpOrgRef(); ok {
 		_spec.SetField(tenant.FieldIdpOrgRef, field.TypeString, value)
 		_node.IdpOrgRef = value
+	}
+	if value, ok := _c.mutation.ExpiresAt(); ok {
+		_spec.SetField(tenant.FieldExpiresAt, field.TypeTime, value)
+		_node.ExpiresAt = &value
 	}
 	if nodes := _c.mutation.TenantUsersIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -531,6 +549,24 @@ func (u *TenantUpsert) SetIdpOrgRef(v string) *TenantUpsert {
 // UpdateIdpOrgRef sets the "idp_org_ref" field to the value that was provided on create.
 func (u *TenantUpsert) UpdateIdpOrgRef() *TenantUpsert {
 	u.SetExcluded(tenant.FieldIdpOrgRef)
+	return u
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *TenantUpsert) SetExpiresAt(v time.Time) *TenantUpsert {
+	u.Set(tenant.FieldExpiresAt, v)
+	return u
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *TenantUpsert) UpdateExpiresAt() *TenantUpsert {
+	u.SetExcluded(tenant.FieldExpiresAt)
+	return u
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (u *TenantUpsert) ClearExpiresAt() *TenantUpsert {
+	u.SetNull(tenant.FieldExpiresAt)
 	return u
 }
 
@@ -760,6 +796,27 @@ func (u *TenantUpsertOne) SetIdpOrgRef(v string) *TenantUpsertOne {
 func (u *TenantUpsertOne) UpdateIdpOrgRef() *TenantUpsertOne {
 	return u.Update(func(s *TenantUpsert) {
 		s.UpdateIdpOrgRef()
+	})
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *TenantUpsertOne) SetExpiresAt(v time.Time) *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *TenantUpsertOne) UpdateExpiresAt() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateExpiresAt()
+	})
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (u *TenantUpsertOne) ClearExpiresAt() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.ClearExpiresAt()
 	})
 }
 
@@ -1156,6 +1213,27 @@ func (u *TenantUpsertBulk) SetIdpOrgRef(v string) *TenantUpsertBulk {
 func (u *TenantUpsertBulk) UpdateIdpOrgRef() *TenantUpsertBulk {
 	return u.Update(func(s *TenantUpsert) {
 		s.UpdateIdpOrgRef()
+	})
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *TenantUpsertBulk) SetExpiresAt(v time.Time) *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *TenantUpsertBulk) UpdateExpiresAt() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateExpiresAt()
+	})
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (u *TenantUpsertBulk) ClearExpiresAt() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.ClearExpiresAt()
 	})
 }
 

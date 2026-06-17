@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen/entityeventsoutbox"
+	"github.com/pyck-ai/pyck/backend/picking/ent/gen/idempotencykey"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen/order"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen/orderitems"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen/outboundshipmentnotification"
@@ -77,6 +78,7 @@ func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			entityeventsoutbox.Table:           entityeventsoutbox.ValidColumn,
+			idempotencykey.Table:               idempotencykey.ValidColumn,
 			order.Table:                        order.ValidColumn,
 			orderitems.Table:                   orderitems.ValidColumn,
 			outboundshipmentnotification.Table: outboundshipmentnotification.ValidColumn,

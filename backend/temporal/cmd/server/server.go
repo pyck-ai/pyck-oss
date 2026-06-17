@@ -4,22 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	nethttp "net/http"
 	"os"
 	"os/signal"
+	"path"
 	"sync"
 	"syscall"
 
-	_ "time/tzdata" // embed tzdata as a fallback
-
-	"github.com/pyck-ai/pyck/backend/common/authn"
-	"github.com/pyck-ai/pyck/backend/common/events"
-	"github.com/pyck-ai/pyck/backend/common/log"
-	logadapter "github.com/pyck-ai/pyck/backend/common/log/adapter"
-	"github.com/pyck-ai/pyck/backend/common/services/zitadel"
-	"github.com/pyck-ai/pyck/backend/temporal/authz"
-	"github.com/pyck-ai/pyck/backend/temporal/config"
-	temporalevent "github.com/pyck-ai/pyck/backend/temporal/event"
-	"github.com/pyck-ai/pyck/backend/temporal/event/adapter"
+	"github.com/gqlgo/gqlgenc/clientv2"
 	"github.com/urfave/cli/v2"
 	"go.temporal.io/server/common/authorization"
 	"go.temporal.io/server/common/build"
@@ -29,6 +21,20 @@ import (
 	"go.temporal.io/server/common/headers"
 	temporallog "go.temporal.io/server/common/log"
 	"go.temporal.io/server/temporal"
+
+	_ "time/tzdata" // embed tzdata as a fallback
+
+	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/pyck-ai/pyck/backend/common/events"
+	"github.com/pyck-ai/pyck/backend/common/log"
+	logadapter "github.com/pyck-ai/pyck/backend/common/log/adapter"
+	"github.com/pyck-ai/pyck/backend/common/services/zitadel"
+	managementapi "github.com/pyck-ai/pyck/backend/management/api"
+
+	"github.com/pyck-ai/pyck/backend/temporal/authz"
+	"github.com/pyck-ai/pyck/backend/temporal/config"
+	temporalevent "github.com/pyck-ai/pyck/backend/temporal/event"
+	"github.com/pyck-ai/pyck/backend/temporal/event/adapter"
 )
 
 var (
@@ -81,12 +87,42 @@ func runServer(c *cli.Context) error {
 	eventHandler := temporalevent.NewHandler(ctx, jetstreamPub, config.Config.EventWorkerConfig)
 	defer eventHandler.Close()
 
+	// Load the Temporal server configuration the same way the upstream
+	// server binary does: an explicit config file wins, explicit legacy
+	// config-dir flags come next, and without either the config template
+	// embedded in the server binary is rendered from environment variables.
+	// The temporalio/server image stopped shipping a pre-rendered config
+	// (and dockerize) in 1.30, so the embedded template is the default path
+	// in our Docker setup.
+	var temporalCfg *temporalconfig.Config
+
+	var cfgErr error
+
+	switch {
+	case c.IsSet("config-file"):
+		temporalCfg, cfgErr = temporalconfig.Load(
+			temporalconfig.WithConfigFile(c.String("config-file")),
+		)
+	case c.IsSet("config") || c.IsSet("env") || c.IsSet("zone"):
+		temporalCfg, cfgErr = temporalconfig.Load(
+			temporalconfig.WithEnv(c.String("env")),
+			temporalconfig.WithConfigDir(path.Join(c.String("root"), c.String("config"))),
+			temporalconfig.WithZone(c.String("zone")),
+		)
+	default:
+		temporalCfg, cfgErr = temporalconfig.Load(temporalconfig.WithEmbedded())
+	}
+
+	if cfgErr != nil {
+		return fmt.Errorf("unable to load temporal configuration: %w", cfgErr)
+	}
+
 	// Set up Temporal Server
 	serverCtx := context.WithoutCancel(ctx)
 	serverCtx, shutdown := signal.NotifyContext(serverCtx, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer shutdown()
 
-	server := NewTemporalServer(eventHandler, logger)
+	server := NewTemporalServer(eventHandler, logger, temporalCfg)
 
 	if err := server.Start(ctx); err != nil {
 		return fmt.Errorf("failed starting temporal server: %w", err)
@@ -112,14 +148,16 @@ type temporalServer struct {
 	mu           sync.Mutex
 	eventHandler *temporalevent.Handler
 	logger       log.Logger
+	cfg          *temporalconfig.Config
 	server       temporal.Server
 	pgAdapter    *adapter.PostgresAdapter
 }
 
-func NewTemporalServer(eventHandler *temporalevent.Handler, logger log.Logger) *temporalServer {
+func NewTemporalServer(eventHandler *temporalevent.Handler, logger log.Logger, cfg *temporalconfig.Config) *temporalServer {
 	return &temporalServer{
 		eventHandler: eventHandler,
 		logger:       logger,
+		cfg:          cfg,
 	}
 }
 
@@ -133,10 +171,7 @@ func (s *temporalServer) Start(ctx context.Context) error {
 
 	opts := []temporal.ServerOption{}
 
-	cfg, err := temporalconfig.LoadConfig("docker", "./config", "")
-	if err != nil {
-		return err
-	}
+	cfg := s.cfg
 
 	s.logger.Debug().
 		Any("config", cfg).
@@ -213,9 +248,22 @@ func (s *temporalServer) Start(ctx context.Context) error {
 		cfg.Global.Authorization.Authorizer = "default"
 	}
 
-	// Set up claim mapper, authorizer and audience mapper
+	// Set up claim mapper, authorizer and audience mapper. Introspection
+	// talks to Zitadel directly; the org-active check goes through the
+	// federation gateway to management's organization query (via the
+	// generated management API client) so only management ever talks to
+	// Zitadel's org-management surface.
 	zitadelClient := zitadel.NewClient(config.Config.ZitadelConfig)
-	authProvider := authn.NewZitadelAuthProvider(zitadelClient, config.Config.ZitadelConfig)
+	mgmtClient := managementapi.NewClient(
+		nethttp.DefaultClient,
+		config.Config.GatewayUrl,
+		&clientv2.Options{ParseDataAlongWithErrors: true},
+		func(ctx context.Context, r *nethttp.Request, gqlInfo *clientv2.GQLRequestInfo, res any, next clientv2.RequestInterceptorFunc) error {
+			r.Header.Set("Authorization", "Bearer "+config.Config.ServiceToken)
+			return next(ctx, r, gqlInfo, res)
+		},
+	)
+	authProvider := authn.NewZitadelAuthProvider(zitadelClient, config.Config.ZitadelConfig, managementapi.NewOrganizationValidator(mgmtClient))
 	claimMapper := authz.NewClaimMapper(ctx, authProvider)
 
 	audienceMapper, err := authorization.GetAudienceMapperFromConfig(&cfg.Global.Authorization)
@@ -276,7 +324,8 @@ func (s *temporalServer) Start(ctx context.Context) error {
 		services = append(services, name)
 	}
 
-	opts = append(opts,
+	opts = append(
+		opts,
 		temporal.ForServices(services),
 		temporal.WithConfig(cfg),
 		temporal.WithDynamicConfigClient(dynamicConfigClient),

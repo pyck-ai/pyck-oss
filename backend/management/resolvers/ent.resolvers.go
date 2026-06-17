@@ -10,9 +10,9 @@ import (
 
 	"entgo.io/contrib/entgql"
 	"github.com/google/uuid"
-	core_data "github.com/pyck-ai/pyck/backend/management"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/datatype"
+	"github.com/pyck-ai/pyck/backend/management/exec"
 )
 
 // Node is the resolver for the node field.
@@ -133,21 +133,21 @@ func (r *queryResolver) Users(ctx context.Context, after *entgql.Cursor[uuid.UUI
 		)
 }
 
-// Query returns core_data.QueryResolver implementation.
-func (r *Resolver) Query() core_data.QueryResolver { return &queryResolver{r} }
+// Query returns exec.QueryResolver implementation.
+func (r *Resolver) Query() exec.QueryResolver { return &queryResolver{r} }
 
-// DeviceLocationWhereInput returns core_data.DeviceLocationWhereInputResolver implementation.
-func (r *Resolver) DeviceLocationWhereInput() core_data.DeviceLocationWhereInputResolver {
+// DeviceLocationWhereInput returns exec.DeviceLocationWhereInputResolver implementation.
+func (r *Resolver) DeviceLocationWhereInput() exec.DeviceLocationWhereInputResolver {
 	return &deviceLocationWhereInputResolver{r}
 }
 
-// DeviceWhereInput returns core_data.DeviceWhereInputResolver implementation.
-func (r *Resolver) DeviceWhereInput() core_data.DeviceWhereInputResolver {
+// DeviceWhereInput returns exec.DeviceWhereInputResolver implementation.
+func (r *Resolver) DeviceWhereInput() exec.DeviceWhereInputResolver {
 	return &deviceWhereInputResolver{r}
 }
 
-// LocationWhereInput returns core_data.LocationWhereInputResolver implementation.
-func (r *Resolver) LocationWhereInput() core_data.LocationWhereInputResolver {
+// LocationWhereInput returns exec.LocationWhereInputResolver implementation.
+func (r *Resolver) LocationWhereInput() exec.LocationWhereInputResolver {
 	return &locationWhereInputResolver{r}
 }
 

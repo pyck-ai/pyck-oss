@@ -17,6 +17,7 @@ type SchemaConfig struct {
 	Group              string // Group table.
 	GroupUsers         string // Group-users->User table.
 	GroupRoles         string // Group-roles->Role table.
+	IdempotencyKey     string // IdempotencyKey table.
 	KeyValue           string // KeyValue table.
 	Location           string // Location table.
 	Role               string // Role table.

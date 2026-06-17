@@ -21,6 +21,18 @@ func (f EntityEventsOutboxFunc) Mutate(ctx context.Context, m gen.Mutation) (gen
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *gen.EntityEventsOutboxMutation", m)
 }
 
+// The IdempotencyKeyFunc type is an adapter to allow the use of ordinary
+// function as IdempotencyKey mutator.
+type IdempotencyKeyFunc func(context.Context, *gen.IdempotencyKeyMutation) (gen.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f IdempotencyKeyFunc) Mutate(ctx context.Context, m gen.Mutation) (gen.Value, error) {
+	if mv, ok := m.(*gen.IdempotencyKeyMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *gen.IdempotencyKeyMutation", m)
+}
+
 // The InboundFunc type is an adapter to allow the use of ordinary
 // function as Inbound mutator.
 type InboundFunc func(context.Context, *gen.InboundMutation) (gen.Value, error)

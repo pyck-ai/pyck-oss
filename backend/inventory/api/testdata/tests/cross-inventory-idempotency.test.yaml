@@ -1,0 +1,283 @@
+---
+name: "Cross - Inventory Idempotency"
+description: >
+  End-to-end exercise of the Idempotency-Key middleware (pyck#1123)
+  against the inventory service via createInventoryItem.
+
+  Steps 1-2: fresh call + replay with the same key prove cache replay
+  produces an identical 200 response.
+  Step 3: same key + different variables proves checksum mismatch
+  surfaces as OPERATION_MISMATCH / extensions.httpStatus 422.
+  Step 4: a 256-char key proves length validation surfaces as
+  INVALID_IDEMPOTENCY_KEY / extensions.httpStatus 400.
+  Steps 5-6: header with empty / whitespace-only value proves the
+  middleware degrades to no-key behavior (mutation runs, no replay).
+  Step 7: a 255-char key (exact maximum) proves the positive boundary
+  is accepted and the row is cached.
+
+  The fresh/replay/mismatch steps use {{bru_idem_inventory}} for both
+  the Idempotency-Key header AND the unique-constrained sku. The
+  opencollection.yml before-request hook lazy-initializes that var to
+  a random 16-char hex on first reference per Bruno run, so:
+    * within a single run, fresh/replay/mismatch share the same key
+      (cache replay + mismatch flows work as designed)
+    * each fresh run gets a NEW key + NEW sku, avoiding cross-run
+      cache poisoning AND the unique-sku constraint collision
+  The maxLengthKey step keeps fixed key+sku (the cache replay protects
+  re-runs within the 24h janitor TTL; after that, run `task wipe-db`).
+
+steps:
+  - id: fresh
+    name: "Fresh call with key — should commit"
+    description: "First call with an unseen key creates the row and caches the response."
+    operation: inventory.createInventoryItem
+    headers:
+      Idempotency-Key: "{{bru_idem_inventory}}"
+    vars:
+      input:
+        sku: "BRUNO-IDEM-INV-{{bru_idem_inventory}}"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+          - ref: res.body.data.createInventoryItem.inventoryItem.sku
+            nil: false
+
+  - id: replay
+    name: "Replay with the same key — should return cached body"
+    description: "Same key + same variables; PreCheck returns ActionReplay."
+    operation: inventory.createInventoryItem
+    headers:
+      Idempotency-Key: "{{bru_idem_inventory}}"
+    vars:
+      input:
+        sku: "BRUNO-IDEM-INV-{{bru_idem_inventory}}"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Same item id as fresh call"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            equal: {$ref: "res[fresh].body.data.createInventoryItem.inventoryItem.id"}
+
+  - id: mismatch
+    name: "Same key, different variables — should reject with OPERATION_MISMATCH"
+    description: "Checksum over (operationName + variables) differs; resolveExisting returns 422."
+    operation: inventory.createInventoryItem
+    headers:
+      Idempotency-Key: "{{bru_idem_inventory}}"
+    vars:
+      input:
+        sku: "BRUNO-IDEM-INV-MISMATCH-XYZ"
+    tests:
+      - msg: "Status is 200 (gateway always returns 200)"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "errors[].extensions.code is OPERATION_MISMATCH"
+        assertions:
+          - ref: res.body.errors[0].extensions.code
+            equal: "OPERATION_MISMATCH"
+      - msg: "errors[].extensions.httpStatus is 422"
+        assertions:
+          - ref: res.body.errors[0].extensions.httpStatus
+            equal: 422
+
+  - id: malformedKey
+    name: "256-char key — should reject with INVALID_IDEMPOTENCY_KEY"
+    description: "PreCheck rejects with 400 before opening the transaction."
+    operation: inventory.createInventoryItem
+    headers:
+      Idempotency-Key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    vars:
+      input:
+        sku: "BRUNO-IDEM-INV-NEVER-CREATED"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "errors[].extensions.code is INVALID_IDEMPOTENCY_KEY"
+        assertions:
+          - ref: res.body.errors[0].extensions.code
+            equal: "INVALID_IDEMPOTENCY_KEY"
+      - msg: "errors[].extensions.httpStatus is 400"
+        assertions:
+          - ref: res.body.errors[0].extensions.httpStatus
+            equal: 400
+
+  - id: emptyKey
+    name: "Empty header value — degrades to no-key behavior"
+    description: >
+      An empty Idempotency-Key value is treated as if the header was
+      absent (FromHeaders returns "" without error). The mutation must
+      run normally and create a fresh row.
+
+      Sku is randomized per run because there is no idempotency cache
+      to deduplicate against — re-running the same fixed sku would hit
+      a uniqueness violation.
+    operation: inventory.createInventoryItem
+    headers:
+      Idempotency-Key: ""
+    vars:
+      input:
+        sku: {$fake: "BRUNO-IDEM-INV-EMPTY-{{nonce}}"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Fresh item created (no replay)"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+
+  - id: whitespaceKey
+    name: "Whitespace-only header value — degrades to no-key behavior"
+    description: >
+      A header value containing only whitespace is trimmed by
+      FromHeaders and treated as absent. The mutation must run
+      normally.
+    operation: inventory.createInventoryItem
+    headers:
+      Idempotency-Key: "   "
+    vars:
+      input:
+        sku: {$fake: "BRUNO-IDEM-INV-WS-{{nonce}}"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Fresh item created (no replay)"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+
+  - id: maxLengthKey
+    name: "255-char key — exact maximum is accepted"
+    description: >
+      MaxKeyLen is 255 bytes. The collection hook pads
+      {{bru_idem_inventory_max}} to exactly 255 chars per run, and
+      sku is $fake so re-runs don't hit the (tenant_id, sku) unique
+      constraint.
+    operation: inventory.createInventoryItem
+    headers:
+      Idempotency-Key: "{{bru_idem_inventory_max}}"
+    vars:
+      input:
+        sku: {$fake: "BRUNO-IDEM-INV-MAX-{{nonce}}"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created at max-length boundary"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+          - ref: res.body.data.createInventoryItem.inventoryItem.sku
+            nil: false
+
+  - id: queryWithKey
+    name: "Idempotency-Key on a query — ignored"
+    description: >
+      Per the issue spec the header is ignored on non-mutations:
+      PreCheck returns ActionSkip for queries. Deliberately reuses the
+      suite's already-committed mutation key — a query must not trip
+      OPERATION_MISMATCH against the stored record, because queries
+      never consult the store at all.
+    operation: inventory.getInventoryItems
+    headers:
+      Idempotency-Key: "{{bru_idem_inventory}}"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No errors — header silently ignored on queries"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Query data returned normally"
+        assertions:
+          - ref: res.body.data.inventoryItems
+            nil: false
+
+  - id: failedAttempt
+    name: "Failed mutation does NOT consume the key"
+    description: >
+      Issue contract: "Failure = DB transaction rolled back for any
+      reason → record never written; same key may be retried."
+      Reuses the sku created by the fresh step, so the mutation fails
+      on the (tenant_id, sku) unique constraint — the tx rolls back
+      and the in-flight idempotency row rolls back with it.
+    operation: inventory.createInventoryItem
+    headers:
+      Idempotency-Key: "{{bru_idem_inventory_fail}}"
+    vars:
+      input:
+        sku: "BRUNO-IDEM-INV-{{bru_idem_inventory}}"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Mutation failed (duplicate sku)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - id: retryAfterFailure
+    name: "Same key after failure — retryable, even with different vars"
+    description: >
+      The failed attempt above left no committed record, so retrying
+      with the SAME key and DIFFERENT variables must execute normally —
+      not OPERATION_MISMATCH. This pins the rollback-atomicity half of
+      the at-most-once contract at the wire level.
+    operation: inventory.createInventoryItem
+    headers:
+      Idempotency-Key: "{{bru_idem_inventory_fail}}"
+    vars:
+      input:
+        sku: "BRUNO-IDEM-INV-RETRY-{{bru_idem_inventory}}"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No errors — key was not consumed by the failed attempt"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created on retry"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false

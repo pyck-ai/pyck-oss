@@ -138,6 +138,11 @@ func OwnOutgoingStock(v int64) predicate.Stock {
 	return predicate.Stock(sql.FieldEQ(FieldOwnOutgoingStock, v))
 }
 
+// Version applies equality check predicate on the "version" field. It's identical to VersionEQ.
+func Version(v int64) predicate.Stock {
+	return predicate.Stock(sql.FieldEQ(FieldVersion, v))
+}
+
 // TenantIDEQ applies the EQ predicate on the "tenant_id" field.
 func TenantIDEQ(v uuid.UUID) predicate.Stock {
 	return predicate.Stock(sql.FieldEQ(FieldTenantID, v))
@@ -786,6 +791,46 @@ func OwnOutgoingStockLT(v int64) predicate.Stock {
 // OwnOutgoingStockLTE applies the LTE predicate on the "own_outgoing_stock" field.
 func OwnOutgoingStockLTE(v int64) predicate.Stock {
 	return predicate.Stock(sql.FieldLTE(FieldOwnOutgoingStock, v))
+}
+
+// VersionEQ applies the EQ predicate on the "version" field.
+func VersionEQ(v int64) predicate.Stock {
+	return predicate.Stock(sql.FieldEQ(FieldVersion, v))
+}
+
+// VersionNEQ applies the NEQ predicate on the "version" field.
+func VersionNEQ(v int64) predicate.Stock {
+	return predicate.Stock(sql.FieldNEQ(FieldVersion, v))
+}
+
+// VersionIn applies the In predicate on the "version" field.
+func VersionIn(vs ...int64) predicate.Stock {
+	return predicate.Stock(sql.FieldIn(FieldVersion, vs...))
+}
+
+// VersionNotIn applies the NotIn predicate on the "version" field.
+func VersionNotIn(vs ...int64) predicate.Stock {
+	return predicate.Stock(sql.FieldNotIn(FieldVersion, vs...))
+}
+
+// VersionGT applies the GT predicate on the "version" field.
+func VersionGT(v int64) predicate.Stock {
+	return predicate.Stock(sql.FieldGT(FieldVersion, v))
+}
+
+// VersionGTE applies the GTE predicate on the "version" field.
+func VersionGTE(v int64) predicate.Stock {
+	return predicate.Stock(sql.FieldGTE(FieldVersion, v))
+}
+
+// VersionLT applies the LT predicate on the "version" field.
+func VersionLT(v int64) predicate.Stock {
+	return predicate.Stock(sql.FieldLT(FieldVersion, v))
+}
+
+// VersionLTE applies the LTE predicate on the "version" field.
+func VersionLTE(v int64) predicate.Stock {
+	return predicate.Stock(sql.FieldLTE(FieldVersion, v))
 }
 
 // HasItem applies the HasEdge predicate on the "item" edge.

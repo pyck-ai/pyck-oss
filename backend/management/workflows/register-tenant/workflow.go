@@ -8,7 +8,7 @@ import (
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 
-	"github.com/pyck-ai/pyck/backend/common/services/zitadel"
+	"github.com/pyck-ai/pyck/backend/common/services/zitadel/sdk"
 
 	"github.com/pyck-ai/pyck/backend/management/core"
 )
@@ -47,6 +47,7 @@ func RegisterTenantWorkflow(context workflow.Context, input RegisterTenantWorkfl
 		OrganizationID: organizationOutput.OrganizationID,
 		Name:           input.Name,
 		Data:           input.Data,
+		ExpiresAt:      input.ExpiresAt,
 	}
 	err = workflow.ExecuteActivity(ctx, activities.CreateTenantInDbActivity, dbTenantInput).Get(ctx, nil)
 	if err != nil {
@@ -84,7 +85,7 @@ func RegisterTenantWorkflow(context workflow.Context, input RegisterTenantWorkfl
 	projectGrantInput := addProjectGrantsInput{
 		ProjectID:      core.Config.ZitadelProjectId,
 		OrganizationID: organizationOutput.OrganizationID,
-		Roles:          []string{zitadel.ProjectRoleReader, zitadel.ProjectRoleWriter},
+		Roles:          []string{sdk.ProjectRoleReader, sdk.ProjectRoleWriter},
 	}
 	var grantOutput Grant
 	err = workflow.ExecuteActivity(ctx, activities.AddProjectGrantActivity, projectGrantInput).Get(ctx, &grantOutput)
@@ -98,7 +99,7 @@ func RegisterTenantWorkflow(context workflow.Context, input RegisterTenantWorkfl
 		ProjectID:      core.Config.ZitadelProjectId,
 		UserID:         userOutput.UserID,
 		GrantID:        grantOutput.ID,
-		Roles:          []string{zitadel.ProjectRoleWriter},
+		Roles:          []string{sdk.ProjectRoleWriter},
 	}
 
 	err = workflow.ExecuteActivity(ctx, activities.AddUserGrantActivity, userGrantInput).Get(ctx, nil)
@@ -140,7 +141,10 @@ func RegisterTenantWorkflow(context workflow.Context, input RegisterTenantWorkfl
 		}
 	}
 
-	// Set Organization Metadata
+	// Set Organization Metadata — caller-supplied `Data` keys only.
+	// Tenant expiry is NOT written here; it lives in the DB column
+	// (set by CreateTenantInDbActivity above for new tenants and by
+	// the setTenantExpiry resolver thereafter).
 	metadataInput := SetOrgMetadataActivityInput{
 		OrganizationID: organizationOutput.OrganizationID,
 		Data:           input.Data,
@@ -204,7 +208,7 @@ func deployTenantWorker(ctx workflow.Context, input RegisterTenantWorkflowInput,
 		ProjectID:      core.Config.ZitadelProjectId,
 		UserID:         serviceUserOutput.UserID,
 		GrantID:        grantOutput.ID,
-		Roles:          []string{zitadel.ProjectRoleWriter},
+		Roles:          []string{sdk.ProjectRoleWriter},
 	}).Get(ctx, nil)
 	if err != nil {
 		return err
@@ -222,7 +226,7 @@ func deployTenantWorker(ctx workflow.Context, input RegisterTenantWorkflowInput,
 		return err
 	}
 
-	// 4. Create TemporalConnection per tenant
+	// 4. Create temporal Connection per tenant
 	err = workflow.ExecuteActivity(ctx, activities.CreateK8sTemporalConnectionActivity, createK8sTemporalConnectionInput{
 		Namespace:   workersNamespace,
 		Name:        connectionName,
@@ -233,7 +237,7 @@ func deployTenantWorker(ctx workflow.Context, input RegisterTenantWorkflowInput,
 		return err
 	}
 
-	// 5. Create TemporalWorkerDeployment for this tenant
+	// 5. Create WorkerDeployment for this tenant
 	return workflow.ExecuteActivity(ctx, activities.CreateK8sWorkerDeploymentActivity, createK8sWorkerDeploymentInput{
 		Namespace:           workersNamespace,
 		Name:                connectionName,

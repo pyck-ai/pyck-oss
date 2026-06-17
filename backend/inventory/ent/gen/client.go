@@ -18,6 +18,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/collection_movement"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/entityeventsoutbox"
+	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/idempotencykey"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/item"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/itemmovement"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/itemset"
@@ -42,6 +43,8 @@ type Client struct {
 	Collection_Movement *CollectionMovementClient
 	// EntityEventsOutbox is the client for interacting with the EntityEventsOutbox builders.
 	EntityEventsOutbox *EntityEventsOutboxClient
+	// IdempotencyKey is the client for interacting with the IdempotencyKey builders.
+	IdempotencyKey *IdempotencyKeyClient
 	// Item is the client for interacting with the Item builders.
 	Item *ItemClient
 	// ItemMovement is the client for interacting with the ItemMovement builders.
@@ -73,6 +76,7 @@ func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.Collection_Movement = NewCollectionMovementClient(c.config)
 	c.EntityEventsOutbox = NewEntityEventsOutboxClient(c.config)
+	c.IdempotencyKey = NewIdempotencyKeyClient(c.config)
 	c.Item = NewItemClient(c.config)
 	c.ItemMovement = NewItemMovementClient(c.config)
 	c.ItemSet = NewItemSetClient(c.config)
@@ -179,6 +183,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		config:                 cfg,
 		Collection_Movement:    NewCollectionMovementClient(cfg),
 		EntityEventsOutbox:     NewEntityEventsOutboxClient(cfg),
+		IdempotencyKey:         NewIdempotencyKeyClient(cfg),
 		Item:                   NewItemClient(cfg),
 		ItemMovement:           NewItemMovementClient(cfg),
 		ItemSet:                NewItemSetClient(cfg),
@@ -209,6 +214,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		config:                 cfg,
 		Collection_Movement:    NewCollectionMovementClient(cfg),
 		EntityEventsOutbox:     NewEntityEventsOutboxClient(cfg),
+		IdempotencyKey:         NewIdempotencyKeyClient(cfg),
 		Item:                   NewItemClient(cfg),
 		ItemMovement:           NewItemMovementClient(cfg),
 		ItemSet:                NewItemSetClient(cfg),
@@ -247,9 +253,9 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.Collection_Movement, c.EntityEventsOutbox, c.Item, c.ItemMovement, c.ItemSet,
-		c.ReplenishmentOrder, c.ReplenishmentOrderItem, c.Repository,
-		c.RepositoryMovement, c.Stock, c.Transaction,
+		c.Collection_Movement, c.EntityEventsOutbox, c.IdempotencyKey, c.Item,
+		c.ItemMovement, c.ItemSet, c.ReplenishmentOrder, c.ReplenishmentOrderItem,
+		c.Repository, c.RepositoryMovement, c.Stock, c.Transaction,
 	} {
 		n.Use(hooks...)
 	}
@@ -259,9 +265,9 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.Collection_Movement, c.EntityEventsOutbox, c.Item, c.ItemMovement, c.ItemSet,
-		c.ReplenishmentOrder, c.ReplenishmentOrderItem, c.Repository,
-		c.RepositoryMovement, c.Stock, c.Transaction,
+		c.Collection_Movement, c.EntityEventsOutbox, c.IdempotencyKey, c.Item,
+		c.ItemMovement, c.ItemSet, c.ReplenishmentOrder, c.ReplenishmentOrderItem,
+		c.Repository, c.RepositoryMovement, c.Stock, c.Transaction,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -274,6 +280,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Collection_Movement.mutate(ctx, m)
 	case *EntityEventsOutboxMutation:
 		return c.EntityEventsOutbox.mutate(ctx, m)
+	case *IdempotencyKeyMutation:
+		return c.IdempotencyKey.mutate(ctx, m)
 	case *ItemMutation:
 		return c.Item.mutate(ctx, m)
 	case *ItemMovementMutation:
@@ -562,6 +570,139 @@ func (c *EntityEventsOutboxClient) mutate(ctx context.Context, m *EntityEventsOu
 		return (&EntityEventsOutboxDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("gen: unknown EntityEventsOutbox mutation op: %q", m.Op())
+	}
+}
+
+// IdempotencyKeyClient is a client for the IdempotencyKey schema.
+type IdempotencyKeyClient struct {
+	config
+}
+
+// NewIdempotencyKeyClient returns a client for the IdempotencyKey from the given config.
+func NewIdempotencyKeyClient(c config) *IdempotencyKeyClient {
+	return &IdempotencyKeyClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `idempotencykey.Hooks(f(g(h())))`.
+func (c *IdempotencyKeyClient) Use(hooks ...Hook) {
+	c.hooks.IdempotencyKey = append(c.hooks.IdempotencyKey, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `idempotencykey.Intercept(f(g(h())))`.
+func (c *IdempotencyKeyClient) Intercept(interceptors ...Interceptor) {
+	c.inters.IdempotencyKey = append(c.inters.IdempotencyKey, interceptors...)
+}
+
+// Create returns a builder for creating a IdempotencyKey entity.
+func (c *IdempotencyKeyClient) Create() *IdempotencyKeyCreate {
+	mutation := newIdempotencyKeyMutation(c.config, OpCreate)
+	return &IdempotencyKeyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of IdempotencyKey entities.
+func (c *IdempotencyKeyClient) CreateBulk(builders ...*IdempotencyKeyCreate) *IdempotencyKeyCreateBulk {
+	return &IdempotencyKeyCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *IdempotencyKeyClient) MapCreateBulk(slice any, setFunc func(*IdempotencyKeyCreate, int)) *IdempotencyKeyCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &IdempotencyKeyCreateBulk{err: fmt.Errorf("calling to IdempotencyKeyClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*IdempotencyKeyCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &IdempotencyKeyCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for IdempotencyKey.
+func (c *IdempotencyKeyClient) Update() *IdempotencyKeyUpdate {
+	mutation := newIdempotencyKeyMutation(c.config, OpUpdate)
+	return &IdempotencyKeyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *IdempotencyKeyClient) UpdateOne(_m *IdempotencyKey) *IdempotencyKeyUpdateOne {
+	mutation := newIdempotencyKeyMutation(c.config, OpUpdateOne, withIdempotencyKey(_m))
+	return &IdempotencyKeyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *IdempotencyKeyClient) UpdateOneID(id uuid.UUID) *IdempotencyKeyUpdateOne {
+	mutation := newIdempotencyKeyMutation(c.config, OpUpdateOne, withIdempotencyKeyID(id))
+	return &IdempotencyKeyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for IdempotencyKey.
+func (c *IdempotencyKeyClient) Delete() *IdempotencyKeyDelete {
+	mutation := newIdempotencyKeyMutation(c.config, OpDelete)
+	return &IdempotencyKeyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *IdempotencyKeyClient) DeleteOne(_m *IdempotencyKey) *IdempotencyKeyDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *IdempotencyKeyClient) DeleteOneID(id uuid.UUID) *IdempotencyKeyDeleteOne {
+	builder := c.Delete().Where(idempotencykey.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &IdempotencyKeyDeleteOne{builder}
+}
+
+// Query returns a query builder for IdempotencyKey.
+func (c *IdempotencyKeyClient) Query() *IdempotencyKeyQuery {
+	return &IdempotencyKeyQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeIdempotencyKey},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a IdempotencyKey entity by its id.
+func (c *IdempotencyKeyClient) Get(ctx context.Context, id uuid.UUID) (*IdempotencyKey, error) {
+	return c.Query().Where(idempotencykey.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *IdempotencyKeyClient) GetX(ctx context.Context, id uuid.UUID) *IdempotencyKey {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *IdempotencyKeyClient) Hooks() []Hook {
+	return c.hooks.IdempotencyKey
+}
+
+// Interceptors returns the client interceptors.
+func (c *IdempotencyKeyClient) Interceptors() []Interceptor {
+	return c.inters.IdempotencyKey
+}
+
+func (c *IdempotencyKeyClient) mutate(ctx context.Context, m *IdempotencyKeyMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&IdempotencyKeyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&IdempotencyKeyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&IdempotencyKeyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&IdempotencyKeyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("gen: unknown IdempotencyKey mutation op: %q", m.Op())
 	}
 }
 
@@ -2277,14 +2418,14 @@ func (c *TransactionClient) mutate(ctx context.Context, m *TransactionMutation) 
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Collection_Movement, EntityEventsOutbox, Item, ItemMovement, ItemSet,
-		ReplenishmentOrder, ReplenishmentOrderItem, Repository, RepositoryMovement,
-		Stock, Transaction []ent.Hook
+		Collection_Movement, EntityEventsOutbox, IdempotencyKey, Item, ItemMovement,
+		ItemSet, ReplenishmentOrder, ReplenishmentOrderItem, Repository,
+		RepositoryMovement, Stock, Transaction []ent.Hook
 	}
 	inters struct {
-		Collection_Movement, EntityEventsOutbox, Item, ItemMovement, ItemSet,
-		ReplenishmentOrder, ReplenishmentOrderItem, Repository, RepositoryMovement,
-		Stock, Transaction []ent.Interceptor
+		Collection_Movement, EntityEventsOutbox, IdempotencyKey, Item, ItemMovement,
+		ItemSet, ReplenishmentOrder, ReplenishmentOrderItem, Repository,
+		RepositoryMovement, Stock, Transaction []ent.Interceptor
 	}
 )
 
@@ -2293,6 +2434,7 @@ var (
 	DefaultSchemaConfig = SchemaConfig{
 		Collection_Movement:    tableSchemas[0],
 		EntityEventsOutbox:     tableSchemas[0],
+		IdempotencyKey:         tableSchemas[0],
 		Item:                   tableSchemas[0],
 		ItemMovement:           tableSchemas[0],
 		ItemSet:                tableSchemas[0],

@@ -2737,20 +2737,49 @@ type EntityEventsOutboxWhereInput struct {
 	UserIDIsNil  bool        `json:"userIDIsNil,omitempty"`
 	UserIDNotNil bool        `json:"userIDNotNil,omitempty"`
 
-	// "correlation_id" field predicates.
-	CorrelationID             *string  `json:"correlationID,omitempty"`
-	CorrelationIDNEQ          *string  `json:"correlationIDNEQ,omitempty"`
-	CorrelationIDIn           []string `json:"correlationIDIn,omitempty"`
-	CorrelationIDNotIn        []string `json:"correlationIDNotIn,omitempty"`
-	CorrelationIDGT           *string  `json:"correlationIDGT,omitempty"`
-	CorrelationIDGTE          *string  `json:"correlationIDGTE,omitempty"`
-	CorrelationIDLT           *string  `json:"correlationIDLT,omitempty"`
-	CorrelationIDLTE          *string  `json:"correlationIDLTE,omitempty"`
-	CorrelationIDContains     *string  `json:"correlationIDContains,omitempty"`
-	CorrelationIDHasPrefix    *string  `json:"correlationIDHasPrefix,omitempty"`
-	CorrelationIDHasSuffix    *string  `json:"correlationIDHasSuffix,omitempty"`
-	CorrelationIDEqualFold    *string  `json:"correlationIDEqualFold,omitempty"`
-	CorrelationIDContainsFold *string  `json:"correlationIDContainsFold,omitempty"`
+	// "transaction_id" field predicates.
+	TransactionID      *uuid.UUID  `json:"transactionID,omitempty"`
+	TransactionIDNEQ   *uuid.UUID  `json:"transactionIDNEQ,omitempty"`
+	TransactionIDIn    []uuid.UUID `json:"transactionIDIn,omitempty"`
+	TransactionIDNotIn []uuid.UUID `json:"transactionIDNotIn,omitempty"`
+	TransactionIDGT    *uuid.UUID  `json:"transactionIDGT,omitempty"`
+	TransactionIDGTE   *uuid.UUID  `json:"transactionIDGTE,omitempty"`
+	TransactionIDLT    *uuid.UUID  `json:"transactionIDLT,omitempty"`
+	TransactionIDLTE   *uuid.UUID  `json:"transactionIDLTE,omitempty"`
+
+	// "trace_id" field predicates.
+	TraceID             *string  `json:"traceID,omitempty"`
+	TraceIDNEQ          *string  `json:"traceIDNEQ,omitempty"`
+	TraceIDIn           []string `json:"traceIDIn,omitempty"`
+	TraceIDNotIn        []string `json:"traceIDNotIn,omitempty"`
+	TraceIDGT           *string  `json:"traceIDGT,omitempty"`
+	TraceIDGTE          *string  `json:"traceIDGTE,omitempty"`
+	TraceIDLT           *string  `json:"traceIDLT,omitempty"`
+	TraceIDLTE          *string  `json:"traceIDLTE,omitempty"`
+	TraceIDContains     *string  `json:"traceIDContains,omitempty"`
+	TraceIDHasPrefix    *string  `json:"traceIDHasPrefix,omitempty"`
+	TraceIDHasSuffix    *string  `json:"traceIDHasSuffix,omitempty"`
+	TraceIDIsNil        bool     `json:"traceIDIsNil,omitempty"`
+	TraceIDNotNil       bool     `json:"traceIDNotNil,omitempty"`
+	TraceIDEqualFold    *string  `json:"traceIDEqualFold,omitempty"`
+	TraceIDContainsFold *string  `json:"traceIDContainsFold,omitempty"`
+
+	// "request_id" field predicates.
+	RequestID             *string  `json:"requestID,omitempty"`
+	RequestIDNEQ          *string  `json:"requestIDNEQ,omitempty"`
+	RequestIDIn           []string `json:"requestIDIn,omitempty"`
+	RequestIDNotIn        []string `json:"requestIDNotIn,omitempty"`
+	RequestIDGT           *string  `json:"requestIDGT,omitempty"`
+	RequestIDGTE          *string  `json:"requestIDGTE,omitempty"`
+	RequestIDLT           *string  `json:"requestIDLT,omitempty"`
+	RequestIDLTE          *string  `json:"requestIDLTE,omitempty"`
+	RequestIDContains     *string  `json:"requestIDContains,omitempty"`
+	RequestIDHasPrefix    *string  `json:"requestIDHasPrefix,omitempty"`
+	RequestIDHasSuffix    *string  `json:"requestIDHasSuffix,omitempty"`
+	RequestIDIsNil        bool     `json:"requestIDIsNil,omitempty"`
+	RequestIDNotNil       bool     `json:"requestIDNotNil,omitempty"`
+	RequestIDEqualFold    *string  `json:"requestIDEqualFold,omitempty"`
+	RequestIDContainsFold *string  `json:"requestIDContainsFold,omitempty"`
 
 	// "topic" field predicates.
 	Topic             *string  `json:"topic,omitempty"`
@@ -2852,16 +2881,14 @@ type EntityEventsOutboxWhereInput struct {
 	EntityIDNotNil bool        `json:"entityIDNotNil,omitempty"`
 
 	// "tenant_id" field predicates.
-	TenantID       *uuid.UUID  `json:"tenantID,omitempty"`
-	TenantIDNEQ    *uuid.UUID  `json:"tenantIDNEQ,omitempty"`
-	TenantIDIn     []uuid.UUID `json:"tenantIDIn,omitempty"`
-	TenantIDNotIn  []uuid.UUID `json:"tenantIDNotIn,omitempty"`
-	TenantIDGT     *uuid.UUID  `json:"tenantIDGT,omitempty"`
-	TenantIDGTE    *uuid.UUID  `json:"tenantIDGTE,omitempty"`
-	TenantIDLT     *uuid.UUID  `json:"tenantIDLT,omitempty"`
-	TenantIDLTE    *uuid.UUID  `json:"tenantIDLTE,omitempty"`
-	TenantIDIsNil  bool        `json:"tenantIDIsNil,omitempty"`
-	TenantIDNotNil bool        `json:"tenantIDNotNil,omitempty"`
+	TenantID      *uuid.UUID  `json:"tenantID,omitempty"`
+	TenantIDNEQ   *uuid.UUID  `json:"tenantIDNEQ,omitempty"`
+	TenantIDIn    []uuid.UUID `json:"tenantIDIn,omitempty"`
+	TenantIDNotIn []uuid.UUID `json:"tenantIDNotIn,omitempty"`
+	TenantIDGT    *uuid.UUID  `json:"tenantIDGT,omitempty"`
+	TenantIDGTE   *uuid.UUID  `json:"tenantIDGTE,omitempty"`
+	TenantIDLT    *uuid.UUID  `json:"tenantIDLT,omitempty"`
+	TenantIDLTE   *uuid.UUID  `json:"tenantIDLTE,omitempty"`
 }
 
 // AddPredicates adds custom predicates to the where input to be used during the filtering phase.
@@ -3043,44 +3070,119 @@ func (i *EntityEventsOutboxWhereInput) P() (predicate.EntityEventsOutbox, error)
 	if i.UserIDNotNil {
 		predicates = append(predicates, entityeventsoutbox.UserIDNotNil())
 	}
-	if i.CorrelationID != nil {
-		predicates = append(predicates, entityeventsoutbox.CorrelationIDEQ(*i.CorrelationID))
+	if i.TransactionID != nil {
+		predicates = append(predicates, entityeventsoutbox.TransactionIDEQ(*i.TransactionID))
 	}
-	if i.CorrelationIDNEQ != nil {
-		predicates = append(predicates, entityeventsoutbox.CorrelationIDNEQ(*i.CorrelationIDNEQ))
+	if i.TransactionIDNEQ != nil {
+		predicates = append(predicates, entityeventsoutbox.TransactionIDNEQ(*i.TransactionIDNEQ))
 	}
-	if len(i.CorrelationIDIn) > 0 {
-		predicates = append(predicates, entityeventsoutbox.CorrelationIDIn(i.CorrelationIDIn...))
+	if len(i.TransactionIDIn) > 0 {
+		predicates = append(predicates, entityeventsoutbox.TransactionIDIn(i.TransactionIDIn...))
 	}
-	if len(i.CorrelationIDNotIn) > 0 {
-		predicates = append(predicates, entityeventsoutbox.CorrelationIDNotIn(i.CorrelationIDNotIn...))
+	if len(i.TransactionIDNotIn) > 0 {
+		predicates = append(predicates, entityeventsoutbox.TransactionIDNotIn(i.TransactionIDNotIn...))
 	}
-	if i.CorrelationIDGT != nil {
-		predicates = append(predicates, entityeventsoutbox.CorrelationIDGT(*i.CorrelationIDGT))
+	if i.TransactionIDGT != nil {
+		predicates = append(predicates, entityeventsoutbox.TransactionIDGT(*i.TransactionIDGT))
 	}
-	if i.CorrelationIDGTE != nil {
-		predicates = append(predicates, entityeventsoutbox.CorrelationIDGTE(*i.CorrelationIDGTE))
+	if i.TransactionIDGTE != nil {
+		predicates = append(predicates, entityeventsoutbox.TransactionIDGTE(*i.TransactionIDGTE))
 	}
-	if i.CorrelationIDLT != nil {
-		predicates = append(predicates, entityeventsoutbox.CorrelationIDLT(*i.CorrelationIDLT))
+	if i.TransactionIDLT != nil {
+		predicates = append(predicates, entityeventsoutbox.TransactionIDLT(*i.TransactionIDLT))
 	}
-	if i.CorrelationIDLTE != nil {
-		predicates = append(predicates, entityeventsoutbox.CorrelationIDLTE(*i.CorrelationIDLTE))
+	if i.TransactionIDLTE != nil {
+		predicates = append(predicates, entityeventsoutbox.TransactionIDLTE(*i.TransactionIDLTE))
 	}
-	if i.CorrelationIDContains != nil {
-		predicates = append(predicates, entityeventsoutbox.CorrelationIDContains(*i.CorrelationIDContains))
+	if i.TraceID != nil {
+		predicates = append(predicates, entityeventsoutbox.TraceIDEQ(*i.TraceID))
 	}
-	if i.CorrelationIDHasPrefix != nil {
-		predicates = append(predicates, entityeventsoutbox.CorrelationIDHasPrefix(*i.CorrelationIDHasPrefix))
+	if i.TraceIDNEQ != nil {
+		predicates = append(predicates, entityeventsoutbox.TraceIDNEQ(*i.TraceIDNEQ))
 	}
-	if i.CorrelationIDHasSuffix != nil {
-		predicates = append(predicates, entityeventsoutbox.CorrelationIDHasSuffix(*i.CorrelationIDHasSuffix))
+	if len(i.TraceIDIn) > 0 {
+		predicates = append(predicates, entityeventsoutbox.TraceIDIn(i.TraceIDIn...))
 	}
-	if i.CorrelationIDEqualFold != nil {
-		predicates = append(predicates, entityeventsoutbox.CorrelationIDEqualFold(*i.CorrelationIDEqualFold))
+	if len(i.TraceIDNotIn) > 0 {
+		predicates = append(predicates, entityeventsoutbox.TraceIDNotIn(i.TraceIDNotIn...))
 	}
-	if i.CorrelationIDContainsFold != nil {
-		predicates = append(predicates, entityeventsoutbox.CorrelationIDContainsFold(*i.CorrelationIDContainsFold))
+	if i.TraceIDGT != nil {
+		predicates = append(predicates, entityeventsoutbox.TraceIDGT(*i.TraceIDGT))
+	}
+	if i.TraceIDGTE != nil {
+		predicates = append(predicates, entityeventsoutbox.TraceIDGTE(*i.TraceIDGTE))
+	}
+	if i.TraceIDLT != nil {
+		predicates = append(predicates, entityeventsoutbox.TraceIDLT(*i.TraceIDLT))
+	}
+	if i.TraceIDLTE != nil {
+		predicates = append(predicates, entityeventsoutbox.TraceIDLTE(*i.TraceIDLTE))
+	}
+	if i.TraceIDContains != nil {
+		predicates = append(predicates, entityeventsoutbox.TraceIDContains(*i.TraceIDContains))
+	}
+	if i.TraceIDHasPrefix != nil {
+		predicates = append(predicates, entityeventsoutbox.TraceIDHasPrefix(*i.TraceIDHasPrefix))
+	}
+	if i.TraceIDHasSuffix != nil {
+		predicates = append(predicates, entityeventsoutbox.TraceIDHasSuffix(*i.TraceIDHasSuffix))
+	}
+	if i.TraceIDIsNil {
+		predicates = append(predicates, entityeventsoutbox.TraceIDIsNil())
+	}
+	if i.TraceIDNotNil {
+		predicates = append(predicates, entityeventsoutbox.TraceIDNotNil())
+	}
+	if i.TraceIDEqualFold != nil {
+		predicates = append(predicates, entityeventsoutbox.TraceIDEqualFold(*i.TraceIDEqualFold))
+	}
+	if i.TraceIDContainsFold != nil {
+		predicates = append(predicates, entityeventsoutbox.TraceIDContainsFold(*i.TraceIDContainsFold))
+	}
+	if i.RequestID != nil {
+		predicates = append(predicates, entityeventsoutbox.RequestIDEQ(*i.RequestID))
+	}
+	if i.RequestIDNEQ != nil {
+		predicates = append(predicates, entityeventsoutbox.RequestIDNEQ(*i.RequestIDNEQ))
+	}
+	if len(i.RequestIDIn) > 0 {
+		predicates = append(predicates, entityeventsoutbox.RequestIDIn(i.RequestIDIn...))
+	}
+	if len(i.RequestIDNotIn) > 0 {
+		predicates = append(predicates, entityeventsoutbox.RequestIDNotIn(i.RequestIDNotIn...))
+	}
+	if i.RequestIDGT != nil {
+		predicates = append(predicates, entityeventsoutbox.RequestIDGT(*i.RequestIDGT))
+	}
+	if i.RequestIDGTE != nil {
+		predicates = append(predicates, entityeventsoutbox.RequestIDGTE(*i.RequestIDGTE))
+	}
+	if i.RequestIDLT != nil {
+		predicates = append(predicates, entityeventsoutbox.RequestIDLT(*i.RequestIDLT))
+	}
+	if i.RequestIDLTE != nil {
+		predicates = append(predicates, entityeventsoutbox.RequestIDLTE(*i.RequestIDLTE))
+	}
+	if i.RequestIDContains != nil {
+		predicates = append(predicates, entityeventsoutbox.RequestIDContains(*i.RequestIDContains))
+	}
+	if i.RequestIDHasPrefix != nil {
+		predicates = append(predicates, entityeventsoutbox.RequestIDHasPrefix(*i.RequestIDHasPrefix))
+	}
+	if i.RequestIDHasSuffix != nil {
+		predicates = append(predicates, entityeventsoutbox.RequestIDHasSuffix(*i.RequestIDHasSuffix))
+	}
+	if i.RequestIDIsNil {
+		predicates = append(predicates, entityeventsoutbox.RequestIDIsNil())
+	}
+	if i.RequestIDNotNil {
+		predicates = append(predicates, entityeventsoutbox.RequestIDNotNil())
+	}
+	if i.RequestIDEqualFold != nil {
+		predicates = append(predicates, entityeventsoutbox.RequestIDEqualFold(*i.RequestIDEqualFold))
+	}
+	if i.RequestIDContainsFold != nil {
+		predicates = append(predicates, entityeventsoutbox.RequestIDContainsFold(*i.RequestIDContainsFold))
 	}
 	if i.Topic != nil {
 		predicates = append(predicates, entityeventsoutbox.TopicEQ(*i.Topic))
@@ -3354,12 +3456,6 @@ func (i *EntityEventsOutboxWhereInput) P() (predicate.EntityEventsOutbox, error)
 	}
 	if i.TenantIDLTE != nil {
 		predicates = append(predicates, entityeventsoutbox.TenantIDLTE(*i.TenantIDLTE))
-	}
-	if i.TenantIDIsNil {
-		predicates = append(predicates, entityeventsoutbox.TenantIDIsNil())
-	}
-	if i.TenantIDNotNil {
-		predicates = append(predicates, entityeventsoutbox.TenantIDNotNil())
 	}
 
 	switch len(predicates) {
@@ -5892,6 +5988,18 @@ type TenantWhereInput struct {
 	IdpOrgRefEqualFold    *string  `json:"idpOrgRefEqualFold,omitempty"`
 	IdpOrgRefContainsFold *string  `json:"idpOrgRefContainsFold,omitempty"`
 
+	// "expires_at" field predicates.
+	ExpiresAt       *time.Time  `json:"expiresAt,omitempty"`
+	ExpiresAtNEQ    *time.Time  `json:"expiresAtNEQ,omitempty"`
+	ExpiresAtIn     []time.Time `json:"expiresAtIn,omitempty"`
+	ExpiresAtNotIn  []time.Time `json:"expiresAtNotIn,omitempty"`
+	ExpiresAtGT     *time.Time  `json:"expiresAtGT,omitempty"`
+	ExpiresAtGTE    *time.Time  `json:"expiresAtGTE,omitempty"`
+	ExpiresAtLT     *time.Time  `json:"expiresAtLT,omitempty"`
+	ExpiresAtLTE    *time.Time  `json:"expiresAtLTE,omitempty"`
+	ExpiresAtIsNil  bool        `json:"expiresAtIsNil,omitempty"`
+	ExpiresAtNotNil bool        `json:"expiresAtNotNil,omitempty"`
+
 	// "tenantUsers" edge predicates.
 	HasTenantUsers     *bool             `json:"hasTenantUsers,omitempty"`
 	HasTenantUsersWith []*UserWhereInput `json:"hasTenantUsersWith,omitempty"`
@@ -6252,6 +6360,36 @@ func (i *TenantWhereInput) P() (predicate.Tenant, error) {
 	}
 	if i.IdpOrgRefContainsFold != nil {
 		predicates = append(predicates, tenant.IdpOrgRefContainsFold(*i.IdpOrgRefContainsFold))
+	}
+	if i.ExpiresAt != nil {
+		predicates = append(predicates, tenant.ExpiresAtEQ(*i.ExpiresAt))
+	}
+	if i.ExpiresAtNEQ != nil {
+		predicates = append(predicates, tenant.ExpiresAtNEQ(*i.ExpiresAtNEQ))
+	}
+	if len(i.ExpiresAtIn) > 0 {
+		predicates = append(predicates, tenant.ExpiresAtIn(i.ExpiresAtIn...))
+	}
+	if len(i.ExpiresAtNotIn) > 0 {
+		predicates = append(predicates, tenant.ExpiresAtNotIn(i.ExpiresAtNotIn...))
+	}
+	if i.ExpiresAtGT != nil {
+		predicates = append(predicates, tenant.ExpiresAtGT(*i.ExpiresAtGT))
+	}
+	if i.ExpiresAtGTE != nil {
+		predicates = append(predicates, tenant.ExpiresAtGTE(*i.ExpiresAtGTE))
+	}
+	if i.ExpiresAtLT != nil {
+		predicates = append(predicates, tenant.ExpiresAtLT(*i.ExpiresAtLT))
+	}
+	if i.ExpiresAtLTE != nil {
+		predicates = append(predicates, tenant.ExpiresAtLTE(*i.ExpiresAtLTE))
+	}
+	if i.ExpiresAtIsNil {
+		predicates = append(predicates, tenant.ExpiresAtIsNil())
+	}
+	if i.ExpiresAtNotNil {
+		predicates = append(predicates, tenant.ExpiresAtNotNil())
 	}
 
 	if i.HasTenantUsers != nil {

@@ -15,13 +15,13 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
 	"github.com/google/uuid"
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/predicate"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/stock"
 	"github.com/pyck-ai/pyck/backend/inventory/model"
-	"github.com/pyck-ai/pyck/backend/inventory/services"
 )
 
 // GetStockTree returns a paginated forest of RepositoryTree roots with current stocks.
@@ -42,7 +42,7 @@ func (r *queryResolver) GetStockTree(ctx context.Context, after *entgql.Cursor[u
 	}
 
 	// Find the latest stock ID per (repository_id, item_id) matching the filters.
-	stockPreds := services.BuildPredicates(where)
+	stockPreds := BuildPredicates(where)
 	ids, err := latestStockIDs(ctx, r.client.Stock.Query(), stockPreds...)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (r *queryResolver) GetStockTree(ctx context.Context, after *entgql.Cursor[u
 		stocks, err = r.client.Stock.Query().
 			Where(stock.IDIn(ids...)).
 			Order(gen.Desc(stock.FieldCreatedAt)).
-			All(ctx)
+			AllPages(ctx, mixin.Limit)
 	}
 	if err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func (r *queryResolver) GetStockTree(ctx context.Context, after *entgql.Cursor[u
 
 	repos, err := r.client.Repository.Query().
 		Where(repository.TenantIDIn(req.TenantIDs()...)).
-		All(ctx)
+		AllPages(ctx, mixin.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -128,8 +128,8 @@ func (r *queryResolver) GetStockTree(ctx context.Context, after *entgql.Cursor[u
 		}
 	}
 
-	initialTree := services.PruneTree(roots, includeInit)
-	allEdges := services.FlattenTreeEdges(initialTree)
+	initialTree := PruneTree(roots, includeInit)
+	allEdges := FlattenTreeEdges(initialTree)
 
 	var stockedEdges []*model.RepositoryTreeEdge
 	for _, e := range allEdges {
@@ -181,7 +181,7 @@ func (r *queryResolver) GetStockTree(ctx context.Context, after *entgql.Cursor[u
 			}
 		}
 	}
-	finalTree := services.PruneTree(initialTree, includeSelected)
+	finalTree := PruneTree(initialTree, includeSelected)
 
 	var outEdges []*model.RepositoryTreeEdge
 	if after != nil || before != nil || first != nil || last != nil {

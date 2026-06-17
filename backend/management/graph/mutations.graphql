@@ -7,6 +7,44 @@ type Mutation {
   sendCustomEvent(input: SendCustomEventInput!): SendCustomEventResponse
 
   registerTenant(input: RegisterTenantInput!): RegisterTenantResponse!
+  """
+  Manually delete a tenant by setting deleted_at via soft-delete. This
+  triggers the soft-delete half of the tenant lifecycle — the row
+  remains in the database and can be reactivated via restoreTenant
+  during the grace period. Hard-delete is automated by the periodic
+  expiry sweep, not exposed to the API.
+
+  Target tenant is derived from the X-Pyck-Tenant-Id header
+  (req.MutationTenantID). The caller must hold ROLE_ADMIN on that
+  tenant; ROLE_SYSTEM satisfies this for system flows.
+  """
+  deleteTenant: DeleteTenantResponse!
+  """
+  Restore a previously disabled tenant by clearing its deleted_at
+  flag. An optional input.expiresAt overrides the tenant's prior
+  expiry; when omitted, the prior expiry persists, which can
+  re-disable the tenant on the next tenant-expiry-check sweep if the
+  value is already in the past.
+
+  Target tenant is derived from X-Pyck-Tenant-Id (req.MutationTenantID);
+  ROLE_ADMIN required.
+  """
+  restoreTenant(input: RestoreTenantInput!): RestoreTenantResponse!
+  """
+  Sets or clears the tenant's expiry timestamp. Pass input.expiresAt
+  as null to clear. Soft-deleted (disabled) tenants are not visible
+  to this mutation — call restoreTenant first (it accepts an optional
+  new expiry). Returns an error when the tenant does not exist
+  (including the disabled case). The value is written directly to
+  tenant.expires_at; the periodic tenant-expiry-check workflow
+  soft-deletes the tenant once the timestamp is in the past.
+  Idempotent on the already-at-target-state cases (clear against
+  empty, set matching the current value).
+
+  Target tenant is derived from X-Pyck-Tenant-Id (req.MutationTenantID);
+  ROLE_ADMIN required.
+  """
+  setTenantExpiry(input: SetTenantExpiryInput!): SetTenantExpiryResponse!
   generateJsonSchema(jsonData: String!): GenerateJsonSchemaResponse!
 
   # Access Management - Policy, Group and Role CRUD
@@ -61,6 +99,7 @@ scalar UUID
 
 type RegisterTenantResponse {
   success: Boolean!
+  tenant: Tenant
 }
 
 input CheckInUserDeviceInput {

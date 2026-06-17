@@ -26,30 +26,6 @@ graphql:
             dataTypeSlug
             deletedAt
             deletedBy
-            deviceLocationsDevice {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
-            deviceUsersDevice {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
             id
             name
             tenantID

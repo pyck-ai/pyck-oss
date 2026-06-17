@@ -1,0 +1,11 @@
+info:
+  name: Cross - Workflow Data Type Slug Reference
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a data type with a slug, then registers a workflow that references it via dataTypeSlug + custom data. Exercises the workflow service's data type cache (cache is populated via the NATS event emitted by createDataType).
+
+
+request:
+  auth: inherit

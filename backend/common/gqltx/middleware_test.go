@@ -2,6 +2,7 @@ package gqltx_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"sync"
 	"testing"
@@ -31,11 +32,18 @@ func (m *mockTx) Rollback() error {
 }
 
 type mockTxClient struct {
-	tx      *mockTx
-	txError error
+	tx       *mockTx
+	txError  error
+	lastOpts *sql.TxOptions
+	beginCnt int
+	mu       sync.Mutex
 }
 
-func (c *mockTxClient) Tx(ctx context.Context) (*mockTx, error) {
+func (c *mockTxClient) BeginTx(ctx context.Context, opts *sql.TxOptions) (*mockTx, error) {
+	c.mu.Lock()
+	c.lastOpts = opts
+	c.beginCnt++
+	c.mu.Unlock()
 	return c.tx, c.txError
 }
 
@@ -56,7 +64,7 @@ func TestMiddleware_BinderBeginInject(t *testing.T) {
 	mw := gqltx.NewMiddleware(client, injectTx, "testns", 2)
 	m, ok := mw.(*gqltx.Middleware[*mockTx])
 	assert.True(t, ok)
-	tx, err := m.Binder.Begin(context.Background())
+	tx, err := m.Binder.Begin(context.Background(), nil)
 	assert.NoError(t, err)
 	ctx := m.Binder.Inject(context.Background(), tx)
 	assert.Equal(t, tx, ctx.Value(contextKeyTx{}))
@@ -237,9 +245,12 @@ func TestMutationSerializesFieldResolvers(t *testing.T) {
 	t.Log("✓ Field resolvers executed serially during mutation")
 }
 
-// TestQueryDoesNotSerializeFieldResolvers verifies that queries don't get
-// serialization applied (they can still execute concurrently for performance).
-func TestQueryDoesNotSerializeFieldResolvers(t *testing.T) {
+// TestQuerySerializesFieldResolvers verifies that after Step 8.2 queries
+// also get the per-tx mutex applied. Queries now share a single read-only
+// *ent.Tx (and the underlying reader-pool *sql.Conn) across all field
+// resolvers; concurrent statements on that connection would corrupt it
+// the same way they would on a writer tx (FINDINGS §3.1).
+func TestQuerySerializesFieldResolvers(t *testing.T) {
 	t.Parallel()
 	client := &mockTxClient{tx: &mockTx{}}
 	mw := gqltx.NewMiddleware(client, injectTx, "testns", 0)
@@ -259,11 +270,11 @@ func TestQueryDoesNotSerializeFieldResolvers(t *testing.T) {
 
 	ctx := graphql.WithOperationContext(context.Background(), opCtx)
 
-	// Call MutateOperationContext
+	// Call MutateOperationContext: should now wrap the resolver middleware
+	// for queries the same way it does for mutations.
 	gqlErr := mw.(*gqltx.Middleware[*mockTx]).MutateOperationContext(ctx, opCtx)
 	require.Nil(t, gqlErr)
 
-	// For queries, verify resolvers can still execute concurrently
 	var (
 		currentlyRunning int
 		maxConcurrent    int
@@ -298,10 +309,10 @@ func TestQueryDoesNotSerializeFieldResolvers(t *testing.T) {
 
 	wg.Wait()
 
-	// Queries should allow concurrent execution
-	assert.Greater(t, maxConcurrent, 1, "Query field resolvers should execute concurrently")
+	// Queries must now serialize: max 1 resolver running at a time, exactly
+	// like the mutation case. The per-tx mutex protects the shared *sql.Conn.
+	assert.Equal(t, 1, maxConcurrent, "Query field resolvers should execute serially (max 1 concurrent)")
 	t.Logf("Max concurrent query resolvers: %d", maxConcurrent)
-	t.Log("✓ Queries allow concurrent field resolver execution")
 }
 
 // TestMutateOperationContextNilOperation verifies the middleware handles edge cases

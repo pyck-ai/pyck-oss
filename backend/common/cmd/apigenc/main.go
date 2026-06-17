@@ -897,23 +897,27 @@ func detectModelImport(ctx context.Context, pkgPath string, moduleBase string, s
 }
 
 // detectRequiredImports scans all method parameters and return types to determine
-// which additional imports are needed beyond the standard ones
+// which additional imports are needed beyond the standard ones.
+//
+// Only scan types that actually appear in the generated wrapper file
+// (params land in {Method}Args structs; InternalReturnType lands in
+// the Client interface). EntReturnType is the resolver's return type,
+// which never appears in the wrapper, so scanning it adds spurious
+// imports (e.g. uuid for a query that returns []uuid.UUID — the wrapper
+// just returns the opaque internal *Get... struct).
 func detectRequiredImports(methods []Method) []string {
 	importMap := make(map[string]bool)
 
 	for _, method := range methods {
-		// Scan all parameter types
 		for _, param := range method.Params {
 			checkTypeForImports(param.Type, importMap)
 		}
 
-		// Scan return type
-		if method.EntReturnType != "" {
-			checkTypeForImports(method.EntReturnType, importMap)
+		if method.InternalReturnType != "" {
+			checkTypeForImports(method.InternalReturnType, importMap)
 		}
 	}
 
-	// Convert map to sorted slice for consistent output
 	imports := make([]string, 0, len(importMap))
 	for imp := range importMap {
 		imports = append(imports, imp)

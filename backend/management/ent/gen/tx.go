@@ -30,6 +30,8 @@ type Tx struct {
 	Event *EventClient
 	// Group is the client for interacting with the Group builders.
 	Group *GroupClient
+	// IdempotencyKey is the client for interacting with the IdempotencyKey builders.
+	IdempotencyKey *IdempotencyKeyClient
 	// KeyValue is the client for interacting with the KeyValue builders.
 	KeyValue *KeyValueClient
 	// Location is the client for interacting with the Location builders.
@@ -179,6 +181,7 @@ func (tx *Tx) init() {
 	tx.EntityEventsOutbox = NewEntityEventsOutboxClient(tx.config)
 	tx.Event = NewEventClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)
+	tx.IdempotencyKey = NewIdempotencyKeyClient(tx.config)
 	tx.KeyValue = NewKeyValueClient(tx.config)
 	tx.Location = NewLocationClient(tx.config)
 	tx.Role = NewRoleClient(tx.config)

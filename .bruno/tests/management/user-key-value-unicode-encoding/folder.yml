@@ -1,0 +1,10 @@
+info:
+  name: User - Key Value Unicode Encoding
+  type: folder
+  seq: 1
+
+docs: |-
+  Demonstrates the NFC vs NFD Unicode encoding on the KeyValue.name field — create with NFC, query with NFD returns zero rows pre-fix, one row post-fix.
+
+request:
+  auth: inherit

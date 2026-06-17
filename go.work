@@ -1,10 +1,9 @@
-go 1.25.0
+go 1.26.4
 
 // This workspace file is committed to ensure consistent dependency
 // versions across all backend modules in the monorepo.
 use (
 	./backend/bootstrap
-	./backend/cli
 	./backend/common
 	./backend/file
 	./backend/inventory

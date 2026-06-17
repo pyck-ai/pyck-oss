@@ -24,6 +24,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/test"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
+	"github.com/pyck-ai/pyck/backend/common/txid"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 
@@ -234,7 +235,7 @@ func (b *customerBuilder) Create() *ent.Customer {
 		}
 
 		var err error
-		customer, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		customer, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -289,7 +290,7 @@ func (b *supplierBuilder) Create() *ent.Supplier {
 		}
 
 		var err error
-		supplier, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		supplier, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -297,6 +298,10 @@ func (b *supplierBuilder) Create() *ent.Supplier {
 }
 
 func (te *testEnv) withTx(ctx context.Context, fn func(tx *ent.Tx) error) error {
+	// Inject a fresh transaction ID so the MutationEventHook (which now
+	// requires one for the outbox row's dedup key) is satisfied — this
+	// mirrors what the gqltx middleware does at BeginTx in production.
+	ctx = txid.With(ctx, txid.New())
 	tx, err := te.Ent.Tx(ctx)
 	if err != nil {
 		return err
@@ -360,7 +365,7 @@ func (b *customerBuilderNoDataType) Create() *ent.Customer {
 		}
 
 		var err error
-		customer, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		customer, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -415,7 +420,7 @@ func (b *supplierBuilderNoDataType) Create() *ent.Supplier {
 		}
 
 		var err error
-		supplier, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		supplier, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)

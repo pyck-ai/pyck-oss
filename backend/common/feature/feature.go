@@ -6,7 +6,8 @@ package feature
 type Feature uint
 
 const (
-	FEATURE_SHOW_DELETED  Feature = iota + 1 // showdeleted
-	FEATURE_SYNC_UPDATES                     // syncupdates
-	FEATURE_ASYNC_SIGNALS                    // asyncsignals
+	FEATURE_SHOW_DELETED    Feature = iota + 1 // showdeleted
+	FEATURE_SYNC_UPDATES                       // syncupdates
+	FEATURE_ASYNC_SIGNALS                      // asyncsignals
+	FEATURE_SUPPRESS_EVENTS                    // suppressevents
 )

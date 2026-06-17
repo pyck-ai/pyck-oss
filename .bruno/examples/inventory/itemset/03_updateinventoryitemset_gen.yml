@@ -38,18 +38,6 @@ graphql:
             deletedAt
             deletedBy
             id
-            items {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
             sku
             tenantID
             updatedAt

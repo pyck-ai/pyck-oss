@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/collection_movement"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/entityeventsoutbox"
+	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/idempotencykey"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/item"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/itemmovement"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/itemset"
@@ -85,6 +86,7 @@ func checkColumn(t, c string) error {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			collection_movement.Table:    collection_movement.ValidColumn,
 			entityeventsoutbox.Table:     entityeventsoutbox.ValidColumn,
+			idempotencykey.Table:         idempotencykey.ValidColumn,
 			item.Table:                   item.ValidColumn,
 			itemmovement.Table:           itemmovement.ValidColumn,
 			itemset.Table:                itemset.ValidColumn,

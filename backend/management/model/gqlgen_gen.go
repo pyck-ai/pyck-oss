@@ -43,6 +43,19 @@ type DataTypeDeletePayload struct {
 	DeletedID *uuid.UUID `json:"deletedID,omitempty"`
 }
 
+// Result of a manually-triggered tenant delete. Triggers the
+// soft-delete half of the lifecycle — the row remains in the database
+// and can be reactivated via restoreTenant during the grace period.
+// Returns an error when the tenant does not exist; idempotent on
+// already-deleted tenants.
+//
+// Target tenant is derived from X-Pyck-Tenant-Id (req.MutationTenantID),
+// validated by tenant.Middleware; the resolver additionally enforces
+// ROLE_ADMIN on that tenant before any state change.
+type DeleteTenantResponse struct {
+	Success bool `json:"success"`
+}
+
 type DeviceDeletePayload struct {
 	DeletedID *uuid.UUID          `json:"deletedID,omitempty"`
 	Workflows []*TemporalWorkflow `json:"workflows"`
@@ -81,6 +94,11 @@ type LocationOutput struct {
 	Workflows []*TemporalWorkflow `json:"workflows"`
 }
 
+type Organization struct {
+	ID     *string `json:"id,omitempty"`
+	Active bool    `json:"active"`
+}
+
 type RegisterTenantInput struct {
 	Name           string `json:"name"`
 	AdminUsername  string `json:"adminUsername"`
@@ -91,9 +109,28 @@ type RegisterTenantInput struct {
 	// Optional metadata for the tenant.
 	// Synced to Zitadel org metadata and tenant.data.
 	Data map[string]any `json:"data,omitempty"`
+	// Optional expiry timestamp. Written directly to
+	// tenant.expires_at; the periodic tenant-expiry-check workflow
+	// soft-deletes the tenant once the timestamp is in the past.
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
 }
 
 type RegisterTenantResponse struct {
+	Success bool        `json:"success"`
+	Tenant  *gen.Tenant `json:"tenant,omitempty"`
+}
+
+// Input for restoreTenant. Target tenant derived from
+// X-Pyck-Tenant-Id (req.MutationTenantID); ROLE_ADMIN required.
+type RestoreTenantInput struct {
+	// Optional new expiry timestamp written alongside the restore. When
+	// omitted, the tenant's prior expires_at persists.
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
+}
+
+// Result of a manually-triggered tenant restore. Returns an error when
+// the tenant does not exist; idempotent on already-active tenants.
+type RestoreTenantResponse struct {
 	Success bool `json:"success"`
 }
 
@@ -118,6 +155,21 @@ type SetKeyValueInput struct {
 	DataTypeID   *uuid.UUID     `json:"dataTypeID,omitempty"`
 	DataTypeSlug *string        `json:"dataTypeSlug,omitempty"`
 	Data         map[string]any `json:"data"`
+}
+
+// Input for setTenantExpiry. Target tenant derived from
+// X-Pyck-Tenant-Id (req.MutationTenantID); ROLE_ADMIN required.
+type SetTenantExpiryInput struct {
+	// New expiry timestamp; pass null to clear.
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
+}
+
+// Result of setTenantExpiry. Returns an error when the tenant does not
+// exist; soft-deleted tenants are invisible to the mutation and report
+// the same error. Idempotent on the already-at-target-state cases
+// (clear against empty, set matching the current value).
+type SetTenantExpiryResponse struct {
+	Success bool `json:"success"`
 }
 
 type TemporalMetadata struct {

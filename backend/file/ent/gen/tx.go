@@ -18,6 +18,8 @@ type Tx struct {
 	EntityEventsOutbox *EntityEventsOutboxClient
 	// File is the client for interacting with the File builders.
 	File *FileClient
+	// IdempotencyKey is the client for interacting with the IdempotencyKey builders.
+	IdempotencyKey *IdempotencyKeyClient
 
 	// lazily loaded.
 	client     *Client
@@ -151,6 +153,7 @@ func (tx *Tx) Client() *Client {
 func (tx *Tx) init() {
 	tx.EntityEventsOutbox = NewEntityEventsOutboxClient(tx.config)
 	tx.File = NewFileClient(tx.config)
+	tx.IdempotencyKey = NewIdempotencyKeyClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

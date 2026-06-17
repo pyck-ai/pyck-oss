@@ -28,7 +28,7 @@ func (r *queryResolver) WorkflowActions(ctx context.Context, input model.GetWork
 
 	resp := &model.GetWorkflowActionsResponse{}
 	for _, q := range result.Queries {
-		if !matchesFilter(where, q.Name, q.Enabled) {
+		if !MatchesFilter(where, q.Name, q.Enabled) {
 			continue
 		}
 		ad := &model.ActionDefinition{Name: q.Name, Enabled: q.Enabled}
@@ -38,7 +38,7 @@ func (r *queryResolver) WorkflowActions(ctx context.Context, input model.GetWork
 		resp.Queries = append(resp.Queries, ad)
 	}
 	for _, u := range result.Updates {
-		if !matchesFilter(where, u.Name, u.Enabled) {
+		if !MatchesFilter(where, u.Name, u.Enabled) {
 			continue
 		}
 		ad := &model.ActionDefinition{Name: u.Name, Enabled: u.Enabled}

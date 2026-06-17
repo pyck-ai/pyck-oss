@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/iancoleman/strcase"
 	"github.com/nats-io/nats.go/jetstream"
+
 	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/pyck-ai/pyck/backend/common/log"
 )

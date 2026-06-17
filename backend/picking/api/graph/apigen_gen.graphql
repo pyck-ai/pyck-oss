@@ -22,60 +22,6 @@ query GetPickingOrders($after: Cursor, $first: Int, $before: Cursor, $last: Int,
         deletedAt
         deletedBy
         id
-        orderItems {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              id
-              orderID
-              quantity
-              sku
-              tenantID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
-        outboundShipmentNotifications {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              id
-              orderID
-              tenantID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         tenantID
         updatedAt
         updatedBy
@@ -168,30 +114,6 @@ mutation CreatePickingOrder($input: CreatePickingOrderWithItemsInput!) {
       deletedAt
       deletedBy
       id
-      orderItems {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      outboundShipmentNotifications {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       tenantID
       updatedAt
       updatedBy
@@ -217,30 +139,6 @@ mutation UpdatePickingOrder($id: ID!, $input: UpdatePickingOrderInput!) {
       deletedAt
       deletedBy
       id
-      orderItems {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      outboundShipmentNotifications {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       tenantID
       updatedAt
       updatedBy
@@ -406,30 +304,6 @@ mutation PatchPickingOrderData($id: ID!, $patches: [JSONPatchInput!]!) {
       deletedAt
       deletedBy
       id
-      orderItems {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      outboundShipmentNotifications {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       tenantID
       updatedAt
       updatedBy

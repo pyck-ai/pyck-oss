@@ -10,9 +10,9 @@ import (
 
 	"entgo.io/ent/dialect"
 	"github.com/99designs/gqlgen/graphql/handler"
-	"github.com/Yamashou/gqlgenc/clientv2"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/gqlgo/gqlgenc/clientv2"
 	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

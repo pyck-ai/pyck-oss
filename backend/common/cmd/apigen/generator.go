@@ -287,17 +287,25 @@ func generateTypeFieldsWithDepth(schema *ast.Schema, typeName, indent string, de
 			// Always include scalar and enum fields
 			sb.WriteString(fmt.Sprintf("%s%s\n", indent, field.Name))
 		} else if fieldTypeDef.Kind == ast.Object {
-			// For object types:
-			// - If current type is an entity AND field type is also an entity, skip it (it's an edge)
-			// - Otherwise, include it (it's a system type like PageInfo, Edge, etc.)
+			// For object types we never auto-expand reverse relations in a
+			// node's default selection:
+			//   - direct entity→entity edges (e.g. repository.parent), and
+			//   - paginated Connection fields (e.g.
+			//     repository.itemMovementFromRepositories).
+			// Both are unbounded: expanding a Connection pulls a node's entire
+			// related history (every movement, every child), which bloated
+			// generated responses to tens of MB. A caller that needs a relation
+			// issues an explicit, filtered+paginated query against the
+			// relation's own root field (e.g. GetItemMovements with a where on
+			// the repository); the schema still exposes the nested shape for
+			// hand-written operations.
 			fieldIsEntity := implementsNode(fieldTypeDef)
 
-			if isEntity && fieldIsEntity {
-				// Skip: this is an edge from one entity to another
+			if (isEntity && fieldIsEntity) || isConnectionType(fieldTypeName) {
 				continue
 			}
 
-			// Include: this is a system type, expand its fields
+			// Otherwise it's a bounded embedded/system object — expand it.
 			if depth < maxDepth {
 				sb.WriteString(fmt.Sprintf("%s%s {\n", indent, field.Name))
 				nestedIndent := indent + "  "

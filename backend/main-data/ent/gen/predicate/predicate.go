@@ -12,5 +12,8 @@ type Customer func(*sql.Selector)
 // EntityEventsOutbox is the predicate function for entityeventsoutbox builders.
 type EntityEventsOutbox func(*sql.Selector)
 
+// IdempotencyKey is the predicate function for idempotencykey builders.
+type IdempotencyKey func(*sql.Selector)
+
 // Supplier is the predicate function for supplier builders.
 type Supplier func(*sql.Selector)

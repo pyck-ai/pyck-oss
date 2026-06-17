@@ -30,6 +30,9 @@ type Event func(*sql.Selector)
 // Group is the predicate function for group builders.
 type Group func(*sql.Selector)
 
+// IdempotencyKey is the predicate function for idempotencykey builders.
+type IdempotencyKey func(*sql.Selector)
+
 // KeyValue is the predicate function for keyvalue builders.
 type KeyValue func(*sql.Selector)
 

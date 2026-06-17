@@ -9,6 +9,7 @@ import "context"
 type SchemaConfig struct {
 	Customer           string // Customer table.
 	EntityEventsOutbox string // EntityEventsOutbox table.
+	IdempotencyKey     string // IdempotencyKey table.
 	Supplier           string // Supplier table.
 }
 

@@ -7,12 +7,13 @@ set: [errexit, nounset, pipefail]
 includes:
   _: { internal: true, taskfile: ./task/_lib.yaml, flatten: true }
   container: { internal: true, taskfile: ./task/container.yaml }
+  github: { taskfile: ./.github/Taskfile.yaml, flatten: true }
 
-  cli:
+  bootstrap:
     {
       internal: true,
-      taskfile: ./backend/cli/Taskfile.yaml,
-      dir: ./backend/cli,
+      taskfile: ./backend/bootstrap/Taskfile.yaml,
+      dir: ./backend/bootstrap,
     }
   common:
     {
@@ -90,7 +91,6 @@ tasks:
   clean:
     desc: Clean all modules
     deps:
-      - task: cli:{{.TASK}}
       - task: common:{{.TASK}}
       - task: file:{{.TASK}}
       - task: inventory:{{.TASK}}
@@ -102,6 +102,11 @@ tasks:
       - task: workflow:{{.TASK}}
       - task: gateway:{{.TASK}}
       - task: workflowsdk:{{.TASK}}
+
+  tidy:
+    desc: Tidy go.mod/go.sum for every workspace module (keeps modules consistent across the monorepo)
+    cmds:
+      - ./.github/renovate-post-upgrade.sh --tidy-only
 
   generate:
     desc: Generate all modules
@@ -117,7 +122,6 @@ tasks:
       - task: receiving:{{.TASK}}
       - task: workflow:{{.TASK}}
       - task: workflowsdk:{{.TASK}}
-      - task: cli:{{.TASK}}
       - task: gateway:{{.TASK}}
       - task: temporal:{{.TASK}}
       - go work sync
@@ -135,7 +139,6 @@ tasks:
       - task: receiving:{{.TASK}}
       - task: workflow:{{.TASK}}
       - task: workflowsdk:{{.TASK}}
-      - task: cli:{{.TASK}}
       - task: temporal:{{.TASK}}
 
   scan:
@@ -146,6 +149,7 @@ tasks:
   govulncheck:
     desc: Run govulncheck on all modules
     cmds:
+      - task: bootstrap:{{.TASK}}
       - task: common:{{.TASK}}
       - task: file:{{.TASK}}
       - task: inventory:{{.TASK}}
@@ -155,7 +159,6 @@ tasks:
       - task: receiving:{{.TASK}}
       - task: workflow:{{.TASK}}
       - task: workflowsdk:{{.TASK}}
-      - task: cli:{{.TASK}}
       - task: temporal:{{.TASK}}
 
   lint:fix:
@@ -171,7 +174,6 @@ tasks:
       - task: receiving:{{.TASK}}
       - task: workflow:{{.TASK}}
       - task: workflowsdk:{{.TASK}}
-      - task: cli:{{.TASK}}
       - task: temporal:{{.TASK}}
 
   format:
@@ -186,7 +188,6 @@ tasks:
       - task: receiving:{{.TASK}}
       - task: workflow:{{.TASK}}
       - task: workflowsdk:{{.TASK}}
-      - task: cli:{{.TASK}}
       - task: temporal:{{.TASK}}
 
   format:diff:
@@ -201,7 +202,6 @@ tasks:
       - task: receiving:{{.TASK}}
       - task: workflow:{{.TASK}}
       - task: workflowsdk:{{.TASK}}
-      - task: cli:{{.TASK}}
       - task: temporal:{{.TASK}}
 
   test:
@@ -216,7 +216,6 @@ tasks:
       - task: receiving:{{.TASK}}
       - task: workflow:{{.TASK}}
       - task: workflowsdk:{{.TASK}}
-      - task: cli:{{.TASK}}
       - task: temporal:{{.TASK}}
 
   build:
@@ -230,7 +229,6 @@ tasks:
       - task: picking:{{.TASK}}
       - task: receiving:{{.TASK}}
       - task: workflow:{{.TASK}}
-      - task: cli:{{.TASK}}
 
   install:
     desc: Install all modules
@@ -242,7 +240,6 @@ tasks:
       - task: picking:{{.TASK}}
       - task: receiving:{{.TASK}}
       - task: workflow:{{.TASK}}
-      - task: cli:{{.TASK}}
 
   container:up:
     desc: Run all service containers locally

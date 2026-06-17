@@ -30,6 +30,21 @@ graphql:
       mutation RegisterTenant($input: RegisterTenantInput!) {
         registerTenant(input: $input) {
           success
+          tenant {
+            createdAt
+            createdBy
+            data
+            dataTypeID
+            dataTypeSlug
+            deletedAt
+            deletedBy
+            expiresAt
+            id
+            idpOrgRef
+            name
+            updatedAt
+            updatedBy
+          }
         }
       }
     variables: |-
@@ -58,6 +73,7 @@ runtime:
         // Source: backend/management/api/testdata/examples/registertenant.example.yaml
 
         var body = res.body;
+        var vars = req.body.variables;
 
         test("Status is 200", function() {
           expect(res.status).to.equal(200);
@@ -69,6 +85,18 @@ runtime:
 
         test("Registration succeeded", function() {
           expect(body?.data?.registerTenant?.success).to.equal(true);
+        });
+
+        test("Tenant returned", function() {
+          expect(body?.data?.registerTenant?.tenant).to.exist;
+        });
+
+        test("Tenant has an ID", function() {
+          expect(body?.data?.registerTenant?.tenant?.id).to.exist;
+        });
+
+        test("Tenant name matches input", function() {
+          expect(body?.data?.registerTenant?.tenant?.name).to.equal(vars.input.name);
         });
 
 settings:

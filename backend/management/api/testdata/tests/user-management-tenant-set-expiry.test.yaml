@@ -1,0 +1,138 @@
+---
+name: "User - Tenant Set Expiry Lifecycle"
+description: >
+  Exercises the synchronous half of the tenant-expiry pipeline:
+  registers a fresh tenant, sets its expiry to a future timestamp,
+  re-sets it to a different timestamp (overwrite), clears it (null
+  argument), and finally disables the tenant for cleanup. Does NOT
+  wait for the async tenant-expiry-check sweep — that path is
+  exercised end-to-end by the integration suite at
+  integrations/tests/tenants/tn_expiry_test.go. Bruno covers only
+  the resolver's direct DB write to tenant.expires_at. Runs against
+  the management subgraph through the gateway as the authenticated
+  Bruno user; the resolver bumps to system context internally.
+steps:
+  - id: register
+    name: "Register tenant"
+    operation: management.registerTenant
+    vars:
+      input:
+        name: { $fake: "{{loremslug}}-{{nonce}}" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@example.com" }
+        adminFirstName: "Test"
+        adminLastName: "Admin"
+        adminPassword: "Test1234!"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Tenant created"
+        assertions:
+          - ref: res.body.data.registerTenant.tenant.id
+            nil: false
+
+  - id: setFuture
+    name: "Set expiry to a future timestamp"
+    operation: management.setTenantExpiry
+    vars:
+      input:
+        id: { $ref: "res[register].body.data.registerTenant.tenant.id" }
+        expiresAt: "2099-01-01T00:00:00Z"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "setTenantExpiry succeeded"
+        assertions:
+          - ref: res.body.data.setTenantExpiry.success
+            equal: true
+
+  - name: "Overwrite expiry with a different future timestamp"
+    operation: management.setTenantExpiry
+    vars:
+      input:
+        id: { $ref: "res[register].body.data.registerTenant.tenant.id" }
+        expiresAt: "2099-12-31T23:59:59Z"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Overwrite succeeded"
+        assertions:
+          - ref: res.body.data.setTenantExpiry.success
+            equal: true
+
+  - name: "Clear expiry by passing null"
+    operation: management.setTenantExpiry
+    vars:
+      input:
+        id: { $ref: "res[register].body.data.registerTenant.tenant.id" }
+        expiresAt: null
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Clear succeeded"
+        assertions:
+          - ref: res.body.data.setTenantExpiry.success
+            equal: true
+
+  - name: "Clear is idempotent (clearing an already-absent expiry is a no-op)"
+    operation: management.setTenantExpiry
+    vars:
+      input:
+        id: { $ref: "res[register].body.data.registerTenant.tenant.id" }
+        expiresAt: null
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Idempotent clear succeeded"
+        assertions:
+          - ref: res.body.data.setTenantExpiry.success
+            equal: true
+
+  - name: "Cleanup - delete tenant"
+    operation: management.deleteTenant
+    vars:
+      input:
+        id: { $ref: "res[register].body.data.registerTenant.tenant.id" }
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Delete succeeded"
+        assertions:
+          - ref: res.body.data.deleteTenant.success
+            equal: true

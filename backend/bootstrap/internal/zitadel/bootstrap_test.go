@@ -5,9 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/pyck-ai/pyck/backend/common/env"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/pyck-ai/pyck/backend/common/env"
 )
 
 // TestLoadConfiguration checks if the configuration ENV is parsed correctly.

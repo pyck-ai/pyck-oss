@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 	"time"
@@ -12,6 +13,24 @@ import (
 
 	"github.com/pyck-ai/pyck/backend/common/cmd/brunogen/types"
 )
+
+// sortedHeaders returns the headers map as a deterministic, name-sorted
+// slice so generated YAML output is stable across runs.
+func sortedHeaders(headers map[string]string) []HeaderEntry {
+	if len(headers) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(headers))
+	for name := range headers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	out := make([]HeaderEntry, len(names))
+	for i, name := range names {
+		out[i] = HeaderEntry{Name: name, Value: headers[name]}
+	}
+	return out
+}
 
 //go:embed templates/example.yml.tmpl
 var ExampleTemplate string
@@ -50,6 +69,18 @@ type templateData struct {
 	// Each RenderedExpect becomes: try { expect(...); bru.runner.skipRequest(); } catch(e) {}
 	// The request is skipped when at least one assertion passes.
 	SkipChecks []RenderedTest
+	// WaitAfterMs, when > 0, appends `await bru.sleep(N);` at the tail of the
+	// tests script. Used to bridge eventual-consistency gaps between steps.
+	WaitAfterMs int
+	// Headers is the rendered list of request headers, sorted by name for
+	// stable output. Empty slice → no headers: block is emitted.
+	Headers []HeaderEntry
+}
+
+// HeaderEntry is one rendered request header (name + literal value).
+type HeaderEntry struct {
+	Name  string
+	Value string
 }
 
 // hasPlaceholders recursively checks whether any value in the map (or nested
@@ -79,6 +110,8 @@ func hasPlaceholders(v any) bool {
 // varNS namespaces cross-step collection variable names.
 // description is written to the /docs property when non-empty.
 // skipChecks drives the optional before-request skip script.
+// waitAfterMs (when > 0) appends an `await bru.sleep(N);` to the tests script.
+// headers (optional) populates the graphql.headers block.
 func RenderFile(
 	tmplStr string,
 	cfg types.Config,
@@ -93,6 +126,8 @@ func RenderFile(
 	varNS string,
 	skipChecks []RenderedTest,
 	sourceFile string,
+	waitAfterMs int,
+	headers map[string]string,
 ) (string, error) {
 	varHasPlaceholders := false
 	for _, v := range vars {
@@ -112,13 +147,16 @@ func RenderFile(
 	}
 
 	data := templateData{
-		Timestamp:        time.Now().UTC().Format(time.RFC3339),
-		OperationName:    addSpacesToCamelCase(op.Name),
-		ServiceName:      cfg.ServiceName,
-		EnvServiceName:   envServiceName(cfg.ServiceName),
-		GraphQLContent:   strings.TrimSpace(op.Content),
-		ScenarioName:     scenarioName,
-		Description:      description,
+		Timestamp:      time.Now().UTC().Format(time.RFC3339),
+		OperationName:  addSpacesToCamelCase(op.Name),
+		ServiceName:    cfg.ServiceName,
+		EnvServiceName: envServiceName(cfg.ServiceName),
+		GraphQLContent: strings.TrimSpace(op.Content),
+		ScenarioName:   scenarioName,
+		// Same continuation-indent rule as WriteFolderYML — keeps multi-line
+		// descriptions legal under a `docs: |-` block scalar even when they
+		// contain literal "Heading:" lines at column 0.
+		Description:      indentContinuation(description, "  "),
 		Seq:              seq,
 		Vars:             vars,
 		Tests:            tests,
@@ -130,6 +168,8 @@ func RenderFile(
 		HasPlaceholders:  varHasPlaceholders,
 		SourceFile:       sourceFile,
 		SkipChecks:       skipChecks,
+		WaitAfterMs:      waitAfterMs,
+		Headers:          sortedHeaders(headers),
 	}
 
 	tmpl, err := template.New("bruno").Funcs(template.FuncMap{
@@ -160,6 +200,10 @@ func RenderFile(
 
 // WriteFolderYML writes a folder.yml file into dir.
 // description is written to the /docs property when non-empty.
+// Multi-line descriptions have every continuation line indented two
+// spaces so the literal block scalar (`docs: |-`) stays a single
+// string rather than being interpreted as a key-value pair by YAML on
+// lines that happen to contain `:` (e.g. a "Step 1:" heading).
 // Skips silently if it already exists; does nothing in dry-run mode.
 func WriteFolderYML(dir, name, description string, cfg types.Config) error {
 	if cfg.DryRun {
@@ -169,7 +213,18 @@ func WriteFolderYML(dir, name, description string, cfg types.Config) error {
 	if _, err := os.Stat(path); err == nil {
 		return nil
 	}
-	tmpl, err := template.New("folder").Parse(folderTemplate)
+	tmpl, err := template.New("folder").Funcs(template.FuncMap{
+		"indent": func(spaces int, s string) string {
+			pad := strings.Repeat(" ", spaces)
+			lines := strings.Split(s, "\n")
+			for i, line := range lines {
+				if strings.TrimSpace(line) != "" {
+					lines[i] = pad + line
+				}
+			}
+			return strings.Join(lines, "\n")
+		},
+	}).Parse(folderTemplate)
 	if err != nil {
 		return fmt.Errorf("failed to parse folder template: %w", err)
 	}
@@ -178,7 +233,7 @@ func WriteFolderYML(dir, name, description string, cfg types.Config) error {
 		Name        string
 		Description string
 		Seq         int
-	}{Name: name, Description: description, Seq: 1}); err != nil {
+	}{Name: name, Description: indentContinuation(description, "  "), Seq: 1}); err != nil {
 		return fmt.Errorf("failed to execute folder template: %w", err)
 	}
 	if err := os.WriteFile(path, []byte(buf.String()), 0o600); err != nil {
@@ -186,6 +241,24 @@ func WriteFolderYML(dir, name, description string, cfg types.Config) error {
 	}
 	LogVerbosef(cfg.Verbose, "Generated: %s", path)
 	return nil
+}
+
+// indentContinuation prepends pad to every non-blank line of s after the
+// first. Used to keep multi-line strings legal under a YAML literal block
+// scalar (`|-`) whose first line is already indented by the template.
+// Blank lines are left empty rather than padded, so the generated YAML
+// carries no trailing whitespace.
+func indentContinuation(s, pad string) string {
+	if !strings.Contains(s, "\n") {
+		return s
+	}
+	lines := strings.Split(s, "\n")
+	for i := 1; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) != "" {
+			lines[i] = pad + lines[i]
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // RemoveGeneratedFiles deletes all *_gen.yml files in dir.

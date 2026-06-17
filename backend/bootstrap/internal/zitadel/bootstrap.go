@@ -8,10 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pyck-ai/pyck/backend/bootstrap/internal/exporters"
-	"github.com/pyck-ai/pyck/backend/common/log"
-	zitadelcommon "github.com/pyck-ai/pyck/backend/common/services/zitadel"
 	"github.com/zitadel/zitadel-go/v3/pkg/client/zitadel"
+	action_pb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/action/v2"
 	app_pb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/application/v2"
 	auth_pb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/auth"
 	authz_pb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/authorization/v2"
@@ -24,6 +22,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/pyck-ai/pyck/backend/common/log"
+	zitadelcommon "github.com/pyck-ai/pyck/backend/common/services/zitadel"
+
+	"github.com/pyck-ai/pyck/backend/bootstrap/internal/exporters"
 )
 
 const (
@@ -34,9 +37,7 @@ const (
 	zitadelKeyFile  = "zitadel-admin-sa.json"
 )
 
-var (
-	scopes = []string{"openid", "urn:zitadel:iam:org:project:id:zitadel:aud"}
-)
+var scopes = []string{"openid", "urn:zitadel:iam:org:project:id:zitadel:aud"}
 
 type (
 	Seeder struct {
@@ -48,8 +49,9 @@ type (
 		projectIDs              map[string]orgProject
 		projectGrants           map[string]bool // Key: "urn:zitadel:iam:org:{orgName}:project:{projectName}"
 		exporters               *exporters.ExporterRegistry
-		grpcInsecure            bool // http connection for Zitadel
-		regenerateClientSecrets bool // opt-in: auto-mint OIDC client_secret when destination is empty
+		grpcInsecure            bool   // http connection for Zitadel
+		regenerateClientSecrets bool   // opt-in: auto-mint OIDC client_secret when destination is empty
+		preTokenWebhookBaseURL  string // pyck-management base URL for the Actions v2 pre-token webhook
 	}
 
 	// internal struct to hold organization and project IDs
@@ -110,6 +112,7 @@ func New(ctx context.Context, c Configuration) (*Seeder, error) {
 		exporters:               exporters.NewExporterRegistry(exporterMap),
 		grpcInsecure:            c.GrpcInsecure,
 		regenerateClientSecrets: c.RegenerateClientSecrets,
+		preTokenWebhookBaseURL:  c.PreTokenWebhookBaseURL,
 	}, nil
 }
 
@@ -141,6 +144,28 @@ func (s *Seeder) Bootstrap(ctx context.Context, zitadelConfig Zitadel) error {
 		return fmt.Errorf("failed to create zitadel connection: %w", err)
 	}
 	defer conn.Close()
+
+	// Actions v2
+	if zitadelConfig.PreTokenAction != nil {
+		if err := s.ensureActionsV2(
+			ctx, conn, s.preTokenWebhookBaseURL,
+			zitadelConfig.PreTokenAction.KeyCreation,
+			zitadelConfig.PreTokenAction.Exports,
+		); err != nil {
+			return fmt.Errorf("failed to ensure pyck pre-token Actions v2 webhook: %w", err)
+		}
+	}
+
+	// Actions v2 login-event webhook (reuses the same pyck-management base URL).
+	if zitadelConfig.LoginEventAction != nil {
+		if err := s.ensureLoginEventAction(
+			ctx, action_pb.NewActionServiceClient(conn), s.preTokenWebhookBaseURL,
+			zitadelConfig.LoginEventAction.KeyCreation,
+			zitadelConfig.LoginEventAction.Exports,
+		); err != nil {
+			return fmt.Errorf("failed to ensure pyck login-event Actions v2 webhook: %w", err)
+		}
+	}
 
 	// Fetch all existing organizations into a map for efficient lookups
 	orgIDsByName, err := s.getOrganizations(ctx, conn)
@@ -181,8 +206,8 @@ func (s *Seeder) Bootstrap(ctx context.Context, zitadelConfig Zitadel) error {
 func (s *Seeder) seedOrganization(ctx context.Context,
 	adminConn *zitadel.Connection,
 	orgID string,
-	orgSeed Organization) error {
-
+	orgSeed Organization,
+) error {
 	// create organization-scoped connection for org-level operations
 	orgConn, err := s.newConnection(ctx, zitadel.WithOrgID(orgID))
 	if err != nil {
@@ -457,7 +482,7 @@ func (s *Seeder) seedProjectGrants(ctx context.Context, orgConn *zitadel.Connect
 
 		err := s.ensureProjectGrant(ctx,
 			grantConn,
-			orgProjectID.projectID, //owner
+			orgProjectID.projectID, // owner
 			orgID,                  // target
 			projectGrantSeed.RoleKeys,
 		)
@@ -568,14 +593,6 @@ func (s *Seeder) seedMachineUsers(ctx context.Context, adminConn, orgConn *zitad
 			}
 		} else {
 			logger.Warn().Str("username", username).Str("base", machSeed.Username).Msg("No export configuration provided for machine user, credentials not saved")
-		}
-
-		// Test access with generated credentials (only JWT, since PAT tokens are opaque and can't be easily tested without making an actual API call that requires the token)
-		if machSeed.AccessTokenType != "pat" {
-			if err := s.confirmJWTAccess(ctx, credentials); err != nil {
-				logger.Warn().Err(err).Str("username", username).Str("base", machSeed.Username).Msg("Failed to confirm JWT access for machine user")
-				// Log warning but don't fail the entire seeding process
-			}
 		}
 	}
 	return nil

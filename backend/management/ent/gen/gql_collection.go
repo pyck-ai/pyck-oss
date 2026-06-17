@@ -1026,10 +1026,20 @@ func (_q *EntityEventsOutboxQuery) collectField(ctx context.Context, oneNode boo
 				selectedFields = append(selectedFields, entityeventsoutbox.FieldUserID)
 				fieldSeen[entityeventsoutbox.FieldUserID] = struct{}{}
 			}
-		case "correlationID":
-			if _, ok := fieldSeen[entityeventsoutbox.FieldCorrelationID]; !ok {
-				selectedFields = append(selectedFields, entityeventsoutbox.FieldCorrelationID)
-				fieldSeen[entityeventsoutbox.FieldCorrelationID] = struct{}{}
+		case "transactionID":
+			if _, ok := fieldSeen[entityeventsoutbox.FieldTransactionID]; !ok {
+				selectedFields = append(selectedFields, entityeventsoutbox.FieldTransactionID)
+				fieldSeen[entityeventsoutbox.FieldTransactionID] = struct{}{}
+			}
+		case "traceID":
+			if _, ok := fieldSeen[entityeventsoutbox.FieldTraceID]; !ok {
+				selectedFields = append(selectedFields, entityeventsoutbox.FieldTraceID)
+				fieldSeen[entityeventsoutbox.FieldTraceID] = struct{}{}
+			}
+		case "requestID":
+			if _, ok := fieldSeen[entityeventsoutbox.FieldRequestID]; !ok {
+				selectedFields = append(selectedFields, entityeventsoutbox.FieldRequestID)
+				fieldSeen[entityeventsoutbox.FieldRequestID] = struct{}{}
 			}
 		case "topic":
 			if _, ok := fieldSeen[entityeventsoutbox.FieldTopic]; !ok {
@@ -2511,6 +2521,11 @@ func (_q *TenantQuery) collectField(ctx context.Context, oneNode bool, opCtx *gr
 			if _, ok := fieldSeen[tenant.FieldIdpOrgRef]; !ok {
 				selectedFields = append(selectedFields, tenant.FieldIdpOrgRef)
 				fieldSeen[tenant.FieldIdpOrgRef] = struct{}{}
+			}
+		case "expiresAt":
+			if _, ok := fieldSeen[tenant.FieldExpiresAt]; !ok {
+				selectedFields = append(selectedFields, tenant.FieldExpiresAt)
+				fieldSeen[tenant.FieldExpiresAt] = struct{}{}
 			}
 		case "id":
 		case "__typename":

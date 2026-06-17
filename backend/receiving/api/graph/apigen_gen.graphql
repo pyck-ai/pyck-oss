@@ -21,60 +21,6 @@ query GetReceivingInbounds($after: Cursor, $first: Int, $before: Cursor, $last: 
         deletedAt
         deletedBy
         id
-        inboundItems {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              id
-              inboundID
-              quantity
-              sku
-              tenantID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
-        inboundShipmentNotifications {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              id
-              inboundID
-              tenantID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         orderID
         supplierID
         tenantID
@@ -168,30 +114,6 @@ mutation CreateReceivingInbound($input: CreateReceivingInboundWithItemsInput!) {
       deletedAt
       deletedBy
       id
-      inboundItems {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      inboundShipmentNotifications {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       orderID
       supplierID
       tenantID
@@ -218,30 +140,6 @@ mutation UpdateReceivingInbound($id: ID!, $input: UpdateReceivingInboundInput!) 
       deletedAt
       deletedBy
       id
-      inboundItems {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      inboundShipmentNotifications {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       orderID
       supplierID
       tenantID
@@ -408,30 +306,6 @@ mutation PatchReceivingInboundData($id: ID!, $patches: [JSONPatchInput!]!) {
       deletedAt
       deletedBy
       id
-      inboundItems {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      inboundShipmentNotifications {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       orderID
       supplierID
       tenantID

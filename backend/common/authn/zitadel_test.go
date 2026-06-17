@@ -1,6 +1,7 @@
 package authn_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -29,7 +30,7 @@ func TestNewZitadelAuthProvider(t *testing.T) {
 		ZitadelPATCacheTTLOverlap: 1 * time.Minute,
 	}
 
-	provider := authn.NewZitadelAuthProvider(mockClient, config)
+	provider := authn.NewZitadelAuthProvider(mockClient, config, func(ctx context.Context, sub string) (bool, error) { return true, nil })
 
 	assert.NotNil(t, provider, "Provider should not be nil")
 	// Verify it implements the Authenticator interface
@@ -231,7 +232,7 @@ func TestZitadelAuthProvider_Authenticate(t *testing.T) {
 				ZitadelPATCacheTTLOverlap: 1 * time.Minute,
 			}
 
-			provider := authn.NewZitadelAuthProvider(mockClient, config)
+			provider := authn.NewZitadelAuthProvider(mockClient, config, func(ctx context.Context, sub string) (bool, error) { return true, nil })
 			ctx := t.Context()
 
 			user, err := provider.Authenticate(ctx, tc.token)
@@ -279,7 +280,7 @@ func TestZitadelAuthProvider_Authenticate_Caching(t *testing.T) {
 		ZitadelPATCacheTTLOverlap: 1 * time.Minute,
 	}
 
-	provider := authn.NewZitadelAuthProvider(mockClient, config)
+	provider := authn.NewZitadelAuthProvider(mockClient, config, func(ctx context.Context, sub string) (bool, error) { return true, nil })
 	ctx := t.Context()
 
 	// First call - should hit the API
@@ -352,7 +353,7 @@ func TestZitadelAuthProvider_Authenticate_CacheTTL(t *testing.T) {
 				ZitadelPATCacheTTLOverlap: tc.overlap,
 			}
 
-			provider := authn.NewZitadelAuthProvider(mockClient, config)
+			provider := authn.NewZitadelAuthProvider(mockClient, config, func(ctx context.Context, sub string) (bool, error) { return true, nil })
 			ctx := t.Context()
 
 			user, err := provider.Authenticate(ctx, "ttl-test-token")
@@ -474,7 +475,7 @@ func TestZitadelAuthProvider_HTTPMiddleware(t *testing.T) {
 				ZitadelPATCacheTTLOverlap: 1 * time.Minute,
 			}
 
-			provider := authn.NewZitadelAuthProvider(mockClient, config)
+			provider := authn.NewZitadelAuthProvider(mockClient, config, func(ctx context.Context, sub string) (bool, error) { return true, nil })
 			middleware := provider.HTTPMiddleware()
 
 			// Create a test handler that checks for user in context
@@ -523,7 +524,7 @@ func TestZitadelAuthProvider_HTTPMiddleware_NextHandlerCalled(t *testing.T) {
 		ZitadelPATCacheTTLOverlap: 1 * time.Minute,
 	}
 
-	provider := authn.NewZitadelAuthProvider(mockClient, config)
+	provider := authn.NewZitadelAuthProvider(mockClient, config, func(ctx context.Context, sub string) (bool, error) { return true, nil })
 	middleware := provider.HTTPMiddleware()
 
 	handlerCalled := false
@@ -597,7 +598,7 @@ func TestZitadelAuthProvider_Authenticate_ExpiredToken(t *testing.T) {
 				ZitadelPATCacheTTLOverlap: 5 * time.Minute,
 			}
 
-			provider := authn.NewZitadelAuthProvider(mockClient, config)
+			provider := authn.NewZitadelAuthProvider(mockClient, config, func(ctx context.Context, sub string) (bool, error) { return true, nil })
 			ctx := t.Context()
 
 			user, err := provider.Authenticate(ctx, tc.token)
@@ -649,7 +650,7 @@ func TestZitadelAuthProvider_Authenticate_CacheInvalidation(t *testing.T) {
 		ZitadelPATCacheTTLOverlap: 1 * time.Second,
 	}
 
-	provider := authn.NewZitadelAuthProvider(mockClient, config)
+	provider := authn.NewZitadelAuthProvider(mockClient, config, func(ctx context.Context, sub string) (bool, error) { return true, nil })
 	ctx := t.Context()
 
 	// First call - should hit the API and cache
@@ -698,7 +699,7 @@ func TestZitadelAuthProvider_Authenticate_Concurrent(t *testing.T) {
 		ZitadelPATCacheTTLOverlap: 1 * time.Minute,
 	}
 
-	provider := authn.NewZitadelAuthProvider(mockClient, config)
+	provider := authn.NewZitadelAuthProvider(mockClient, config, func(ctx context.Context, sub string) (bool, error) { return true, nil })
 	ctx := t.Context()
 
 	// Run multiple concurrent authentication requests
@@ -765,7 +766,7 @@ func TestZitadelAuthProvider_Authenticate_ConcurrentCaching(t *testing.T) {
 		ZitadelPATCacheTTLOverlap: 1 * time.Minute,
 	}
 
-	provider := authn.NewZitadelAuthProvider(mockClient, config)
+	provider := authn.NewZitadelAuthProvider(mockClient, config, func(ctx context.Context, sub string) (bool, error) { return true, nil })
 	ctx := t.Context()
 
 	// Warm up the cache
@@ -840,7 +841,7 @@ func BenchmarkZitadelAuthProvider_Authenticate(b *testing.B) {
 		ZitadelPATCacheTTLOverlap: 1 * time.Minute,
 	}
 
-	provider := authn.NewZitadelAuthProvider(mockClient, config)
+	provider := authn.NewZitadelAuthProvider(mockClient, config, func(ctx context.Context, sub string) (bool, error) { return true, nil })
 	ctx := b.Context()
 
 	b.ResetTimer()
@@ -851,6 +852,151 @@ func BenchmarkZitadelAuthProvider_Authenticate(b *testing.B) {
 			_, _ = provider.Authenticate(ctx, token)
 		}
 	})
+}
+
+// Regression test for M2 (PR #1172 round-2 review).
+//
+// Pre-fix behaviour: the cache-hit branch evicted the entry and 401'd
+// whenever the org validator returned ANY error — infra fault and
+// definite revoke were indistinguishable. A 30s blip in the validator
+// (Zitadel/management/gateway) turned into fleet-wide 401s plus a load
+// spike against the already-degraded dependency (every evicted token
+// re-introspects on the next request and fails the validator again).
+//
+// Post-fix behaviour: only (false, nil) "definite no" evicts and 401s.
+// (false, err) "infra fault" stays cached for the remaining TTL — the
+// staleness the cache already accepts is the right risk budget when
+// the validator can't tell us anything.
+func TestZitadelAuthProvider_Authenticate_ValidatorErrorDoesNotEvictCache(t *testing.T) {
+	t.Parallel()
+
+	issuer := "https://auth.example.com"
+	userSub := "user-m2"
+	orgID := "org-m2"
+
+	mockClient := mocks.NewMockZitadelClient()
+	// Mock should only be called ONCE — the first request introspects,
+	// the second request hits the cache. After the fix, the validator
+	// failure between the two requests must NOT cause re-introspection.
+	mockClient.On("IntrospectToken", mock.Anything, "blip-token").Return(&zitadel.IntrospectionResult{
+		Active:          true,
+		Iss:             issuer,
+		Sub:             userSub,
+		Username:        "blip@example.com",
+		ResourceOwnerID: orgID,
+		Exp:             time.Now().Add(1 * time.Hour).Unix(),
+		ProjectRoles: map[string]map[string]string{
+			"writer": {orgID: orgID},
+		},
+	}, nil).Once()
+
+	cfg := config.ZitadelConfig{
+		ZitadelPATCacheTTL:        1 * time.Hour,
+		ZitadelPATCacheTTLOverlap: 1 * time.Minute,
+	}
+
+	// Toggle for the validator: first call returns true (warming the
+	// cache); subsequent calls return the configured failure.
+	var validatorFailure error
+	validatorActive := true
+	validator := func(ctx context.Context, sub string) (bool, error) {
+		return validatorActive, validatorFailure
+	}
+
+	provider := authn.NewZitadelAuthProvider(mockClient, cfg, validator)
+	ctx := t.Context()
+
+	// First call: introspect + cache + validator passes.
+	user1, err := provider.Authenticate(ctx, "blip-token")
+	require.NoError(t, err)
+	assert.Equal(t, "blip@example.com", user1.Username)
+
+	// Validator now fails with an infrastructure error. This is what
+	// happens during a transient blip — management is down, gateway
+	// 5xx, Zitadel timeout, etc.
+	validatorFailure = assert.AnError
+	validatorActive = false // also flip the bool to make sure the error
+	// path is exercised before the bool path is even consulted.
+
+	// Second call: cache hit + validator errors. After M2 fix, the
+	// cached user must be returned and the cache MUST NOT be evicted.
+	user2, err := provider.Authenticate(ctx, "blip-token")
+	require.NoError(t, err, "validator infra fault must not 401 — cache TTL is the existing staleness budget")
+	assert.Equal(t, user1.ID, user2.ID, "must return the same cached user, not re-introspect")
+
+	// Third call confirms the cache is intact (had eviction happened
+	// on call 2, this would trigger a second IntrospectToken and the
+	// .Once() mock would fail AssertExpectations).
+	validatorFailure = nil
+	validatorActive = true
+	user3, err := provider.Authenticate(ctx, "blip-token")
+	require.NoError(t, err)
+	assert.Equal(t, user1.ID, user3.ID, "validator recovery: same cached entry served")
+
+	// .Once() assertion — exactly one introspection across 3 requests.
+	mockClient.AssertExpectations(t)
+}
+
+// Companion test confirming M2's fix did NOT relax the routine
+// revocation path. A (false, nil) definite-no MUST still evict the
+// cache and 401, otherwise the OnTenantDisabled NATS-eviction fast
+// path would be the ONLY revocation mechanism (M8's collapsed-consumer
+// bug would then be load-bearing).
+func TestZitadelAuthProvider_Authenticate_ValidatorRevokeStillEvicts(t *testing.T) {
+	t.Parallel()
+
+	issuer := "https://auth.example.com"
+	userSub := "user-revoke"
+	orgID := "org-revoke"
+
+	mockClient := mocks.NewMockZitadelClient()
+	// Two introspections expected: one to warm the cache, one after
+	// the revoke evicts and the next request re-introspects.
+	mockClient.On("IntrospectToken", mock.Anything, "revoke-token").Return(&zitadel.IntrospectionResult{
+		Active:          true,
+		Iss:             issuer,
+		Sub:             userSub,
+		Username:        "revoke@example.com",
+		ResourceOwnerID: orgID,
+		Exp:             time.Now().Add(1 * time.Hour).Unix(),
+		ProjectRoles: map[string]map[string]string{
+			"writer": {orgID: orgID},
+		},
+	}, nil).Twice()
+
+	cfg := config.ZitadelConfig{
+		ZitadelPATCacheTTL:        1 * time.Hour,
+		ZitadelPATCacheTTLOverlap: 1 * time.Minute,
+	}
+
+	validatorActive := true
+	validator := func(ctx context.Context, sub string) (bool, error) {
+		return validatorActive, nil
+	}
+
+	provider := authn.NewZitadelAuthProvider(mockClient, cfg, validator)
+	ctx := t.Context()
+
+	// Warm cache.
+	_, err := provider.Authenticate(ctx, "revoke-token")
+	require.NoError(t, err)
+
+	// Validator flips to definite-no (org went inactive).
+	validatorActive = false
+
+	// Second call must reject — this is a real revocation, not a fault.
+	_, err = provider.Authenticate(ctx, "revoke-token")
+	require.ErrorIs(t, err, authn.ErrUnauthorized, "definite-no must reject")
+
+	// Third call must re-introspect (cache was evicted on call 2).
+	// We flip the validator back to active to simulate recovery; if the
+	// cache wasn't evicted, this call would short-circuit on the stale
+	// cache hit and .Twice() expectation would fail.
+	validatorActive = true
+	_, err = provider.Authenticate(ctx, "revoke-token")
+	require.NoError(t, err)
+
+	mockClient.AssertExpectations(t)
 }
 
 func BenchmarkZitadelAuthProvider_AuthenticateWithCache(b *testing.B) {
@@ -879,7 +1025,7 @@ func BenchmarkZitadelAuthProvider_AuthenticateWithCache(b *testing.B) {
 		ZitadelPATCacheTTLOverlap: 1 * time.Minute,
 	}
 
-	provider := authn.NewZitadelAuthProvider(mockClient, config)
+	provider := authn.NewZitadelAuthProvider(mockClient, config, func(ctx context.Context, sub string) (bool, error) { return true, nil })
 	ctx := b.Context()
 
 	// Warm up cache

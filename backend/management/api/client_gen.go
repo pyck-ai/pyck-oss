@@ -6,7 +6,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/Yamashou/gqlgenc/clientv2"
+	"github.com/gqlgo/gqlgenc/clientv2"
 
 	"github.com/pyck-ai/pyck/backend/common/api"
 	"github.com/pyck-ai/pyck/backend/common/env"
@@ -58,6 +58,7 @@ type Client interface {
 	GetUsers(ctx context.Context, input GetUsersArgs) (*GetUsers, error)
 	GetDataTypeEntities(ctx context.Context) (*GetDataTypeEntities, error)
 	GetGroup(ctx context.Context, input GetGroupArgs) (*GetGroup, error)
+	GetOrganization(ctx context.Context, input GetOrganizationArgs) (*GetOrganization, error)
 	GetPolicy(ctx context.Context, input GetPolicyArgs) (*GetPolicy, error)
 	GetRole(ctx context.Context, input GetRoleArgs) (*GetRole, error)
 	GetManagementServiceInfo(ctx context.Context) (*GetManagementServiceInfo, error)
@@ -67,6 +68,9 @@ type Client interface {
 	DeleteDataType(ctx context.Context, input DeleteDataTypeArgs) (*DeleteDataType, error)
 	SendCustomEvent(ctx context.Context, input SendCustomEventArgs) (*SendCustomEvent, error)
 	RegisterTenant(ctx context.Context, input RegisterTenantArgs) (*RegisterTenant, error)
+	DeleteTenant(ctx context.Context) (*DeleteTenant, error)
+	RestoreTenant(ctx context.Context, input RestoreTenantArgs) (*RestoreTenant, error)
+	SetTenantExpiry(ctx context.Context, input SetTenantExpiryArgs) (*SetTenantExpiry, error)
 	GenerateJSONSchema(ctx context.Context, input GenerateJSONSchemaArgs) (*GenerateJSONSchema, error)
 	CreatePolicy(ctx context.Context, input CreatePolicyArgs) (*CreatePolicy, error)
 	UpdatePolicy(ctx context.Context, input UpdatePolicyArgs) (*UpdatePolicy, error)
@@ -294,6 +298,15 @@ func (c *client) GetGroup(ctx context.Context, input GetGroupArgs) (*GetGroup, e
 	return c.api.GetGroup(ctx, input.Id)
 }
 
+// GetOrganizationArgs is a sparse struct for GetOrganization parameters
+type GetOrganizationArgs struct {
+	Sub string
+}
+
+func (c *client) GetOrganization(ctx context.Context, input GetOrganizationArgs) (*GetOrganization, error) {
+	return c.api.GetOrganization(ctx, input.Sub)
+}
+
 // GetPolicyArgs is a sparse struct for GetPolicy parameters
 type GetPolicyArgs struct {
 	Id string
@@ -364,6 +377,28 @@ type RegisterTenantArgs struct {
 
 func (c *client) RegisterTenant(ctx context.Context, input RegisterTenantArgs) (*RegisterTenant, error) {
 	return c.api.RegisterTenant(ctx, input.Input)
+}
+
+func (c *client) DeleteTenant(ctx context.Context) (*DeleteTenant, error) {
+	return c.api.DeleteTenant(ctx)
+}
+
+// RestoreTenantArgs is a sparse struct for RestoreTenant parameters
+type RestoreTenantArgs struct {
+	Input model.RestoreTenantInput
+}
+
+func (c *client) RestoreTenant(ctx context.Context, input RestoreTenantArgs) (*RestoreTenant, error) {
+	return c.api.RestoreTenant(ctx, input.Input)
+}
+
+// SetTenantExpiryArgs is a sparse struct for SetTenantExpiry parameters
+type SetTenantExpiryArgs struct {
+	Input model.SetTenantExpiryInput
+}
+
+func (c *client) SetTenantExpiry(ctx context.Context, input SetTenantExpiryArgs) (*SetTenantExpiry, error) {
+	return c.api.SetTenantExpiry(ctx, input.Input)
 }
 
 // GenerateJSONSchemaArgs is a sparse struct for GenerateJSONSchema parameters

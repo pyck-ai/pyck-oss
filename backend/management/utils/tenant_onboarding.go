@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	commontenant "github.com/pyck-ai/pyck/backend/common/tenant"
 	ent "github.com/pyck-ai/pyck/backend/management/ent/gen"
@@ -182,7 +183,7 @@ func assignFirstUserAsWarehouseManager(ctx context.Context, tx *ent.Tx, tenantID
 // EnsureAllTenantsOnboarded runs tenant onboarding for all existing tenants/tenants
 func EnsureAllTenantsOnboarded(ctx context.Context, client *ent.Client) error {
 	// Get all tenants (tenants)
-	tenants, err := client.Tenant.Query().All(ctx)
+	tenants, err := client.Tenant.Query().AllPages(ctx, mixin.Limit)
 	if err != nil {
 		return fmt.Errorf("failed to fetch tenants: %w", err)
 	}

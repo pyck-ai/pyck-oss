@@ -25,8 +25,12 @@ type EntityEventsOutbox struct {
 	PublishedAt *time.Time `json:"published_at,omitempty"`
 	// UserID holds the value of the "user_id" field.
 	UserID *uuid.UUID `json:"user_id,omitempty"`
-	// CorrelationID holds the value of the "correlation_id" field.
-	CorrelationID string `json:"correlation_id,omitempty"`
+	// TransactionID holds the value of the "transaction_id" field.
+	TransactionID uuid.UUID `json:"transaction_id,omitempty"`
+	// TraceID holds the value of the "trace_id" field.
+	TraceID *string `json:"trace_id,omitempty"`
+	// RequestID holds the value of the "request_id" field.
+	RequestID *string `json:"request_id,omitempty"`
 	// Topic holds the value of the "topic" field.
 	Topic string `json:"topic,omitempty"`
 	// Payload holds the value of the "payload" field.
@@ -46,7 +50,7 @@ type EntityEventsOutbox struct {
 	// EntityID holds the value of the "entity_id" field.
 	EntityID *uuid.UUID `json:"entity_id,omitempty"`
 	// TenantID holds the value of the "tenant_id" field.
-	TenantID     *uuid.UUID `json:"tenant_id,omitempty"`
+	TenantID     uuid.UUID `json:"tenant_id,omitempty"`
 	selectValues sql.SelectValues
 }
 
@@ -55,7 +59,7 @@ func (*EntityEventsOutbox) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case entityeventsoutbox.FieldUserID, entityeventsoutbox.FieldEntityID, entityeventsoutbox.FieldTenantID:
+		case entityeventsoutbox.FieldUserID, entityeventsoutbox.FieldEntityID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case entityeventsoutbox.FieldPayload:
 			values[i] = new([]byte)
@@ -63,11 +67,11 @@ func (*EntityEventsOutbox) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case entityeventsoutbox.FieldRetryCount:
 			values[i] = new(sql.NullInt64)
-		case entityeventsoutbox.FieldCorrelationID, entityeventsoutbox.FieldTopic, entityeventsoutbox.FieldLastError, entityeventsoutbox.FieldEntityType:
+		case entityeventsoutbox.FieldTraceID, entityeventsoutbox.FieldRequestID, entityeventsoutbox.FieldTopic, entityeventsoutbox.FieldLastError, entityeventsoutbox.FieldEntityType:
 			values[i] = new(sql.NullString)
 		case entityeventsoutbox.FieldCreatedAt, entityeventsoutbox.FieldPublishedAt, entityeventsoutbox.FieldDeadAt, entityeventsoutbox.FieldNextRetryAt:
 			values[i] = new(sql.NullTime)
-		case entityeventsoutbox.FieldID:
+		case entityeventsoutbox.FieldID, entityeventsoutbox.FieldTransactionID, entityeventsoutbox.FieldTenantID:
 			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -110,11 +114,25 @@ func (_m *EntityEventsOutbox) assignValues(columns []string, values []any) error
 				_m.UserID = new(uuid.UUID)
 				*_m.UserID = *value.S.(*uuid.UUID)
 			}
-		case entityeventsoutbox.FieldCorrelationID:
+		case entityeventsoutbox.FieldTransactionID:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field transaction_id", values[i])
+			} else if value != nil {
+				_m.TransactionID = *value
+			}
+		case entityeventsoutbox.FieldTraceID:
 			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field correlation_id", values[i])
+				return fmt.Errorf("unexpected type %T for field trace_id", values[i])
 			} else if value.Valid {
-				_m.CorrelationID = value.String
+				_m.TraceID = new(string)
+				*_m.TraceID = value.String
+			}
+		case entityeventsoutbox.FieldRequestID:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field request_id", values[i])
+			} else if value.Valid {
+				_m.RequestID = new(string)
+				*_m.RequestID = value.String
 			}
 		case entityeventsoutbox.FieldTopic:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -178,11 +196,10 @@ func (_m *EntityEventsOutbox) assignValues(columns []string, values []any) error
 				*_m.EntityID = *value.S.(*uuid.UUID)
 			}
 		case entityeventsoutbox.FieldTenantID:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
+			if value, ok := values[i].(*uuid.UUID); !ok {
 				return fmt.Errorf("unexpected type %T for field tenant_id", values[i])
-			} else if value.Valid {
-				_m.TenantID = new(uuid.UUID)
-				*_m.TenantID = *value.S.(*uuid.UUID)
+			} else if value != nil {
+				_m.TenantID = *value
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -233,8 +250,18 @@ func (_m *EntityEventsOutbox) String() string {
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")
-	builder.WriteString("correlation_id=")
-	builder.WriteString(_m.CorrelationID)
+	builder.WriteString("transaction_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TransactionID))
+	builder.WriteString(", ")
+	if v := _m.TraceID; v != nil {
+		builder.WriteString("trace_id=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.RequestID; v != nil {
+		builder.WriteString("request_id=")
+		builder.WriteString(*v)
+	}
 	builder.WriteString(", ")
 	builder.WriteString("topic=")
 	builder.WriteString(_m.Topic)
@@ -273,10 +300,8 @@ func (_m *EntityEventsOutbox) String() string {
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")
-	if v := _m.TenantID; v != nil {
-		builder.WriteString("tenant_id=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
+	builder.WriteString("tenant_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TenantID))
 	builder.WriteByte(')')
 	return builder.String()
 }

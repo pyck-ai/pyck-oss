@@ -21,19 +21,6 @@ type WorkflowEventMessage struct {
 	WfSearchAttributes map[string]string
 }
 
-type MutationEventMessage struct {
-	Service            string            `json:"service"`
-	Type               string            `json:"type"`
-	Schema             string            `json:"schema"`
-	Operation          string            `json:"operation"`
-	ID                 uuid.UUID         `json:"id"`
-	TenantID           uuid.UUID         `json:"tenant_id"`
-	DataBefore         any               `json:"data_before,omitempty"`
-	DataAfter          any               `json:"data_after"`
-	Namespace          string            `json:"namespace"`
-	WfSearchAttributes map[string]string `json:"wf_search_attributes"`
-}
-
 type UpdateEventMessage struct {
 	Service   string
 	Type      string

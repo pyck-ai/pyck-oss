@@ -78,7 +78,16 @@ runtime:
           expect(body?.data?.dataTypes?.totalCount).to.equal(1);
         });
 
-        test("Schema persisted", function() {
+        test("Cache projection fields populated (id, slug, tenantID, jsonSchema)", function() {
+          body?.data?.dataTypes?.edges?.forEach(function(item) {
+            expect(item?.node?.id).to.equal(bru.getVar('bru-test_user-management-data-type-crud_8f8ef650'));
+          });
+          body?.data?.dataTypes?.edges?.forEach(function(item) {
+            expect(item?.node?.slug).to.equal(bru.getVar('bru-test_user-management-data-type-crud_a8704b4e'));
+          });
+          body?.data?.dataTypes?.edges?.forEach(function(item) {
+            expect(item?.node?.tenantID).to.exist;
+          });
           body?.data?.dataTypes?.edges?.forEach(function(item) {
             expect(item?.node?.jsonSchema).to.exist;
           });

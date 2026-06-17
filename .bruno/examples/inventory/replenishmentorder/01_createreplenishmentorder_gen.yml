@@ -31,18 +31,6 @@ graphql:
             deletedAt
             deletedBy
             id
-            replenishmentOrderItems {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
             supplierID
             tenantID
             updatedAt

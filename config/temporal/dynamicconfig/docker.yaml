@@ -71,28 +71,12 @@ matching.numTaskqueueWritePartitions:
   - value: 1  # Reduced from default 4
     constraints: {}
 
-history.maxAutoResetPoints:
-  - value: 10  # Reduced from default 20
-    constraints: {}
-
-history.historyMaxPageSize:
-  - value: 100  # Reduced from default 1000
-    constraints: {}
-
 frontend.historyMaxPageSize:
   - value: 100  # Reduced from default 1000
     constraints: {}
 
 matching.longPollExpirationInterval:
   - value: 10s  # Reduced from default 1m
-    constraints: {}
-
-system.blobSizeLimitError:
-  - value: 512000  # 512KB, reduced from default 2MB
-    constraints: {}
-
-system.blobSizeLimitWarn:
-  - value: 256000  # 256KB, reduced from default 512KB
     constraints: {}
 
 # Cache settings for memory efficiency
@@ -104,11 +88,6 @@ system.forceSearchAttributesCacheRefreshOnRead:
   - value: true  # Dev setup only. Please don't turn this on in production.
     constraints: {}
 
-# Worker configuration for lower memory usage
-worker.stickyScheduleToStartTimeout:
-  - value: 5s  # Reduced from default 10s
-    constraints: {}
-
 # Persistence configuration
 history.persistenceMaxQPS:
   - value: 5000  # Increased from default 3000
@@ -118,11 +97,3 @@ frontend.persistenceMaxQPS:
   - value: 5000  # Increased from default 3000
     constraints: {}
 
-# Reduce retention for development
-system.standardVisibilityPersistenceMaxReadQPS:
-  - value: 100  # Reduced for lower resource usage
-    constraints: {}
-
-system.standardVisibilityPersistenceMaxWriteQPS:
-  - value: 100  # Reduced for lower resource usage
-    constraints: {}

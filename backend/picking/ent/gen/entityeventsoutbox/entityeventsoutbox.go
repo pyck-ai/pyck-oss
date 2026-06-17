@@ -20,8 +20,12 @@ const (
 	FieldPublishedAt = "published_at"
 	// FieldUserID holds the string denoting the user_id field in the database.
 	FieldUserID = "user_id"
-	// FieldCorrelationID holds the string denoting the correlation_id field in the database.
-	FieldCorrelationID = "correlation_id"
+	// FieldTransactionID holds the string denoting the transaction_id field in the database.
+	FieldTransactionID = "transaction_id"
+	// FieldTraceID holds the string denoting the trace_id field in the database.
+	FieldTraceID = "trace_id"
+	// FieldRequestID holds the string denoting the request_id field in the database.
+	FieldRequestID = "request_id"
 	// FieldTopic holds the string denoting the topic field in the database.
 	FieldTopic = "topic"
 	// FieldPayload holds the string denoting the payload field in the database.
@@ -52,7 +56,9 @@ var Columns = []string{
 	FieldCreatedAt,
 	FieldPublishedAt,
 	FieldUserID,
-	FieldCorrelationID,
+	FieldTransactionID,
+	FieldTraceID,
+	FieldRequestID,
 	FieldTopic,
 	FieldPayload,
 	FieldWithReply,
@@ -78,8 +84,6 @@ func ValidColumn(column string) bool {
 var (
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
-	// CorrelationIDValidator is a validator for the "correlation_id" field. It is called by the builders before save.
-	CorrelationIDValidator func(string) error
 	// TopicValidator is a validator for the "topic" field. It is called by the builders before save.
 	TopicValidator func(string) error
 	// DefaultWithReply holds the default value on creation for the "with_reply" field.
@@ -113,9 +117,19 @@ func ByUserID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUserID, opts...).ToFunc()
 }
 
-// ByCorrelationID orders the results by the correlation_id field.
-func ByCorrelationID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldCorrelationID, opts...).ToFunc()
+// ByTransactionID orders the results by the transaction_id field.
+func ByTransactionID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTransactionID, opts...).ToFunc()
+}
+
+// ByTraceID orders the results by the trace_id field.
+func ByTraceID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTraceID, opts...).ToFunc()
+}
+
+// ByRequestID orders the results by the request_id field.
+func ByRequestID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRequestID, opts...).ToFunc()
 }
 
 // ByTopic orders the results by the topic field.

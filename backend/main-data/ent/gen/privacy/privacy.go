@@ -159,6 +159,30 @@ func (f EntityEventsOutboxMutationRuleFunc) EvalMutation(ctx context.Context, m 
 	return Denyf("gen/privacy: unexpected mutation type %T, expect *gen.EntityEventsOutboxMutation", m)
 }
 
+// The IdempotencyKeyQueryRuleFunc type is an adapter to allow the use of ordinary
+// functions as a query rule.
+type IdempotencyKeyQueryRuleFunc func(context.Context, *gen.IdempotencyKeyQuery) error
+
+// EvalQuery return f(ctx, q).
+func (f IdempotencyKeyQueryRuleFunc) EvalQuery(ctx context.Context, q gen.Query) error {
+	if q, ok := q.(*gen.IdempotencyKeyQuery); ok {
+		return f(ctx, q)
+	}
+	return Denyf("gen/privacy: unexpected query type %T, expect *gen.IdempotencyKeyQuery", q)
+}
+
+// The IdempotencyKeyMutationRuleFunc type is an adapter to allow the use of ordinary
+// functions as a mutation rule.
+type IdempotencyKeyMutationRuleFunc func(context.Context, *gen.IdempotencyKeyMutation) error
+
+// EvalMutation calls f(ctx, m).
+func (f IdempotencyKeyMutationRuleFunc) EvalMutation(ctx context.Context, m gen.Mutation) error {
+	if m, ok := m.(*gen.IdempotencyKeyMutation); ok {
+		return f(ctx, m)
+	}
+	return Denyf("gen/privacy: unexpected mutation type %T, expect *gen.IdempotencyKeyMutation", m)
+}
+
 // The SupplierQueryRuleFunc type is an adapter to allow the use of ordinary
 // functions as a query rule.
 type SupplierQueryRuleFunc func(context.Context, *gen.SupplierQuery) error
@@ -222,6 +246,8 @@ func queryFilter(q gen.Query) (Filter, error) {
 		return q.Filter(), nil
 	case *gen.EntityEventsOutboxQuery:
 		return q.Filter(), nil
+	case *gen.IdempotencyKeyQuery:
+		return q.Filter(), nil
 	case *gen.SupplierQuery:
 		return q.Filter(), nil
 	default:
@@ -234,6 +260,8 @@ func mutationFilter(m gen.Mutation) (Filter, error) {
 	case *gen.CustomerMutation:
 		return m.Filter(), nil
 	case *gen.EntityEventsOutboxMutation:
+		return m.Filter(), nil
+	case *gen.IdempotencyKeyMutation:
 		return m.Filter(), nil
 	case *gen.SupplierMutation:
 		return m.Filter(), nil

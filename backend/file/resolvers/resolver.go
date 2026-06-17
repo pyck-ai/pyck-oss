@@ -6,8 +6,8 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/validator"
 	"github.com/pyck-ai/pyck/backend/common/workflow"
 
-	m "github.com/pyck-ai/pyck/backend/file"
 	ent "github.com/pyck-ai/pyck/backend/file/ent/gen"
+	"github.com/pyck-ai/pyck/backend/file/exec"
 	"github.com/pyck-ai/pyck/backend/file/services"
 )
 
@@ -31,7 +31,7 @@ func NewResolver(serviceName string, client *ent.Client, validator *validator.Va
 }
 
 func NewSchema(resolver *Resolver) graphql.ExecutableSchema {
-	return m.NewExecutableSchema(m.Config{
+	return exec.NewExecutableSchema(exec.Config{
 		Resolvers: resolver,
 	})
 }

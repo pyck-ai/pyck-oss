@@ -40,7 +40,6 @@ This file contains essential guidelines for AI agents working on this codebase.
 - `common` - Shared Go libraries (auth, logging, database, HTTP utilities)
 - `workflowsdk` - SDK for building Temporal workflows
 - `workflowgen` - Code generator for workflow registration
-- `cli` - Command-line tool for data generation and testing
 
 ### Code Review
 

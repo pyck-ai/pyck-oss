@@ -5,47 +5,45 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/pyck-ai/pyck/backend/common/log"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-func RunMigrations(ctx context.Context, db *sql.DB, serviceName string, appPath string) error {
-	// create schema
+// RunMigrations applies all pending up-migrations from migrationsFS to db,
+// scoped to a Postgres schema named after serviceName. The schema is created
+// if it does not exist. migrationsFS must contain a top-level "migrations"
+// directory holding golang-migrate-formatted .sql files.
+func RunMigrations(ctx context.Context, db *sql.DB, serviceName string, migrationsFS fs.FS) error {
 	_, err := db.ExecContext(ctx, fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS \"%s\"", serviceName))
 	if err != nil {
-		return err
+		return fmt.Errorf("create schema %q: %w", serviceName, err)
 	}
 
-	// run migrations
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		return err
+		return fmt.Errorf("init postgres migration driver: %w", err)
 	}
 
-	// allow running outside of a container by setting env-var SERVICES_PATH (e.q. path to backend/)
-	migrationsPath := "file://migrations"
-	if appPath != "" {
-		migrationsPath = fmt.Sprintf("file://%s/%s/ent/migrate/migrations", appPath, serviceName)
-	}
-
-	migration, err := migrate.NewWithDatabaseInstance(migrationsPath, "postgres", driver)
+	src, err := iofs.New(migrationsFS, "migrations")
 	if err != nil {
-		return err
+		return fmt.Errorf("load embedded migrations: %w", err)
 	}
 
-	err = migration.Up()
-	if err != nil && err != migrate.ErrNoChange {
-		if strings.Contains(err.Error(), "no such file or directory") {
-			return errors.New("no migrations found. Please add migrations to ent/migrate/migrations folder")
-		}
+	migration, err := migrate.NewWithInstance("iofs", src, "postgres", driver)
+	if err != nil {
+		return fmt.Errorf("init migrator: %w", err)
+	}
 
-		return err
+	if err := migration.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("apply migrations: %w", err)
 	}
 
 	return nil
@@ -116,13 +114,13 @@ func CreateShadowDatabase(ctx context.Context, dbUrl, shadowDbName, currentDbNam
 
 	_, err = shadowDb.ExecContext(ctx, fmt.Sprintf(`
 	DO $$
-	DECLARE 
-		r RECORD; 
-	BEGIN 
-		FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = '%s') 
-		LOOP 
-			EXECUTE 'DROP TABLE IF EXISTS "%s"."%s".' || quote_ident(r.tablename) || ' CASCADE'; 
-		END LOOP; 
+	DECLARE
+		r RECORD;
+	BEGIN
+		FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = '%s')
+		LOOP
+			EXECUTE 'DROP TABLE IF EXISTS "%s"."%s".' || quote_ident(r.tablename) || ' CASCADE';
+		END LOOP;
 	END $$;
 	`, targetSchema, shadowDbName, targetSchema))
 	if err != nil {

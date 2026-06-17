@@ -28,6 +28,8 @@ headers:
           named: "X-Pyck-Tenant-Id"
       - propagate:
           named: "X-Pyck-Feature"
+      - propagate:
+          named: "Idempotency-Key"
 health_check:
   enabled: true
   path: /health

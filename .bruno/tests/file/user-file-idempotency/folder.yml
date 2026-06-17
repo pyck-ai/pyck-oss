@@ -1,0 +1,11 @@
+info:
+  name: User - File Idempotency
+  type: folder
+  seq: 1
+
+docs: |-
+  Idempotency-Key middleware exercise on the file service via createFile. See backend/inventory/api/testdata/tests/cross-inventory-idempotency.test.yaml for the full design notes — this fixture mirrors it.
+
+
+request:
+  auth: inherit

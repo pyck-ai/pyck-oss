@@ -41,6 +41,8 @@ type Tenant struct {
 	Name string `json:"name,omitempty"`
 	// IdpOrgRef holds the value of the "idp_org_ref" field.
 	IdpOrgRef string `json:"idp_org_ref,omitempty"`
+	// ExpiresAt holds the value of the "expires_at" field.
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the TenantQuery when eager-loading is set.
 	Edges        TenantEdges `json:"edges"`
@@ -78,7 +80,7 @@ func (*Tenant) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case tenant.FieldDataTypeSlug, tenant.FieldName, tenant.FieldIdpOrgRef:
 			values[i] = new(sql.NullString)
-		case tenant.FieldCreatedAt, tenant.FieldUpdatedAt, tenant.FieldDeletedAt:
+		case tenant.FieldCreatedAt, tenant.FieldUpdatedAt, tenant.FieldDeletedAt, tenant.FieldExpiresAt:
 			values[i] = new(sql.NullTime)
 		case tenant.FieldID, tenant.FieldDataTypeID, tenant.FieldCreatedBy, tenant.FieldUpdatedBy, tenant.FieldDeletedBy:
 			values[i] = new(uuid.UUID)
@@ -171,6 +173,13 @@ func (_m *Tenant) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.IdpOrgRef = value.String
 			}
+		case tenant.FieldExpiresAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field expires_at", values[i])
+			} else if value.Valid {
+				_m.ExpiresAt = new(time.Time)
+				*_m.ExpiresAt = value.Time
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -244,6 +253,11 @@ func (_m *Tenant) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("idp_org_ref=")
 	builder.WriteString(_m.IdpOrgRef)
+	builder.WriteString(", ")
+	if v := _m.ExpiresAt; v != nil {
+		builder.WriteString("expires_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

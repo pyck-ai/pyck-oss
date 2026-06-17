@@ -1,11 +1,5 @@
 name: local
 variables:
-  - secret: true
-    name: env_pyck_token
-    disabled: true
-  - name: env_pyck_tenant_id
-    value: all
-    disabled: true
   - name: env_baseurl
     value: http://localhost
   - name: env_baseurl_gateway
@@ -13,34 +7,34 @@ variables:
   - name: env_baseurl_gateway_query
     value: "{{env_baseurl_gateway}}"
   - name: env_baseurl_file
-    value: "{{env_baseurl}}:8088"
+    value: "{{env_baseurl_gateway}}"
   - name: env_baseurl_file_query
-    value: "{{env_baseurl_file}}/query"
+    value: "{{env_baseurl_gateway_query}}"
   - name: env_baseurl_inventory
-    value: "{{env_baseurl}}:8084"
+    value: "{{env_baseurl_gateway}}"
   - name: env_baseurl_inventory_query
-    value: "{{env_baseurl_inventory}}/query"
+    value: "{{env_baseurl_gateway_query}}"
   - name: env_baseurl_maindata
-    value: "{{env_baseurl}}:8081"
+    value: "{{env_baseurl_gateway}}"
   - name: env_baseurl_maindata_query
-    value: "{{env_baseurl_maindata}}/query"
+    value: "{{env_baseurl_gateway_query}}"
   - name: env_baseurl_management
-    value: "{{env_baseurl}}:8082"
+    value: "{{env_baseurl_gateway}}"
   - name: env_baseurl_management_query
-    value: "{{env_baseurl_management}}/query"
+    value: "{{env_baseurl_gateway_query}}"
   - name: env_baseurl_picking
-    value: "{{env_baseurl}}:8086"
+    value: "{{env_baseurl_gateway}}"
   - name: env_baseurl_picking_query
-    value: "{{env_baseurl_picking}}/query"
+    value: "{{env_baseurl_gateway_query}}"
   - name: env_baseurl_receiving
-    value: "{{env_baseurl}}:8087"
+    value: "{{env_baseurl_gateway}}"
   - name: env_baseurl_receiving_query
-    value: "{{env_baseurl_receiving}}/query"
+    value: "{{env_baseurl_gateway_query}}"
   - name: env_baseurl_workflow
-    value: "{{env_baseurl}}:8089"
+    value: "{{env_baseurl_gateway}}"
   - name: env_baseurl_workflow_query
-    value: "{{env_baseurl_workflow}}/query"
+    value: "{{env_baseurl_gateway_query}}"
   - name: env_zitadel_url
     value: http://localhost:8080
   - name: env_zitadel_client_id
-    value: "365822077778853893"
+    value: <bruno client-id>

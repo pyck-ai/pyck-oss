@@ -4,7 +4,9 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+
 	json_schema "github.com/pyck-ai/pyck/backend/common/json-schema"
+
 	ent "github.com/pyck-ai/pyck/backend/management/ent/gen"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/datatype"
 )
@@ -29,7 +31,6 @@ func (p *DatabaseDataTypeProvider) ReadByID(ctx context.Context, id uuid.UUID) (
 		Query().
 		Where(datatype.ID(id)).
 		First(ctx)
-
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +50,6 @@ func (p *DatabaseDataTypeProvider) ReadBySlug(ctx context.Context, slug string) 
 		Query().
 		Where(datatype.Slug(slug)).
 		First(ctx)
-
 	if err != nil {
 		return nil, err
 	}

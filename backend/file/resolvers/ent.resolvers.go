@@ -10,9 +10,9 @@ import (
 
 	"entgo.io/contrib/entgql"
 	"github.com/google/uuid"
-	"github.com/pyck-ai/pyck/backend/file"
 	"github.com/pyck-ai/pyck/backend/file/ent/gen"
 	entfile "github.com/pyck-ai/pyck/backend/file/ent/gen/file"
+	"github.com/pyck-ai/pyck/backend/file/exec"
 )
 
 // Node is the resolver for the node field.
@@ -33,14 +33,14 @@ func (r *queryResolver) Files(ctx context.Context, after *entgql.Cursor[uuid.UUI
 			gen.WithFileFilter(where.Filter))
 }
 
-// File returns file.FileResolver implementation.
-func (r *Resolver) File() file.FileResolver { return &fileResolver{r} }
+// File returns exec.FileResolver implementation.
+func (r *Resolver) File() exec.FileResolver { return &fileResolver{r} }
 
-// Query returns file.QueryResolver implementation.
-func (r *Resolver) Query() file.QueryResolver { return &queryResolver{r} }
+// Query returns exec.QueryResolver implementation.
+func (r *Resolver) Query() exec.QueryResolver { return &queryResolver{r} }
 
-// FileWhereInput returns file.FileWhereInputResolver implementation.
-func (r *Resolver) FileWhereInput() file.FileWhereInputResolver { return &fileWhereInputResolver{r} }
+// FileWhereInput returns exec.FileWhereInputResolver implementation.
+func (r *Resolver) FileWhereInput() exec.FileWhereInputResolver { return &fileWhereInputResolver{r} }
 
 type fileResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }

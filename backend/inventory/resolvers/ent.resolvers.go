@@ -10,7 +10,6 @@ import (
 
 	"entgo.io/contrib/entgql"
 	"github.com/google/uuid"
-	m "github.com/pyck-ai/pyck/backend/inventory"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/collection_movement"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/item"
@@ -19,6 +18,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/repositorymovement"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/stock"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/transaction"
+	"github.com/pyck-ai/pyck/backend/inventory/exec"
 )
 
 // Node is the resolver for the node field.
@@ -137,51 +137,51 @@ func (r *queryResolver) Transactions(ctx context.Context, after *entgql.Cursor[u
 		)
 }
 
-// Query returns m.QueryResolver implementation.
-func (r *Resolver) Query() m.QueryResolver { return &queryResolver{r} }
+// Query returns exec.QueryResolver implementation.
+func (r *Resolver) Query() exec.QueryResolver { return &queryResolver{r} }
 
-// InventoryCollectionWhereInput returns m.InventoryCollectionWhereInputResolver implementation.
-func (r *Resolver) InventoryCollectionWhereInput() m.InventoryCollectionWhereInputResolver {
+// InventoryCollectionWhereInput returns exec.InventoryCollectionWhereInputResolver implementation.
+func (r *Resolver) InventoryCollectionWhereInput() exec.InventoryCollectionWhereInputResolver {
 	return &inventoryCollectionWhereInputResolver{r}
 }
 
-// InventoryItemSetWhereInput returns m.InventoryItemSetWhereInputResolver implementation.
-func (r *Resolver) InventoryItemSetWhereInput() m.InventoryItemSetWhereInputResolver {
+// InventoryItemSetWhereInput returns exec.InventoryItemSetWhereInputResolver implementation.
+func (r *Resolver) InventoryItemSetWhereInput() exec.InventoryItemSetWhereInputResolver {
 	return &inventoryItemSetWhereInputResolver{r}
 }
 
-// InventoryItemWhereInput returns m.InventoryItemWhereInputResolver implementation.
-func (r *Resolver) InventoryItemWhereInput() m.InventoryItemWhereInputResolver {
+// InventoryItemWhereInput returns exec.InventoryItemWhereInputResolver implementation.
+func (r *Resolver) InventoryItemWhereInput() exec.InventoryItemWhereInputResolver {
 	return &inventoryItemWhereInputResolver{r}
 }
 
-// ItemMovementWhereInput returns m.ItemMovementWhereInputResolver implementation.
-func (r *Resolver) ItemMovementWhereInput() m.ItemMovementWhereInputResolver {
+// ItemMovementWhereInput returns exec.ItemMovementWhereInputResolver implementation.
+func (r *Resolver) ItemMovementWhereInput() exec.ItemMovementWhereInputResolver {
 	return &itemMovementWhereInputResolver{r}
 }
 
-// ReplenishmentOrderItemWhereInput returns m.ReplenishmentOrderItemWhereInputResolver implementation.
-func (r *Resolver) ReplenishmentOrderItemWhereInput() m.ReplenishmentOrderItemWhereInputResolver {
+// ReplenishmentOrderItemWhereInput returns exec.ReplenishmentOrderItemWhereInputResolver implementation.
+func (r *Resolver) ReplenishmentOrderItemWhereInput() exec.ReplenishmentOrderItemWhereInputResolver {
 	return &replenishmentOrderItemWhereInputResolver{r}
 }
 
-// ReplenishmentOrderWhereInput returns m.ReplenishmentOrderWhereInputResolver implementation.
-func (r *Resolver) ReplenishmentOrderWhereInput() m.ReplenishmentOrderWhereInputResolver {
+// ReplenishmentOrderWhereInput returns exec.ReplenishmentOrderWhereInputResolver implementation.
+func (r *Resolver) ReplenishmentOrderWhereInput() exec.ReplenishmentOrderWhereInputResolver {
 	return &replenishmentOrderWhereInputResolver{r}
 }
 
-// RepositoryMovementWhereInput returns m.RepositoryMovementWhereInputResolver implementation.
-func (r *Resolver) RepositoryMovementWhereInput() m.RepositoryMovementWhereInputResolver {
+// RepositoryMovementWhereInput returns exec.RepositoryMovementWhereInputResolver implementation.
+func (r *Resolver) RepositoryMovementWhereInput() exec.RepositoryMovementWhereInputResolver {
 	return &repositoryMovementWhereInputResolver{r}
 }
 
-// RepositoryWhereInput returns m.RepositoryWhereInputResolver implementation.
-func (r *Resolver) RepositoryWhereInput() m.RepositoryWhereInputResolver {
+// RepositoryWhereInput returns exec.RepositoryWhereInputResolver implementation.
+func (r *Resolver) RepositoryWhereInput() exec.RepositoryWhereInputResolver {
 	return &repositoryWhereInputResolver{r}
 }
 
-// StockWhereInput returns m.StockWhereInputResolver implementation.
-func (r *Resolver) StockWhereInput() m.StockWhereInputResolver { return &stockWhereInputResolver{r} }
+// StockWhereInput returns exec.StockWhereInputResolver implementation.
+func (r *Resolver) StockWhereInput() exec.StockWhereInputResolver { return &stockWhereInputResolver{r} }
 
 type queryResolver struct{ *Resolver }
 type inventoryCollectionWhereInputResolver struct{ *Resolver }

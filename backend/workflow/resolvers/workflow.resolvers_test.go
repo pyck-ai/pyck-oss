@@ -196,6 +196,16 @@ var (
 		}
 	}`)
 
+	getWorkflowActionsWhere = resolver.ParseTemplate(`query {
+		workflowActions(input: {
+			workflowId: "{{.WorkflowID}}",
+			workflowExecutionId: "{{.WorkflowRunID}}"
+		}, where: { {{.Where}} }) {
+			queries { name enabled }
+			updates { name enabled }
+		}
+	}`)
+
 	queryWorkflowsJSONOrder = resolver.ParseTemplate(`query {
 		workflows(
 			first: {{or .First 100}},
@@ -1113,6 +1123,120 @@ func TestWorkflowActions(t *testing.T) {
 		assert.True(t, data.WorkflowActions.Queries[0].Enabled)
 
 		assert.Len(t, data.WorkflowActions.Updates, 1)
+	})
+
+	// Exercises every name predicate through the GraphQL layer, so schema,
+	// gqlgen unmarshaling, and resolver filtering are covered together.
+	// Predicate semantics themselves are covered in detail by
+	// TestMatchesFilter.
+	t.Run("where filter name predicates", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name        string
+			where       string
+			wantQueries []string
+			wantUpdates []string
+		}{
+			{
+				name:        "nameHasPrefix",
+				where:       `nameHasPrefix: "Get"`,
+				wantQueries: []string{"GetState", "GetDeliveryState"},
+				wantUpdates: []string{},
+			},
+			{
+				name:        "nameHasSuffix",
+				where:       `nameHasSuffix: "State"`,
+				wantQueries: []string{"GetState", "GetDeliveryState"},
+				wantUpdates: []string{},
+			},
+			{
+				name:        "nameContains",
+				where:       `nameContains: "User"`,
+				wantQueries: []string{},
+				wantUpdates: []string{"AwaitUserDataInput"},
+			},
+			{
+				name:        "nameNEQ",
+				where:       `nameNEQ: "GetState"`,
+				wantQueries: []string{"GetDeliveryState", "SetAssignee"},
+				wantUpdates: []string{"AwaitUserDataInput", "AwaitShipmentInput"},
+			},
+			{
+				name:        "nameIn",
+				where:       `nameIn: ["GetState", "AwaitUserDataInput"]`,
+				wantQueries: []string{"GetState"},
+				wantUpdates: []string{"AwaitUserDataInput"},
+			},
+			{
+				name:        "nameNotIn",
+				where:       `nameNotIn: ["GetState", "SetAssignee"]`,
+				wantQueries: []string{"GetDeliveryState"},
+				wantUpdates: []string{"AwaitUserDataInput", "AwaitShipmentInput"},
+			},
+			{
+				name:        "nameEqualFold",
+				where:       `nameEqualFold: "getstate"`,
+				wantQueries: []string{"GetState"},
+				wantUpdates: []string{},
+			},
+			{
+				name:        "nameContainsFold",
+				where:       `nameContainsFold: "ASSIGNEE"`,
+				wantQueries: []string{"SetAssignee"},
+				wantUpdates: []string{},
+			},
+			{
+				name:        "name predicate combined with enabled",
+				where:       `nameHasPrefix: "Await", enabled: true`,
+				wantQueries: []string{},
+				wantUpdates: []string{"AwaitUserDataInput"},
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				te := setupWithMockWorkflow(t)
+				defer te.Close(t)
+				ctx := te.ctx(userA)
+
+				te.MockTemporalClient.QueryWorkflowFunc = func(ctx context.Context, wfID, runID, queryType string, args ...interface{}) (converter.EncodedValue, error) {
+					return &mockEncodedValue{data: map[string]any{
+						"queries": []any{
+							map[string]any{"name": "GetState", "enabled": true},
+							map[string]any{"name": "GetDeliveryState", "enabled": true},
+							map[string]any{"name": "SetAssignee", "enabled": false},
+						},
+						"updates": []any{
+							map[string]any{"name": "AwaitUserDataInput", "enabled": true},
+							map[string]any{"name": "AwaitShipmentInput", "enabled": false},
+						},
+					}}, nil
+				}
+
+				data := execOK[workflowActionsData](te, ctx, getWorkflowActionsWhere, map[string]any{
+					"WorkflowID":    "test-actions-where",
+					"WorkflowRunID": "test-actions-where-run",
+					"Where":         tt.where,
+				})
+
+				names := func(actions []struct {
+					Name    string
+					Enabled bool
+				},
+				) []string {
+					out := make([]string, 0, len(actions))
+					for _, a := range actions {
+						out = append(out, a.Name)
+					}
+					return out
+				}
+
+				assert.Equal(t, tt.wantQueries, names(data.WorkflowActions.Queries))
+				assert.Equal(t, tt.wantUpdates, names(data.WorkflowActions.Updates))
+			})
+		}
 	})
 }
 

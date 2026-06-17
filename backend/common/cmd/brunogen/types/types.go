@@ -102,6 +102,17 @@ type TestStep struct {
 	Skip  []TestAssertion `yaml:"skip"`
 	Vars  map[string]any  `yaml:"vars"`
 	Tests []TestAssertion `yaml:"tests"`
+	// WaitAfterMs, when > 0, appends `await bru.sleep(N);` at the end of the
+	// generated test script. Use this when the next step depends on async
+	// side effects of this one (e.g. NATS event propagation into an
+	// in-memory cache) and there is no observable signal to poll.
+	WaitAfterMs int `yaml:"wait_after_ms"`
+	// Headers is an optional map of HTTP headers added to the request.
+	// Values are plain strings (no $fake / $ref substitution today); use a
+	// fixed literal when you need the request to carry a specific header
+	// like Idempotency-Key. Keys are emitted alphabetically for stable
+	// generated output.
+	Headers map[string]string `yaml:"headers"`
 }
 
 // TestAssertion is one named group of assertions within a step.

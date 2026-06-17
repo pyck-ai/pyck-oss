@@ -1,0 +1,18 @@
+info:
+  name: Cross - Inventory Idempotency
+  type: folder
+  seq: 1
+
+docs: |-
+  End-to-end exercise of the Idempotency-Key middleware (pyck#1123) against the inventory service via createInventoryItem.
+    Steps 1-2: fresh call + replay with the same key prove cache replay produces an identical 200 response. Step 3: same key + different variables proves checksum mismatch surfaces as OPERATION_MISMATCH / extensions.httpStatus 422. Step 4: a 256-char key proves length validation surfaces as INVALID_IDEMPOTENCY_KEY / extensions.httpStatus 400. Steps 5-6: header with empty / whitespace-only value proves the middleware degrades to no-key behavior (mutation runs, no replay). Step 7: a 255-char key (exact maximum) proves the positive boundary is accepted and the row is cached.
+    The fresh/replay/mismatch steps use {{bru_idem_inventory}} for both the Idempotency-Key header AND the unique-constrained sku. The opencollection.yml before-request hook lazy-initializes that var to a random 16-char hex on first reference per Bruno run, so:
+      * within a single run, fresh/replay/mismatch share the same key
+        (cache replay + mismatch flows work as designed)
+      * each fresh run gets a NEW key + NEW sku, avoiding cross-run
+        cache poisoning AND the unique-sku constraint collision
+    The maxLengthKey step keeps fixed key+sku (the cache replay protects re-runs within the 24h janitor TTL; after that, run `task wipe-db`).
+
+
+request:
+  auth: inherit

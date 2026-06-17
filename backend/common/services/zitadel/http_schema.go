@@ -39,6 +39,9 @@ type IntrospectionResponse struct {
 	ResourceOwnerName   string                       `json:"urn:zitadel:iam:user:resourceowner:name"`
 	ResourceOwnerDomain string                       `json:"urn:zitadel:iam:user:resourceowner:primary_domain"`
 	Username            string                       `json:"username"`
+	// PyckTenantID is the canonical tenant UUID for the token's home org,
+	// injected by management's Zitadel Action webhook.
+	PyckTenantID string `json:"pyck_tenant_id"`
 }
 
 type featureConfig struct {

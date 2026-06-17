@@ -1,0 +1,17 @@
+# organization is the system-only auth-path query every backend service
+# calls after introspection to ask "is the org behind this Zitadel `sub`
+# still ORG_STATE_ACTIVE?". Returns the org so future extensions can add
+# fields without growing the auth-path surface (name, branding, etc.).
+#
+# Caller MUST be the system service-user (PYCK_SERVICE_TOKEN); the
+# resolver rejects non-system callers. Internally the resolver runs
+# management's local v2 SDK lookup (handlers.ResolveOrganization)
+# against the shared Zitadel gRPC connection.
+type Organization {
+    id: String
+    active: Boolean!
+}
+
+extend type Query {
+    organization(sub: String!): Organization!
+}

@@ -31,33 +31,6 @@ graphql:
           tenantID
           updatedAt
           updatedBy
-          workflowSignals {
-            edges {
-              cursor
-              node {
-                createdAt
-                createdBy
-                deletedAt
-                deletedBy
-                filterRule
-                id
-                natsTopic
-                temporalSignal
-                temporalSignalType
-                tenantID
-                updatedAt
-                updatedBy
-                workflowID
-              }
-            }
-            pageInfo {
-              endCursor
-              hasNextPage
-              hasPreviousPage
-              startCursor
-            }
-            totalCount
-          }
         }
       }
     variables: |-

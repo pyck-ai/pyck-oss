@@ -362,7 +362,7 @@ func (r *mutationResolver) DeleteWorkflow(ctx context.Context, id uuid.UUID) (*m
 			entworkflowsignal.WorkflowIDEQ(wf.ID),
 			entworkflowsignal.DeletedAtIsNil(),
 		).
-		All(ctx)
+		AllPages(ctx, mixin.Limit)
 	if err != nil {
 		return nil, err
 	}

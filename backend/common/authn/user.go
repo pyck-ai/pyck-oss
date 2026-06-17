@@ -11,10 +11,16 @@ func SystemUser() *User {
 }
 
 type User struct {
-	// ID is the unique identifier of the user.
+	// ID is the unique pyck-side identifier of the user
+	// (deterministic UUID hashed from issuer + sub).
 	ID uuid.UUID
 	// TenantID is the unique identifier of the tenant the user belongs to.
 	TenantID uuid.UUID
+	// Sub is the raw Zitadel user ID — the `sub` claim from the
+	// token's introspection. Kept verbatim (not hashed) because v2
+	// Zitadel APIs (user/v2.GetUserByID, etc.) take the raw ID, and
+	// hashing it would break those lookups.
+	Sub string
 	// Username is the unique name of the user.
 	Username string
 	// Roles is a map of roles the user has in each tenant.

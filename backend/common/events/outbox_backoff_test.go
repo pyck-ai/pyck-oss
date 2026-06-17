@@ -16,6 +16,18 @@ import (
 
 func stringPtr(s string) *string { return &s }
 
+// assertHasTimeArg asserts that the query args contain a time.Time, i.e. the
+// timestamp was bound as a parameter rather than emitted as a literal NOW().
+func assertHasTimeArg(t *testing.T, args []any) {
+	t.Helper()
+	for _, a := range args {
+		if _, ok := a.(time.Time); ok {
+			return
+		}
+	}
+	assert.Fail(t, "expected a time.Time parameter in query args", "args: %#v", args)
+}
+
 // =============================================================================
 // SQL GENERATION TESTS — verify backoff predicates are present in generated SQL
 // =============================================================================
@@ -47,11 +59,11 @@ func TestMarkPublishedSQL_ClearsBackoff(t *testing.T) {
 	t.Parallel()
 
 	id := uuid.New()
-	query, _ := events.MarkPublishedSQL("inventory.event_outbox", id)
+	query, args := events.MarkPublishedSQL("inventory.event_outbox", id)
 
-	// Must SET published_at
+	// Must SET published_at (bound as a parameter, not a literal NOW()).
 	assert.Contains(t, query, "published_at")
-	assert.Contains(t, query, "NOW()")
+	assertHasTimeArg(t, args)
 
 	// Must clear next_retry_at (SET NULL)
 	assert.Contains(t, query, "next_retry_at")
@@ -63,39 +75,43 @@ func TestMarkPublishedSQL_ClearsBackoff(t *testing.T) {
 	assert.Contains(t, query, `"inventory"`)
 }
 
-func TestMarkCorrelationDeadSQL_UsesDelete(t *testing.T) {
+func TestMarkTransactionDeadSQL_SetsDeadAt(t *testing.T) {
 	t.Parallel()
 
-	query, args := events.MarkCorrelationDeadSQL("inventory.event_outbox", "corr-123")
+	txID := uuid.New()
+	query, args := events.MarkTransactionDeadSQL("inventory.event_outbox", txID, "exceeded max retries")
 
-	// Must be DELETE, not UPDATE
-	assert.True(t, strings.HasPrefix(query, "DELETE"), "expected DELETE statement, got: %s", query)
+	// Must be UPDATE, not DELETE — dead rows are retained for audit, not removed.
+	assert.True(t, strings.HasPrefix(query, "UPDATE"), "expected UPDATE statement, got: %s", query)
 
-	// Must NOT contain dead_at (we delete, not mark)
-	assert.NotContains(t, query, "dead_at")
+	// Must set dead_at to dead-letter the row.
+	assert.Contains(t, query, "dead_at")
 
-	// Must filter by correlation_id and unpublished
-	assert.Contains(t, query, "correlation_id")
+	// Must record the reason in last_error.
+	assert.Contains(t, query, "last_error")
+
+	// Must only affect not-yet-published, not-already-dead rows for the tx.
+	assert.Contains(t, query, "transaction_id")
 	assert.Contains(t, query, "published_at")
 
 	// Must target correct schema
 	assert.Contains(t, query, `"inventory"`)
 
-	// correlation_id should be in args
+	// transaction_id should be in args
 	found := false
 	for _, a := range args {
-		if s, ok := a.(string); ok && s == "corr-123" {
+		if id, ok := a.(uuid.UUID); ok && id == txID {
 			found = true
 			break
 		}
 	}
-	assert.True(t, found, "expected correlation_id 'corr-123' in query args")
+	assert.True(t, found, "expected transaction_id %s in query args", txID)
 }
 
 func TestSelectorSQL_ContainsBackoffFilter(t *testing.T) {
 	t.Parallel()
 
-	query, _ := events.SelectorSQL("inventory.event_outbox", 100, 10)
+	query, args := events.SelectorSQL("inventory.event_outbox", 100, 10)
 
 	// Must filter by unpublished and not dead
 	assert.Contains(t, query, "published_at")
@@ -104,13 +120,14 @@ func TestSelectorSQL_ContainsBackoffFilter(t *testing.T) {
 	// Must filter by retry_count < maxRetries
 	assert.Contains(t, query, "retry_count")
 
-	// Must contain backoff predicate: next_retry_at IS NULL OR next_retry_at <= NOW()
+	// Must contain the backoff predicate: next_retry_at IS NULL OR
+	// next_retry_at <= <now>, where <now> is bound as a parameter.
 	assert.Contains(t, query, "next_retry_at")
-	assert.Contains(t, query, "NOW()")
+	assertHasTimeArg(t, args)
 
-	// Must GROUP BY correlation_id and ORDER BY MIN(created_at)
+	// Must GROUP BY transaction_id and ORDER BY MIN(created_at)
 	assert.Contains(t, query, "GROUP BY")
-	assert.Contains(t, query, "correlation_id")
+	assert.Contains(t, query, "transaction_id")
 	assert.Contains(t, query, "MIN(")
 	assert.Contains(t, query, "created_at")
 
@@ -141,6 +158,121 @@ func TestSelectorSQL_SchemaQualified(t *testing.T) {
 			assert.Contains(t, query, tt.schema)
 		})
 	}
+}
+
+func TestSelectorSQL_SelectsRetryExhaustedGroups(t *testing.T) {
+	t.Parallel()
+
+	query, _ := events.SelectorSQL("inventory.event_outbox", 100, 10)
+
+	// The selector must also pick up groups whose rows have reached the retry
+	// cap so they can be dead-lettered, instead of leaving them as permanent
+	// pending rows. That means a ">= maxRetries" branch in addition to the
+	// "< maxRetries AND backoff-elapsed" branch.
+	assert.Contains(t, query, ">=", "selector must include a retry_count >= maxRetries branch for dead-lettering")
+	assert.Contains(t, query, "<", "selector must still include the retry_count < maxRetries eligibility branch")
+	assert.Contains(t, query, "retry_count")
+}
+
+// =============================================================================
+// POLL INTERVAL JITTER TESTS
+// =============================================================================
+
+func TestNextPollDelay_JitterWithinRange(t *testing.T) {
+	t.Parallel()
+
+	const base = 100 * time.Millisecond
+	// Jitter is centered on the base: [0.75*base, 1.25*base).
+	lo := base - base/4
+	hi := base + base/4
+
+	for range 1000 {
+		d := events.NextPollDelayForTest(base)
+		assert.GreaterOrEqual(t, d, lo, "poll delay must not drop below 0.75*base")
+		assert.Less(t, d, hi, "poll delay must stay below 1.25*base (no backoff growth)")
+	}
+}
+
+func TestNextPollDelay_DegenerateIntervals(t *testing.T) {
+	t.Parallel()
+
+	// Intervals below 2ns must not panic (rand.Int64N(base/2) would, since
+	// base/2 == 0) and simply return the interval unchanged.
+	assert.Equal(t, time.Duration(0), events.NextPollDelayForTest(0))
+	assert.Equal(t, time.Duration(1), events.NextPollDelayForTest(1))
+}
+
+// =============================================================================
+// CLAIM (LEASE) TESTS
+// =============================================================================
+
+func TestClaimSQL_LeasesByID(t *testing.T) {
+	t.Parallel()
+
+	ids := []uuid.UUID{uuid.New(), uuid.New()}
+	query, args := events.ClaimSQL("inventory.event_outbox", ids)
+
+	// Must be an UPDATE that pushes next_retry_at into the future.
+	assert.True(t, strings.HasPrefix(query, "UPDATE"), "expected UPDATE, got: %s", query)
+	assert.Contains(t, query, "next_retry_at")
+
+	// Must target the fetched rows by ID and only the still-pending ones.
+	assert.Contains(t, query, "id")
+	assert.Contains(t, query, "published_at")
+	assert.Contains(t, query, "dead_at")
+
+	// Must target correct schema
+	assert.Contains(t, query, `"inventory"`)
+
+	// Both IDs and the lease timestamp must be bound as parameters.
+	for _, id := range ids {
+		found := false
+		for _, a := range args {
+			if got, ok := a.(uuid.UUID); ok && got == id {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "expected id %s in query args", id)
+	}
+	assertHasTimeArg(t, args)
+}
+
+func TestClaimSQL_EmptyIDs(t *testing.T) {
+	t.Parallel()
+
+	// No IDs is handled by NewOutboxClaim (no-op); the raw builder still
+	// produces a syntactically valid statement with no id parameters.
+	query, _ := events.ClaimSQL("inventory.event_outbox", nil)
+	assert.True(t, strings.HasPrefix(query, "UPDATE"), "expected UPDATE, got: %s", query)
+}
+
+// =============================================================================
+// DEAD-LETTER ACCOUNTING TESTS
+// =============================================================================
+
+func TestPublishTransactionGroup_DropCountExcludesPublished(t *testing.T) {
+	t.Parallel()
+
+	publisher := &outboxMockPublisher{}
+	registry := events.NewReplyRegistry(time.Minute)
+
+	txID := uuid.New()
+	// E1 is healthy (publishes), E2 has exhausted its retries (dead-letters the
+	// rest of the group). Only E2 is actually dropped — E1 was published — so
+	// the drop count must be 1, not the whole group size of 2.
+	entries := []events.OutboxRow{
+		events.NewOutboxRowForTest(uuid.New(), txID, "t1", []byte(`{}`), false, 0, "Item"),
+		events.NewOutboxRowForTest(uuid.New(), txID, "t2", []byte(`{}`), false, 10, "Item"),
+	}
+
+	counts := events.PublishTransactionGroupCountsForTest(
+		context.Background(), txID, entries, publisher, registry, 10, 10*time.Second,
+	)
+
+	assert.Equal(t, 1, counts.Published, "E1 should be published")
+	assert.Equal(t, 1, counts.Dead, "the group should be dead-lettered once")
+	assert.Equal(t, 1, counts.Dropped, "only E2 is dropped; E1 was already published")
 }
 
 // =============================================================================
@@ -259,66 +391,68 @@ func TestOutboxSystemConfig_ListenNotifyField(t *testing.T) {
 // DEAD LETTER BEHAVIOR TESTS
 // =============================================================================
 
-func TestProcessCorrelationGroup_DeadLetterDeletesEntries(t *testing.T) {
+func TestProcessTransactionGroup_DeadLetterMarksEntriesDead(t *testing.T) {
 	t.Parallel()
 
 	publisher := &outboxMockPublisher{}
 	outboxFuncs := &mockOutboxFunctions{}
 	registry := events.NewReplyRegistry(time.Minute)
 
+	deadTxID := uuid.New()
 	// All entries at max retries — should trigger dead letter
 	entries := []events.OutboxRow{
-		{ID: uuid.New(), CorrelationID: "corr-dead", Topic: "t1", Payload: []byte(`{}`), RetryCount: 10, EntityType: stringPtr("Item")},
-		{ID: uuid.New(), CorrelationID: "corr-dead", Topic: "t2", Payload: []byte(`{}`), RetryCount: 5, EntityType: stringPtr("Item")},
+		{ID: uuid.New(), TransactionID: deadTxID, Topic: "t1", Payload: []byte(`{}`), RetryCount: 10, EntityType: stringPtr("Item")},
+		{ID: uuid.New(), TransactionID: deadTxID, Topic: "t2", Payload: []byte(`{}`), RetryCount: 5, EntityType: stringPtr("Item")},
 	}
 
-	events.ProcessCorrelationGroupForTest(
+	events.ProcessTransactionGroupForTest(
 		context.Background(),
 		nil,
-		"corr-dead",
+		deadTxID,
 		entries,
 		publisher,
 		registry,
 		outboxFuncs.markPublished,
 		outboxFuncs.markFailed,
-		outboxFuncs.markCorrelationDead,
+		outboxFuncs.markTransactionDead,
 		10, // maxRetries
 		10*time.Second,
 	)
 
-	// markCorrelationDead should have been called (which does DELETE)
+	// markTransactionDead should have been called (sets dead_at)
 	outboxFuncs.mu.Lock()
 	defer outboxFuncs.mu.Unlock()
 	require.Len(t, outboxFuncs.markDeadCalls, 1)
-	assert.Equal(t, "corr-dead", outboxFuncs.markDeadCalls[0].CorrelationID)
+	assert.Equal(t, deadTxID, outboxFuncs.markDeadCalls[0].TransactionID)
 
 	// No entries should have been published (first entry was at max retries)
 	assert.Empty(t, outboxFuncs.markPublishedIDs)
 }
 
-func TestProcessCorrelationGroup_HealthyEntriesProcessed(t *testing.T) {
+func TestProcessTransactionGroup_HealthyEntriesProcessed(t *testing.T) {
 	t.Parallel()
 
 	publisher := &outboxMockPublisher{}
 	outboxFuncs := &mockOutboxFunctions{}
 	registry := events.NewReplyRegistry(time.Minute)
 
+	okTxID := uuid.New()
 	// Entries with low retry count — should be processed normally
 	entries := []events.OutboxRow{
-		{ID: uuid.New(), CorrelationID: "corr-ok", Topic: "t1", Payload: []byte(`{}`), RetryCount: 0, EntityType: stringPtr("Item")},
-		{ID: uuid.New(), CorrelationID: "corr-ok", Topic: "t2", Payload: []byte(`{}`), RetryCount: 3, EntityType: stringPtr("Item")},
+		{ID: uuid.New(), TransactionID: okTxID, Topic: "t1", Payload: []byte(`{}`), RetryCount: 0, EntityType: stringPtr("Item")},
+		{ID: uuid.New(), TransactionID: okTxID, Topic: "t2", Payload: []byte(`{}`), RetryCount: 3, EntityType: stringPtr("Item")},
 	}
 
-	events.ProcessCorrelationGroupForTest(
+	events.ProcessTransactionGroupForTest(
 		context.Background(),
 		nil,
-		"corr-ok",
+		okTxID,
 		entries,
 		publisher,
 		registry,
 		outboxFuncs.markPublished,
 		outboxFuncs.markFailed,
-		outboxFuncs.markCorrelationDead,
+		outboxFuncs.markTransactionDead,
 		10,
 		10*time.Second,
 	)
@@ -343,7 +477,7 @@ func TestProcessEntry_FailureIncrementsRetryMetric(t *testing.T) {
 
 	entry := events.OutboxRow{
 		ID:            uuid.New(),
-		CorrelationID: "corr-retry",
+		TransactionID: uuid.New(),
 		Topic:         "test.topic",
 		Payload:       []byte(`{}`),
 		RetryCount:    3,

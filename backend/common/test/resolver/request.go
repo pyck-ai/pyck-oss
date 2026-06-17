@@ -13,7 +13,7 @@ import (
 	"entgo.io/contrib/entgql"
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/handler"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/riandyrn/otelchi"
 	"github.com/stretchr/testify/require"

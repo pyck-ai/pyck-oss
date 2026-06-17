@@ -12,10 +12,11 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/playground"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/nats-io/nats.go/micro"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	zitadelsdk "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel"
 
 	"github.com/pyck-ai/pyck/backend/bootstrap/pkg/bootstrap"
 	"github.com/pyck-ai/pyck/backend/common/authn"
@@ -26,6 +27,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/handlers"
 	"github.com/pyck-ai/pyck/backend/common/hooks"
 	"github.com/pyck-ai/pyck/backend/common/http"
+	"github.com/pyck-ai/pyck/backend/common/idempotency"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	logadapter "github.com/pyck-ai/pyck/backend/common/log/adapter"
 	"github.com/pyck-ai/pyck/backend/common/nats"
@@ -40,6 +42,8 @@ import (
 	"github.com/pyck-ai/pyck/backend/management/core"
 	ent "github.com/pyck-ai/pyck/backend/management/ent/gen"
 	entdatatype "github.com/pyck-ai/pyck/backend/management/ent/gen/datatype"
+	entmigrate "github.com/pyck-ai/pyck/backend/management/ent/migrate"
+	"github.com/pyck-ai/pyck/backend/management/events/tenants"
 	"github.com/pyck-ai/pyck/backend/management/github"
 	mgmthandlers "github.com/pyck-ai/pyck/backend/management/handlers"
 	"github.com/pyck-ai/pyck/backend/management/resolvers"
@@ -112,7 +116,11 @@ func main() {
 	ctx, _ = log.SetupLogger(ctx, serviceName, core.Config.LogConfig)
 
 	// Set up database
-	pgxDriver, err := db.NewPostgresMultiDriver(serviceName, core.Config.DbConfig)
+	pgxDriver, err := db.NewPostgresMultiDriver(
+		serviceName,
+		core.Config.DbConfig,
+		db.WithWriterIsolation("serializable"),
+	)
 	if err != nil {
 		log.ForContext(ctx).Fatal().
 			Err(err).
@@ -130,10 +138,6 @@ func main() {
 	}
 	defer tracer.Close()
 
-	// Set up auth provider
-	zitadelClient := zitadel.NewClient(core.Config.ZitadelConfig)
-	authProvider := authn.NewZitadelAuthProvider(zitadelClient, core.Config.ZitadelConfig)
-
 	// run migrations
 	ctx = db.WithMaxRetries(ctx, core.Config.TxRetries)
 
@@ -141,7 +145,7 @@ func main() {
 		ctx,
 		pgxDriver.DB(),
 		serviceName,
-		core.Config.ServicesPath,
+		entmigrate.Migrations,
 	); err != nil {
 		log.ForContext(ctx).Fatal().
 			Err(err).
@@ -163,6 +167,52 @@ func main() {
 
 	dbClient.Use(hooks.LogMutation)
 
+	// Single Zitadel gRPC connection used by the tenant lifecycle
+	// workflows (disable/restore/reconcile) AND the organization
+	// resolver's v2 SDK calls (GetUserByID + ListOrganizations). JWT
+	// profile auth from the bootstrap-provisioned sa-admin service
+	// account.
+	zitadelOpts := []zitadelsdk.Option{
+		zitadelsdk.WithTokenSource(zitadel.NewJWTProfileTokenSource(
+			core.Config.ZitadelOAuthURL,
+			core.Config.ZitadelAudience,
+			core.Config.ZitadelServiceKeyPath,
+		)),
+	}
+	if core.Config.ZitadelTlsInsecure {
+		zitadelOpts = append(zitadelOpts, zitadelsdk.WithInsecure())
+	}
+
+	zitadelConn, err := zitadelsdk.NewConnection(
+		ctx,
+		core.Config.ZitadelAudience,
+		core.Config.ZitadelGrpcAddr,
+		[]string{"openid", "urn:zitadel:iam:org:project:id:zitadel:aud"},
+		zitadelOpts...,
+	)
+	if err != nil {
+		log.ForContext(ctx).Fatal().Err(err).Msg("failed to create Zitadel connection")
+		return
+	}
+	defer zitadelConn.Close()
+
+	// Set up auth provider. Management introspects via the standard
+	// Zitadel client and runs the org-active check in-process: the
+	// validator is an inline closure that calls the local v2 SDK
+	// helper (mgmthandlers.ResolveOrganization) against the same system
+	// zitadelConn the workflows use. No HTTP self-loop, same Zitadel
+	// surface the 6 other services see through the `organization`
+	// GraphQL query.
+	zitadelClient := zitadel.NewClient(core.Config.ZitadelConfig)
+	orgValidator := func(ctx context.Context, sub string) (bool, error) {
+		result, err := mgmthandlers.ResolveOrganization(ctx, zitadelConn, sub)
+		if err != nil {
+			return false, err
+		}
+		return result.Active, nil
+	}
+	authProvider := authn.NewZitadelAuthProvider(zitadelClient, core.Config.ZitadelConfig, orgValidator)
+
 	// Set up NATS client
 	natsClient, err := events.NewNatsClient(ctx, core.Config.NatsUrl)
 	if err != nil {
@@ -182,6 +232,25 @@ func main() {
 			Msg("failed setting up JetStream")
 		return
 	}
+
+	// Sub-second eviction of cached entries on tenant-disable NATS events.
+	// Pairs with the TenantValidator on the cache-miss path: the next
+	// request runs introspect + validate against management, the validator
+	// catches the disabled tenant, and the lookup is not re-cached.
+	// Restores are no-op here — the missing cache entry just gets rebuilt
+	// on the next request once management's /me sees the tenant again.
+	revocationCC, err := authn.SubscribeRevocations(
+		ctx,
+		jetstreamClient,
+		core.Config.NatsStreamName,
+		serviceName,
+		authProvider.OnTenantDisabled,
+	)
+	if err != nil {
+		log.ForContext(ctx).Fatal().Err(err).Msg("failed to subscribe to tenant revocation events")
+		return
+	}
+	defer revocationCC.Stop()
 
 	jetstreamPub, err := events.NewEventPublisher(jetstreamClient, natsClient, core.Config.NatsStreamName, core.Config.NatsReplyTimeout)
 	if err != nil {
@@ -275,7 +344,7 @@ func main() {
 	// Set up GraphQL resolver
 	// authorizer := authz.NewManagementAuthorizer(client)
 	dataTypeValidator := validator.NewValidator(service.NewDatabaseDataTypeProvider(dbClient))
-	resolver := resolvers.NewResolver(serviceName, dbClient, dataTypeValidator, workflowClient)
+	resolver := resolvers.NewResolver(serviceName, dbClient, dataTypeValidator, workflowClient, zitadelConn)
 
 	// Set up temporal worker
 	temporalWorker, err := workflows.NewTemporalWorker(temporalClient, workflows.TemporalManagementTaskQueue, resolver.Mutation(), workflows.WorkerOptions{EnableTenantSync: true})
@@ -286,8 +355,8 @@ func main() {
 		return
 	}
 
-	zitadelSyncEvery, err := time.ParseDuration(core.Config.ZitadelSyncEvery)
-	if err != nil || zitadelSyncEvery < 0 {
+	zitadelSyncInterval, err := time.ParseDuration(core.Config.ZitadelSyncEvery)
+	if err != nil || zitadelSyncInterval < 0 {
 		log.ForContext(ctx).Error().
 			Err(err).
 			Msg("invalid ZitadelSyncEvery value")
@@ -297,6 +366,10 @@ func main() {
 	nsGetter := workflow.NewNamespaceGetter(core.Config.ZitadelAudience)
 
 	temporalWorker.RegisterTenantWorkflow(dbClient, nsGetter)
+	temporalWorker.RegisterDisableTenantWorkflow(zitadelConn)
+	temporalWorker.RegisterRestoreTenantWorkflow(zitadelConn)
+	temporalWorker.RegisterTenantReconcileWorkflow(dbClient, zitadelConn)
+	temporalWorker.RegisterTenantExpiryCheckWorkflow(dbClient)
 	temporalWorker.RegisterGenerateJsonSchemaWorkflow()
 	temporalWorker.RegisterZitadelSyncWorkflow(dbClient, core.Config.ZitadelOAuthURL, core.Config.ZitadelGrpcAddr, core.Config.ZitadelAudience, core.Config.ZitadelServiceKeyPath, core.Config.ZitadelProjectId, core.Config.ZitadelTlsInsecure)
 
@@ -310,12 +383,45 @@ func main() {
 
 	defer temporalWorker.Stop()
 
-	log.ForContext(ctx).Info().Dur("zitadel_sync_every", zitadelSyncEvery).Msg("orchestrator schedule interval")
+	// Subscribe to tenant lifecycle events: the trigger subscriber starts
+	// the disable/restore workflows when a tenant's deleted_at transitions.
+	triggerCC, err := tenants.SubscribeTrigger(ctx, jetstreamClient, temporalClient, core.Config.NatsStreamName)
+	if err != nil {
+		log.ForContext(ctx).Error().Err(err).Msg("failed to subscribe tenant lifecycle trigger")
+		return
+	}
+	defer triggerCC.Stop()
 
-	if err := temporalWorker.EnsureZitadelSyncOrchestratorSchedule(ctx, temporalClient, zitadelSyncEvery); err != nil {
+	log.ForContext(ctx).Info().Dur("zitadel_sync_interval", zitadelSyncInterval).Msg("orchestrator schedule interval")
+
+	if err := temporalWorker.EnsureZitadelSyncOrchestratorSchedule(ctx, temporalClient, zitadelSyncInterval); err != nil {
 		log.ForContext(ctx).Error().Err(err).Msg("failed to ensure orchestrator schedule")
 	} else {
-		log.ForContext(ctx).Info().Dur("every", zitadelSyncEvery).Msg("orchestrator schedule ensured")
+		log.ForContext(ctx).Info().Dur("interval", zitadelSyncInterval).Msg("orchestrator schedule ensured")
+	}
+
+	tenantReconcileInterval, err := time.ParseDuration(core.Config.TenantReconcileInterval)
+	if err != nil || tenantReconcileInterval <= 0 {
+		log.ForContext(ctx).Error().Err(err).Msg("invalid TenantReconcileInterval value")
+		return
+	}
+
+	if err := temporalWorker.EnsureTenantReconcileSchedule(ctx, temporalClient, tenantReconcileInterval); err != nil {
+		log.ForContext(ctx).Error().Err(err).Msg("failed to ensure tenant reconcile schedule")
+	} else {
+		log.ForContext(ctx).Info().Dur("interval", tenantReconcileInterval).Msg("tenant reconcile schedule ensured")
+	}
+
+	tenantExpiryCheckInterval, err := time.ParseDuration(core.Config.TenantExpiryCheckInterval)
+	if err != nil || tenantExpiryCheckInterval <= 0 {
+		log.ForContext(ctx).Error().Err(err).Msg("invalid TenantExpiryCheckInterval value")
+		return
+	}
+
+	if err := temporalWorker.EnsureTenantExpiryCheckSchedule(ctx, temporalClient, tenantExpiryCheckInterval); err != nil {
+		log.ForContext(ctx).Error().Err(err).Msg("failed to ensure tenant expiry check schedule")
+	} else {
+		log.ForContext(ctx).Info().Dur("interval", tenantExpiryCheckInterval).Msg("tenant expiry check schedule ensured")
 	}
 
 	// Set up NATS auth service
@@ -364,6 +470,12 @@ func main() {
 		defer quickwitSync.Shutdown()
 	}
 
+	// Idempotency store (pyck#1123): writes records inside the mutation
+	// transaction via gqltx; janitor goroutine prunes committed rows after
+	// the 24h TTL.
+	idemStore := newIdempotencyStore(dbClient)
+	idempotency.NewJanitor(idemStore, 5*time.Minute, 24*time.Hour).Start(ctx)
+
 	// Set GraphQL server
 	gqlServer := handler.NewDefaultServer(resolvers.NewSchema(resolver))
 
@@ -372,7 +484,11 @@ func main() {
 		gqlServer.Use(extension.Introspection{})
 	}
 
-	gqlServer.Use(gqltx.NewMiddleware(dbClient, ent.NewTxContext, serviceName, core.Config.TxRetries))
+	gqlServer.Use(gqltx.NewMiddleware(
+		dbClient, ent.NewTxContext, serviceName, core.Config.TxRetries,
+		gqltx.WithIdempotency(idemStore, idempotency.DefaultAuthLookup),
+		gqltx.WithIdempotencyMaxResponseBytes(core.Config.IdempotencyMaxResponseBytes),
+	))
 	gqlServer.Use(gqltx.NewWorkflowReplyMiddleware(eventSystem.Registry(), core.Config.OutboxReplyTimeout))
 
 	gqlHandler := chi.NewRouter()
@@ -399,7 +515,16 @@ func main() {
 	httpRouter.Handle("/health", handlers.NewHealthCheckHandler(db.NewDbHealthChecker(pgxDriver.DB(), entdatatype.Table)))
 	httpRouter.Handle("/static/settings.json", mgmthandlers.NewSettingsHandler(core.Config.FrontendConfig))
 	httpRouter.Mount("/github", github.Router(core.Config.GithubClientID, core.Config.GithubClientSecret))
-	httpRouter.Mount("/webhook", webhooks.Router(temporalClient, zitadelsync.TenantSyncTaskQueue))
+	httpRouter.Mount("/webhook", webhooks.Router(webhooks.Config{
+		TemporalClient:       temporalClient,
+		TenantSyncTaskQueue:  zitadelsync.TenantSyncTaskQueue,
+		ZitadelAudience:      core.Config.ZitadelAudience,
+		ZitadelActionSignKey: core.Config.ZitadelActionSigningKey,
+
+		Publisher:                 jetstreamPub,
+		NatsStreamName:            core.Config.NatsStreamName,
+		ZitadelLoginActionSignKey: core.Config.ZitadelLoginActionSigningKey,
+	}))
 
 	httpAddr := net.JoinHostPort(core.Config.HTTPHost, strconv.Itoa(core.Config.HTTPPort))
 	httpServer := &nethttp.Server{

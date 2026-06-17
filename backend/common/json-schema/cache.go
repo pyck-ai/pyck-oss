@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hasura/go-graphql-client"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
@@ -25,16 +24,47 @@ var (
 
 const slugCacheKey = "%s/%s"
 
-type DataTypesCacheOptions struct {
-	GatewayURL  string
-	JwtToken    string
-	Consumer    *nats.ConsumerInfo
-	Stream      string
-	Topics      []string
-	ServiceName string
-}
+type (
+	// DataTypesClient retrieves all data types from an external source.
+	// This interface exists to break the circular dependency between common
+	// and management: management depends on common, so common cannot import
+	// management/api directly. The implementation lives in
+	// management/pkg/datatypes.
+	DataTypesClient interface {
+		GetDataTypes(ctx context.Context) ([]DataType, error)
+	}
 
-// NewDataTypesCache returns a DataTypesCache instance.
+	// DataTypesCacheOptions configures a DataTypesCache instance.
+	DataTypesCacheOptions struct {
+		Fetcher     DataTypesClient
+		Consumer    *nats.ConsumerInfo
+		Stream      string
+		Topics      []string
+		ServiceName string
+	}
+
+	// DataTypesCache is an in-memory cache of data type definitions fetched from
+	// the management service.
+	DataTypesCache struct {
+		fetcher     DataTypesClient
+		serviceName string
+		memStore    *memkv.InMemoryKVStore
+		consumer    jetstream.Consumer
+	}
+
+	// DataType represents a cached data type definition. It is stored in the
+	// in-memory KV store keyed by both ID and slug (scoped to tenant).
+	DataType struct {
+		ID         uuid.UUID `json:"id"`
+		Slug       string    `json:"slug"`
+		TenantID   uuid.UUID `json:"tenant_id"`
+		JsonSchema string    `json:"json_schema"`
+	}
+)
+
+// NewDataTypesCache returns a DataTypesCache instance. It creates a NATS
+// JetStream consumer for real-time data type events (unless a pre-existing
+// Consumer is provided in options).
 func NewDataTypesCache(ctx context.Context, js jetstream.JetStream, options DataTypesCacheOptions) (*DataTypesCache, error) {
 	logger := log.ForContext(ctx)
 
@@ -54,27 +84,11 @@ func NewDataTypesCache(ctx context.Context, js jetstream.JetStream, options Data
 	}
 
 	return &DataTypesCache{
-		gatewayURL:  options.GatewayURL,
-		token:       options.JwtToken,
+		fetcher:     options.Fetcher,
 		memStore:    memkv.NewInMemoryKVStore(0),
 		consumer:    cons,
 		serviceName: options.ServiceName,
 	}, nil
-}
-
-type DataTypesCache struct {
-	gatewayURL  string
-	token       string
-	serviceName string
-	memStore    *memkv.InMemoryKVStore
-	consumer    jetstream.Consumer
-}
-
-type DataType struct {
-	ID         uuid.UUID `json:"id"`
-	Slug       string    `json:"slug"`
-	TenantID   uuid.UUID `json:"tenant_id"`
-	JsonSchema string    `json:"json_schema"`
 }
 
 // ListenToEvents listen to the datatype topic and adds, updates and removes datatypes from the local memory cache.
@@ -189,97 +203,20 @@ func (dc *DataTypesCache) Delete(ctx context.Context, id uuid.UUID) {
 func (dc *DataTypesCache) RetrieveJsonSchemasToCache(ctx context.Context) error {
 	logger := log.ForContext(ctx)
 
-	// try to get jsonSchemaList
-	jsonSchemaList, err := dc.retrieveJsonSchemas(ctx, "")
-
-	// retry after the set time period
-	if jsonSchemaList == nil {
+	dataTypes, err := dc.fetcher.GetDataTypes(ctx)
+	if err != nil {
 		return err
 	}
 
 	logger.Info().Msg("Adding schemas to memory...")
-	totalCount := 0
-	for _, page := range jsonSchemaList {
-		totalCount = page.DataTypes.TotalCount
-		for _, j := range page.DataTypes.Edges {
-			dataType := DataType{
-				ID:         j.Node.ID,
-				JsonSchema: j.Node.JsonSchema,
-				Slug:       j.Node.Slug,
-				TenantID:   j.Node.TenantID,
-			}
-			dc.Update(dataType.ID, dataType)
-		}
+	for _, dt := range dataTypes {
+		dc.Update(dt.ID, dt)
 	}
-	logger.Info().Int("count", totalCount).Msg("Schemas successfully added to memory")
+	logger.Info().Int("count", len(dataTypes)).Msg("Schemas successfully added to memory")
 
 	return nil
 }
 
 func (dc *DataTypesCache) getSlugCacheKey(slug string, tenantID *uuid.UUID) string {
 	return fmt.Sprintf(slugCacheKey, slug, tenantID.String())
-}
-
-type dataTypesQuery struct {
-	DataTypes struct {
-		TotalCount int
-		Edges      []struct {
-			Node struct {
-				ID         uuid.UUID
-				JsonSchema string
-				Slug       string
-				TenantID   uuid.UUID `graphql:"tenantID"`
-			}
-			Cursor string
-		}
-		PageInfo struct {
-			HasNextPage     bool
-			HasPreviousPage bool
-			StartCursor     *string
-			EndCursor       *string
-		}
-	} `graphql:"dataTypes(first:$first, after: $cursorID)"`
-}
-
-func (dc *DataTypesCache) retrieveJsonSchemas(ctx context.Context, after string) ([]*dataTypesQuery, error) {
-	logger := log.ForContext(ctx)
-	fetchedResults := []*dataTypesQuery{}
-
-	header := map[string]string{
-		"Authorization": "Bearer " + dc.token,
-	}
-
-	httpHeaderClient := NewHTTPClientWithHeaders(nil, header)
-	graphqlClient := graphql.NewClient(dc.gatewayURL, httpHeaderClient)
-
-	type Cursor interface{}
-	variables := map[string]interface{}{
-		"first":    50,
-		"cursorID": (*Cursor)(nil),
-	}
-
-	var res dataTypesQuery
-	err := graphqlClient.Query(ctx, &res, variables)
-	if err != nil {
-		logger.Err(err).Msg("opening connection to management")
-		return nil, err
-	}
-	fetchedResults = append(fetchedResults, &res)
-
-	// grab next pages
-	var cursorID Cursor = res.DataTypes.PageInfo.EndCursor
-	nextPage := res.DataTypes.PageInfo.HasNextPage
-	for nextPage {
-		var res dataTypesQuery
-		variables["cursorID"] = &cursorID
-		err := graphqlClient.Query(ctx, &res, variables)
-		if err != nil {
-			logger.Err(err).Msg("opening connection to management")
-			return nil, err
-		}
-		fetchedResults = append(fetchedResults, &res)
-		nextPage = res.DataTypes.PageInfo.HasNextPage
-		cursorID = res.DataTypes.PageInfo.EndCursor
-	}
-	return fetchedResults, err
 }

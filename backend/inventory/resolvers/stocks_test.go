@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Yamashou/gqlgenc/clientv2"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/gqlgo/gqlgenc/clientv2"
 	"github.com/riandyrn/otelchi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1048,18 +1048,43 @@ func latestCreatedAt(
 // STOCK TESTS
 // =============================================================================
 
-// TestStockPlausibility runs table-driven tests for stock movements with plausibility checks.
+// TestStockPlausibility runs table-driven tests for stock movements with plausibility checks
+// against the SQLite-backed Go orchestration path.
 //
 //nolint:tparallel // Subtests execute sequentially to maintain order of movements and validations
 func TestStockPlausibility(t *testing.T) {
 	t.Parallel()
+	runStockPlausibilityScenarios(t, setup)
+}
+
+// TestStockPlausibilityPostgres runs the SAME table-driven stock scenarios against
+// an embedded PostgreSQL instance with all SQL migrations applied (including
+// inventory.create_item_movement_proc). On this path, CreateInventoryItemMovement
+// dispatches through the proc rather than the Go orchestration body, which lets us
+// observe SQLite ↔ Postgres behavioral differences and surface proc-only bugs.
+//
+//nolint:tparallel // Subtests execute sequentially to maintain order of movements and validations
+func TestStockPlausibilityPostgres(t *testing.T) {
+	t.Parallel()
+	pg := startEmbeddedPostgres(t)
+	runStockPlausibilityScenarios(t, func(t *testing.T) *testEnv {
+		t.Helper()
+		return setupPostgres(t, pg)
+	})
+}
+
+// runStockPlausibilityScenarios is the shared body for the two TestStockPlausibility*
+// variants. setupFn is either the SQLite-backed `setup` or the embedded-Postgres
+// `setupPostgres` adapter.
+func runStockPlausibilityScenarios(t *testing.T, setupFn func(*testing.T) *testEnv) {
+	t.Helper()
 
 	scenarios := loadScenarios(t)
 
 	//nolint:paralleltest
 	for _, scenario := range scenarios {
 		t.Run(scenario.Name, func(t *testing.T) {
-			env := setup(t)
+			env := setupFn(t)
 			ctx := env.ctx(userA)
 			apiClient := setupAPIClient(t, env)
 

@@ -1525,6 +1525,17 @@ type TenantWhereInput struct {
 	IdpOrgRefHasSuffix    *string  `json:"idpOrgRefHasSuffix,omitempty"`
 	IdpOrgRefEqualFold    *string  `json:"idpOrgRefEqualFold,omitempty"`
 	IdpOrgRefContainsFold *string  `json:"idpOrgRefContainsFold,omitempty"`
+	// expires_at field predicates
+	ExpiresAt       *time.Time   `json:"expiresAt,omitempty"`
+	ExpiresAtNeq    *time.Time   `json:"expiresAtNEQ,omitempty"`
+	ExpiresAtIn     []*time.Time `json:"expiresAtIn,omitempty"`
+	ExpiresAtNotIn  []*time.Time `json:"expiresAtNotIn,omitempty"`
+	ExpiresAtGt     *time.Time   `json:"expiresAtGT,omitempty"`
+	ExpiresAtGte    *time.Time   `json:"expiresAtGTE,omitempty"`
+	ExpiresAtLt     *time.Time   `json:"expiresAtLT,omitempty"`
+	ExpiresAtLte    *time.Time   `json:"expiresAtLTE,omitempty"`
+	ExpiresAtIsNil  *bool        `json:"expiresAtIsNil,omitempty"`
+	ExpiresAtNotNil *bool        `json:"expiresAtNotNil,omitempty"`
 	// tenantUsers edge predicates
 	HasTenantUsers     *bool             `json:"hasTenantUsers,omitempty"`
 	HasTenantUsersWith []*UserWhereInput `json:"hasTenantUsersWith,omitempty"`
@@ -2699,6 +2710,7 @@ const (
 	TenantOrderFieldDeletedBy TenantOrderField = "DELETED_BY"
 	TenantOrderFieldName      TenantOrderField = "NAME"
 	TenantOrderFieldIDPOrgRef TenantOrderField = "IDP_ORG_REF"
+	TenantOrderFieldExpiresAt TenantOrderField = "EXPIRES_AT"
 )
 
 var AllTenantOrderField = []TenantOrderField{
@@ -2710,11 +2722,12 @@ var AllTenantOrderField = []TenantOrderField{
 	TenantOrderFieldDeletedBy,
 	TenantOrderFieldName,
 	TenantOrderFieldIDPOrgRef,
+	TenantOrderFieldExpiresAt,
 }
 
 func (e TenantOrderField) IsValid() bool {
 	switch e {
-	case TenantOrderFieldCreatedAt, TenantOrderFieldCreatedBy, TenantOrderFieldUpdatedAt, TenantOrderFieldUpdatedBy, TenantOrderFieldDeletedAt, TenantOrderFieldDeletedBy, TenantOrderFieldName, TenantOrderFieldIDPOrgRef:
+	case TenantOrderFieldCreatedAt, TenantOrderFieldCreatedBy, TenantOrderFieldUpdatedAt, TenantOrderFieldUpdatedBy, TenantOrderFieldDeletedAt, TenantOrderFieldDeletedBy, TenantOrderFieldName, TenantOrderFieldIDPOrgRef, TenantOrderFieldExpiresAt:
 		return true
 	}
 	return false

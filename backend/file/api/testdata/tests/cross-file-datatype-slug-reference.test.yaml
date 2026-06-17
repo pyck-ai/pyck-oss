@@ -1,0 +1,97 @@
+---
+name: "Cross - File Data Type Slug Reference"
+description: >
+  Creates a data type with a slug, then creates a file that references it
+  via dataTypeSlug + custom data. Exercises the file service's data type
+  cache (cache is populated via the NATS event emitted by createDataType).
+steps:
+  - id: createDT
+    name: "Create data type with slug for files"
+    operation: management.createDataType
+    # Give the NATS create event time to propagate into the file service's
+    # in-memory data type cache before the next step resolves the slug.
+    wait_after_ms: 500
+    vars:
+      input:
+        name: "Slug File Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "file"
+        jsonSchema: '{"type":"object","properties":{"category":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created with slug"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.slug
+            nil: false
+
+  - id: create
+    name: "Create file via slug (resolves through cache)"
+    operation: file.createFile
+    vars:
+      input:
+        refid: {$fake: uuid}
+        reftype: supplier
+        name: "invoice-2026.pdf"
+        size: 102400
+        contentType: "application/pdf"
+        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        data:
+          category: "invoice"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "File created"
+        assertions:
+          - ref: res.body.data.createFile.id
+            nil: false
+      - msg: "DataTypeID populated from cache lookup"
+        assertions:
+          - ref: res.body.data.createFile.file.dataTypeID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}
+      - msg: "DataTypeSlug persisted"
+        assertions:
+          - ref: res.body.data.createFile.file.dataTypeSlug
+            equal: {$ref: "res[createDT].body.data.createDataType.slug"}
+
+  - name: "Cleanup - delete file"
+    operation: file.deleteFile
+    vars:
+      id: {$ref: "res[create].body.data.createFile.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

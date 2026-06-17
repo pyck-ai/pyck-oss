@@ -5,15 +5,15 @@ import (
 	"net"
 	nethttp "net/http"
 	"strconv"
+	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
-	"github.com/Yamashou/gqlgenc/clientv2"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
+	"github.com/gqlgo/gqlgenc/clientv2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
@@ -26,6 +26,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/handlers"
 	"github.com/pyck-ai/pyck/backend/common/hooks"
 	"github.com/pyck-ai/pyck/backend/common/http"
+	"github.com/pyck-ai/pyck/backend/common/idempotency"
 	json_schema "github.com/pyck-ai/pyck/backend/common/json-schema"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	logadapter "github.com/pyck-ai/pyck/backend/common/log/adapter"
@@ -34,14 +35,15 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/std"
 	"github.com/pyck-ai/pyck/backend/common/tenant"
 	"github.com/pyck-ai/pyck/backend/common/validator"
-
 	managementapi "github.com/pyck-ai/pyck/backend/management/api"
 	managementguard "github.com/pyck-ai/pyck/backend/management/guard"
+	managementdatatype "github.com/pyck-ai/pyck/backend/management/pkg/datatypes"
 
 	"github.com/pyck-ai/pyck/backend/main-data/core"
 	ent "github.com/pyck-ai/pyck/backend/main-data/ent/gen"
 	"github.com/pyck-ai/pyck/backend/main-data/ent/gen/customer"
 	_ "github.com/pyck-ai/pyck/backend/main-data/ent/gen/runtime"
+	entmigrate "github.com/pyck-ai/pyck/backend/main-data/ent/migrate"
 	"github.com/pyck-ai/pyck/backend/main-data/resolvers"
 )
 
@@ -101,12 +103,12 @@ func main() {
 	}
 	defer tracer.Close()
 
-	// Set up auth provider
-	zitadelClient := zitadel.NewClient(core.Config.ZitadelConfig)
-	authProvider := authn.NewZitadelAuthProvider(zitadelClient, core.Config.ZitadelConfig)
-
 	// Set up database
-	pgxDriver, err := db.NewPostgresMultiDriver(serviceName, core.Config.DbConfig)
+	pgxDriver, err := db.NewPostgresMultiDriver(
+		serviceName,
+		core.Config.DbConfig,
+		db.WithWriterIsolation("serializable"),
+	)
 	if err != nil {
 		log.ForContext(ctx).Fatal().
 			Err(err).
@@ -120,7 +122,7 @@ func main() {
 		ctx,
 		pgxDriver.DB(),
 		serviceName,
-		core.Config.ServicesPath,
+		entmigrate.Migrations,
 	); err != nil {
 		log.ForContext(ctx).Fatal().
 			Err(err).
@@ -160,6 +162,25 @@ func main() {
 			Msg("failed setting up JetStream")
 		return
 	}
+
+	// Auth path: introspection via Zitadel; org-active probe routed
+	// through the federation gateway to management's `organization`
+	// resolver. The revocation subscriber evicts cached entries within
+	// the JetStream-propagation window when a tenant is disabled.
+	authProvider, revocationCC, err := authn.NewProviderWithRevocation(
+		ctx,
+		zitadel.NewClient(core.Config.ZitadelConfig),
+		core.Config.ZitadelConfig,
+		managementapi.NewOrganizationValidator(mgmtClient),
+		jetstreamClient,
+		core.Config.NatsStreamName,
+		serviceName,
+	)
+	if err != nil {
+		log.ForContext(ctx).Fatal().Err(err).Msg("failed to set up auth provider")
+		return
+	}
+	defer revocationCC.Stop()
 
 	jetstreamPub, err := events.NewEventPublisher(jetstreamClient, natsClient, core.Config.NatsStreamName, core.Config.NatsReplyTimeout)
 	if err != nil {
@@ -202,9 +223,8 @@ func main() {
 
 	// Set up data types validator
 	dataTypesCache, err := json_schema.NewDataTypesCache(ctx, jetstreamClient, json_schema.DataTypesCacheOptions{
-		GatewayURL: core.Config.GatewayUrl,
-		JwtToken:   core.Config.ServiceToken,
-		Stream:     core.Config.NatsStreamName,
+		Fetcher: managementdatatype.NewDataTypeClient(mgmtClient),
+		Stream:  core.Config.NatsStreamName,
 		Topics: []string{
 			core.Config.NatsStreamName + ".*.crud.management.datatype.*.create",
 			core.Config.NatsStreamName + ".*.crud.management.datatype.*.update",
@@ -231,8 +251,18 @@ func main() {
 	// Set up GraphQL server
 	dataTypeValidator := validator.NewValidator(dataTypesCache)
 	resolver := resolvers.NewResolver(serviceName, dbClient, dataTypeValidator)
+	// Idempotency store (pyck#1123): writes records inside the mutation
+	// transaction via gqltx; janitor goroutine prunes committed rows after
+	// the 24h TTL.
+	idemStore := newIdempotencyStore(dbClient)
+	idempotency.NewJanitor(idemStore, 5*time.Minute, 24*time.Hour).Start(ctx)
+
 	gqlServer := handler.NewDefaultServer(resolvers.NewSchema(resolver))
-	gqlServer.Use(gqltx.NewMiddleware(dbClient, ent.NewTxContext, serviceName, core.Config.TxRetries))
+	gqlServer.Use(gqltx.NewMiddleware(
+		dbClient, ent.NewTxContext, serviceName, core.Config.TxRetries,
+		gqltx.WithIdempotency(idemStore, idempotency.DefaultAuthLookup),
+		gqltx.WithIdempotencyMaxResponseBytes(core.Config.IdempotencyMaxResponseBytes),
+	))
 	gqlServer.Use(gqltx.NewWorkflowReplyMiddleware(eventSystem.Registry(), core.Config.OutboxReplyTimeout))
 
 	gqlHandler := chi.NewRouter()

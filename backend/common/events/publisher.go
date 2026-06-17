@@ -15,12 +15,6 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/std"
 )
 
-const (
-	OpCreate = "create"
-	OpUpdate = "update"
-	OpDelete = "delete"
-)
-
 var (
 	ErrReplyFailed = errors.New("reply indicates failure")
 
@@ -68,6 +62,50 @@ type EventReply struct {
 	Error   string          `json:"error,omitempty"`
 	Data    json.RawMessage `json:"data,omitempty"`
 	Msg     *nats.Msg       `json:"-"`
+}
+
+// ReplyTransport delivers workflow-reply payloads between pods over core NATS
+// pub/sub. The outbox handler that processed a row (any replica) publishes the
+// reply; the resolver pod that is waiting subscribed for it. This decouples
+// delivery from the in-process ReplyRegistry map, so the reply reaches the
+// waiting pod even when a different pod's outbox handler processed the row.
+//
+// Subjects live outside the JetStream stream's "<stream>.>" capture, so this is
+// ephemeral core NATS (like request/reply inboxes), never persisted.
+type ReplyTransport interface {
+	// PublishReply sends a reply payload to subject (fire-and-forget core NATS).
+	PublishReply(subject string, data []byte) error
+	// SubscribeReply registers interest in subject and invokes handler for each
+	// message received. It flushes before returning so the server has registered
+	// the subscription, closing the race where a reply is published immediately
+	// after. Returns an unsubscribe func the caller must invoke to release it.
+	SubscribeReply(subject string, handler func(data []byte)) (unsubscribe func() error, err error)
+}
+
+var _ ReplyTransport = (*EventPublisher)(nil)
+
+// PublishReply implements ReplyTransport.
+func (e *EventPublisher) PublishReply(subject string, data []byte) error {
+	return e.natsClient.Publish(subject, data)
+}
+
+// SubscribeReply implements ReplyTransport.
+func (e *EventPublisher) SubscribeReply(subject string, handler func(data []byte)) (func() error, error) {
+	sub, err := e.natsClient.Subscribe(subject, func(msg *nats.Msg) {
+		handler(msg.Data)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure the server has the subscription before we return: a reply
+	// published right after Register must not race ahead of the interest.
+	if err := e.natsClient.Flush(); err != nil {
+		_ = sub.Unsubscribe()
+		return nil, fmt.Errorf("failed to flush reply subscription: %w", err)
+	}
+
+	return sub.Unsubscribe, nil
 }
 
 type EventPublisher struct {

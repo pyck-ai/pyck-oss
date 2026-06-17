@@ -1,0 +1,11 @@
+info:
+  name: Cross - Inventory Data Type Cache Propagation
+  type: folder
+  seq: 1
+
+docs: |-
+  Verifies that DataType create, update, and delete events emitted by management propagate through NATS to the inventory service's in-memory cache. Each phase mutates the data type in management and proves the resulting cache state by issuing a slug-based mutation in inventory.
+
+
+request:
+  auth: inherit

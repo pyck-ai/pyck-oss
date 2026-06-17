@@ -17,12 +17,12 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/validator"
-	"github.com/pyck-ai/pyck/backend/receiving"
 	"github.com/pyck-ai/pyck/backend/receiving/core"
 	ent "github.com/pyck-ai/pyck/backend/receiving/ent/gen"
 	"github.com/pyck-ai/pyck/backend/receiving/ent/gen/inbound"
 	"github.com/pyck-ai/pyck/backend/receiving/ent/gen/inbounditem"
 	"github.com/pyck-ai/pyck/backend/receiving/ent/gen/inboundshipmentnotification"
+	"github.com/pyck-ai/pyck/backend/receiving/exec"
 	"github.com/pyck-ai/pyck/backend/receiving/model"
 )
 
@@ -184,7 +184,7 @@ func (r *mutationResolver) DeleteReceivingInbound(ctx context.Context, id uuid.U
 	items, err := tx.InboundItem.
 		Query().
 		Where(inbounditem.InboundID(id)).
-		All(ctx)
+		AllPages(ctx, mixin.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -535,7 +535,7 @@ func (r *mutationResolver) PatchReceivingInboundShipmentNotificationData(ctx con
 	return &model.ReceivingInboundShipmentNotificationOutput{ReceivingInboundShipmentNotification: updated}, nil
 }
 
-// Mutation returns receiving.MutationResolver implementation.
-func (r *Resolver) Mutation() receiving.MutationResolver { return &mutationResolver{r} }
+// Mutation returns exec.MutationResolver implementation.
+func (r *Resolver) Mutation() exec.MutationResolver { return &mutationResolver{r} }
 
 type mutationResolver struct{ *Resolver }

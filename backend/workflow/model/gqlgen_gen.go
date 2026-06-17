@@ -155,8 +155,17 @@ type UserDataInputQueryInput struct {
 }
 
 type WorkflowActionsWhereInput struct {
-	Name    *string `json:"name,omitempty"`
-	Enabled *bool   `json:"enabled,omitempty"`
+	// name field predicates
+	Name             *string  `json:"name,omitempty"`
+	NameNeq          *string  `json:"nameNEQ,omitempty"`
+	NameIn           []string `json:"nameIn,omitempty"`
+	NameNotIn        []string `json:"nameNotIn,omitempty"`
+	NameContains     *string  `json:"nameContains,omitempty"`
+	NameHasPrefix    *string  `json:"nameHasPrefix,omitempty"`
+	NameHasSuffix    *string  `json:"nameHasSuffix,omitempty"`
+	NameEqualFold    *string  `json:"nameEqualFold,omitempty"`
+	NameContainsFold *string  `json:"nameContainsFold,omitempty"`
+	Enabled          *bool    `json:"enabled,omitempty"`
 }
 
 type WorkflowDeletePayload struct {

@@ -28,11 +28,17 @@ request:
         const tenantIDEnvVar = "env_pyck_tenant_id"
 
         function decodeJWT(t) {
+          // atob+padding avoids Buffer.from, which crashes Bruno's QuickJS
+          // WASM sandbox ("memory access out of bounds") when t is missing
+          // the payload segment or has malformed base64-url padding.
+          if (typeof t !== 'string') return null;
           try {
-            return JSON.parse(Buffer.from(
-              t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'
-            ), 'base64').toString('utf8'))
-          }                                                                                               catch (e) {
+            const parts = t.split('.');
+            if (parts.length < 2) return null;
+            const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            const padded = payload + '='.repeat((4 - payload.length % 4) % 4);
+            return JSON.parse(atob(padded));
+          } catch (e) {
             return null;
           }
         }
@@ -102,7 +108,51 @@ request:
           throw new Error(`[Auth] 🛑 No token available. Please run 'Zitadel Login' once.`);
         }
 
+        // Lazily initialize {{bru_idem_<suite>}} placeholders with a fresh
+        // UUID, so each Bruno run gets a unique idempotency key per
+        // suite. All steps in the suite that share the same placeholder
+        // resolve to the same value (fresh→replay→mismatch chain works),
+        // but the cached server-side row from a previous run no longer
+        // poisons the new run.
+        //
+        // The header value in the test fixture stays literal:
+        //   Idempotency-Key: "{{bru_idem_file}}"
+        // and Bruno substitutes it at request-send time after this hook
+        // has populated the var.
+        // Resolved per-suite key vars are kept alphanumeric (no
+        // hyphens) so the same value can also be embedded in fields
+        // that require identifier-style strings, e.g. a workflow name:
+        //   name: "BrunoIdem{{bru_idem_workflow}}"
+        // Two var-name conventions:
+        //   bru_idem_<svc>      → 16-char random hex (normal idempotency keys)
+        //   bru_idem_<svc>_max  → 255-char string (16 hex + 239 'x') for the
+        //                         maxLengthKey boundary test, randomized per
+        //                         run so the cached row from a previous run
+        //                         doesn't collide with per-run-fresh vars
+        //                         (e.g. main-data's setupDT dataTypeID).
+        function ensureIdempotencyKey() {
+          const raw = req.getHeader("Idempotency-Key");
+          if (!raw) return;
+          const m = raw.match(/^\{\{(bru_idem_[A-Za-z0-9_]+)\}\}$/);
+          if (!m) return;
+          const varName = m[1];
+          if (!bru.getVar(varName)) {
+            // QuickJS sandbox has no crypto module — Math.random()
+            // is sufficient for idempotency keys (only needs to be
+            // unique within the cluster, not cryptographically secure).
+            let val = '';
+            for (let i = 0; i < 16; i++) {
+              val += (Math.random() * 16 | 0).toString(16);
+            }
+            if (varName.endsWith('_max')) {
+              val = val + 'x'.repeat(255 - val.length);
+            }
+            bru.setVar(varName, val);
+          }
+        }
+
         ensureTenantID();
         ensureAuthentication();
+        ensureIdempotencyKey();
 bundled: false
 extensions: {}

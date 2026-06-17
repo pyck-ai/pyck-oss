@@ -1,4 +1,61 @@
 zitadel:
+  # Actions v2 webhook Target that emits pyck_tenant_id as a plain
+  # top-level OIDC claim. Instance-scoped — one provisioning per Zitadel
+  # instance. Zitadel mints the HMAC signing_key at CreateTarget;
+  # bootstrap NEVER persists it locally — it goes straight from the
+  # Zitadel response into the exports below.
+  #
+  # key-creation guards drive idempotency: before any Zitadel call,
+  # bootstrap checks whether the signing-key entry is already at its
+  # destination. If yes, the entire provisioning is skipped on this run.
+  # If no (e.g. fresh stage, deleted Secret), the Target is recreated and
+  # the new key flows through exports.
+  #
+  # On K8s stages, swap the env/process-env entries below for `type: k8s`
+  # (the guard checks the Secret's existence; the export writes the key
+  # into the same Secret).
+  pre_token_action:
+    key-creation:
+      - type: env
+        file: config/keys/bootstrap.env
+        name: PYCK_ZITADEL_ACTION_SIGNING_KEY
+    exports:
+      - type: env
+        file: config/keys/bootstrap.env
+        name: PYCK_ZITADEL_ACTION_SIGNING_KEY
+        field: signing_key
+      - type: process-env
+        name: PYCK_ZITADEL_ACTION_SIGNING_KEY
+        field: signing_key
+
+  # Actions v2 Event Executions that POST to pyck-management on human login
+  # (password / external-IdP / passkey checks), so management publishes a NATS
+  # login event. Separate Target (RestWebhook) from pre_token_action, with its
+  # own HMAC signing_key.
+  #
+  # Self-healing (same as pre_token_action): the key-creation guard checks the
+  # export destination on every run. If the key is missing there — even when
+  # the Zitadel Target still exists — bootstrap rotates the Target to mint and
+  # re-export a fresh key (Zitadel can't return an existing Target's key). So a
+  # wiped bootstrap.env / deleted Secret heals on the next run, no manual step.
+  #
+  # On K8s, swap the env/process-env entries (key-creation and exports) for
+  # `type: k8s` (same Secret as the pre-token key) and map
+  # PYCK_ZITADEL_LOGIN_ACTION_SIGNING_KEY into the pyck-management container env.
+  login_event_action:
+    key-creation:
+      - type: env
+        file: config/keys/bootstrap.env
+        name: PYCK_ZITADEL_LOGIN_ACTION_SIGNING_KEY
+    exports:
+      - type: env
+        file: config/keys/bootstrap.env
+        name: PYCK_ZITADEL_LOGIN_ACTION_SIGNING_KEY
+        field: signing_key
+      - type: process-env
+        name: PYCK_ZITADEL_LOGIN_ACTION_SIGNING_KEY
+        field: signing_key
+
   organizations:
     - name: Zitadel
       exports:

@@ -9,7 +9,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pyck-ai/pyck/backend/management"
+	"github.com/pyck-ai/pyck/backend/management/exec"
 	"github.com/pyck-ai/pyck/backend/management/model"
 )
 
@@ -23,7 +23,7 @@ func (r *customEventResolver) Payload(ctx context.Context, obj *model.CustomEven
 	panic(fmt.Errorf("not implemented: Payload - payload"))
 }
 
-// CustomEvent returns management.CustomEventResolver implementation.
-func (r *Resolver) CustomEvent() management.CustomEventResolver { return &customEventResolver{r} }
+// CustomEvent returns exec.CustomEventResolver implementation.
+func (r *Resolver) CustomEvent() exec.CustomEventResolver { return &customEventResolver{r} }
 
 type customEventResolver struct{ *Resolver }

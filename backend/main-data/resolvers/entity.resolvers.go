@@ -11,8 +11,8 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-	maindata "github.com/pyck-ai/pyck/backend/main-data"
 	"github.com/pyck-ai/pyck/backend/main-data/ent/gen"
+	"github.com/pyck-ai/pyck/backend/main-data/exec"
 )
 
 // FindCustomerByID is the resolver for the findCustomerByID field.
@@ -39,7 +39,7 @@ func (r *entityResolver) FindSupplierByID(ctx context.Context, id uuid.UUID) (*g
 	return supplier, nil
 }
 
-// Entity returns maindata.EntityResolver implementation.
-func (r *Resolver) Entity() maindata.EntityResolver { return &entityResolver{r} }
+// Entity returns exec.EntityResolver implementation.
+func (r *Resolver) Entity() exec.EntityResolver { return &entityResolver{r} }
 
 type entityResolver struct{ *Resolver }

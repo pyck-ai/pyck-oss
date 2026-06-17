@@ -5125,6 +5125,20 @@ var (
 			}
 		},
 	}
+	// TenantOrderFieldExpiresAt orders Tenant by expires_at.
+	TenantOrderFieldExpiresAt = &TenantOrderField{
+		Value: func(_m *Tenant) (ent.Value, error) {
+			return _m.ExpiresAt, nil
+		},
+		column: tenant.FieldExpiresAt,
+		toTerm: tenant.ByExpiresAt,
+		toCursor: func(_m *Tenant) Cursor {
+			return Cursor{
+				ID:    _m.ID,
+				Value: _m.ExpiresAt,
+			}
+		},
+	}
 )
 
 // String implement fmt.Stringer interface.
@@ -5147,6 +5161,8 @@ func (f TenantOrderField) String() string {
 		str = "NAME"
 	case TenantOrderFieldIdpOrgRef.column:
 		str = "IDP_ORG_REF"
+	case TenantOrderFieldExpiresAt.column:
+		str = "EXPIRES_AT"
 	}
 	return str
 }
@@ -5179,6 +5195,8 @@ func (f *TenantOrderField) UnmarshalGQL(v interface{}) error {
 		*f = *TenantOrderFieldName
 	case "IDP_ORG_REF":
 		*f = *TenantOrderFieldIdpOrgRef
+	case "EXPIRES_AT":
+		*f = *TenantOrderFieldExpiresAt
 	default:
 		return fmt.Errorf("%s is not a valid TenantOrderField", str)
 	}

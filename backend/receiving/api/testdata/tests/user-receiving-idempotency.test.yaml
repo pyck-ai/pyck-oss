@@ -1,0 +1,189 @@
+---
+name: "User - Receiving Idempotency"
+description: >
+  Idempotency-Key middleware exercise on the receiving service via
+  createReceivingInbound. See backend/inventory/api/testdata/tests/cross-inventory-idempotency.test.yaml
+  for the full design notes — this fixture mirrors it.
+
+steps:
+  - id: fresh
+    name: "Fresh call with key"
+    operation: receiving.createReceivingInbound
+    headers:
+      Idempotency-Key: "bruno-idem-receiving-replay-001"
+    vars:
+      input:
+        supplierID: "00000000-0000-0000-0000-000000000002"
+        orderID: "PO-BRUNO-IDEM-001"
+        inboundItems:
+          - sku: "BRUNO-IDEM-RCV-SKU-001"
+            quantity: 1
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "ReceivingInbound created"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+
+  - id: replay
+    name: "Replay with the same key"
+    operation: receiving.createReceivingInbound
+    headers:
+      Idempotency-Key: "bruno-idem-receiving-replay-001"
+    vars:
+      input:
+        supplierID: "00000000-0000-0000-0000-000000000002"
+        orderID: "PO-BRUNO-IDEM-001"
+        inboundItems:
+          - sku: "BRUNO-IDEM-RCV-SKU-001"
+            quantity: 1
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Same ReceivingInbound id as fresh call"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            equal: {$ref: "res[fresh].body.data.createReceivingInbound.receivingInbound.id"}
+
+  - id: mismatch
+    name: "Same key, different variables — OPERATION_MISMATCH"
+    operation: receiving.createReceivingInbound
+    headers:
+      Idempotency-Key: "bruno-idem-receiving-replay-001"
+    vars:
+      input:
+        supplierID: "00000000-0000-0000-0000-0000000000ff"
+        orderID: "PO-MISMATCH-XYZ"
+        inboundItems:
+          - sku: "BRUNO-IDEM-RCV-MISMATCH-XYZ"
+            quantity: 2
+    tests:
+      - msg: "errors[].extensions.code is OPERATION_MISMATCH"
+        assertions:
+          - ref: res.body.errors[0].extensions.code
+            equal: "OPERATION_MISMATCH"
+      - msg: "errors[].extensions.httpStatus is 422"
+        assertions:
+          - ref: res.body.errors[0].extensions.httpStatus
+            equal: 422
+
+  - id: malformedKey
+    name: "256-char key — INVALID_IDEMPOTENCY_KEY"
+    operation: receiving.createReceivingInbound
+    headers:
+      Idempotency-Key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    vars:
+      input:
+        supplierID: "00000000-0000-0000-0000-000000000002"
+        orderID: "PO-NEVER-CREATED"
+        inboundItems:
+          - sku: "NEVER-CREATED"
+            quantity: 1
+    tests:
+      - msg: "errors[].extensions.code is INVALID_IDEMPOTENCY_KEY"
+        assertions:
+          - ref: res.body.errors[0].extensions.code
+            equal: "INVALID_IDEMPOTENCY_KEY"
+      - msg: "errors[].extensions.httpStatus is 400"
+        assertions:
+          - ref: res.body.errors[0].extensions.httpStatus
+            equal: 400
+
+  - id: emptyKey
+    name: "Empty header value — degrades to no-key behavior"
+    description: >
+      An empty Idempotency-Key value is treated as if the header was
+      absent. orderID is randomized so re-runs don't collide.
+    operation: receiving.createReceivingInbound
+    headers:
+      Idempotency-Key: ""
+    vars:
+      input:
+        supplierID: "00000000-0000-0000-0000-000000000002"
+        orderID: {$fake: "PO-BRUNO-IDEM-EMPTY-{{nonce}}"}
+        inboundItems:
+          - sku: "BRUNO-IDEM-RCV-EMPTY-001"
+            quantity: 1
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Fresh ReceivingInbound created (no replay)"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+
+  - id: whitespaceKey
+    name: "Whitespace-only header value — degrades to no-key behavior"
+    description: >
+      Whitespace-only header is trimmed and treated as absent.
+    operation: receiving.createReceivingInbound
+    headers:
+      Idempotency-Key: "   "
+    vars:
+      input:
+        supplierID: "00000000-0000-0000-0000-000000000002"
+        orderID: {$fake: "PO-BRUNO-IDEM-WS-{{nonce}}"}
+        inboundItems:
+          - sku: "BRUNO-IDEM-RCV-WS-001"
+            quantity: 1
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Fresh ReceivingInbound created (no replay)"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+
+  - id: maxLengthKey
+    name: "255-char key — exact maximum is accepted"
+    description: >
+      Positive boundary: collection hook pads
+      {{bru_idem_receiving_max}} to 255 chars per run.
+    operation: receiving.createReceivingInbound
+    headers:
+      Idempotency-Key: "{{bru_idem_receiving_max}}"
+    vars:
+      input:
+        supplierID: "00000000-0000-0000-0000-000000000002"
+        orderID: "PO-BRUNO-IDEM-MAX-001"
+        inboundItems:
+          - sku: "BRUNO-IDEM-RCV-MAX-001"
+            quantity: 1
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "ReceivingInbound created at max-length boundary"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false

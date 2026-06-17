@@ -9,9 +9,9 @@ import (
 
 	"entgo.io/ent/dialect"
 	"github.com/99designs/gqlgen/graphql/handler"
-	"github.com/Yamashou/gqlgenc/clientv2"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/gqlgo/gqlgenc/clientv2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -19,6 +19,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/feature"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
 	json_schema "github.com/pyck-ai/pyck/backend/common/json-schema"
@@ -36,7 +37,7 @@ import (
 	entreplenishmentorderitem "github.com/pyck-ai/pyck/backend/inventory/ent/gen/replenishmentorderitem"
 	"github.com/pyck-ai/pyck/backend/inventory/model"
 	"github.com/pyck-ai/pyck/backend/inventory/resolvers"
-	"github.com/pyck-ai/pyck/backend/inventory/services"
+	"github.com/pyck-ai/pyck/backend/inventory/service/stock"
 )
 
 var (
@@ -65,7 +66,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, *ent.Client, context.Conte
 
 	// Set up resolver dependencies
 	publisher := new(mocks.MockPublisher)
-	inventoryStock, _ := services.NewInventoryStockService()
+	inventoryStock, _ := stock.New(dialect.SQLite, nil)
 	dataTypeProvider := new(mocks.MockDataTypeProvider)
 	validator := validator.NewValidator(dataTypeProvider)
 
@@ -243,7 +244,7 @@ func TestReplenishmentOrderCreate(t *testing.T) {
 			assert.Equal(t, *tt.orderInput.SupplierID, dbOrder.SupplierID)
 
 			// Verify items were created
-			items, err := dbOrder.QueryReplenishmentOrderItems().All(ctx)
+			items, err := dbOrder.QueryReplenishmentOrderItems().AllPages(ctx, mixin.Limit)
 			require.NoError(t, err)
 			assert.Len(t, items, tt.itemCount)
 
@@ -467,7 +468,7 @@ func TestReplenishmentOrderUpdate(t *testing.T) {
 			require.NoError(t, err)
 
 			// Verify items still exist
-			items, err := dbOrder.QueryReplenishmentOrderItems().All(ctx)
+			items, err := dbOrder.QueryReplenishmentOrderItems().AllPages(ctx, mixin.Limit)
 			require.NoError(t, err)
 			assert.Len(t, items, 1)
 		})
@@ -571,7 +572,7 @@ func TestReplenishmentOrderDelete(t *testing.T) {
 				// Verify related items still exist (they should be soft deleted as well through cascading)
 				items, err := entClient.ReplenishmentOrderItem.Query().
 					Where(entreplenishmentorderitem.ReplenishmentOrderID(orderID)).
-					All(ctxWithDeleted)
+					AllPages(ctxWithDeleted, mixin.Limit)
 				require.NoError(t, err)
 				assert.Len(t, items, 1)
 			} else {

@@ -13,6 +13,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/pbinitiative/feel"
 	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	"github.com/pyck-ai/pyck/backend/common/request"
@@ -454,7 +455,7 @@ func (wr *SignalRouter) triggerWorkflowsBySignal(ctx context.Context, event even
 			entworkflow.HasWorkflowSignals(),
 		).
 		WithWorkflowSignals().
-		All(ctx)
+		AllPages(ctx, mixin.Limit)
 	if err != nil && !ent.IsNotFound(err) {
 		return nil, err
 	} else if len(wfs) == 0 || ent.IsNotFound(err) {
@@ -648,7 +649,7 @@ func (wr *SignalRouter) handleTemporalWorkflowStateChange(ctx context.Context, m
 			entworkflow.HasWorkflowSignals(),
 		).
 		WithWorkflowSignals().
-		All(ctx)
+		AllPages(ctx, mixin.Limit)
 	if err != nil && !ent.IsNotFound(err) {
 		return nil, err
 	} else if len(wfs) == 0 || ent.IsNotFound(err) {

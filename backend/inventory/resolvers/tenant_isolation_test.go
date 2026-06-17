@@ -15,6 +15,7 @@ import (
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	testresolver "github.com/pyck-ai/pyck/backend/common/test/resolver"
+	"github.com/pyck-ai/pyck/backend/common/txid"
 
 	ent "github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	entrepository "github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
@@ -377,7 +378,7 @@ func seedItemSets(t *testing.T, te *testEnv, sets []itemSetSeed, ids map[string]
 				itemIDs = append(itemIDs, mustResolve(t, ids, ss.Tenant+"/"+sku))
 			}
 			err := te.withTx(ctx, func(tx *ent.Tx) error {
-				return tx.ItemSet.UpdateOneID(itemSet.ID).AddItemIDs(itemIDs...).Exec(ent.NewTxContext(ctx, tx))
+				return tx.ItemSet.UpdateOneID(itemSet.ID).AddItemIDs(itemIDs...).Exec(ent.NewTxContext(txid.With(ctx, txid.New()), tx))
 			})
 			require.NoError(t, err, "failed to add items to item set %q", ss.Name)
 		}

@@ -119,6 +119,77 @@ steps:
 	}
 }
 
+// TestScenario_StepHeaders verifies that a step's `headers:` map renders
+// into a `headers:` block nested under `graphql:` in the generated Bruno
+// YAML, sorted by name for deterministic output.
+//
+// Why nested under graphql, not top-level: Bruno's YAML parser
+// (@usebruno/filestore parseGraphQLRequest) reads request headers from
+// graphql.headers — a top-level headers: key is silently ignored.
+func TestScenario_StepHeaders(t *testing.T) {
+	t.Parallel()
+	graphqlFile, testdataDir, outDir := setupDirs(t)
+	writeTestYAML(t, testdataDir, "with-headers.test.yaml", `
+name: "With Headers"
+steps:
+  - name: "Create Foo"
+    operation: createFoo
+    headers:
+      Idempotency-Key: "demo-bruno-key-001"
+      X-Custom-Trace: "trace-abc"
+    vars:
+      input:
+        name: test
+`)
+	if err := api.GenerateScenarios(cfg(graphqlFile, testdataDir, outDir)); err != nil {
+		t.Fatal(err)
+	}
+
+	content := readStep(t, outDir, "with-headers", "01_createfoo_gen.yml")
+	if !strings.Contains(content, "\n  headers:\n") {
+		t.Errorf("expected a headers: block nested under graphql:; got:\n%s", content)
+	}
+	// Bruno's OpenCollection YAML format is a list of {name, value} entries.
+	// A bare map (Idempotency-Key: "...") or a top-level headers: block is
+	// silently ignored by Bruno.
+	if !strings.Contains(content, "- name: Idempotency-Key\n      value: \"demo-bruno-key-001\"") {
+		t.Errorf("expected Idempotency-Key list-entry; got:\n%s", content)
+	}
+	if !strings.Contains(content, "- name: X-Custom-Trace\n      value: \"trace-abc\"") {
+		t.Errorf("expected X-Custom-Trace list-entry; got:\n%s", content)
+	}
+	// Sorted output: Idempotency-Key sorts before X-Custom-Trace.
+	idx := strings.Index(content, "name: Idempotency-Key")
+	jdx := strings.Index(content, "name: X-Custom-Trace")
+	if idx < 0 || jdx < 0 || idx > jdx {
+		t.Errorf("expected headers to be name-sorted; got order Idempotency-Key=%d X-Custom-Trace=%d", idx, jdx)
+	}
+}
+
+// TestScenario_NoHeaders confirms a step with no headers emits no
+// headers: block at all (preserving pre-feature output for the common case).
+func TestScenario_NoHeaders(t *testing.T) {
+	t.Parallel()
+	graphqlFile, testdataDir, outDir := setupDirs(t)
+	writeTestYAML(t, testdataDir, "no-headers.test.yaml", `
+name: "No Headers"
+steps:
+  - name: "Create Foo"
+    operation: createFoo
+    vars:
+      input:
+        name: test
+`)
+	if err := api.GenerateScenarios(cfg(graphqlFile, testdataDir, outDir)); err != nil {
+		t.Fatal(err)
+	}
+
+	content := readStep(t, outDir, "no-headers", "01_createfoo_gen.yml")
+	if strings.Contains(content, "headers:") {
+		t.Errorf("expected no headers: block when step has no headers; got:\n%s", content)
+	}
+}
+
 // TestScenario_SkipSameStepRef verifies that skip with a same-step ref
 // generates a before-request try/expect/catch block.
 func TestScenario_SkipSameStepRef(t *testing.T) {

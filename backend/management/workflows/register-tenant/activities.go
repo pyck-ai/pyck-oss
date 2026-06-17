@@ -28,13 +28,14 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	k8s "github.com/pyck-ai/pyck/backend/common/services/kubernetes"
 	"github.com/pyck-ai/pyck/backend/common/services/temporal"
-	"github.com/pyck-ai/pyck/backend/common/services/zitadel"
+	"github.com/pyck-ai/pyck/backend/common/services/zitadel/sdk"
 	"github.com/pyck-ai/pyck/backend/common/tenant"
+	"github.com/pyck-ai/pyck/backend/common/txid"
 	"github.com/pyck-ai/pyck/backend/common/workflow"
 
-	"github.com/pyck-ai/pyck/backend/management"
 	"github.com/pyck-ai/pyck/backend/management/core"
 	ent "github.com/pyck-ai/pyck/backend/management/ent/gen"
+	"github.com/pyck-ai/pyck/backend/management/exec"
 	zitadelsync "github.com/pyck-ai/pyck/backend/management/workflows/zitadel-sync"
 )
 
@@ -53,14 +54,14 @@ type DataTypeDefinition struct {
 
 // Activities struct for methods that need dependencies
 type Activities struct {
-	resolver       management.MutationResolver
+	resolver       exec.MutationResolver
 	entClient      *ent.Client
 	temporalClient temporalclient.Client
 	nsGetter       workflow.NamespaceGetter
 }
 
 // NewActivities creates a new Activities instance with the provided resolver
-func NewActivities(resolver management.MutationResolver, entClient *ent.Client, temporalClient temporalclient.Client, nsGetter workflow.NamespaceGetter) *Activities {
+func NewActivities(resolver exec.MutationResolver, entClient *ent.Client, temporalClient temporalclient.Client, nsGetter workflow.NamespaceGetter) *Activities {
 	return &Activities{
 		resolver:       resolver,
 		entClient:      entClient,
@@ -83,6 +84,10 @@ func (a Activities) AddDefaultDataTypesActivity(ctx context.Context, input AddDe
 		},
 	})
 	systemUserCtx = tenant.Context(systemUserCtx, tenantID)
+	// Inject a transaction ID so MutationEventHook can stamp outbox rows
+	// (gqltx does this at BeginTx in the GraphQL path; we mirror it here
+	// for the workflow-driven bootstrap path).
+	systemUserCtx = txid.With(systemUserCtx, txid.New())
 
 	tx, err := a.entClient.Tx(systemUserCtx)
 	if err != nil {
@@ -234,8 +239,8 @@ func (*Activities) AddUserGrantActivity(ctx context.Context, input addUserGrantI
 	return nil
 }
 
-func getZitadelClient(ctx context.Context, orgId string) (*zitadel.ZitadelSdkClient, error) {
-	return zitadel.SdkClient(ctx, core.Config.ZitadelAudience, core.Config.ZitadelGrpcAddr, core.Config.ZitadelOAuthURL, core.Config.ZitadelServiceKeyPath, orgId, core.Config.ZitadelTlsInsecure)
+func getZitadelClient(ctx context.Context, orgId string) (*sdk.ZitadelSdkClient, error) {
+	return sdk.SdkClient(ctx, core.Config.ZitadelAudience, core.Config.ZitadelGrpcAddr, core.Config.ZitadelOAuthURL, core.Config.ZitadelServiceKeyPath, orgId, core.Config.ZitadelTlsInsecure)
 }
 
 func isAlreadyExistsError(err error) bool {
@@ -276,7 +281,11 @@ func (*Activities) CreateTemporalNamespaceActivity(ctx context.Context, input cr
 	return nil
 }
 
-// SetOrgMetadataActivity sets metadata on the Zitadel organization
+// SetOrgMetadataActivity writes the caller-supplied `Data` map to
+// the Zitadel organization metadata. Tenant expiry is intentionally
+// NOT written here — it lives only in the management.tenants.expires_at
+// column (set by CreateTenantInDbActivity for new tenants and by the
+// setTenantExpiry resolver thereafter).
 func (*Activities) SetOrgMetadataActivity(ctx context.Context, input SetOrgMetadataActivityInput) error {
 	if len(input.Data) == 0 {
 		return nil
@@ -305,13 +314,34 @@ func (*Activities) SetOrgMetadataActivity(ctx context.Context, input SetOrgMetad
 	return nil
 }
 
-func (a *Activities) CreateTenantInDbActivity(ctx context.Context, input CreateTenantInDbActivityInput) error {
+// CreateTenantInDbActivity writes the tenant row directly via Ent, bypassing
+// the GraphQL/gRPC entry point. This violates the rule that workers only
+// touch project state through the public API — accepted here as a workaround
+// to avoid a race between this workflow and tenant-sync. Replace once the
+// race is resolved at the API layer.
+func (a *Activities) CreateTenantInDbActivity(ctx context.Context, input CreateTenantInDbActivityInput) (err error) {
 	tenantID := a.nsGetter.GetTenantID(input.OrganizationID)
+	// Mirror what gqltx does on the GraphQL path: explicit tx + per-attempt
+	// txid so MutationEventHook can stamp the outbox row.
 	serviceUserCtx := authn.Context(ctx, authn.SystemUser())
+	serviceUserCtx = txid.With(serviceUserCtx, txid.New())
+
+	tx, err := a.entClient.Tx(serviceUserCtx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		} else {
+			err = tx.Commit()
+		}
+	}()
+	serviceUserCtx = ent.NewTxContext(serviceUserCtx, tx)
 
 	input.Data = core.EnrichRemoteUIURLs(input.Data, tenantID.String(), core.Config.FrontendBaseURL, core.Config.EnvironmentName)
 
-	createOp := a.entClient.Tenant.Create().
+	createOp := tx.Tenant.Create().
 		SetID(tenantID).
 		SetName(input.Name).
 		SetIdpOrgRef(input.OrganizationID)
@@ -320,24 +350,49 @@ func (a *Activities) CreateTenantInDbActivity(ctx context.Context, input CreateT
 		createOp = createOp.SetData(input.Data)
 	}
 
-	err := createOp.
+	if input.ExpiresAt != nil {
+		createOp = createOp.SetExpiresAt(input.ExpiresAt.UTC())
+	}
+
+	err = createOp.
 		OnConflictColumns("id").
 		DoNothing().
 		Exec(serviceUserCtx)
 	// DoNothing() returns sql.ErrNoRows when a conflict is detected because
 	// no RETURNING clause is generated. This is the expected idempotent case.
 	if errors.Is(err, sql.ErrNoRows) {
+		err = nil
 		return nil
 	}
 	return err
 }
 
-func (a *Activities) DeleteTenantFromDbActivity(ctx context.Context, input DeleteTenantFromDbActivityInput) error {
+// DeleteTenantFromDbActivity carries the same direct-DB workaround as
+// CreateTenantInDbActivity above: same rule violation, same race-with-
+// tenant-sync rationale. Replace alongside the create-side fix.
+func (a *Activities) DeleteTenantFromDbActivity(ctx context.Context, input DeleteTenantFromDbActivityInput) (err error) {
 	tenantID := a.nsGetter.GetTenantID(input.OrganizationID)
+	// Mirror what gqltx does on the GraphQL path: explicit tx + per-attempt
+	// txid so MutationEventHook can stamp the outbox row.
 	serviceUserCtx := authn.Context(ctx, authn.SystemUser())
+	serviceUserCtx = txid.With(serviceUserCtx, txid.New())
 
-	err := a.entClient.Tenant.UpdateOneID(tenantID).SetDeletedAt(time.Now().UTC()).Exec(serviceUserCtx)
+	tx, err := a.entClient.Tx(serviceUserCtx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		} else {
+			err = tx.Commit()
+		}
+	}()
+	serviceUserCtx = ent.NewTxContext(serviceUserCtx, tx)
+
+	err = tx.Tenant.UpdateOneID(tenantID).SetDeletedAt(time.Now().UTC()).Exec(serviceUserCtx)
 	if ent.IsNotFound(err) {
+		err = nil // idempotent: already gone / already deleted
 		return nil
 	}
 	return err
@@ -421,16 +476,19 @@ func (*Activities) CreateK8sTenantSecretActivity(ctx context.Context, input crea
 
 // K8s Worker Deployment Activities
 
+// CRD kinds of the temporal-worker-controller. Renamed from
+// TemporalConnection/TemporalWorkerDeployment in controller v1.7.0
+// (chart v0.26.0); the spec is unchanged.
 var temporalConnectionGVR = schema.GroupVersionResource{
 	Group:    "temporal.io",
 	Version:  "v1alpha1",
-	Resource: "temporalconnections",
+	Resource: "connections",
 }
 
 var temporalWorkerDeploymentGVR = schema.GroupVersionResource{
 	Group:    "temporal.io",
 	Version:  "v1alpha1",
-	Resource: "temporalworkerdeployments",
+	Resource: "workerdeployments",
 }
 
 // UpsertK8sWorkersNamespaceActivity creates the shared workers namespace if it doesn't exist.
@@ -465,10 +523,10 @@ func (a *Activities) UpsertK8sWorkersNamespaceActivity(ctx context.Context, inpu
 	return nil
 }
 
-// CreateK8sTemporalConnectionActivity creates a TemporalConnection CRD in the workers namespace.
+// CreateK8sTemporalConnectionActivity creates a Connection CRD in the workers namespace.
 func (a *Activities) CreateK8sTemporalConnectionActivity(ctx context.Context, input createK8sTemporalConnectionInput) error {
 	logger := activity.GetLogger(ctx)
-	logger.Info("Creating K8s TemporalConnection", "name", input.Name, "namespace", input.Namespace)
+	logger.Info("Creating K8s temporal Connection", "name", input.Name, "namespace", input.Namespace)
 
 	k8sClient, err := k8s.NewK8sClient(input.Namespace, input.IsInCluster, input.ConfigPath)
 	if err != nil {
@@ -478,7 +536,7 @@ func (a *Activities) CreateK8sTemporalConnectionActivity(ctx context.Context, in
 	conn := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "temporal.io/v1alpha1",
-			"kind":       "TemporalConnection",
+			"kind":       "Connection",
 			"metadata": map[string]interface{}{
 				"name":      input.Name,
 				"namespace": input.Namespace,
@@ -492,20 +550,20 @@ func (a *Activities) CreateK8sTemporalConnectionActivity(ctx context.Context, in
 	_, err = k8sClient.DynamicClient().Resource(temporalConnectionGVR).Namespace(input.Namespace).Create(ctx, conn, metav1.CreateOptions{})
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
-			logger.Info("TemporalConnection already exists", "name", input.Name)
+			logger.Info("Connection already exists", "name", input.Name)
 			return nil
 		}
-		return fmt.Errorf("failed to create TemporalConnection %s: %w", input.Name, err)
+		return fmt.Errorf("failed to create Connection %s: %w", input.Name, err)
 	}
 
-	logger.Info("TemporalConnection created", "name", input.Name)
+	logger.Info("Connection created", "name", input.Name)
 	return nil
 }
 
-// CreateK8sWorkerDeploymentActivity creates a TemporalWorkerDeployment CRD for the tenant.
+// CreateK8sWorkerDeploymentActivity creates a WorkerDeployment CRD for the tenant.
 func (a *Activities) CreateK8sWorkerDeploymentActivity(ctx context.Context, input createK8sWorkerDeploymentInput) error {
 	logger := activity.GetLogger(ctx)
-	logger.Info("Creating K8s TemporalWorkerDeployment", "name", input.Name, "namespace", input.Namespace)
+	logger.Info("Creating K8s WorkerDeployment", "name", input.Name, "namespace", input.Namespace)
 
 	k8sClient, err := k8s.NewK8sClient(input.Namespace, input.IsInCluster, input.ConfigPath)
 	if err != nil {
@@ -520,7 +578,7 @@ func (a *Activities) CreateK8sWorkerDeploymentActivity(ctx context.Context, inpu
 	deployment := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "temporal.io/v1alpha1",
-			"kind":       "TemporalWorkerDeployment",
+			"kind":       "WorkerDeployment",
 			"metadata": map[string]interface{}{
 				"name":      input.Name,
 				"namespace": input.Namespace,
@@ -554,13 +612,13 @@ func (a *Activities) CreateK8sWorkerDeploymentActivity(ctx context.Context, inpu
 	_, err = k8sClient.DynamicClient().Resource(temporalWorkerDeploymentGVR).Namespace(input.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
-			logger.Info("TemporalWorkerDeployment already exists", "name", input.Name)
+			logger.Info("WorkerDeployment already exists", "name", input.Name)
 			return nil
 		}
-		return fmt.Errorf("failed to create TemporalWorkerDeployment %s: %w", input.Name, err)
+		return fmt.Errorf("failed to create WorkerDeployment %s: %w", input.Name, err)
 	}
 
-	logger.Info("TemporalWorkerDeployment created", "name", input.Name)
+	logger.Info("WorkerDeployment created", "name", input.Name)
 	return nil
 }
 

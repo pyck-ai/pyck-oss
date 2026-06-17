@@ -2,7 +2,10 @@ package resolvers_test
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -12,11 +15,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	otelapi "go.opentelemetry.io/otel"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
+	commondb "github.com/pyck-ai/pyck/backend/common/db"
 	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/pyck-ai/pyck/backend/common/feature"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
@@ -24,6 +30,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/test"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
+	"github.com/pyck-ai/pyck/backend/common/txid"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 
@@ -32,8 +39,10 @@ import (
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/enttest"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/itemmovement"
 	entrepository "github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
+	entstock "github.com/pyck-ai/pyck/backend/inventory/ent/gen/stock"
+	entmigrate "github.com/pyck-ai/pyck/backend/inventory/ent/migrate"
 	"github.com/pyck-ai/pyck/backend/inventory/resolvers"
-	"github.com/pyck-ai/pyck/backend/inventory/services"
+	"github.com/pyck-ai/pyck/backend/inventory/service/stock"
 )
 
 // =============================================================================
@@ -128,7 +137,7 @@ var (
 type testEnv struct {
 	*resolver.TestEnvironment[*ent.Client]
 	t            *testing.T
-	StockService *services.InventoryStockService
+	StockService stock.Service
 }
 
 func setup(t *testing.T) *testEnv {
@@ -155,7 +164,7 @@ func setup(t *testing.T) *testEnv {
 		OutboxInserter: events.NewEntOutboxInserter(ent.TxFromContext),
 	}))
 
-	inventoryStock, _ := services.NewInventoryStockService()
+	inventoryStock, _ := stock.New(dialect.SQLite, nil)
 	te.StockService = inventoryStock
 	v := validator.NewValidator(te.DataTypeProvider)
 	r := resolvers.NewResolver("inventory", client, v, inventoryStock)
@@ -174,6 +183,264 @@ func setup(t *testing.T) *testEnv {
 func SetupTestEnvironment(t *testing.T) *testEnv {
 	t.Helper()
 	return setup(t)
+}
+
+// pgIdentifierRe matches characters that are not valid in a PostgreSQL
+// identifier. Used by setupPostgres to derive a database name from t.Name().
+var pgIdentifierRe = regexp.MustCompile(`[^a-z0-9_]`)
+
+// postgresTestImage is the official postgres Docker image used by the
+// testcontainers-go harness in startEmbeddedPostgres. Pinned to a
+// specific minor version so test runs are reproducible across dev
+// machines and CI; bump deliberately rather than relying on :latest.
+// The :alpine variant keeps the pulled image small (~80 MB) and starts
+// fast on cold caches.
+const postgresTestImage = "postgres:18-alpine"
+
+// init disables the testcontainers-go "ryuk" reaper for every test in
+// this package.
+//
+// Ryuk is the auxiliary sidecar container that testcontainers normally
+// spawns to clean up orphaned test containers if the parent process
+// crashes hard (SIGKILL, OOM, segfault). It runs as a non-root user
+// inside its own container and needs to talk back to the host's
+// /var/run/docker.sock to issue clean-up calls. On dev machines where
+// /var/run/docker.sock is owned by root:docker mode 660 the ryuk
+// container cannot read the socket and fails to come up with
+// `permission denied while trying to connect to the Docker daemon
+// socket`, which surfaces in tests as the postgres container start
+// failing with `unexpected container status "removing"`.
+//
+// We don't need ryuk: every test that starts a container does so via
+// startEmbeddedPostgres, which registers t.Cleanup to terminate the
+// container at test end. The only failure mode ryuk would have caught
+// (forcibly-killed test process) leaves test containers behind, but
+// they are easy to clean up manually with `docker ps -a | grep
+// postgres:18-alpine`. The trade-off is worth it to avoid the
+// docker-socket-permission gotcha on dev machines.
+//
+// init is the only reliable hook for setting env vars before
+// testcontainers-go config caches them on first use.
+//
+//nolint:gochecknoinits
+func init() {
+	if _, set := os.LookupEnv("TESTCONTAINERS_RYUK_DISABLED"); !set {
+		_ = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
+	}
+}
+
+// pgHandle is the opaque handle returned by startEmbeddedPostgres and
+// consumed by setupPostgres / setupPostgresWithGate. It carries enough
+// information to build admin and per-test DSNs without exposing the
+// underlying testcontainers container to the rest of the test code.
+//
+// The handle is per-top-level-test: every call to startEmbeddedPostgres
+// spins up an independent postgres container with its own dynamically
+// assigned port, so parallel top-level tests (e.g.
+// TestStockPlausibilityPostgres alongside the two stocks_race_*_test.go
+// race tests) cannot collide. Within one top-level test, subtests share
+// the handle and isolate themselves by CREATE DATABASE in setupPostgres.
+type pgHandle struct {
+	host     string
+	port     uint32
+	user     string
+	password string
+}
+
+// adminDSN returns a DSN that connects to the bootstrap "postgres"
+// database. Used to CREATE / DROP the per-subtest databases.
+func (p pgHandle) adminDSN() string {
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=postgres sslmode=disable",
+		p.host, p.port, p.user, p.password)
+}
+
+// dsn returns a DSN that connects to the given per-subtest database with
+// search_path=inventory so bare-table-name CREATEs in the early migrations
+// land in the inventory schema, matching how the production pool URI is
+// shaped in backend/common/db/postgresql.go.
+func (p pgHandle) dsn(dbName string) string {
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable search_path=inventory",
+		p.host, p.port, p.user, p.password, dbName)
+}
+
+// startEmbeddedPostgres starts a fresh PostgreSQL instance via the
+// testcontainers-go harness and registers cleanup to terminate it when
+// the test completes. It returns a pgHandle the caller can convert into
+// admin / per-subtest DSNs. The instance is meant to be shared across
+// the subtests of a single top-level test; each subtest creates its own
+// isolated database via setupPostgres.
+//
+// Implementation note: the harness launches the official postgres
+// Docker image as a sibling container via the local Docker daemon
+// (Docker-out-of-Docker in CI, native Docker locally). The container's
+// own /etc/passwd defines a `postgres` user, and its entrypoint runs
+// `initdb` as that user — so the "initdb: cannot be run as root" failure
+// mode that a direct embedded-postgres harness would hit in CI (where
+// our test process runs as root inside a container) is avoided by
+// construction. Postgres' UID-policing happens inside the sibling
+// container and is independent of how our test process is running.
+//
+// The function is intentionally NOT named startPostgresContainer despite
+// the container-based implementation: keeping the name minimises churn
+// in callers and keeps the test setup discoverable from anyone reading
+// the existing test files. The function comment is the contract; the
+// transport is an implementation detail.
+func startEmbeddedPostgres(t *testing.T) pgHandle {
+	t.Helper()
+
+	const (
+		user     = "postgres"
+		password = "postgres"
+		database = "postgres"
+	)
+
+	// No artificial deadline on the startup context: in CI (ARC DinD
+	// sidecar mode, ephemeral runner pods) every job starts with an
+	// empty image cache and must pull postgres:18-alpine (~80 MB) fresh,
+	// which combined with constrained dind-sidecar disk I/O can take
+	// well over a minute on a loaded node. The outer `task test
+	// -timeout=20m` already bounds the wall time, and the testcontainers
+	// BasicWaitStrategies still polls for readiness — we only forfeit
+	// the "fail fast" behaviour of an artificial timeout, which was
+	// causing spurious 90 s `context deadline exceeded` failures on
+	// otherwise-healthy CI runs (see the testcontainers swap commit
+	// message for the diagnostic trail).
+	ctx := context.Background()
+
+	c, err := tcpostgres.Run(ctx,
+		postgresTestImage,
+		tcpostgres.WithDatabase(database),
+		tcpostgres.WithUsername(user),
+		tcpostgres.WithPassword(password),
+		tcpostgres.BasicWaitStrategies(),
+	)
+	require.NoError(t, err, "start postgres container")
+	t.Cleanup(func() {
+		// Termination context is intentionally a fresh 30 s window: we
+		// want cleanup to proceed even after the surrounding test
+		// deadline has elapsed.
+		termCtx, termCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer termCancel()
+		if err := c.Terminate(termCtx); err != nil {
+			t.Logf("postgres container terminate: %v", err)
+		}
+	})
+
+	host, err := c.Host(ctx)
+	require.NoError(t, err, "get postgres container host")
+
+	mapped, err := c.MappedPort(ctx, "5432/tcp")
+	require.NoError(t, err, "get postgres container mapped port")
+
+	return pgHandle{
+		host:     host,
+		port:     uint32(mapped.Num()),
+		user:     user,
+		password: password,
+	}
+}
+
+// setupPostgres creates a fresh test environment backed by a
+// PostgreSQL container. It allocates an isolated database for the calling
+// subtest, creates the `inventory` schema, applies all embedded SQL
+// migrations (which includes inventory.create_item_movement_proc), and
+// constructs the stock service with dialect.Postgres so the proc dispatch
+// in CreateItemMovement actually fires.
+//
+// Caller must have started the postgres container once via
+// startEmbeddedPostgres.
+func setupPostgres(t *testing.T, pg pgHandle) *testEnv {
+	t.Helper()
+
+	// Build a valid PostgreSQL identifier from the test name (max 63 chars,
+	// alphanumeric/_). Lower-case + replace anything else with _.
+	dbName := "t_" + pgIdentifierRe.ReplaceAllString(strings.ToLower(t.Name()), "_")
+	if len(dbName) > 63 {
+		dbName = dbName[:63]
+	}
+
+	adminDSN := pg.adminDSN()
+	testDSN := pg.dsn(dbName)
+
+	// 1. Create the per-test database in the admin connection.
+	adminDB, err := sql.Open("pgx", adminDSN)
+	require.NoError(t, err)
+	_, err = adminDB.ExecContext(context.Background(), "CREATE DATABASE "+dbName)
+	require.NoError(t, err)
+	require.NoError(t, adminDB.Close())
+
+	// 2. Apply the embedded migrations to that database. RunMigrations
+	// creates the `inventory` schema and applies every up-migration in
+	// `backend/inventory/ent/migrate/migrations/`, including the
+	// create_item_movement_proc PL/pgSQL function. The connection is
+	// opened with search_path=inventory so the bare-table-name CREATEs
+	// in the early migrations (e.g. CREATE TABLE "items") land in the
+	// inventory schema, matching production where the pool URI also
+	// carries search_path=inventory (see backend/common/db/postgresql.go).
+	migrationDB, err := sql.Open("pgx", testDSN)
+	require.NoError(t, err)
+	require.NoError(t, commondb.RunMigrations(context.Background(), migrationDB, "inventory", entmigrate.Migrations))
+	require.NoError(t, migrationDB.Close())
+
+	// 3. Drop the per-test database when the subtest finishes. Terminate any
+	// connections still open to it first or DROP will fail with "is being
+	// accessed by other users".
+	t.Cleanup(func() {
+		drop, derr := sql.Open("pgx", adminDSN)
+		if derr != nil {
+			t.Logf("postgres drop db open: %v", derr)
+			return
+		}
+		defer drop.Close()
+		dropCtx := context.Background()
+		_, _ = drop.ExecContext(dropCtx, "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1", dbName)
+		if _, derr := drop.ExecContext(dropCtx, "DROP DATABASE IF EXISTS "+dbName); derr != nil {
+			t.Logf("postgres drop db: %v", derr)
+		}
+	})
+
+	te := &testEnv{
+		TestEnvironment: resolver.NewTestEnvironment[*ent.Client](t),
+		t:               t,
+	}
+
+	// Open the ent client AGAINST the migrated database. enttest.Open would
+	// normally run Schema.Create — we pass WithMigrateOptions(nil) is not
+	// supported, so we just let it run; on a fully migrated schema it is a
+	// no-op (Atlas detects existing structures).
+	client := enttest.Open(t, dialect.Postgres, testDSN,
+		enttest.WithOptions(ent.Log(t.Log)),
+	)
+
+	if os.Getenv("PYCK_TEST_DEBUG") == "true" {
+		client = client.Debug()
+	}
+
+	client.Use(events.MutationEventHook(events.HookConfig{
+		Service:        "inventory",
+		StreamName:     "pyck",
+		EntityFetcher:  events.BuildEntityFetcher(ent.TxFromContext, events.FieldData),
+		OutboxInserter: events.NewEntOutboxInserter(ent.TxFromContext),
+	}))
+
+	// Postgres dialect routes CreateItemMovement through the proc.
+	// Pass nil for the outbox emitter: setupPostgres wires the events
+	// MutationEventHook above, which produces outbox rows for every
+	// mutation; the bypass-emitter is only needed in production where
+	// the proc path skips the Ent hook.
+	inventoryStock, _ := stock.New(dialect.Postgres, nil)
+	te.StockService = inventoryStock
+	v := validator.NewValidator(te.DataTypeProvider)
+	r := resolvers.NewResolver("inventory", client, v, inventoryStock)
+	schema := resolvers.NewSchema(r)
+
+	te.Init(client, schema, func(s *handler.Server) {
+		s.Use(gqltx.NewMiddleware(client, ent.NewTxContext, "inventory-test", 0))
+	})
+
+	te.loadDataTypes()
+
+	return te
 }
 
 func (te *testEnv) loadDataTypes() {
@@ -326,7 +593,7 @@ func (b *itemBuilder) Create() *ent.Item {
 		}
 
 		var err error
-		item, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		item, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -433,7 +700,7 @@ func (b *repositoryBuilder) Create() *ent.Repository {
 		}
 
 		var err error
-		repo, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		repo, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -521,7 +788,7 @@ func (b *itemMovementBuilder) Create() *ent.ItemMovement {
 			SetDataTypeID(b.dataTypeID)
 
 		var err error
-		mov, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		mov, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -580,6 +847,25 @@ func (b *stockBuilder) Create() *ent.Stock {
 	b.te.t.Helper()
 	var stock *ent.Stock
 	err := b.te.withTx(b.ctx, func(tx *ent.Tx) error {
+		// Phase 6.1: stocks now carry a per-(tenant, repo, item)
+		// monotonic version with a unique index. Test fixtures that
+		// build multiple stock rows for the same group must therefore
+		// pick incrementing versions; query the current max and add 1.
+		var nextVersion int64
+		latest, qerr := tx.Stock.Query().
+			Where(
+				entstock.TenantID(b.user.TenantID),
+				entstock.ItemID(b.itemID),
+				entstock.RepositoryID(b.repositoryID),
+			).
+			Order(ent.Desc(entstock.FieldVersion)).
+			First(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
+		if qerr == nil && latest != nil {
+			nextVersion = latest.Version + 1
+		} else if qerr != nil && !ent.IsNotFound(qerr) {
+			return qerr
+		}
+
 		builder := tx.Stock.Create().
 			SetTenantID(b.user.TenantID).
 			SetItemID(b.itemID).
@@ -587,10 +873,11 @@ func (b *stockBuilder) Create() *ent.Stock {
 			SetQuantity(b.quantity).
 			SetIncomingStock(b.incoming).
 			SetOutgoingStock(b.outgoing).
-			SetMovementID(b.movementID)
+			SetMovementID(b.movementID).
+			SetVersion(nextVersion)
 
 		var err error
-		stock, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		stock, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -655,7 +942,7 @@ func (b *itemSetBuilder) Create() *ent.ItemSet {
 		}
 
 		var err error
-		itemSet, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		itemSet, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -727,7 +1014,7 @@ func (b *replenishmentOrderBuilder) Create() *ent.ReplenishmentOrder {
 		}
 
 		var err error
-		order, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		order, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -822,7 +1109,7 @@ func (b *repositoryMovementBuilder) Create() *ent.RepositoryMovement {
 		}
 
 		var err error
-		mov, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		mov, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -887,7 +1174,7 @@ func (b *collectionMovementBuilder) Create() *ent.Collection_Movement {
 		}
 
 		var err error
-		mov, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		mov, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -899,6 +1186,10 @@ func (b *collectionMovementBuilder) Create() *ent.Collection_Movement {
 // =============================================================================
 
 func (te *testEnv) withTx(ctx context.Context, fn func(tx *ent.Tx) error) error {
+	// Inject a fresh transaction ID so the MutationEventHook (which now
+	// requires one for the outbox row's dedup key) is satisfied — this
+	// mirrors what the gqltx middleware does at BeginTx in production.
+	ctx = txid.With(ctx, txid.New())
 	tx, err := te.Ent.Tx(ctx)
 	if err != nil {
 		return err

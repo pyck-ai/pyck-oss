@@ -16,13 +16,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
+	"github.com/pyck-ai/pyck/backend/common/feature"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
 	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 	"github.com/pyck-ai/pyck/backend/common/validator"
-	m "github.com/pyck-ai/pyck/backend/inventory"
 	"github.com/pyck-ai/pyck/backend/inventory/core"
 	ent "github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/collection_movement"
@@ -34,9 +34,10 @@ import (
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/replenishmentorderitem"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/repositorymovement"
-	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/stock"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/transaction"
+	"github.com/pyck-ai/pyck/backend/inventory/exec"
 	"github.com/pyck-ai/pyck/backend/inventory/model"
+	stocksvc "github.com/pyck-ai/pyck/backend/inventory/service/stock"
 )
 
 // CreateInventoryItem is the resolver for the createInventoryItem field.
@@ -132,7 +133,7 @@ func (r *mutationResolver) DeleteInventoryItem(ctx context.Context, id uuid.UUID
 	var resp model.InventoryItemDeletePayload
 	req := request.ForContext(ctx)
 
-	repositoryMap, err := r.inventoryStockService.GetRepositoriesDetails(ctx, tx)
+	repositoryMap, err := r.stock.GetRepositoriesDetails(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +146,7 @@ func (r *mutationResolver) DeleteInventoryItem(ctx context.Context, id uuid.UUID
 	}
 
 	if len(warehouseRepoIDs) > 0 {
-		stockMap, err := r.inventoryStockService.GetCurrentRepositoriesStock(ctx, tx, warehouseRepoIDs)
+		stockMap, err := r.stock.GetCurrentRepositoriesStock(ctx, tx, warehouseRepoIDs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query stock table: %w", err)
 		}
@@ -299,7 +300,7 @@ func (r *mutationResolver) DeleteInventoryRepository(ctx context.Context, id uui
 	var resp model.InventoryRepositoryDeletePayload
 	req := request.ForContext(ctx)
 
-	stockMap, err := r.inventoryStockService.GetCurrentRepositoriesStock(ctx, tx, []uuid.UUID{id})
+	stockMap, err := r.stock.GetCurrentRepositoriesStock(ctx, tx, []uuid.UUID{id})
 	if err != nil {
 		return nil, fmt.Errorf("failed to query stock table: %w", err)
 	}
@@ -320,7 +321,7 @@ func (r *mutationResolver) DeleteInventoryRepository(ctx context.Context, id uui
 		Query().
 		Where(repository.ParentIDEQ(id)).
 		Where(repository.TenantID(req.MutationTenantID())).
-		All(ctx)
+		AllPages(ctx, mixin.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -351,125 +352,27 @@ func (r *mutationResolver) CreateInventoryItemMovement(ctx context.Context, inpu
 	if err != nil {
 		return nil, err
 	}
-
 	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
 	if input.CollectionID == nil {
 		input.CollectionID = &uuid.UUID{}
 	}
-
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
-
-	var resp model.InventoryItemMovementOutput
-	req := request.ForContext(ctx)
-
-	repo, err := tx.Repository.Get(ctx, input.FromID)
-	if err != nil {
-		return nil, err
-	}
-
-	if repo.VirtualRepo {
-		toRepo, err := tx.Repository.Get(ctx, input.ToID)
-		if err != nil {
-			return nil, err
-		}
-
-		if toRepo.VirtualRepo {
-			return nil, errors.New("movements between virtual repositories are not allowed")
-		}
-	} else {
-		where := predicate.Stock(func(s *sql.Selector) {
-			s.Where(sql.EQ(stock.RepositoryColumn, input.FromID))
-			s.Where(sql.EQ(stock.ItemColumn, input.ItemID))
+	uniqueness := func() error {
+		return r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+			Input: input.Data, DataType: dataType, DbDriver: core.Config.DbDriver,
+			TableName: itemmovement.Table, FieldName: itemmovement.FieldData,
 		})
-		stockRecord, err := tx.Stock.Query().
-			Where(where).
-			Where(stock.TenantID(req.MutationTenantID())).
-			Order(ent.Desc(stock.FieldCreatedAt)).
-			First(ctx)
-
-		// "stock not found" err means that stock for item-repository combination is 0
-		if err != nil && !ent.IsNotFound(err) {
-			return nil, fmt.Errorf("failed reading stock: %w", err)
-		}
-
-		if stockRecord == nil || stockRecord.Quantity+stockRecord.IncomingStock-stockRecord.OutgoingStock < input.Quantity {
-			return nil, errors.New("insufficient stock")
-		}
 	}
-
-	repositoryMap, err := r.inventoryStockService.GetRepositoriesDetails(ctx, tx)
+	movement, err := r.stock.CreateItemMovement(ctx, tx, stocksvc.CreateItemMovementInput{
+		Input: input, TenantID: request.ForContext(ctx).MutationTenantID(), ValidateUniquenessHook: uniqueness,
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	parentsMap := make(map[uuid.UUID]ent.Repository, 0)
-	err = r.inventoryStockService.GetRepositoriesParentsDetails(input.FromID, repositoryMap, parentsMap)
-	if err != nil {
-		return nil, err
-	}
-
-	err = r.inventoryStockService.GetRepositoriesParentsDetails(input.ToID, repositoryMap, parentsMap)
-	if err != nil {
-		return nil, err
-	}
-
-	repositoryIDList := make([]uuid.UUID, 0, len(parentsMap))
-	for k := range parentsMap {
-		repositoryIDList = append(repositoryIDList, k)
-	}
-
-	stockMap := map[uuid.UUID]map[uuid.UUID]ent.Stock{}
-	if len(repositoryIDList) > 0 {
-		stockMap, err = r.inventoryStockService.GetCurrentRepositoriesStock(ctx, tx, repositoryIDList)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Calculate stockMap for parents of the 'from' repository
-	err = r.inventoryStockService.SimulateRepositoryStockMap(input.ItemID, input.FromID, input.ToID, -1*input.Quantity, stockMap, repositoryMap, true)
-	if err != nil {
-		return nil, fmt.Errorf("failed calculating stock map: %w", err)
-	}
-
-	// Calculate stockMap for parents of the 'to' repository
-	err = r.inventoryStockService.SimulateRepositoryStockMap(input.ItemID, input.ToID, input.FromID, input.Quantity, stockMap, repositoryMap, true)
-	if err != nil {
-		return nil, fmt.Errorf("failed calculating stock map: %w", err)
-	}
-
-	movement, err := tx.ItemMovement.
-		Create().
-		SetInput(input).
-		SetExecuted(false).
-		Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
-		Input:     input.Data,
-		DataType:  dataType,
-		TableName: itemmovement.Table,
-		FieldName: itemmovement.FieldData,
-		DbDriver:  core.Config.DbDriver,
-	}); err != nil {
-		return nil, err
-	}
-
-	err = r.inventoryStockService.InsertStockMap(ctx, tx, input.ItemID, req.MutationTenantID(), movement.ID, stockMap, repositoryMap)
-	if err != nil {
-		return nil, err
-	}
-
-	resp.InventoryItemMovement = movement
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
-
-	return &resp, nil
+	return &model.InventoryItemMovementOutput{InventoryItemMovement: movement, Workflows: make([]*model.TemporalWorkflow, 0)}, nil
 }
 
 // UpdateInventoryItemMovement is the resolver for the updateInventoryItemMovement field.
@@ -522,100 +425,13 @@ func (r *mutationResolver) ExecuteInventoryItemMovement(ctx context.Context, id 
 	if err != nil {
 		return nil, err
 	}
-
-	var resp model.InventoryItemMovementOutput
-	req := request.ForContext(ctx)
-
-	// Retrieve current values for item movement
-	currentMovementValues, err := tx.ItemMovement.Get(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("itemMovement not found")
-	}
-
-	// Executed mutation cannot be executed again
-	if currentMovementValues.Executed {
-		return nil, fmt.Errorf("ItemMovement is already executed")
-	}
-
-	// Check position
-	err = r.inventoryStockService.CheckExecuteNextMovementByPosition(ctx, tx, currentMovementValues.CollectionID, currentMovementValues.Position)
+	itemMovement, err := r.stock.ExecuteItemMovement(ctx, tx, stocksvc.ExecuteItemMovementInput{
+		ID: id, TenantID: request.ForContext(ctx).MutationTenantID(),
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	// Update 'executed' flag
-	itemMovement, err := tx.ItemMovement.
-		UpdateOneID(id).
-		SetExecuted(true).
-		SetExecutedAt(time.Now().UTC()).
-		Save(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed updating itemMovement: %w", err)
-	}
-
-	// Add out transaction
-
-	outTransaction := tx.Transaction.
-		Create().
-		SetItemID(itemMovement.ItemID).
-		SetTenantID(req.MutationTenantID()).
-		SetRepositoryID(itemMovement.FromID).
-		SetType(transaction.TypeOut).
-		SetQuantity(itemMovement.Quantity).
-		SetCreatedBy(itemMovement.UpdatedBy)
-
-	intoTransaction := tx.Transaction.
-		Create().
-		SetItemID(itemMovement.ItemID).
-		SetTenantID(req.MutationTenantID()).
-		SetRepositoryID(itemMovement.ToID).
-		SetType(transaction.TypeInto).
-		SetQuantity(itemMovement.Quantity).
-		SetCreatedBy(itemMovement.UpdatedBy)
-
-	_, err = tx.Transaction.CreateBulk(outTransaction, intoTransaction).Save(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed inserting transactions: %w", err)
-	}
-
-	// Create stock map. This map will contain all future Stock inserts
-	stockMap := make(map[uuid.UUID]ent.Stock, 0)
-
-	// Apply both FROM and TO walks in a single pass; validation is deferred so
-	// that net-zero deltas through a common ancestor of FROM and TO do not
-	// raise a spurious underflow (#1159).
-	err = r.inventoryStockService.ApplyItemMovementStockDelta(ctx, tx, currentMovementValues.ItemID, currentMovementValues.FromID, currentMovementValues.ToID, itemMovement.Quantity, stockMap, true)
-	if err != nil {
-		return nil, fmt.Errorf("failed calculating stock map: %w", err)
-	}
-
-	// Insert new stocks
-	stocksToCreate := []*ent.StockCreate{}
-	for repoID, repoRecord := range stockMap {
-		newStock := tx.Stock.
-			Create().
-			SetItemID(itemMovement.ItemID).
-			SetTenantID(req.MutationTenantID()).
-			SetRepositoryID(repoID).
-			SetQuantity(repoRecord.Quantity).
-			SetCreatedBy(itemMovement.UpdatedBy).
-			SetIncomingStock(repoRecord.IncomingStock).
-			SetOutgoingStock(repoRecord.OutgoingStock).
-			SetOwnQuantity(repoRecord.OwnQuantity).
-			SetOwnIncomingStock(repoRecord.OwnIncomingStock).
-			SetOwnOutgoingStock(repoRecord.OwnOutgoingStock).
-			SetMovementID(id)
-		stocksToCreate = append(stocksToCreate, newStock)
-	}
-	_, err = tx.Stock.CreateBulk(stocksToCreate...).Save(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed inserting stocks: %w", err)
-	}
-
-	resp.InventoryItemMovement = itemMovement
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
-
-	return &resp, nil
+	return &model.InventoryItemMovementOutput{InventoryItemMovement: itemMovement, Workflows: make([]*model.TemporalWorkflow, 0)}, nil
 }
 
 // DeleteInventoryItemMovement is the resolver for the deleteInventoryItemMovement field.
@@ -625,85 +441,13 @@ func (r *mutationResolver) DeleteInventoryItemMovement(ctx context.Context, id u
 	if err != nil {
 		return nil, err
 	}
-
-	var resp model.InventoryItemMovementDeletePayload
 	req := request.ForContext(ctx)
-
-	// Retrieve current values for item movement
-	movement, err := tx.ItemMovement.Get(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("itemMovement not found")
-	}
-
-	// Cannot delete executed movements - they have already transferred actual stock
-	if movement.Executed {
-		return nil, ErrDeleteExecutedMovement
-	}
-
-	// Get repository details for simulation
-	repositoryMap, err := r.inventoryStockService.GetRepositoriesDetails(ctx, tx)
-	if err != nil {
+	if _, err = r.stock.DeleteItemMovement(ctx, tx, stocksvc.DeleteItemMovementInput{
+		ID: id, TenantID: req.MutationTenantID(), DeletedBy: req.User().ID,
+	}); err != nil {
 		return nil, err
 	}
-
-	parentsMap := make(map[uuid.UUID]ent.Repository, 0)
-	err = r.inventoryStockService.GetRepositoriesParentsDetails(movement.FromID, repositoryMap, parentsMap)
-	if err != nil {
-		return nil, err
-	}
-
-	err = r.inventoryStockService.GetRepositoriesParentsDetails(movement.ToID, repositoryMap, parentsMap)
-	if err != nil {
-		return nil, err
-	}
-
-	repositoryIDList := make([]uuid.UUID, 0, len(parentsMap))
-	for k := range parentsMap {
-		repositoryIDList = append(repositoryIDList, k)
-	}
-
-	stockMap := map[uuid.UUID]map[uuid.UUID]ent.Stock{}
-	if len(repositoryIDList) > 0 {
-		stockMap, err = r.inventoryStockService.GetCurrentRepositoriesStock(ctx, tx, repositoryIDList)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Reverse the stock reservations using subtract mode
-	// Create used: FROM=-qty (adds outgoing), TO=+qty (adds incoming)
-	// Delete uses: FROM=-qty with subtract (removes outgoing), TO=+qty with subtract (removes incoming)
-
-	// FROM repository: remove outgoing stock using same sign as create but with subtract=true
-	err = r.inventoryStockService.SimulateRepositoryStockMapWithMode(movement.ItemID, movement.FromID, movement.ToID, -1*movement.Quantity, stockMap, repositoryMap, true, true)
-	if err != nil {
-		return nil, fmt.Errorf("failed calculating stock map: %w", err)
-	}
-
-	// TO repository: remove incoming stock using same sign as create but with subtract=true
-	err = r.inventoryStockService.SimulateRepositoryStockMapWithMode(movement.ItemID, movement.ToID, movement.FromID, movement.Quantity, stockMap, repositoryMap, true, true)
-	if err != nil {
-		return nil, fmt.Errorf("failed calculating stock map: %w", err)
-	}
-
-	// Insert stock records to clear reservations
-	err = r.inventoryStockService.InsertStockMap(ctx, tx, movement.ItemID, req.MutationTenantID(), id, stockMap, repositoryMap)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = tx.ItemMovement.UpdateOneID(id).
-		SetDeletedAt(time.Now().UTC()).
-		SetDeletedBy(req.User().ID).
-		Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	resp.DeletedID = &id
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
-
-	return &resp, nil
+	return &model.InventoryItemMovementDeletePayload{DeletedID: &id, Workflows: make([]*model.TemporalWorkflow, 0)}, nil
 }
 
 // CreateInventoryRepositoryMovement is the resolver for the createInventoryRepositoryMovement field.
@@ -713,163 +457,27 @@ func (r *mutationResolver) CreateInventoryRepositoryMovement(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-
 	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
 	if input.CollectionID == nil {
 		input.CollectionID = &uuid.UUID{}
 	}
-
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
-
-	var resp model.InventoryRepositoryMovementOutput
-	req := request.ForContext(ctx)
-
-	repo, err := tx.Repository.Get(ctx, input.RepositoryID)
+	uniqueness := func() error {
+		return r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+			Input: input.Data, DataType: dataType, DbDriver: core.Config.DbDriver,
+			TableName: repositorymovement.Table, FieldName: repositorymovement.FieldData,
+		})
+	}
+	movement, err := r.stock.CreateRepositoryMovement(ctx, tx, stocksvc.CreateRepositoryMovementInput{
+		Input: input, TenantID: request.ForContext(ctx).MutationTenantID(), ValidateUniquenessHook: uniqueness,
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	fromRepo, err := tx.Repository.Get(ctx, repo.ParentID)
-	if err != nil {
-		return nil, err
-	}
-
-	if fromRepo.VirtualRepo {
-		toRepo, err := tx.Repository.Get(ctx, input.ToID)
-		if err != nil {
-			return nil, err
-		}
-
-		if toRepo.VirtualRepo {
-			return nil, errors.New("movements between virtual repositories are not allowed")
-		}
-	}
-
-	repositoryMap, err := r.inventoryStockService.GetRepositoriesDetails(ctx, tx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Resolve the effective FromID before building parentsMap so that the
-	// stock fetch covers the correct hierarchy.
-	lastRepoMovement, _ := tx.RepositoryMovement.Query().
-		Where(
-			repositorymovement.RepositoryID(input.RepositoryID),
-			repositorymovement.Executed(false),
-		).
-		Order(ent.Desc(repositorymovement.FieldCreatedAt)).
-		First(ctx)
-
-	var expectedFromID uuid.UUID
-	if lastRepoMovement != nil {
-		expectedFromID = lastRepoMovement.ToID
-	} else {
-		expectedFromID = fromRepo.ID
-	}
-
-	if input.FromID != nil && *input.FromID != uuid.Nil {
-		if *input.FromID != expectedFromID {
-			return nil, fmt.Errorf("wrong FromID (%s) for repository (%s) movement. Expected FromID:%s", input.FromID, input.RepositoryID, expectedFromID)
-		}
-	} else {
-		input.FromID = &expectedFromID
-	}
-
-	parentsMap := make(map[uuid.UUID]ent.Repository, 0)
-	err = r.inventoryStockService.GetRepositoriesParentsDetails(input.RepositoryID, repositoryMap, parentsMap)
-	if err != nil {
-		return nil, err
-	}
-
-	err = r.inventoryStockService.GetRepositoriesParentsDetails(input.ToID, repositoryMap, parentsMap)
-	if err != nil {
-		return nil, err
-	}
-
-	err = r.inventoryStockService.GetRepositoriesParentsDetails(*input.FromID, repositoryMap, parentsMap)
-	if err != nil {
-		return nil, err
-	}
-
-	repositoryIDList := make([]uuid.UUID, 0, len(parentsMap))
-	for k := range parentsMap {
-		repositoryIDList = append(repositoryIDList, k)
-	}
-
-	stockMap := map[uuid.UUID]map[uuid.UUID]ent.Stock{}
-	if len(repositoryIDList) > 0 {
-		stockMap, err = r.inventoryStockService.GetCurrentRepositoriesStock(ctx, tx, repositoryIDList)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	for itemID, itemRecord := range stockMap[input.RepositoryID] {
-
-		// Calculate stockMap for parents of the 'from' repository
-		err = r.inventoryStockService.SimulateRepositoryStockMap(itemID, *input.FromID, input.ToID, -1*itemRecord.Quantity, stockMap, repositoryMap, false)
-		if err != nil {
-			return nil, fmt.Errorf("failed calculating stock map: %w", err)
-		}
-
-		// Calculate stockMap for parents of the 'to' repository
-		err = r.inventoryStockService.SimulateRepositoryStockMap(itemID, input.ToID, *input.FromID, itemRecord.Quantity, stockMap, repositoryMap, false)
-		if err != nil {
-			return nil, fmt.Errorf("failed calculating stock map: %w", err)
-		}
-	}
-
-	movement, err := tx.RepositoryMovement.
-		Create().
-		SetInput(input).
-		SetExecuted(false).
-		Save(ctx)
-	if err != nil {
-		return nil,
-			err
-	}
-
-	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
-		Input:     input.Data,
-		DataType:  dataType,
-		TableName: repositorymovement.Table,
-		FieldName: repositorymovement.FieldData,
-		DbDriver:  core.Config.DbDriver,
-	}); err != nil {
-		return nil, err
-	}
-
-	stocksToCreate := []*ent.StockCreate{}
-	for repo, stockRecord := range stockMap {
-		for itemID := range stockRecord {
-			newStock := tx.Stock.
-				Create().
-				SetItemID(itemID).
-				SetTenantID(req.MutationTenantID()).
-				SetRepositoryID(repo).
-				SetQuantity(stockMap[repo][itemID].Quantity).
-				SetIncomingStock(stockMap[repo][itemID].IncomingStock).
-				SetOutgoingStock(stockMap[repo][itemID].OutgoingStock).
-				SetOwnQuantity(stockMap[repo][itemID].OwnQuantity).
-				SetOwnIncomingStock(stockMap[repo][itemID].OwnIncomingStock).
-				SetOwnOutgoingStock(stockMap[repo][itemID].OwnOutgoingStock).
-				SetMovementID(movement.ID)
-			stocksToCreate = append(stocksToCreate, newStock)
-		}
-	}
-	_, err = tx.Stock.CreateBulk(stocksToCreate...).Save(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed inserting stock: %w", err)
-	}
-
-	resp.InventoryRepositoryMovement = movement
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
-
-	return &resp, nil
+	return &model.InventoryRepositoryMovementOutput{InventoryRepositoryMovement: movement, Workflows: make([]*model.TemporalWorkflow, 0)}, nil
 }
 
 // UpdateInventoryRepositoryMovement is the resolver for the updateInventoryRepositoryMovement field.
@@ -922,103 +530,13 @@ func (r *mutationResolver) ExecuteInventoryRepositoryMovement(ctx context.Contex
 	if err != nil {
 		return nil, err
 	}
-
-	var resp model.InventoryRepositoryMovementOutput
-	req := request.ForContext(ctx)
-
-	// Retrieve current values for repository movement
-	currentMovementValues, err := tx.RepositoryMovement.Get(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("repositoryMovement not found")
-	}
-
-	// Executed mutation cannot be executed again
-	if currentMovementValues.Executed {
-		return nil, fmt.Errorf("RepositoryMovement is already executed")
-	}
-
-	// Check position
-	err = r.inventoryStockService.CheckExecuteNextMovementByPosition(ctx, tx, currentMovementValues.CollectionID, currentMovementValues.Position)
+	repositoryMovement, err := r.stock.ExecuteRepositoryMovement(ctx, tx, stocksvc.ExecuteRepositoryMovementInput{
+		ID: id, TenantID: request.ForContext(ctx).MutationTenantID(),
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	// Update 'executed' flag
-	repositoryMovement, err := tx.RepositoryMovement.
-		UpdateOneID(id).
-		SetExecuted(true).
-		SetExecutedAt(time.Now().UTC()).
-		Save(ctx)
-
-	repoToBeMoved, err := tx.Repository.Get(ctx, currentMovementValues.RepositoryID)
-	if err != nil {
-		return nil, fmt.Errorf("repository not found")
-	}
-
-	if currentMovementValues.FromID == uuid.Nil {
-		currentMovementValues.FromID = repoToBeMoved.ID
-	}
-
-	repoStockMap, err := r.inventoryStockService.GetCurrentRepositoriesStock(ctx, tx, []uuid.UUID{currentMovementValues.RepositoryID})
-	if err != nil {
-		return nil, fmt.Errorf("failed to query stock table: %w", err)
-	}
-
-	repositoryItemsStockMap := repoStockMap[currentMovementValues.RepositoryID]
-	if repositoryItemsStockMap == nil {
-		repositoryItemsStockMap = make(map[uuid.UUID]ent.Stock)
-	}
-
-	stocksToCreate := []*ent.StockCreate{}
-	for itemID, itemRecord := range repositoryItemsStockMap {
-		// Create stock map. This map will contain all future Stock inserts
-		stockMap := make(map[uuid.UUID]ent.Stock, 0)
-
-		// Apply both FROM and TO walks in a single pass; validation is deferred
-		// to avoid spurious underflow on common ancestors of FROM and TO (#1159).
-		// Use ownStock=false because items are not directly in the parent, they're
-		// in the moving repository.
-		err = r.inventoryStockService.ApplyItemMovementStockDelta(ctx, tx, itemID, currentMovementValues.FromID, currentMovementValues.ToID, itemRecord.Quantity, stockMap, false)
-		if err != nil {
-			return nil, fmt.Errorf("failed calculating stock map: %w", err)
-		}
-
-		// Insert new stocks
-		for repoID, repoRecord := range stockMap {
-			newStock := tx.Stock.
-				Create().
-				SetItemID(itemID).
-				SetTenantID(req.MutationTenantID()).
-				SetRepositoryID(repoID).
-				SetQuantity(repoRecord.Quantity).
-				SetCreatedBy(repositoryMovement.UpdatedBy).
-				SetIncomingStock(repoRecord.IncomingStock).
-				SetOutgoingStock(repoRecord.OutgoingStock).
-				SetOwnQuantity(repoRecord.OwnQuantity).
-				SetOwnIncomingStock(repoRecord.OwnIncomingStock).
-				SetOwnOutgoingStock(repoRecord.OwnOutgoingStock).
-				SetMovementID(id)
-			stocksToCreate = append(stocksToCreate, newStock)
-		}
-	}
-	_, err = tx.Stock.CreateBulk(stocksToCreate...).Save(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed inserting stock: %w", err)
-	}
-
-	// Update parent of the moved repository
-	_, err = tx.Repository.
-		UpdateOneID(currentMovementValues.RepositoryID).
-		SetParentID(currentMovementValues.ToID).
-		Save(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed updating repository parent: %w", err)
-	}
-
-	resp.InventoryRepositoryMovement = repositoryMovement
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
-
-	return &resp, nil
+	return &model.InventoryRepositoryMovementOutput{InventoryRepositoryMovement: repositoryMovement, Workflows: make([]*model.TemporalWorkflow, 0)}, nil
 }
 
 // DeleteInventoryRepositoryMovement is the resolver for the deleteInventoryRepositoryMovement field.
@@ -1028,124 +546,13 @@ func (r *mutationResolver) DeleteInventoryRepositoryMovement(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-
-	var resp model.InventoryRepositoryMovementDeletePayload
 	req := request.ForContext(ctx)
-
-	// Retrieve current values for repository movement
-	movement, err := tx.RepositoryMovement.Get(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("repositoryMovement not found")
-	}
-
-	// Cannot delete executed movements - they have already transferred actual stock
-	if movement.Executed {
-		return nil, ErrDeleteExecutedMovement
-	}
-
-	// Build repository map
-	repositoryMap, err := r.inventoryStockService.GetRepositoriesDetails(ctx, tx)
-	if err != nil {
+	if _, err = r.stock.DeleteRepositoryMovement(ctx, tx, stocksvc.DeleteRepositoryMovementInput{
+		ID: id, TenantID: req.MutationTenantID(), DeletedBy: req.User().ID,
+	}); err != nil {
 		return nil, err
 	}
-
-	// Build parents map for affected repositories
-	parentsMap := make(map[uuid.UUID]ent.Repository, 0)
-	err = r.inventoryStockService.GetRepositoriesParentsDetails(movement.RepositoryID, repositoryMap, parentsMap)
-	if err != nil {
-		return nil, err
-	}
-
-	err = r.inventoryStockService.GetRepositoriesParentsDetails(movement.ToID, repositoryMap, parentsMap)
-	if err != nil {
-		return nil, err
-	}
-
-	repositoryIDList := make([]uuid.UUID, 0, len(parentsMap))
-	for k := range parentsMap {
-		repositoryIDList = append(repositoryIDList, k)
-	}
-
-	// Get current stock for all affected repositories (needed to track current state for new records)
-	stockMap := map[uuid.UUID]map[uuid.UUID]ent.Stock{}
-	if len(repositoryIDList) > 0 {
-		stockMap, err = r.inventoryStockService.GetCurrentRepositoriesStock(ctx, tx, repositoryIDList)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Query original stock snapshot that was created with this movement
-	// This contains the per-item quantities at the time the movement was created
-	originalStockRecords, err := tx.Stock.Query().
-		Where(stock.MovementID(id)).
-		Where(stock.RepositoryID(movement.RepositoryID)).
-		All(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed reading original stock snapshot: %w", err)
-	}
-
-	// Build map of original quantities per item
-	originalQuantities := make(map[uuid.UUID]int64)
-	for _, record := range originalStockRecords {
-		originalQuantities[record.ItemID] = record.Quantity
-	}
-
-	// Reverse the stock reservations using subtract mode (same as item movement deletion)
-	// Creation used: FromID=-qty (adds outgoing), ToID=+qty (adds incoming) with subtract=false
-	// Deletion uses: FromID=-qty with subtract=true (removes outgoing), ToID=+qty with subtract=true (removes incoming)
-	// CRITICAL: Use original quantities from snapshot, not current stock
-	for itemID, originalQty := range originalQuantities {
-		// FROM hierarchy: remove outgoing stock using same sign as create but with subtract=true
-		err = r.inventoryStockService.SimulateRepositoryStockMapWithMode(itemID, movement.FromID, movement.ToID, -1*originalQty, stockMap, repositoryMap, false, true)
-		if err != nil {
-			return nil, fmt.Errorf("failed calculating stock map: %w", err)
-		}
-
-		// TO hierarchy: remove incoming stock using same sign as create but with subtract=true
-		err = r.inventoryStockService.SimulateRepositoryStockMapWithMode(itemID, movement.ToID, movement.FromID, originalQty, stockMap, repositoryMap, false, true)
-		if err != nil {
-			return nil, fmt.Errorf("failed calculating stock map: %w", err)
-		}
-	}
-
-	// Insert new stock records
-	stocksToCreate := []*ent.StockCreate{}
-	for repo, stockRecord := range stockMap {
-		for itemID := range stockRecord {
-			newStock := tx.Stock.
-				Create().
-				SetItemID(itemID).
-				SetTenantID(req.MutationTenantID()).
-				SetRepositoryID(repo).
-				SetQuantity(stockMap[repo][itemID].Quantity).
-				SetIncomingStock(stockMap[repo][itemID].IncomingStock).
-				SetOutgoingStock(stockMap[repo][itemID].OutgoingStock).
-				SetOwnQuantity(stockMap[repo][itemID].OwnQuantity).
-				SetOwnIncomingStock(stockMap[repo][itemID].OwnIncomingStock).
-				SetOwnOutgoingStock(stockMap[repo][itemID].OwnOutgoingStock).
-				SetMovementID(id)
-			stocksToCreate = append(stocksToCreate, newStock)
-		}
-	}
-	_, err = tx.Stock.CreateBulk(stocksToCreate...).Save(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed inserting stock: %w", err)
-	}
-
-	_, err = tx.RepositoryMovement.
-		UpdateOneID(id).
-		SetDeletedAt(time.Now().UTC()).
-		SetDeletedBy(req.User().ID).
-		Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	resp.DeletedID = &id
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
-
-	return &resp, nil
+	return &model.InventoryRepositoryMovementDeletePayload{DeletedID: &id, Workflows: make([]*model.TemporalWorkflow, 0)}, nil
 }
 
 // CreateInventoryCollectionMovement is the resolver for the createInventoryCollectionMovement field.
@@ -1155,257 +562,59 @@ func (r *mutationResolver) CreateInventoryCollectionMovement(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-
 	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	result := model.CreateCollectionMovementOutput{
-		Movements: make([]*model.CollectionMovement, 0),
-		ID:        uuidgql.GenerateV7UUID(),
-	}
-	repositoryIDList := make([]uuid.UUID, 0)
-
-	repositoryMap, err := r.inventoryStockService.GetRepositoriesDetails(ctx, tx)
-	if err != nil {
-		return nil, err
-	}
-
-	parentsMap := make(map[uuid.UUID]ent.Repository, 0)
-	for _, collection := range input.Collection {
-		repositoryIDList = append(repositoryIDList, collection.FromID)
-
-		fromRepo, err := tx.Repository.Get(ctx, collection.FromID)
+	// Validate per-position data type and patch DataTypeID/DataTypeSlug onto the
+	// per-position GraphQL input. Carries the resolver-side validator
+	// responsibility; the stock service consumes the already-validated values.
+	collection := make([]stocksvc.CreateCollectionMovementCollectionInput, len(input.Collection))
+	for i, position := range input.Collection {
+		collDataType, err := r.validator.ValidateDataTypeInput(ctx, true, position.Data, position.DataTypeID, position.DataTypeSlug)
 		if err != nil {
 			return nil, err
 		}
-		repositoryMap[fromRepo.ID] = *fromRepo
-
-		toRepo, err := tx.Repository.Get(ctx, collection.ToID)
-		if err != nil {
-			return nil, err
-		}
-		repositoryMap[toRepo.ID] = *toRepo
-
-		if fromRepo.VirtualRepo && toRepo.VirtualRepo {
-			return nil, errors.New("movements between virtual repositories are not allowed")
-		}
-
-		if (collection.RepositoryID == nil && collection.ItemID == nil) ||
-			(collection.RepositoryID != nil && collection.ItemID != nil) {
-			return nil, fmt.Errorf("repositoryID or itemID should be sent")
-		}
-
-		if collection.ItemID != nil && (collection.Quantity == nil || *collection.Quantity <= 0) ||
-			(collection.RepositoryID != nil && collection.Quantity != nil) {
-			return nil, fmt.Errorf("invalid quantity")
-		}
-
-		collDataType, err := r.validator.ValidateDataTypeInput(ctx, true, collection.Data, collection.DataTypeID, collection.DataTypeSlug)
-		if err != nil {
-			return nil, err
-		}
-
-		mixin.PatchDataTypeIdSlugInput(collection, collDataType)
-
-		err = r.inventoryStockService.GetRepositoriesParentsDetails(collection.FromID, repositoryMap, parentsMap)
-		if err != nil {
-			return nil, err
-		}
-
-		err = r.inventoryStockService.GetRepositoriesParentsDetails(collection.ToID, repositoryMap, parentsMap)
-		if err != nil {
-			return nil, err
-		}
-
-		if collection.RepositoryID != nil {
-			err = r.inventoryStockService.GetRepositoriesParentsDetails(*collection.RepositoryID, repositoryMap, parentsMap)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-	}
-
-	for k := range parentsMap {
-		repositoryIDList = append(repositoryIDList, k)
-	}
-
-	stockMap := map[uuid.UUID]map[uuid.UUID]ent.Stock{}
-	if len(repositoryIDList) > 0 {
-		stockMap, err = r.inventoryStockService.GetCurrentRepositoriesStock(ctx, tx, repositoryIDList)
-		if err != nil {
-			return nil, err
+		mixin.PatchDataTypeIdSlugInput(position, collDataType)
+		collection[i] = stocksvc.CreateCollectionMovementCollectionInput{
+			Handler:      position.Handler,
+			DataTypeID:   position.DataTypeID,
+			DataTypeSlug: position.DataTypeSlug,
+			Data:         position.Data,
+			FromID:       position.FromID,
+			ToID:         position.ToID,
+			ItemID:       position.ItemID,
+			Quantity:     position.Quantity,
+			RepositoryID: position.RepositoryID,
+			OrderID:      position.OrderID,
 		}
 	}
 
-	req := request.ForContext(ctx)
-
-	var resolvedDataTypeID *uuid.UUID
+	resolvedDataTypeID := input.DataTypeID
 	if dataType != nil {
 		resolvedDataTypeID = &dataType.ID
-	} else {
-		resolvedDataTypeID = input.DataTypeID
 	}
-
-	movement := tx.Collection_Movement.
-		Create().
-		SetID(result.ID).
-		SetNillableDataTypeID(resolvedDataTypeID).
-		SetData(input.Data).
-		SetTenantID(req.MutationTenantID()).
-		SetCreatedAt(time.Now().UTC())
-
-	if input.Handler != nil && *input.Handler != "" {
-		movement.SetHandler(*input.Handler)
+	uniqueness := func() error {
+		return r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+			Input: input.Data, DataType: dataType, DbDriver: core.Config.DbDriver,
+			TableName: collection_movement.Table, FieldName: collection_movement.FieldData,
+		})
 	}
-
-	_, err = movement.Save(ctx)
+	out, err := r.stock.CreateCollectionMovement(ctx, tx, stocksvc.CreateCollectionMovementInput{
+		ID: uuidgql.GenerateV7UUID(), DataTypeID: resolvedDataTypeID, DataTypeSlug: input.DataTypeSlug,
+		Data: input.Data, Handler: input.Handler, Collection: collection,
+		TenantID: request.ForContext(ctx).MutationTenantID(), PreInsertStockHook: uniqueness,
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
-		Input:     input.Data,
-		DataType:  dataType,
-		TableName: collection_movement.Table,
-		FieldName: collection_movement.FieldData,
-		DbDriver:  core.Config.DbDriver,
-	}); err != nil {
-		return nil, err
+	movements := make([]*model.CollectionMovement, len(out.Movements))
+	for i, m := range out.Movements {
+		movements[i] = &model.CollectionMovement{ID: m.ID, MovementType: m.MovementType}
 	}
-
-	// TODO: Optimize this logic, it is too complex and hard to understand. Optimize queries and loops
-	for idx, collection := range input.Collection {
-		if collection.ItemID != nil {
-			createItemMovementInput := ent.CreateItemMovementInput{
-				DataTypeID:   collection.DataTypeID,
-				DataTypeSlug: collection.DataTypeSlug,
-				Data:         collection.Data,
-				Quantity:     int64(*collection.Quantity),
-				Handler:      collection.Handler,
-				FromID:       collection.FromID,
-				ToID:         collection.ToID,
-				ItemID:       *collection.ItemID,
-				CollectionID: &result.ID,
-				Position:     &idx,
-				OrderID:      collection.OrderID,
-			}
-
-			itemMovement, err := r.inventoryStockService.CreateInventoryCollectionItemMovement(ctx, tx, createItemMovementInput, req.MutationTenantID(), stockMap, repositoryMap)
-			if err != nil {
-				fmt.Printf("\n createItemMovementInput: %+v \n", createItemMovementInput)
-				fmt.Printf("\n stockMap: %+v \n", stockMap[createItemMovementInput.FromID])
-				return nil, fmt.Errorf("failed creating item movement: %w", err)
-			}
-
-			err = r.inventoryStockService.InsertStockMap(ctx, tx, *collection.ItemID, req.MutationTenantID(), itemMovement.ID, stockMap, repositoryMap)
-			if err != nil {
-				return nil, err
-			}
-
-			result.Movements = append(result.Movements, &model.CollectionMovement{ID: itemMovement.ID, MovementType: "itemMovement"})
-		}
-
-		if collection.RepositoryID != nil {
-			var fromID uuid.UUID
-			for i, c := range input.Collection {
-				if i < idx && c.RepositoryID != nil && *c.RepositoryID == *collection.RepositoryID {
-					fromID = c.ToID
-				}
-			}
-
-			if fromID == uuid.Nil {
-				fromID = repositoryMap[*collection.RepositoryID].ParentID
-
-				lastRepoMovement, _ := tx.RepositoryMovement.Query().
-					Where(
-						repositorymovement.RepositoryID(*collection.RepositoryID),
-						repositorymovement.Executed(false),
-					).
-					Order(ent.Desc(repositorymovement.FieldCreatedAt)).
-					First(ctx)
-
-				if lastRepoMovement != nil {
-					fromID = lastRepoMovement.ToID
-				}
-			}
-
-			if collection.FromID != uuid.Nil && collection.FromID != fromID {
-				return nil, fmt.Errorf("wrong FromID (%s) for repository (%s) movement. Expected FromID:%s", collection.FromID, collection.RepositoryID, fromID)
-			}
-
-			collection.FromID = fromID
-
-			createRepositoryMovementInput := ent.CreateRepositoryMovementInput{
-				DataTypeID:   collection.DataTypeID,
-				DataTypeSlug: collection.DataTypeSlug,
-				Data:         collection.Data,
-				Handler:      collection.Handler,
-				ToID:         collection.ToID,
-				FromID:       &collection.FromID,
-				RepositoryID: *collection.RepositoryID,
-				CollectionID: &result.ID,
-				Position:     &idx,
-				OrderID:      collection.OrderID,
-			}
-
-			for itemID, itemRecord := range stockMap[*collection.RepositoryID] {
-
-				// Calculate stockMap for parents of the 'from' repository
-				err = r.inventoryStockService.SimulateRepositoryStockMap(itemID, collection.FromID, collection.ToID, -1*itemRecord.Quantity, stockMap, repositoryMap, false)
-				if err != nil {
-					return nil, fmt.Errorf("failed calculating stock map: %w", err)
-				}
-
-				// Calculate stockMap for parents of the 'to' repository
-				err = r.inventoryStockService.SimulateRepositoryStockMap(itemID, collection.ToID, collection.FromID, itemRecord.Quantity, stockMap, repositoryMap, false)
-				if err != nil {
-					return nil, fmt.Errorf("failed calculating stock map: %w", err)
-				}
-			}
-
-			repoMovement, err := tx.RepositoryMovement.
-				Create().
-				SetInput(createRepositoryMovementInput).
-				SetTenantID(req.MutationTenantID()).
-				SetExecuted(false).
-				Save(ctx)
-			if err != nil {
-				return nil, err
-			}
-
-			stocksToCreate := []*ent.StockCreate{}
-			for repo, stockRecord := range stockMap {
-				for itemID := range stockRecord {
-					newStock := tx.Stock.
-						Create().
-						SetItemID(itemID).
-						SetTenantID(req.MutationTenantID()).
-						SetRepositoryID(repo).
-						SetQuantity(stockMap[repo][itemID].Quantity).
-						SetIncomingStock(stockMap[repo][itemID].IncomingStock).
-						SetOutgoingStock(stockMap[repo][itemID].OutgoingStock).
-						SetOwnQuantity(stockMap[repo][itemID].OwnQuantity).
-						SetOwnIncomingStock(stockMap[repo][itemID].OwnIncomingStock).
-						SetOwnOutgoingStock(stockMap[repo][itemID].OwnOutgoingStock).
-						SetMovementID(repoMovement.ID)
-					stocksToCreate = append(stocksToCreate, newStock)
-				}
-			}
-			_, err = tx.Stock.CreateBulk(stocksToCreate...).Save(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed inserting stocks: %w", err)
-			}
-
-			result.Movements = append(result.Movements, &model.CollectionMovement{ID: repoMovement.ID, MovementType: "repositoryMovement"})
-		}
-	}
-
-	return &result, nil
+	return &model.CreateCollectionMovementOutput{ID: out.ID, Movements: movements}, nil
 }
 
 // UpdateInventoryCollectionMovement is the resolver for the updateInventoryCollectionMovement field.
@@ -1460,49 +669,13 @@ func (r *mutationResolver) DeleteInventoryCollection(ctx context.Context, id uui
 	if err != nil {
 		return nil, err
 	}
-
-	var resp model.InventoryCollectionDeletePayload
 	req := request.ForContext(ctx)
-
-	// Verify the collection exists
-	if _, err = tx.Collection_Movement.Get(ctx, id); err != nil {
-		return nil, fmt.Errorf("inventoryCollection not found")
-	}
-
-	// Cannot delete a collection that still has item movements
-	itemMovementCount, err := tx.ItemMovement.Query().
-		Where(itemmovement.CollectionID(id), itemmovement.DeletedAtIsNil()).
-		Count(ctx)
-	if err != nil {
+	if _, err = r.stock.DeleteCollection(ctx, tx, stocksvc.DeleteCollectionInput{
+		ID: id, DeletedBy: req.User().ID,
+	}); err != nil {
 		return nil, err
 	}
-	if itemMovementCount > 0 {
-		return nil, ErrCollectionHasMovements
-	}
-
-	// Cannot delete a collection that still has repository movements
-	repoMovementCount, err := tx.RepositoryMovement.Query().
-		Where(repositorymovement.CollectionID(id), repositorymovement.DeletedAtIsNil()).
-		Count(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if repoMovementCount > 0 {
-		return nil, ErrCollectionHasMovements
-	}
-
-	_, err = tx.Collection_Movement.UpdateOneID(id).
-		SetDeletedAt(time.Now().UTC()).
-		SetDeletedBy(req.User().ID).
-		Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	resp.DeletedID = &id
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
-
-	return &resp, nil
+	return &model.InventoryCollectionDeletePayload{DeletedID: &id, Workflows: make([]*model.TemporalWorkflow, 0)}, nil
 }
 
 // DeleteInventoryStock is the resolver for the deleteInventoryStock field.
@@ -1545,7 +718,7 @@ func (r *mutationResolver) DeleteInventoryStock(ctx context.Context, input model
 
 	stockMap := map[uuid.UUID]map[uuid.UUID]ent.Stock{}
 	if len(repositoryIDList) > 0 {
-		stockMap, err = r.inventoryStockService.GetCurrentRepositoriesStock(ctx, tx, repositoryIDList)
+		stockMap, err = r.stock.GetCurrentRepositoriesStock(ctx, tx, repositoryIDList)
 		if err != nil {
 			return nil, err
 		}
@@ -1573,7 +746,8 @@ func (r *mutationResolver) DeleteInventoryStock(ctx context.Context, input model
 						SetTenantID(req.MutationTenantID()).
 						SetRepositoryID(c.ID).
 						SetQuantity(0).
-						SetCreatedBy(req.User().ID),
+						SetCreatedBy(req.User().ID).
+						SetVersion(stockMap[c.ID][v].Version+1),
 				)
 				transactionsToCreate = append(
 					transactionsToCreate,
@@ -1598,7 +772,8 @@ func (r *mutationResolver) DeleteInventoryStock(ctx context.Context, input model
 					SetTenantID(req.MutationTenantID()).
 					SetRepositoryID(repo.ID).
 					SetQuantity(0).
-					SetCreatedBy(req.User().ID),
+					SetCreatedBy(req.User().ID).
+					SetVersion(stockMap[repo.ID][v].Version+1),
 			)
 			transactionsToCreate = append(
 				transactionsToCreate,
@@ -1622,7 +797,8 @@ func (r *mutationResolver) DeleteInventoryStock(ctx context.Context, input model
 					SetTenantID(req.MutationTenantID()).
 					SetRepositoryID(repo.ParentID).
 					SetQuantity(stockMap[repo.ParentID][v].Quantity-stockMap[repo.ID][v].Quantity).
-					SetCreatedBy(req.User().ID),
+					SetCreatedBy(req.User().ID).
+					SetVersion(stockMap[repo.ParentID][v].Version+1),
 			)
 			transactionsToCreate = append(
 				transactionsToCreate,
@@ -1669,7 +845,18 @@ func (r *mutationResolver) RebuildInventoryStock(ctx context.Context) (*model.Re
 		return nil, err
 	}
 
-	if err := r.inventoryStockService.RebuildStockTable(ctx, tx, req.MutationTenantID()); err != nil {
+	// The rebuild replays every movement, writing one stock row per event.
+	// Emitting an outbox event per replayed row would flood the outbox and can
+	// OOM the publisher draining the backlog, so suppress event creation by
+	// default for this mutation. A caller can opt back into normal event
+	// emission by explicitly requesting sync updates (X-Pyck-Feature:
+	// syncupdates); all other mutations keep the normal sync behavior.
+	rebuildCtx := ctx
+	if !feature.HasFeature(ctx, feature.FEATURE_SYNC_UPDATES) {
+		rebuildCtx = feature.Context(ctx, feature.FEATURE_SUPPRESS_EVENTS)
+	}
+
+	if err := r.stock.RebuildStockTable(rebuildCtx, tx, req.MutationTenantID()); err != nil {
 		return nil, err
 	}
 
@@ -1697,7 +884,7 @@ func (r *mutationResolver) CreateInventoryItemSet(ctx context.Context, input ent
 	items, err := tx.Item.Query().
 		Where(entitem.TenantID(req.MutationTenantID())).
 		Where(entitem.IDIn(input.ItemIDs...)).
-		All(ctx)
+		AllPages(ctx, mixin.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -1769,7 +956,7 @@ func (r *mutationResolver) UpdateInventoryItemSet(ctx context.Context, id uuid.U
 		items, err := tx.Item.Query().
 			Where(entitem.TenantID(req.MutationTenantID())).
 			Where(entitem.IDIn(input.AddItemIDs...)).
-			All(ctx)
+			AllPages(ctx, mixin.Limit)
 		if err != nil {
 			return nil, err
 		}
@@ -1997,7 +1184,7 @@ func (r *mutationResolver) DeleteReplenishmentOrder(ctx context.Context, id uuid
 	items, err := tx.ReplenishmentOrderItem.
 		Query().
 		Where(replenishmentorderitem.ReplenishmentOrderID(id)).
-		All(ctx)
+		AllPages(ctx, mixin.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -2447,7 +1634,7 @@ func (r *mutationResolver) PatchReplenishmentOrderItemData(ctx context.Context, 
 	return &model.ReplenishmentOrderItemOutput{ReplenishmentOrderItem: updated}, nil
 }
 
-// Mutation returns m.MutationResolver implementation.
-func (r *Resolver) Mutation() m.MutationResolver { return &mutationResolver{r} }
+// Mutation returns exec.MutationResolver implementation.
+func (r *Resolver) Mutation() exec.MutationResolver { return &mutationResolver{r} }
 
 type mutationResolver struct{ *Resolver }

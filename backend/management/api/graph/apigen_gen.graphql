@@ -82,60 +82,6 @@ query GetDevices($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orde
         dataTypeSlug
         deletedAt
         deletedBy
-        deviceLocationsDevice {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              deviceID
-              id
-              locationID
-              tenantID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
-        deviceUsersDevice {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              deviceID
-              id
-              tenantID
-              updatedAt
-              updatedBy
-              userID
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         id
         name
         tenantID
@@ -257,62 +203,9 @@ query GetGroups($after: Cursor, $first: Int, $before: Cursor, $last: Int, $order
         description
         id
         name
-        roles {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              deletedAt
-              deletedBy
-              description
-              id
-              name
-              tenantID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         tenantID
         updatedAt
         updatedBy
-        users {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              deletedAt
-              deletedBy
-              email
-              firstName
-              id
-              idpID
-              isAdmin
-              lastName
-              legacyRoles
-              tenantID
-              updatedAt
-              updatedBy
-              username
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
       }
     }
   }
@@ -369,33 +262,6 @@ query GetLocations($after: Cursor, $first: Int, $before: Cursor, $last: Int, $or
         dataTypeSlug
         deletedAt
         deletedBy
-        deviceLocationsLocation {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              deviceID
-              id
-              locationID
-              tenantID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         id
         name
         tenantID
@@ -424,89 +290,11 @@ query GetRoles($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderB
         deletedAt
         deletedBy
         description
-        groups {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              deletedAt
-              deletedBy
-              description
-              id
-              name
-              tenantID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         id
         name
-        policies {
-          edges {
-            cursor
-            node {
-              action
-              createdAt
-              createdBy
-              deletedAt
-              deletedBy
-              effect
-              id
-              resource
-              tenantID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         tenantID
         updatedAt
         updatedBy
-        users {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              deletedAt
-              deletedBy
-              email
-              firstName
-              id
-              idpID
-              isAdmin
-              lastName
-              legacyRoles
-              tenantID
-              updatedAt
-              updatedBy
-              username
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
       }
     }
   }
@@ -532,38 +320,10 @@ query GetTenants($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orde
         dataTypeSlug
         deletedAt
         deletedBy
+        expiresAt
         id
         idpOrgRef
         name
-        tenantUsers {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              deletedAt
-              deletedBy
-              email
-              firstName
-              id
-              idpID
-              isAdmin
-              lastName
-              legacyRoles
-              tenantID
-              updatedAt
-              updatedBy
-              username
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         updatedAt
         updatedBy
       }
@@ -588,88 +348,13 @@ query GetUsers($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderB
         createdBy
         deletedAt
         deletedBy
-        deviceUsersUsers {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              data
-              dataTypeID
-              dataTypeSlug
-              deletedAt
-              deletedBy
-              deviceID
-              id
-              tenantID
-              updatedAt
-              updatedBy
-              userID
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         email
         firstName
-        groups {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              deletedAt
-              deletedBy
-              description
-              id
-              name
-              tenantID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         id
         idpID
         isAdmin
         lastName
         legacyRoles
-        roles {
-          edges {
-            cursor
-            node {
-              createdAt
-              createdBy
-              deletedAt
-              deletedBy
-              description
-              id
-              name
-              tenantID
-              updatedAt
-              updatedBy
-            }
-          }
-          pageInfo {
-            endCursor
-            hasNextPage
-            hasPreviousPage
-            startCursor
-          }
-          totalCount
-        }
         tenantID
         updatedAt
         updatedBy
@@ -694,62 +379,17 @@ query GetGroup($id: ID!) {
     description
     id
     name
-    roles {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          description
-          id
-          name
-          tenantID
-          updatedAt
-          updatedBy
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
     tenantID
     updatedAt
     updatedBy
-    users {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          email
-          firstName
-          id
-          idpID
-          isAdmin
-          lastName
-          legacyRoles
-          tenantID
-          updatedAt
-          updatedBy
-          username
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
+  }
+}
+
+
+query GetOrganization($sub: String!) {
+  organization(sub: $sub) {
+    active
+    id
   }
 }
 
@@ -778,89 +418,11 @@ query GetRole($id: ID!) {
     deletedAt
     deletedBy
     description
-    groups {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          description
-          id
-          name
-          tenantID
-          updatedAt
-          updatedBy
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
     id
     name
-    policies {
-      edges {
-        cursor
-        node {
-          action
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          effect
-          id
-          resource
-          tenantID
-          updatedAt
-          updatedBy
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
     tenantID
     updatedAt
     updatedBy
-    users {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          email
-          firstName
-          id
-          idpID
-          isAdmin
-          lastName
-          legacyRoles
-          tenantID
-          updatedAt
-          updatedBy
-          username
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
   }
 }
 
@@ -960,6 +522,42 @@ mutation SendCustomEvent($input: SendCustomEventInput!) {
 mutation RegisterTenant($input: RegisterTenantInput!) {
   registerTenant(input: $input) {
     success
+    tenant {
+      createdAt
+      createdBy
+      data
+      dataTypeID
+      dataTypeSlug
+      deletedAt
+      deletedBy
+      expiresAt
+      id
+      idpOrgRef
+      name
+      updatedAt
+      updatedBy
+    }
+  }
+}
+
+
+mutation DeleteTenant {
+  deleteTenant {
+    success
+  }
+}
+
+
+mutation RestoreTenant($input: RestoreTenantInput!) {
+  restoreTenant(input: $input) {
+    success
+  }
+}
+
+
+mutation SetTenantExpiry($input: SetTenantExpiryInput!) {
+  setTenantExpiry(input: $input) {
+    success
   }
 }
 
@@ -1019,62 +617,9 @@ mutation CreateGroup($input: CreateGroupInput!) {
     description
     id
     name
-    roles {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          description
-          id
-          name
-          tenantID
-          updatedAt
-          updatedBy
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
     tenantID
     updatedAt
     updatedBy
-    users {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          email
-          firstName
-          id
-          idpID
-          isAdmin
-          lastName
-          legacyRoles
-          tenantID
-          updatedAt
-          updatedBy
-          username
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
   }
 }
 
@@ -1088,62 +633,9 @@ mutation UpdateGroup($id: ID!, $input: UpdateGroupInput!) {
     description
     id
     name
-    roles {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          description
-          id
-          name
-          tenantID
-          updatedAt
-          updatedBy
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
     tenantID
     updatedAt
     updatedBy
-    users {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          email
-          firstName
-          id
-          idpID
-          isAdmin
-          lastName
-          legacyRoles
-          tenantID
-          updatedAt
-          updatedBy
-          username
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
   }
 }
 
@@ -1160,89 +652,11 @@ mutation CreateRole($input: CreateRoleInput!) {
     deletedAt
     deletedBy
     description
-    groups {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          description
-          id
-          name
-          tenantID
-          updatedAt
-          updatedBy
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
     id
     name
-    policies {
-      edges {
-        cursor
-        node {
-          action
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          effect
-          id
-          resource
-          tenantID
-          updatedAt
-          updatedBy
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
     tenantID
     updatedAt
     updatedBy
-    users {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          email
-          firstName
-          id
-          idpID
-          isAdmin
-          lastName
-          legacyRoles
-          tenantID
-          updatedAt
-          updatedBy
-          username
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
   }
 }
 
@@ -1254,89 +668,11 @@ mutation UpdateRole($id: ID!, $input: UpdateRoleInput!) {
     deletedAt
     deletedBy
     description
-    groups {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          description
-          id
-          name
-          tenantID
-          updatedAt
-          updatedBy
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
     id
     name
-    policies {
-      edges {
-        cursor
-        node {
-          action
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          effect
-          id
-          resource
-          tenantID
-          updatedAt
-          updatedBy
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
     tenantID
     updatedAt
     updatedBy
-    users {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          email
-          firstName
-          id
-          idpID
-          isAdmin
-          lastName
-          legacyRoles
-          tenantID
-          updatedAt
-          updatedBy
-          username
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
   }
 }
 
@@ -1352,88 +688,13 @@ mutation CreateUser($input: CreateUserInput!) {
     createdBy
     deletedAt
     deletedBy
-    deviceUsersUsers {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          data
-          dataTypeID
-          dataTypeSlug
-          deletedAt
-          deletedBy
-          deviceID
-          id
-          tenantID
-          updatedAt
-          updatedBy
-          userID
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
     email
     firstName
-    groups {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          description
-          id
-          name
-          tenantID
-          updatedAt
-          updatedBy
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
     id
     idpID
     isAdmin
     lastName
     legacyRoles
-    roles {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          description
-          id
-          name
-          tenantID
-          updatedAt
-          updatedBy
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
     tenantID
     updatedAt
     updatedBy
@@ -1448,88 +709,13 @@ mutation UpdateUser($id: ID!, $input: UpdateUserInput!) {
     createdBy
     deletedAt
     deletedBy
-    deviceUsersUsers {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          data
-          dataTypeID
-          dataTypeSlug
-          deletedAt
-          deletedBy
-          deviceID
-          id
-          tenantID
-          updatedAt
-          updatedBy
-          userID
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
     email
     firstName
-    groups {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          description
-          id
-          name
-          tenantID
-          updatedAt
-          updatedBy
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
     id
     idpID
     isAdmin
     lastName
     legacyRoles
-    roles {
-      edges {
-        cursor
-        node {
-          createdAt
-          createdBy
-          deletedAt
-          deletedBy
-          description
-          id
-          name
-          tenantID
-          updatedAt
-          updatedBy
-        }
-      }
-      pageInfo {
-        endCursor
-        hasNextPage
-        hasPreviousPage
-        startCursor
-      }
-      totalCount
-    }
     tenantID
     updatedAt
     updatedBy
@@ -1618,18 +804,6 @@ mutation CreateLocation($input: CreateLocationInput!) {
       dataTypeSlug
       deletedAt
       deletedBy
-      deviceLocationsLocation {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       id
       name
       tenantID
@@ -1655,18 +829,6 @@ mutation UpdateLocation($id: ID!, $input: UpdateLocationInput!) {
       dataTypeSlug
       deletedAt
       deletedBy
-      deviceLocationsLocation {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       id
       name
       tenantID
@@ -1704,30 +866,6 @@ mutation CreateDevice($input: CreateDeviceInput!) {
       dataTypeSlug
       deletedAt
       deletedBy
-      deviceLocationsDevice {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      deviceUsersDevice {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       id
       name
       tenantID
@@ -1753,30 +891,6 @@ mutation UpdateDevice($id: ID!, $input: UpdateDeviceInput!) {
       dataTypeSlug
       deletedAt
       deletedBy
-      deviceLocationsDevice {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      deviceUsersDevice {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       id
       name
       tenantID
@@ -1904,18 +1018,6 @@ mutation PatchLocationData($id: ID!, $patches: [JSONPatchInput!]!) {
       dataTypeSlug
       deletedAt
       deletedBy
-      deviceLocationsLocation {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       id
       name
       tenantID
@@ -1941,30 +1043,6 @@ mutation PatchDeviceData($id: ID!, $patches: [JSONPatchInput!]!) {
       dataTypeSlug
       deletedAt
       deletedBy
-      deviceLocationsDevice {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
-      deviceUsersDevice {
-        edges {
-          cursor
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-          hasPreviousPage
-          startCursor
-        }
-        totalCount
-      }
       id
       name
       tenantID

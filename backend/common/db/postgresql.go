@@ -19,10 +19,10 @@ import (
 
 const (
 	maxOpenConnections = 50
-	maxIdleConnections = 5
+	maxIdleConnections = 25
 	dbDriver           = dialect.Postgres
-	maxConnLifetime    = time.Minute * 5
-	maxConnIdleTime    = time.Minute
+	maxConnLifetime    = time.Minute * 30
+	maxConnIdleTime    = time.Minute * 10
 )
 
 type pgMultiDriver struct {
@@ -33,36 +33,77 @@ type pgMultiDriver struct {
 
 var _ dialect.Driver = (*pgMultiDriver)(nil)
 
-func NewPostgresMultiDriver(serviceName string, config config.DbConfig) (*pgMultiDriver, error) {
-	writerUri, err := url.Parse(config.DbMasterUrl)
+// driverOpts holds the per-call configuration for NewPostgresMultiDriver.
+type driverOpts struct {
+	writerIsolation string
+	readerIsolation string
+}
+
+// Option mutates a driverOpts. Use the With* helpers below to construct values.
+type Option func(*driverOpts)
+
+// WithWriterIsolation sets the PostgreSQL default_transaction_isolation level
+// for the writer pool. Valid values are the lowercase libpq spellings, e.g.
+// "serializable", "repeatable read", "read committed".
+func WithWriterIsolation(level string) Option {
+	return func(o *driverOpts) {
+		o.writerIsolation = level
+	}
+}
+
+// WithReaderIsolation sets the PostgreSQL default_transaction_isolation level
+// for the reader pool.
+func WithReaderIsolation(level string) Option {
+	return func(o *driverOpts) {
+		o.readerIsolation = level
+	}
+}
+
+func NewPostgresMultiDriver(serviceName string, config config.DbConfig, opts ...Option) (*pgMultiDriver, error) {
+	cfg := driverOpts{
+		writerIsolation: "serializable",
+		readerIsolation: "read committed",
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	writerUri, err := buildPoolUri(config.DbMasterUrl, serviceName, cfg.writerIsolation)
 	if err != nil {
 		return nil, err
 	}
-	applyQueryArgs(writerUri, map[string]string{
-		"search_path":                   serviceName,
-		"default_transaction_isolation": "serializable",
-	})
 
-	writer, db, err := poolFromUri(writerUri.String())
+	writer, db, err := poolFromUri(writerUri)
 	if err != nil {
 		return nil, err
 	}
 
-	readerURI, err := url.Parse(config.DbSlaveUrl)
+	readerURI, err := buildPoolUri(config.DbSlaveUrl, serviceName, cfg.readerIsolation)
 	if err != nil {
 		return nil, err
 	}
-	applyQueryArgs(readerURI, map[string]string{
-		"search_path":                   serviceName,
-		"default_transaction_isolation": "read committed",
-	})
 
-	reader, _, err := poolFromUri(readerURI.String())
+	reader, _, err := poolFromUri(readerURI)
 	if err != nil {
 		return nil, err
 	}
 
 	return &pgMultiDriver{reader: reader, writer: writer, writerDb: db}, nil
+}
+
+// buildPoolUri parses rawUrl and applies the per-pool query args (search_path
+// and default_transaction_isolation). Extracted from NewPostgresMultiDriver so
+// that the URL-shaping logic can be unit tested without opening a real pool.
+func buildPoolUri(rawUrl, serviceName, isolation string) (string, error) {
+	parsed, err := url.Parse(rawUrl)
+	if err != nil {
+		return "", err
+	}
+	applyQueryArgs(parsed, map[string]string{
+		"search_path":                   serviceName,
+		"default_transaction_isolation": isolation,
+	})
+	return parsed.String(), nil
 }
 
 func applyQueryArgs(uri *url.URL, args map[string]string) {
@@ -103,7 +144,7 @@ func poolFromUri(uri string) (dialect.Driver, *sql.DB, error) {
 	db.SetConnMaxLifetime(maxConnLifetime)
 	db.SetConnMaxIdleTime(maxConnIdleTime)
 
-	err = otelsql.RegisterDBStatsMetrics(db, otelsql.WithAttributes(otplAttributes(schemaName)...))
+	_, err = otelsql.RegisterDBStatsMetrics(db, otelsql.WithAttributes(otplAttributes(schemaName)...))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -137,9 +178,17 @@ func (driver *pgMultiDriver) Tx(ctx context.Context) (dialect.Tx, error) {
 }
 
 func (driver *pgMultiDriver) BeginTx(ctx context.Context, opts *sql.TxOptions) (dialect.Tx, error) {
-	return driver.writer.(interface {
+	executor := driver.writer
+	if opts != nil && opts.ReadOnly {
+		executor = driver.reader
+	}
+	beginTxer, ok := executor.(interface {
 		BeginTx(context.Context, *sql.TxOptions) (dialect.Tx, error)
-	}).BeginTx(ctx, opts)
+	})
+	if !ok {
+		return nil, ErrDriverLacksBeginTx
+	}
+	return beginTxer.BeginTx(ctx, opts)
 }
 
 func (driver *pgMultiDriver) Close() error {

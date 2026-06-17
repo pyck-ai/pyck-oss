@@ -9,6 +9,7 @@ import "context"
 type SchemaConfig struct {
 	EntityEventsOutbox string // EntityEventsOutbox table.
 	File               string // File table.
+	IdempotencyKey     string // IdempotencyKey table.
 }
 
 type schemaCtxKey struct{}

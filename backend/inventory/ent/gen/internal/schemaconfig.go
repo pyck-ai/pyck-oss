@@ -9,6 +9,7 @@ import "context"
 type SchemaConfig struct {
 	Collection_Movement    string // Collection_Movement table.
 	EntityEventsOutbox     string // EntityEventsOutbox table.
+	IdempotencyKey         string // IdempotencyKey table.
 	Item                   string // Item table.
 	ItemMovement           string // ItemMovement table.
 	ItemSet                string // ItemSet table.

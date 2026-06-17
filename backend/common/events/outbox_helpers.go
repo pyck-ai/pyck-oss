@@ -31,9 +31,12 @@ var (
 
 // OutboxRow represents a row from the outbox table.
 // This is used by OutboxSelector to return entries for processing.
+//
+// TransactionID is the canonical dedup key used by the outbox handler to
+// build the NATS message ID and to key the reply registry.
 type OutboxRow struct {
 	ID            uuid.UUID
-	CorrelationID string
+	TransactionID uuid.UUID
 	Topic         string
 	Payload       []byte
 	WithReply     bool
@@ -47,6 +50,16 @@ func (r OutboxRow) GetEntityType() string {
 		return *r.EntityType
 	}
 	return "unknown"
+}
+
+// nilIfEmpty returns nil for an empty string, &s otherwise. Used to feed
+// Ent's SetNillable* setters which expect a *string and skip writing the
+// column when nil.
+func nilIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 // OutboxInsertFunc inserts an outbox entry with the unmarshalled payload.
@@ -71,7 +84,7 @@ func NewOutboxInserter(insertFn OutboxInsertFunc) func(context.Context, *OutboxE
 type entOutboxInserter[T any] struct {
 	outboxFieldIndex []int
 	createMethod     reflect.Value
-	setters          []reflect.Value // SetID, SetCreatedAt, SetCorrelationID, SetNillableUserID, SetTopic, SetPayload, SetWithReply
+	setters          []reflect.Value // SetID, SetCreatedAt, SetTransactionID, SetNillableTraceID, SetNillableRequestID, SetNillableUserID, SetTopic, SetPayload, SetWithReply, SetNillableEntityType, SetNillableEntityID, SetTenantID
 	execMethod       reflect.Value
 }
 
@@ -134,14 +147,16 @@ func buildEntOutboxInserter[T any](txSample T) (*entOutboxInserter[T], error) {
 	setterNames := []string{
 		"SetID",
 		"SetCreatedAt",
-		"SetCorrelationID",
+		"SetTransactionID",
+		"SetNillableTraceID",
+		"SetNillableRequestID",
 		"SetNillableUserID",
 		"SetTopic",
 		"SetPayload",
 		"SetWithReply",
 		"SetNillableEntityType",
 		"SetNillableEntityID",
-		"SetNillableTenantID",
+		"SetTenantID",
 	}
 
 	setters := make([]reflect.Value, len(setterNames))
@@ -180,11 +195,17 @@ func (e *entOutboxInserter[T]) insert(ctx context.Context, tx T, entry *OutboxEn
 	builder := e.createMethod.Call([]reflect.Value{clientField})[0]
 
 	// Chain all setters (each returns the builder)
-	// Order matches setterNames in buildEntOutboxInserter
+	// Order matches setterNames in buildEntOutboxInserter.
+	// Nillable string setters (TraceID, RequestID) take *string; passing
+	// nil for an empty value skips writing the column.
+	traceID := nilIfEmpty(entry.TraceID)
+	requestID := nilIfEmpty(entry.RequestID)
 	args := []reflect.Value{
 		reflect.ValueOf(entry.ID),
 		reflect.ValueOf(entry.CreatedAt),
-		reflect.ValueOf(entry.CorrelationID),
+		reflect.ValueOf(entry.TransactionID),
+		reflect.ValueOf(traceID),
+		reflect.ValueOf(requestID),
 		reflect.ValueOf(entry.UserID),
 		reflect.ValueOf(entry.Topic.String()),
 		reflect.ValueOf(payload),
@@ -210,8 +231,8 @@ func (e *entOutboxInserter[T]) insert(ctx context.Context, tx T, entry *OutboxEn
 }
 
 // OutboxSelectFunc selects pending outbox entries for processing.
-// It receives the transaction, batch size, and max retries, and returns entries grouped by correlation ID.
-// The query MUST ensure correlation ordering: all events for a correlation ID are processed together, in order.
+// It receives the transaction, batch size, and max retries, and returns entries grouped by transaction ID.
+// The query MUST ensure transaction ordering: all events for a transaction ID are processed together, in order.
 type OutboxSelectFunc func(ctx context.Context, tx *sql.Tx, batchSize, maxRetries int) ([]OutboxRow, error)
 
 // OutboxMarkPublishedFunc marks an outbox entry as successfully published.
@@ -220,9 +241,184 @@ type OutboxMarkPublishedFunc func(ctx context.Context, tx *sql.Tx, id uuid.UUID)
 // OutboxMarkFailedFunc marks an outbox entry as failed for retry.
 type OutboxMarkFailedFunc func(ctx context.Context, tx *sql.Tx, id uuid.UUID, errMsg string) error
 
-// OutboxMarkCorrelationDeadFunc marks all remaining entries in a correlation group as dead.
-// This is called when an entry exceeds max retries, preventing the entire correlation group from processing.
-type OutboxMarkCorrelationDeadFunc func(ctx context.Context, tx *sql.Tx, correlationID string, reason string) error
+// OutboxMarkTransactionDeadFunc marks all remaining entries in a transaction group as dead.
+// This is called when an entry exceeds max retries, preventing the entire transaction group from processing.
+type OutboxMarkTransactionDeadFunc func(ctx context.Context, tx *sql.Tx, transactionID uuid.UUID, reason string) error
+
+// OutboxClaimFunc leases the given entries until leaseUntil so that no other
+// poller selects them while they are being published. See NewOutboxClaim.
+type OutboxClaimFunc func(ctx context.Context, tx *sql.Tx, ids []uuid.UUID, leaseUntil time.Time) error
+
+// OutboxSelectDeadFunc selects dead-lettered entries (dead_at set, not yet
+// published) so they can be drained to the DLQ stream. See NewOutboxSelectDead.
+type OutboxSelectDeadFunc func(ctx context.Context, tx *sql.Tx, batchSize int) ([]OutboxRow, error)
+
+// OutboxDeleteFunc deletes the given entries by ID, used to remove a row once it
+// has been accepted by the DLQ stream. See NewOutboxDelete.
+type OutboxDeleteFunc func(ctx context.Context, tx *sql.Tx, ids []uuid.UUID) error
+
+// The query builders below are the single source of truth for the outbox SQL.
+// Both the production OutboxSelectFunc/OutboxMark* closures and the test export
+// wrappers call these, so a predicate change cannot silently drift the two
+// apart (the white-box SQL assertions exercise the exact production query).
+
+// selectTransactionIDsQuery builds step 1 of the selector: the N oldest
+// transaction IDs that still have work. A group is selected when it has an
+// unpublished, non-dead row that is EITHER eligible for a (re)try — retry_count
+// below the cap and its backoff/lease elapsed — OR has exhausted its retries
+// (retry_count >= maxRetries). The latter is essential: without it a poisoned
+// row that reaches the cap would no longer match the retry predicate, the group
+// would stop being selected, and its rows would linger forever as pending
+// instead of being dead-lettered.
+func selectTransactionIDsQuery(tableName string, batchSize, maxRetries int, now time.Time) (string, []any) {
+	t := makeTable(tableName)
+	return entsql.Dialect(dialect.Postgres).
+		Select(t.C(outboxfields.TransactionID)).
+		From(t).
+		Where(entsql.And(
+			entsql.IsNull(t.C(outboxfields.PublishedAt)),
+			entsql.IsNull(t.C(outboxfields.DeadAt)),
+			entsql.Or(
+				entsql.And(
+					entsql.LT(t.C(outboxfields.RetryCount), maxRetries),
+					entsql.Or(
+						entsql.IsNull(t.C(outboxfields.NextRetryAt)),
+						entsql.LTE(t.C(outboxfields.NextRetryAt), now),
+					),
+				),
+				entsql.GTE(t.C(outboxfields.RetryCount), maxRetries),
+			),
+		)).
+		GroupBy(t.C(outboxfields.TransactionID)).
+		OrderExpr(entsql.Expr("MIN(" + t.C(outboxfields.CreatedAt) + ")")).
+		Limit(batchSize).
+		Query()
+}
+
+// markPublishedQuery builds the UPDATE that records a successful publish and
+// clears the retry/backoff bookkeeping.
+func markPublishedQuery(tableName string, id uuid.UUID, publishedAt time.Time) (string, []any) {
+	schema, table := parseTableName(tableName)
+	update := entsql.Dialect(dialect.Postgres).
+		Update(table).
+		Set(outboxfields.PublishedAt, publishedAt).
+		SetNull(outboxfields.LastError).
+		SetNull(outboxfields.NextRetryAt).
+		Where(entsql.EQ(outboxfields.ID, id))
+	if schema != "" {
+		update = update.Schema(schema)
+	}
+	return update.Query()
+}
+
+// markFailedQuery builds the UPDATE that records a publish failure and schedules
+// the next retry with capped exponential backoff (NOW() + 2^retry_count, max 1h).
+func markFailedQuery(tableName string, id uuid.UUID, errMsg string) (string, []any) {
+	schema, table := parseTableName(tableName)
+	update := entsql.Dialect(dialect.Postgres).
+		Update(table).
+		Set(outboxfields.RetryCount, entsql.Raw(outboxfields.RetryCount+" + 1")).
+		Set(outboxfields.LastError, errMsg).
+		Set(outboxfields.NextRetryAt, entsql.Raw(
+			"NOW() + (LEAST(POWER(2, "+outboxfields.RetryCount+"), 3600)::integer * INTERVAL '1 second')",
+		)).
+		Where(entsql.EQ(outboxfields.ID, id))
+	if schema != "" {
+		update = update.Schema(schema)
+	}
+	return update.Query()
+}
+
+// markTransactionDeadQuery builds the UPDATE that dead-letters every unpublished,
+// not-already-dead row in a transaction group by setting dead_at (with the reason
+// recorded in last_error). Dead rows are retained for audit and excluded from
+// selection rather than deleted.
+func markTransactionDeadQuery(tableName string, transactionID uuid.UUID, reason string, deadAt time.Time) (string, []any) {
+	schema, table := parseTableName(tableName)
+	update := entsql.Dialect(dialect.Postgres).
+		Update(table).
+		Set(outboxfields.DeadAt, deadAt).
+		Set(outboxfields.LastError, reason).
+		Where(entsql.And(
+			entsql.EQ(outboxfields.TransactionID, transactionID),
+			entsql.IsNull(outboxfields.PublishedAt),
+			entsql.IsNull(outboxfields.DeadAt),
+		))
+	if schema != "" {
+		update = update.Schema(schema)
+	}
+	return update.Query()
+}
+
+// claimQuery builds the UPDATE that leases the given entries until leaseUntil by
+// pushing next_retry_at into the future. The lease reuses the next_retry_at
+// column (no schema change): a leased row looks "not yet eligible" to the
+// selector, so no other poller picks it up while it is mid-publish. The publish
+// outcome (markPublished clears next_retry_at, markFailed overwrites it with the
+// backoff time) supersedes the lease; only a poller that dies mid-publish leaves
+// the lease standing, and the row is retried once it expires.
+func claimQuery(tableName string, ids []uuid.UUID, leaseUntil time.Time) (string, []any) {
+	schema, table := parseTableName(tableName)
+	idArgs := make([]any, len(ids))
+	for i, id := range ids {
+		idArgs[i] = id
+	}
+	update := entsql.Dialect(dialect.Postgres).
+		Update(table).
+		Set(outboxfields.NextRetryAt, leaseUntil).
+		Where(entsql.And(
+			entsql.In(outboxfields.ID, idArgs...),
+			entsql.IsNull(outboxfields.PublishedAt),
+			entsql.IsNull(outboxfields.DeadAt),
+		))
+	if schema != "" {
+		update = update.Schema(schema)
+	}
+	return update.Query()
+}
+
+// selectDeadRowsQuery builds the SELECT for dead-lettered rows pending DLQ
+// delivery: dead_at IS NOT NULL AND published_at IS NULL, oldest first.
+func selectDeadRowsQuery(tableName string, batchSize int) (string, []any) {
+	t := makeTable(tableName)
+	return entsql.Dialect(dialect.Postgres).
+		Select(
+			t.C(outboxfields.ID),
+			t.C(outboxfields.TransactionID),
+			t.C(outboxfields.Topic),
+			t.C(outboxfields.Payload),
+			t.C(outboxfields.WithReply),
+			t.C(outboxfields.RetryCount),
+			t.C(outboxfields.EntityType),
+		).
+		From(t).
+		Where(entsql.And(
+			entsql.NotNull(t.C(outboxfields.DeadAt)),
+			entsql.IsNull(t.C(outboxfields.PublishedAt)),
+		)).
+		OrderBy(entsql.Asc(t.C(outboxfields.CreatedAt))).
+		Limit(batchSize).
+		// Lock each dead row so exactly one replica owns it through publish +
+		// delete + commit, so no two replicas DLQ the same row.
+		ForUpdate(entsql.WithLockAction(entsql.SkipLocked)).
+		Query()
+}
+
+// deleteByIDsQuery builds the DELETE that removes the given rows by ID.
+func deleteByIDsQuery(tableName string, ids []uuid.UUID) (string, []any) {
+	schema, table := parseTableName(tableName)
+	idArgs := make([]any, len(ids))
+	for i, id := range ids {
+		idArgs[i] = id
+	}
+	del := entsql.Dialect(dialect.Postgres).
+		Delete(table).
+		Where(entsql.In(outboxfields.ID, idArgs...))
+	if schema != "" {
+		del = del.Schema(schema)
+	}
+	return del.Query()
+}
 
 // parseTableName splits a schema-qualified table name into schema and table parts.
 // If no schema is present, returns empty schema and the original name as table.
@@ -245,62 +441,46 @@ func makeTable(tableName string) *entsql.SelectTable {
 
 // NewOutboxSelector creates an OutboxSelector that uses the provided table name.
 // The table name can be schema-qualified (e.g., "receiving.event_outbox").
-// The query ensures correlation ordering by:
-// 1. Finding the first N correlation IDs with unprocessed events (ordered by oldest event)
-// 2. Locking and fetching ALL events for those correlations with FOR UPDATE SKIP LOCKED
+// The query ensures transaction ordering by:
+// 1. Finding the first N transaction IDs with unprocessed events (ordered by oldest event)
+// 2. Locking and fetching ALL events for those transactions with FOR UPDATE SKIP LOCKED
 func NewOutboxSelector(tableName string) OutboxSelectFunc {
 	return func(ctx context.Context, tx *sql.Tx, batchSize, maxRetries int) ([]OutboxRow, error) {
 		t := makeTable(tableName)
-		now := time.Now().UTC()
 
-		// Step 1: Find the N oldest correlation IDs with pending events (no locking here)
-		// PostgreSQL doesn't allow FOR UPDATE with GROUP BY, so we identify targets first
-		cidSelector := entsql.Dialect(dialect.Postgres).
-			Select(t.C(outboxfields.CorrelationID)).
-			From(t).
-			Where(entsql.And(
-				entsql.IsNull(t.C(outboxfields.PublishedAt)),
-				entsql.IsNull(t.C(outboxfields.DeadAt)),
-				entsql.LT(t.C(outboxfields.RetryCount), maxRetries),
-				entsql.Or(
-					entsql.IsNull(t.C(outboxfields.NextRetryAt)),
-					entsql.LTE(t.C(outboxfields.NextRetryAt), now),
-				),
-			)).
-			GroupBy(t.C(outboxfields.CorrelationID)).
-			OrderExpr(entsql.Expr("MIN(" + t.C(outboxfields.CreatedAt) + ")")).
-			Limit(batchSize)
-
-		query, args := cidSelector.Query()
+		// Step 1: Find the N oldest transaction IDs with pending events (no locking
+		// here). PostgreSQL doesn't allow FOR UPDATE with GROUP BY, so we identify
+		// targets first. See selectTransactionIDsQuery for the selection predicate.
+		query, args := selectTransactionIDsQuery(tableName, batchSize, maxRetries, time.Now().UTC())
 		idRows, err := tx.QueryContext(ctx, query, args...)
 		if err != nil {
-			return nil, fmt.Errorf("failed to select correlation IDs: %w", err)
+			return nil, fmt.Errorf("failed to select transaction IDs: %w", err)
 		}
 		defer idRows.Close()
 
-		var correlationIDs []any
+		var transactionIDs []any
 		for idRows.Next() {
-			var cid string
-			if err := idRows.Scan(&cid); err != nil {
-				return nil, fmt.Errorf("failed to scan correlation ID: %w", err)
+			var txID uuid.UUID
+			if err := idRows.Scan(&txID); err != nil {
+				return nil, fmt.Errorf("failed to scan transaction ID: %w", err)
 			}
-			correlationIDs = append(correlationIDs, cid)
+			transactionIDs = append(transactionIDs, txID)
 		}
 
 		if err := idRows.Err(); err != nil {
-			return nil, fmt.Errorf("error during correlation ID iteration: %w", err)
+			return nil, fmt.Errorf("error during transaction ID iteration: %w", err)
 		}
 
-		if len(correlationIDs) == 0 {
+		if len(transactionIDs) == 0 {
 			return nil, nil
 		}
 
-		// Step 2: Lock and fetch all events for those correlation IDs
+		// Step 2: Lock and fetch all events for those transaction IDs
 		// FOR UPDATE SKIP LOCKED ensures concurrent workers don't process the same rows
 		dataSelector := entsql.Dialect(dialect.Postgres).
 			Select(
 				t.C(outboxfields.ID),
-				t.C(outboxfields.CorrelationID),
+				t.C(outboxfields.TransactionID),
 				t.C(outboxfields.Topic),
 				t.C(outboxfields.Payload),
 				t.C(outboxfields.WithReply),
@@ -309,12 +489,12 @@ func NewOutboxSelector(tableName string) OutboxSelectFunc {
 			).
 			From(t).
 			Where(entsql.And(
-				entsql.In(t.C(outboxfields.CorrelationID), correlationIDs...),
+				entsql.In(t.C(outboxfields.TransactionID), transactionIDs...),
 				entsql.IsNull(t.C(outboxfields.PublishedAt)),
 				entsql.IsNull(t.C(outboxfields.DeadAt)),
 			)).
 			OrderBy(
-				entsql.Asc(t.C(outboxfields.CorrelationID)),
+				entsql.Asc(t.C(outboxfields.TransactionID)),
 				entsql.Asc(t.C(outboxfields.CreatedAt)),
 			).
 			ForUpdate(entsql.WithLockAction(entsql.SkipLocked))
@@ -339,7 +519,7 @@ func scanOutboxRows(rows *sql.Rows) ([]OutboxRow, error) {
 		var entityType sql.NullString
 		if err := rows.Scan(
 			&row.ID,
-			&row.CorrelationID,
+			&row.TransactionID,
 			&row.Topic,
 			&row.Payload,
 			&row.WithReply,
@@ -364,19 +544,8 @@ func scanOutboxRows(rows *sql.Rows) ([]OutboxRow, error) {
 // NewOutboxMarkPublished creates an OutboxMarkPublishedFunc for the given table.
 // The table name can be schema-qualified (e.g., "receiving.event_outbox").
 func NewOutboxMarkPublished(tableName string) OutboxMarkPublishedFunc {
-	schema, table := parseTableName(tableName)
 	return func(ctx context.Context, tx *sql.Tx, id uuid.UUID) error {
-		update := entsql.Dialect(dialect.Postgres).
-			Update(table).
-			Set(outboxfields.PublishedAt, time.Now().UTC()).
-			SetNull(outboxfields.LastError).
-			SetNull(outboxfields.NextRetryAt).
-			Where(entsql.EQ(outboxfields.ID, id))
-		if schema != "" {
-			update = update.Schema(schema)
-		}
-
-		query, args := update.Query()
+		query, args := markPublishedQuery(tableName, id, time.Now().UTC())
 		_, err := tx.ExecContext(ctx, query, args...)
 		return err
 	}
@@ -385,49 +554,76 @@ func NewOutboxMarkPublished(tableName string) OutboxMarkPublishedFunc {
 // NewOutboxMarkFailed creates an OutboxMarkFailedFunc for the given table.
 // The table name can be schema-qualified (e.g., "receiving.event_outbox").
 func NewOutboxMarkFailed(tableName string) OutboxMarkFailedFunc {
-	schema, table := parseTableName(tableName)
 	return func(ctx context.Context, tx *sql.Tx, id uuid.UUID, errMsg string) error {
-		update := entsql.Dialect(dialect.Postgres).
-			Update(table).
-			Set(outboxfields.RetryCount, entsql.Raw(outboxfields.RetryCount+" + 1")).
-			Set(outboxfields.LastError, errMsg).
-			Set(outboxfields.NextRetryAt, entsql.Raw(
-				"NOW() + (LEAST(POWER(2, "+outboxfields.RetryCount+"), 3600)::integer * INTERVAL '1 second')",
-			)).
-			Where(entsql.EQ(outboxfields.ID, id))
-		if schema != "" {
-			update = update.Schema(schema)
-		}
-
-		query, args := update.Query()
+		query, args := markFailedQuery(tableName, id, errMsg)
 		_, err := tx.ExecContext(ctx, query, args...)
 		return err
 	}
 }
 
-// NewOutboxMarkCorrelationDead creates an OutboxMarkCorrelationDeadFunc for the given table.
+// NewOutboxMarkTransactionDead creates an OutboxMarkTransactionDeadFunc for the given table.
 // The table name can be schema-qualified (e.g., "receiving.event_outbox").
-// This deletes all unpublished entries in a correlation group that have exceeded max retries.
-// The reason is logged before deletion for audit purposes.
-func NewOutboxMarkCorrelationDead(tableName string) OutboxMarkCorrelationDeadFunc {
-	schema, table := parseTableName(tableName)
-	return func(ctx context.Context, tx *sql.Tx, correlationID string, reason string) error {
+// This dead-letters all unpublished entries in a transaction group that have
+// exceeded max retries by setting dead_at, rather than deleting them. Setting
+// dead_at both excludes the rows from the normal publish selector (dead_at IS
+// NULL filter) and enqueues them for the DLQ drain: the handler's dead-letter
+// drain (see drainDeadLetters) republishes each dead row to a dedicated DLQ
+// stream — deduped by a DLQ-namespaced deterministic msgID — and deletes it once
+// the stream accepts it, so dead rows are drained out of the outbox rather than
+// retained forever. The reason is recorded in last_error for audit.
+func NewOutboxMarkTransactionDead(tableName string) OutboxMarkTransactionDeadFunc {
+	return func(ctx context.Context, tx *sql.Tx, transactionID uuid.UUID, reason string) error {
 		log.ForContext(ctx).Warn().
-			Str("correlation_id", correlationID).
+			Str("transaction_id", transactionID.String()).
 			Str("reason", reason).
-			Msg("deleting dead correlation group from outbox")
+			Msg("dead-lettering transaction group in outbox")
 
-		del := entsql.Dialect(dialect.Postgres).
-			Delete(table).
-			Where(entsql.And(
-				entsql.EQ(outboxfields.CorrelationID, correlationID),
-				entsql.IsNull(outboxfields.PublishedAt),
-			))
-		if schema != "" {
-			del = del.Schema(schema)
+		query, args := markTransactionDeadQuery(tableName, transactionID, reason, time.Now().UTC())
+		_, err := tx.ExecContext(ctx, query, args...)
+		return err
+	}
+}
+
+// NewOutboxClaim creates an OutboxClaimFunc for the given table. It leases the
+// given entries until leaseUntil so a concurrent poller (the NOTIFY-triggered
+// goroutine, the poll timer, or another replica) cannot select the same rows
+// while they are being published — which, for with-reply entries that go through
+// core NATS request/reply (no JetStream dedup), would otherwise issue a
+// duplicate request and start duplicate workflows.
+func NewOutboxClaim(tableName string) OutboxClaimFunc {
+	return func(ctx context.Context, tx *sql.Tx, ids []uuid.UUID, leaseUntil time.Time) error {
+		if len(ids) == 0 {
+			return nil
 		}
+		query, args := claimQuery(tableName, ids, leaseUntil)
+		_, err := tx.ExecContext(ctx, query, args...)
+		return err
+	}
+}
 
-		query, args := del.Query()
+// NewOutboxSelectDead creates an OutboxSelectDeadFunc for the given table. It
+// returns dead-lettered rows (dead_at set, not yet published) so they can be
+// drained to the DLQ stream and removed from the outbox.
+func NewOutboxSelectDead(tableName string) OutboxSelectDeadFunc {
+	return func(ctx context.Context, tx *sql.Tx, batchSize int) ([]OutboxRow, error) {
+		query, args := selectDeadRowsQuery(tableName, batchSize)
+		rows, err := tx.QueryContext(ctx, query, args...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to select dead outbox entries: %w", err)
+		}
+		return scanOutboxRows(rows)
+	}
+}
+
+// NewOutboxDelete creates an OutboxDeleteFunc for the given table. It deletes the
+// given rows by ID — used to remove a dead-lettered row once the DLQ stream has
+// accepted it.
+func NewOutboxDelete(tableName string) OutboxDeleteFunc {
+	return func(ctx context.Context, tx *sql.Tx, ids []uuid.UUID) error {
+		if len(ids) == 0 {
+			return nil
+		}
+		query, args := deleteByIDsQuery(tableName, ids)
 		_, err := tx.ExecContext(ctx, query, args...)
 		return err
 	}
@@ -463,6 +659,8 @@ type OutboxSystemConfig struct {
 	ListenerPingInterval time.Duration
 	ReplyCleanupInterval time.Duration
 	ListenNotifyEnabled  bool
+	ClaimLease           time.Duration
+	DLQDrainInterval     time.Duration
 }
 
 // OutboxSystem manages the outbox handler and reply registry lifecycle.
@@ -477,8 +675,16 @@ func NewOutboxSystem(cfg OutboxSystemConfig) *OutboxSystem {
 	// Derive table name from service name
 	tableName := cfg.ServiceName + "." + OutboxTableName
 
-	// Create reply registry
-	registry := NewReplyRegistry(cfg.ReplyCleanupInterval)
+	// Create reply registry. When the publisher supports cross-pod reply
+	// transport (the real NATS-backed EventPublisher does), use it so a reply
+	// reaches the waiting pod regardless of which replica's outbox handler
+	// processed the row. Otherwise (test fakes) fall back to in-process delivery.
+	var registry *ReplyRegistry
+	if transport, ok := cfg.Publisher.(ReplyTransport); ok && cfg.StreamName != "" {
+		registry = NewReplyRegistryWithTransport(cfg.ReplyCleanupInterval, transport, cfg.StreamName)
+	} else {
+		registry = NewReplyRegistry(cfg.ReplyCleanupInterval)
+	}
 
 	// Create handler with derived helpers
 	handler := NewOutboxHandler(OutboxHandlerConfig{
@@ -495,10 +701,15 @@ func NewOutboxSystem(cfg OutboxSystemConfig) *OutboxSystem {
 		ListenerPingInterval:      cfg.ListenerPingInterval,
 		ListenNotifyEnabled:       cfg.ListenNotifyEnabled,
 		ServiceName:               cfg.ServiceName,
+		ClaimLease:                cfg.ClaimLease,
+		DLQDrainInterval:          cfg.DLQDrainInterval,
 		OutboxSelector:            NewOutboxSelector(tableName),
 		OutboxMarkPublished:       NewOutboxMarkPublished(tableName),
 		OutboxMarkFailed:          NewOutboxMarkFailed(tableName),
-		OutboxMarkCorrelationDead: NewOutboxMarkCorrelationDead(tableName),
+		OutboxMarkTransactionDead: NewOutboxMarkTransactionDead(tableName),
+		OutboxClaim:               NewOutboxClaim(tableName),
+		OutboxSelectDead:          NewOutboxSelectDead(tableName),
+		OutboxDelete:              NewOutboxDelete(tableName),
 	})
 
 	return &OutboxSystem{
@@ -553,20 +764,23 @@ type EventSystemConfig[T any] struct {
 
 // EventSystem manages the complete event infrastructure: mutation hook and outbox processing.
 type EventSystem struct {
-	hook   ent.Hook
-	outbox *OutboxSystem
+	hook       ent.Hook
+	hookConfig HookConfig
+	outbox     *OutboxSystem
 }
 
 // NewEventSystem creates a complete event system with mutation hook and outbox handler.
 func NewEventSystem[T any](cfg EventSystemConfig[T]) *EventSystem {
-	// Create mutation hook
-	hook := MutationEventHook(HookConfig{
+	hookConfig := HookConfig{
 		Service:            cfg.ServiceName,
 		StreamName:         cfg.StreamName,
 		EntityFetcher:      BuildEntityFetcher(cfg.TxFromContext, FieldData),
 		OutboxInserter:     NewEntOutboxInserter(cfg.TxFromContext),
 		FieldChangeEmitter: NewFieldChangeEmitter(cfg.Publisher, cfg.PostCommit),
-	})
+	}
+
+	// Create mutation hook
+	hook := MutationEventHook(hookConfig)
 
 	// Create outbox system
 	outbox := NewOutboxSystem(OutboxSystemConfig{
@@ -583,11 +797,14 @@ func NewEventSystem[T any](cfg EventSystemConfig[T]) *EventSystem {
 		ListenerPingInterval: cfg.Outbox.OutboxListenerPingInterval,
 		ReplyCleanupInterval: cfg.Outbox.OutboxReplyCleanupInterval,
 		ListenNotifyEnabled:  cfg.Outbox.OutboxListenNotifyEnabled,
+		ClaimLease:           cfg.Outbox.OutboxClaimLease,
+		DLQDrainInterval:     cfg.Outbox.OutboxDLQDrainInterval,
 	})
 
 	return &EventSystem{
-		hook:   hook,
-		outbox: outbox,
+		hook:       hook,
+		hookConfig: hookConfig,
+		outbox:     outbox,
 	}
 }
 
@@ -611,4 +828,17 @@ func (e *EventSystem) Start(ctx context.Context) error {
 // Stop gracefully stops the event system.
 func (e *EventSystem) Stop() {
 	e.outbox.Stop()
+}
+
+// EmitEvent manually emits an outbox event for a mutation that bypassed the
+// Ent mutation hook (e.g. a stored procedure that INSERTs directly via
+// tx.QueryContext). Callers must invoke this from within the same DB
+// transaction as the bypassing write so the outbox row is committed
+// atomically with the entity row.
+//
+// schema is the Ent type name (e.g. "ItemMovement"), op is one of OpCreate /
+// OpUpdate / OpDelete, and value is the loaded entity (typically reloaded via
+// tx.<Type>.Get after the bypass write).
+func (e *EventSystem) EmitEvent(ctx context.Context, schema, op string, entityID uuid.UUID, value ent.Value, beforeData any) error {
+	return emitOutboxEvent(ctx, e.hookConfig, schema, op, entityID, value, beforeData)
 }

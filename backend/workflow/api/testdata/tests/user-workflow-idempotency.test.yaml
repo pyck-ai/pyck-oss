@@ -1,0 +1,206 @@
+---
+name: "User - Workflow Idempotency"
+description: >
+  Idempotency-Key middleware exercise on the workflow service via
+  registerWorkflow. See backend/inventory/api/testdata/tests/cross-inventory-idempotency.test.yaml
+  for the full design notes — this fixture mirrors it.
+
+steps:
+  - id: fresh
+    name: "Fresh call with key"
+    operation: workflow.registerWorkflow
+    headers:
+      Idempotency-Key: "{{bru_idem_workflow}}"
+    vars:
+      input:
+        name: "BrunoIdem{{bru_idem_workflow}}"
+        taskQueue: "bruno-idem-task-queue"
+        signals:
+          - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
+            temporalSignal: "brunoIdemCreated"
+            temporalSignalType: "start"
+            filterRule: "*"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Workflow registered"
+        assertions:
+          - ref: res.body.data.registerWorkflow.id
+            nil: false
+
+  - id: replay
+    name: "Replay with the same key"
+    operation: workflow.registerWorkflow
+    headers:
+      Idempotency-Key: "{{bru_idem_workflow}}"
+    vars:
+      input:
+        name: "BrunoIdem{{bru_idem_workflow}}"
+        taskQueue: "bruno-idem-task-queue"
+        signals:
+          - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
+            temporalSignal: "brunoIdemCreated"
+            temporalSignalType: "start"
+            filterRule: "*"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Same Workflow id as fresh call"
+        assertions:
+          - ref: res.body.data.registerWorkflow.id
+            equal: {$ref: "res[fresh].body.data.registerWorkflow.id"}
+
+  - id: mismatch
+    name: "Same key, different variables — OPERATION_MISMATCH"
+    operation: workflow.registerWorkflow
+    headers:
+      Idempotency-Key: "{{bru_idem_workflow}}"
+    vars:
+      input:
+        name: "MismatchWorkflow"
+        taskQueue: "mismatch-task-queue"
+        signals:
+          - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
+            temporalSignal: "mismatchCreated"
+            temporalSignalType: "start"
+            filterRule: "*"
+    tests:
+      - msg: "errors[].extensions.code is OPERATION_MISMATCH"
+        assertions:
+          - ref: res.body.errors[0].extensions.code
+            equal: "OPERATION_MISMATCH"
+      - msg: "errors[].extensions.httpStatus is 422"
+        assertions:
+          - ref: res.body.errors[0].extensions.httpStatus
+            equal: 422
+
+  - id: malformedKey
+    name: "256-char key — INVALID_IDEMPOTENCY_KEY"
+    operation: workflow.registerWorkflow
+    headers:
+      Idempotency-Key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    vars:
+      input:
+        name: "NeverRegistered"
+        taskQueue: "never"
+        signals:
+          - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
+            temporalSignal: "never"
+            temporalSignalType: "start"
+            filterRule: "*"
+    tests:
+      - msg: "errors[].extensions.code is INVALID_IDEMPOTENCY_KEY"
+        assertions:
+          - ref: res.body.errors[0].extensions.code
+            equal: "INVALID_IDEMPOTENCY_KEY"
+      - msg: "errors[].extensions.httpStatus is 400"
+        assertions:
+          - ref: res.body.errors[0].extensions.httpStatus
+            equal: 400
+
+  - id: emptyKey
+    name: "Empty header value — degrades to no-key behavior"
+    description: >
+      An empty Idempotency-Key value is treated as if the header was
+      absent. Workflow name is randomized so re-runs don't collide on
+      the unique-name constraint.
+    operation: workflow.registerWorkflow
+    headers:
+      Idempotency-Key: ""
+    vars:
+      input:
+        name: {$fake: "BrunoIdemEmpty-{{nonce}}"}
+        taskQueue: "bruno-idem-task-queue"
+        signals:
+          - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
+            temporalSignal: "brunoIdemEmpty"
+            temporalSignalType: "start"
+            filterRule: "*"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Fresh Workflow registered (no replay)"
+        assertions:
+          - ref: res.body.data.registerWorkflow.id
+            nil: false
+
+  - id: whitespaceKey
+    name: "Whitespace-only header value — degrades to no-key behavior"
+    description: >
+      Whitespace-only header is trimmed and treated as absent.
+    operation: workflow.registerWorkflow
+    headers:
+      Idempotency-Key: "   "
+    vars:
+      input:
+        name: {$fake: "BrunoIdemWhitespace-{{nonce}}"}
+        taskQueue: "bruno-idem-task-queue"
+        signals:
+          - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
+            temporalSignal: "brunoIdemWs"
+            temporalSignalType: "start"
+            filterRule: "*"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Fresh Workflow registered (no replay)"
+        assertions:
+          - ref: res.body.data.registerWorkflow.id
+            nil: false
+
+  - id: maxLengthKey
+    name: "255-char key — exact maximum is accepted"
+    description: >
+      Positive boundary: collection hook pads
+      {{bru_idem_workflow_max}} to 255 chars per run. Workflow name
+      is $fake so re-runs don't hit the (tenant_id, name) unique
+      constraint.
+    operation: workflow.registerWorkflow
+    headers:
+      Idempotency-Key: "{{bru_idem_workflow_max}}"
+    vars:
+      input:
+        name: {$fake: "BrunoIdemMax{{nonce}}"}
+        taskQueue: "bruno-idem-task-queue"
+        signals:
+          - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
+            temporalSignal: "brunoIdemMax"
+            temporalSignalType: "start"
+            filterRule: "*"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Workflow registered at max-length boundary"
+        assertions:
+          - ref: res.body.data.registerWorkflow.id
+            nil: false

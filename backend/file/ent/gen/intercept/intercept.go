@@ -10,6 +10,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/file/ent/gen"
 	"github.com/pyck-ai/pyck/backend/file/ent/gen/entityeventsoutbox"
 	"github.com/pyck-ai/pyck/backend/file/ent/gen/file"
+	"github.com/pyck-ai/pyck/backend/file/ent/gen/idempotencykey"
 	"github.com/pyck-ai/pyck/backend/file/ent/gen/predicate"
 )
 
@@ -123,6 +124,33 @@ func (f TraverseFile) Traverse(ctx context.Context, q gen.Query) error {
 	return fmt.Errorf("unexpected query type %T. expect *gen.FileQuery", q)
 }
 
+// The IdempotencyKeyFunc type is an adapter to allow the use of ordinary function as a Querier.
+type IdempotencyKeyFunc func(context.Context, *gen.IdempotencyKeyQuery) (gen.Value, error)
+
+// Query calls f(ctx, q).
+func (f IdempotencyKeyFunc) Query(ctx context.Context, q gen.Query) (gen.Value, error) {
+	if q, ok := q.(*gen.IdempotencyKeyQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *gen.IdempotencyKeyQuery", q)
+}
+
+// The TraverseIdempotencyKey type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseIdempotencyKey func(context.Context, *gen.IdempotencyKeyQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseIdempotencyKey) Intercept(next gen.Querier) gen.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseIdempotencyKey) Traverse(ctx context.Context, q gen.Query) error {
+	if q, ok := q.(*gen.IdempotencyKeyQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *gen.IdempotencyKeyQuery", q)
+}
+
 // NewQuery returns the generic Query interface for the given typed query.
 func NewQuery(q gen.Query) (Query, error) {
 	switch q := q.(type) {
@@ -130,6 +158,8 @@ func NewQuery(q gen.Query) (Query, error) {
 		return &query[*gen.EntityEventsOutboxQuery, predicate.EntityEventsOutbox, entityeventsoutbox.OrderOption]{typ: gen.TypeEntityEventsOutbox, tq: q}, nil
 	case *gen.FileQuery:
 		return &query[*gen.FileQuery, predicate.File, file.OrderOption]{typ: gen.TypeFile, tq: q}, nil
+	case *gen.IdempotencyKeyQuery:
+		return &query[*gen.IdempotencyKeyQuery, predicate.IdempotencyKey, idempotencykey.OrderOption]{typ: gen.TypeIdempotencyKey, tq: q}, nil
 	default:
 		return nil, fmt.Errorf("unknown query type %T", q)
 	}

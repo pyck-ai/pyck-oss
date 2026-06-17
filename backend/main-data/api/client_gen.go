@@ -6,7 +6,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/Yamashou/gqlgenc/clientv2"
+	"github.com/gqlgo/gqlgenc/clientv2"
 
 	"github.com/pyck-ai/pyck/backend/common/api"
 	"github.com/pyck-ai/pyck/backend/common/env"

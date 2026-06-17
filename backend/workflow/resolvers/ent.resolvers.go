@@ -10,10 +10,10 @@ import (
 
 	"entgo.io/contrib/entgql"
 	"github.com/google/uuid"
-	workflowsvc "github.com/pyck-ai/pyck/backend/workflow"
 	ent "github.com/pyck-ai/pyck/backend/workflow/ent/gen"
 	entworkflow "github.com/pyck-ai/pyck/backend/workflow/ent/gen/workflow"
 	entworkflowsignal "github.com/pyck-ai/pyck/backend/workflow/ent/gen/workflowsignal"
+	"github.com/pyck-ai/pyck/backend/workflow/exec"
 )
 
 // Node is the resolver for the node field.
@@ -44,11 +44,11 @@ func (r *queryResolver) WorkflowSignals(ctx context.Context, after *entgql.Curso
 		)
 }
 
-// Query returns workflowsvc.QueryResolver implementation.
-func (r *Resolver) Query() workflowsvc.QueryResolver { return &queryResolver{r} }
+// Query returns exec.QueryResolver implementation.
+func (r *Resolver) Query() exec.QueryResolver { return &queryResolver{r} }
 
-// WorkflowWhereInput returns workflowsvc.WorkflowWhereInputResolver implementation.
-func (r *Resolver) WorkflowWhereInput() workflowsvc.WorkflowWhereInputResolver {
+// WorkflowWhereInput returns exec.WorkflowWhereInputResolver implementation.
+func (r *Resolver) WorkflowWhereInput() exec.WorkflowWhereInputResolver {
 	return &workflowWhereInputResolver{r}
 }
 

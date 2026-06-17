@@ -287,6 +287,27 @@ func (_u *StockUpdate) AddOwnOutgoingStock(v int64) *StockUpdate {
 	return _u
 }
 
+// SetVersion sets the "version" field.
+func (_u *StockUpdate) SetVersion(v int64) *StockUpdate {
+	_u.mutation.ResetVersion()
+	_u.mutation.SetVersion(v)
+	return _u
+}
+
+// SetNillableVersion sets the "version" field if the given value is not nil.
+func (_u *StockUpdate) SetNillableVersion(v *int64) *StockUpdate {
+	if v != nil {
+		_u.SetVersion(*v)
+	}
+	return _u
+}
+
+// AddVersion adds value to the "version" field.
+func (_u *StockUpdate) AddVersion(v int64) *StockUpdate {
+	_u.mutation.AddVersion(v)
+	return _u
+}
+
 // SetItem sets the "item" edge to the Item entity.
 func (_u *StockUpdate) SetItem(v *Item) *StockUpdate {
 	return _u.SetItemID(v.ID)
@@ -459,6 +480,12 @@ func (_u *StockUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedOwnOutgoingStock(); ok {
 		_spec.AddField(stock.FieldOwnOutgoingStock, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.Version(); ok {
+		_spec.SetField(stock.FieldVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedVersion(); ok {
+		_spec.AddField(stock.FieldVersion, field.TypeInt64, value)
 	}
 	if _u.mutation.ItemCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -798,6 +825,27 @@ func (_u *StockUpdateOne) AddOwnOutgoingStock(v int64) *StockUpdateOne {
 	return _u
 }
 
+// SetVersion sets the "version" field.
+func (_u *StockUpdateOne) SetVersion(v int64) *StockUpdateOne {
+	_u.mutation.ResetVersion()
+	_u.mutation.SetVersion(v)
+	return _u
+}
+
+// SetNillableVersion sets the "version" field if the given value is not nil.
+func (_u *StockUpdateOne) SetNillableVersion(v *int64) *StockUpdateOne {
+	if v != nil {
+		_u.SetVersion(*v)
+	}
+	return _u
+}
+
+// AddVersion adds value to the "version" field.
+func (_u *StockUpdateOne) AddVersion(v int64) *StockUpdateOne {
+	_u.mutation.AddVersion(v)
+	return _u
+}
+
 // SetItem sets the "item" edge to the Item entity.
 func (_u *StockUpdateOne) SetItem(v *Item) *StockUpdateOne {
 	return _u.SetItemID(v.ID)
@@ -1000,6 +1048,12 @@ func (_u *StockUpdateOne) sqlSave(ctx context.Context) (_node *Stock, err error)
 	}
 	if value, ok := _u.mutation.AddedOwnOutgoingStock(); ok {
 		_spec.AddField(stock.FieldOwnOutgoingStock, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.Version(); ok {
+		_spec.SetField(stock.FieldVersion, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedVersion(); ok {
+		_spec.AddField(stock.FieldVersion, field.TypeInt64, value)
 	}
 	if _u.mutation.ItemCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -1,0 +1,186 @@
+---
+name: "User - Management Idempotency"
+description: >
+  Idempotency-Key middleware exercise on the management service via
+  createDataType. See backend/inventory/api/testdata/tests/cross-inventory-idempotency.test.yaml
+  for the full design notes — this fixture mirrors it.
+
+steps:
+  - id: fresh
+    name: "Fresh call with key"
+    operation: management.createDataType
+    headers:
+      Idempotency-Key: "{{bru_idem_management}}"
+    vars:
+      input:
+        name: "Bruno Idempotency DataType"
+        slug: "bruno-idem-mgmt-{{bru_idem_management}}"
+        entity: "device"
+        jsonSchema: '{"type":"object","properties":{"x":{"type":"integer"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "DataType created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.slug
+            nil: false
+
+  - id: replay
+    name: "Replay with the same key"
+    operation: management.createDataType
+    headers:
+      Idempotency-Key: "{{bru_idem_management}}"
+    vars:
+      input:
+        name: "Bruno Idempotency DataType"
+        slug: "bruno-idem-mgmt-{{bru_idem_management}}"
+        entity: "device"
+        jsonSchema: '{"type":"object","properties":{"x":{"type":"integer"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Same DataType id as fresh call"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            equal: {$ref: "res[fresh].body.data.createDataType.id"}
+
+  - id: mismatch
+    name: "Same key, different variables — OPERATION_MISMATCH"
+    operation: management.createDataType
+    headers:
+      Idempotency-Key: "{{bru_idem_management}}"
+    vars:
+      input:
+        name: "Mismatch DataType"
+        slug: "bruno-idem-mgmt-mismatch-xyz"
+        entity: "device"
+        jsonSchema: '{"type":"object"}'
+    tests:
+      - msg: "errors[].extensions.code is OPERATION_MISMATCH"
+        assertions:
+          - ref: res.body.errors[0].extensions.code
+            equal: "OPERATION_MISMATCH"
+      - msg: "errors[].extensions.httpStatus is 422"
+        assertions:
+          - ref: res.body.errors[0].extensions.httpStatus
+            equal: 422
+
+  - id: malformedKey
+    name: "256-char key — INVALID_IDEMPOTENCY_KEY"
+    operation: management.createDataType
+    headers:
+      Idempotency-Key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    vars:
+      input:
+        name: "Never Created"
+        slug: "bruno-idem-mgmt-never-created"
+        entity: "device"
+        jsonSchema: '{"type":"object"}'
+    tests:
+      - msg: "errors[].extensions.code is INVALID_IDEMPOTENCY_KEY"
+        assertions:
+          - ref: res.body.errors[0].extensions.code
+            equal: "INVALID_IDEMPOTENCY_KEY"
+      - msg: "errors[].extensions.httpStatus is 400"
+        assertions:
+          - ref: res.body.errors[0].extensions.httpStatus
+            equal: 400
+
+  - id: emptyKey
+    name: "Empty header value — degrades to no-key behavior"
+    description: >
+      An empty Idempotency-Key value is treated as if the header was
+      absent. Mutation runs normally. Slug is randomized so re-runs
+      don't collide on the unique-slug constraint.
+    operation: management.createDataType
+    headers:
+      Idempotency-Key: ""
+    vars:
+      input:
+        name: "Bruno Idem Empty"
+        slug: {$fake: "bruno-idem-mgmt-empty-{{nonce}}"}
+        entity: "device"
+        jsonSchema: '{"type":"object"}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Fresh DataType created (no replay)"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: whitespaceKey
+    name: "Whitespace-only header value — degrades to no-key behavior"
+    description: >
+      Whitespace-only header is trimmed and treated as absent.
+    operation: management.createDataType
+    headers:
+      Idempotency-Key: "   "
+    vars:
+      input:
+        name: "Bruno Idem Whitespace"
+        slug: {$fake: "bruno-idem-mgmt-ws-{{nonce}}"}
+        entity: "device"
+        jsonSchema: '{"type":"object"}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Fresh DataType created (no replay)"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: maxLengthKey
+    name: "255-char key — exact maximum is accepted"
+    description: >
+      Positive boundary: collection hook pads
+      {{bru_idem_management_max}} to 255 chars per run. Slug is $fake
+      so re-runs don't hit the unique-slug constraint.
+    operation: management.createDataType
+    headers:
+      Idempotency-Key: "{{bru_idem_management_max}}"
+    vars:
+      input:
+        name: "Bruno Idem Max"
+        slug: {$fake: "bruno-idem-mgmt-max-{{nonce}}"}
+        entity: "device"
+        jsonSchema: '{"type":"object"}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "DataType created at max-length boundary"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false

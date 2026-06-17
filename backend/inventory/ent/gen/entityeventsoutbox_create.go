@@ -66,9 +66,37 @@ func (_c *EntityEventsOutboxCreate) SetNillableUserID(v *uuid.UUID) *EntityEvent
 	return _c
 }
 
-// SetCorrelationID sets the "correlation_id" field.
-func (_c *EntityEventsOutboxCreate) SetCorrelationID(v string) *EntityEventsOutboxCreate {
-	_c.mutation.SetCorrelationID(v)
+// SetTransactionID sets the "transaction_id" field.
+func (_c *EntityEventsOutboxCreate) SetTransactionID(v uuid.UUID) *EntityEventsOutboxCreate {
+	_c.mutation.SetTransactionID(v)
+	return _c
+}
+
+// SetTraceID sets the "trace_id" field.
+func (_c *EntityEventsOutboxCreate) SetTraceID(v string) *EntityEventsOutboxCreate {
+	_c.mutation.SetTraceID(v)
+	return _c
+}
+
+// SetNillableTraceID sets the "trace_id" field if the given value is not nil.
+func (_c *EntityEventsOutboxCreate) SetNillableTraceID(v *string) *EntityEventsOutboxCreate {
+	if v != nil {
+		_c.SetTraceID(*v)
+	}
+	return _c
+}
+
+// SetRequestID sets the "request_id" field.
+func (_c *EntityEventsOutboxCreate) SetRequestID(v string) *EntityEventsOutboxCreate {
+	_c.mutation.SetRequestID(v)
+	return _c
+}
+
+// SetNillableRequestID sets the "request_id" field if the given value is not nil.
+func (_c *EntityEventsOutboxCreate) SetNillableRequestID(v *string) *EntityEventsOutboxCreate {
+	if v != nil {
+		_c.SetRequestID(*v)
+	}
 	return _c
 }
 
@@ -188,14 +216,6 @@ func (_c *EntityEventsOutboxCreate) SetTenantID(v uuid.UUID) *EntityEventsOutbox
 	return _c
 }
 
-// SetNillableTenantID sets the "tenant_id" field if the given value is not nil.
-func (_c *EntityEventsOutboxCreate) SetNillableTenantID(v *uuid.UUID) *EntityEventsOutboxCreate {
-	if v != nil {
-		_c.SetTenantID(*v)
-	}
-	return _c
-}
-
 // SetID sets the "id" field.
 func (_c *EntityEventsOutboxCreate) SetID(v uuid.UUID) *EntityEventsOutboxCreate {
 	_c.mutation.SetID(v)
@@ -268,13 +288,8 @@ func (_c *EntityEventsOutboxCreate) check() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`gen: missing required field "EntityEventsOutbox.created_at"`)}
 	}
-	if _, ok := _c.mutation.CorrelationID(); !ok {
-		return &ValidationError{Name: "correlation_id", err: errors.New(`gen: missing required field "EntityEventsOutbox.correlation_id"`)}
-	}
-	if v, ok := _c.mutation.CorrelationID(); ok {
-		if err := entityeventsoutbox.CorrelationIDValidator(v); err != nil {
-			return &ValidationError{Name: "correlation_id", err: fmt.Errorf(`gen: validator failed for field "EntityEventsOutbox.correlation_id": %w`, err)}
-		}
+	if _, ok := _c.mutation.TransactionID(); !ok {
+		return &ValidationError{Name: "transaction_id", err: errors.New(`gen: missing required field "EntityEventsOutbox.transaction_id"`)}
 	}
 	if _, ok := _c.mutation.Topic(); !ok {
 		return &ValidationError{Name: "topic", err: errors.New(`gen: missing required field "EntityEventsOutbox.topic"`)}
@@ -292,6 +307,9 @@ func (_c *EntityEventsOutboxCreate) check() error {
 	}
 	if _, ok := _c.mutation.RetryCount(); !ok {
 		return &ValidationError{Name: "retry_count", err: errors.New(`gen: missing required field "EntityEventsOutbox.retry_count"`)}
+	}
+	if _, ok := _c.mutation.TenantID(); !ok {
+		return &ValidationError{Name: "tenant_id", err: errors.New(`gen: missing required field "EntityEventsOutbox.tenant_id"`)}
 	}
 	return nil
 }
@@ -342,9 +360,17 @@ func (_c *EntityEventsOutboxCreate) createSpec() (*EntityEventsOutbox, *sqlgraph
 		_spec.SetField(entityeventsoutbox.FieldUserID, field.TypeUUID, value)
 		_node.UserID = &value
 	}
-	if value, ok := _c.mutation.CorrelationID(); ok {
-		_spec.SetField(entityeventsoutbox.FieldCorrelationID, field.TypeString, value)
-		_node.CorrelationID = value
+	if value, ok := _c.mutation.TransactionID(); ok {
+		_spec.SetField(entityeventsoutbox.FieldTransactionID, field.TypeUUID, value)
+		_node.TransactionID = value
+	}
+	if value, ok := _c.mutation.TraceID(); ok {
+		_spec.SetField(entityeventsoutbox.FieldTraceID, field.TypeString, value)
+		_node.TraceID = &value
+	}
+	if value, ok := _c.mutation.RequestID(); ok {
+		_spec.SetField(entityeventsoutbox.FieldRequestID, field.TypeString, value)
+		_node.RequestID = &value
 	}
 	if value, ok := _c.mutation.Topic(); ok {
 		_spec.SetField(entityeventsoutbox.FieldTopic, field.TypeString, value)
@@ -384,7 +410,7 @@ func (_c *EntityEventsOutboxCreate) createSpec() (*EntityEventsOutbox, *sqlgraph
 	}
 	if value, ok := _c.mutation.TenantID(); ok {
 		_spec.SetField(entityeventsoutbox.FieldTenantID, field.TypeUUID, value)
-		_node.TenantID = &value
+		_node.TenantID = value
 	}
 	return _node, _spec
 }
@@ -474,15 +500,51 @@ func (u *EntityEventsOutboxUpsert) ClearUserID() *EntityEventsOutboxUpsert {
 	return u
 }
 
-// SetCorrelationID sets the "correlation_id" field.
-func (u *EntityEventsOutboxUpsert) SetCorrelationID(v string) *EntityEventsOutboxUpsert {
-	u.Set(entityeventsoutbox.FieldCorrelationID, v)
+// SetTransactionID sets the "transaction_id" field.
+func (u *EntityEventsOutboxUpsert) SetTransactionID(v uuid.UUID) *EntityEventsOutboxUpsert {
+	u.Set(entityeventsoutbox.FieldTransactionID, v)
 	return u
 }
 
-// UpdateCorrelationID sets the "correlation_id" field to the value that was provided on create.
-func (u *EntityEventsOutboxUpsert) UpdateCorrelationID() *EntityEventsOutboxUpsert {
-	u.SetExcluded(entityeventsoutbox.FieldCorrelationID)
+// UpdateTransactionID sets the "transaction_id" field to the value that was provided on create.
+func (u *EntityEventsOutboxUpsert) UpdateTransactionID() *EntityEventsOutboxUpsert {
+	u.SetExcluded(entityeventsoutbox.FieldTransactionID)
+	return u
+}
+
+// SetTraceID sets the "trace_id" field.
+func (u *EntityEventsOutboxUpsert) SetTraceID(v string) *EntityEventsOutboxUpsert {
+	u.Set(entityeventsoutbox.FieldTraceID, v)
+	return u
+}
+
+// UpdateTraceID sets the "trace_id" field to the value that was provided on create.
+func (u *EntityEventsOutboxUpsert) UpdateTraceID() *EntityEventsOutboxUpsert {
+	u.SetExcluded(entityeventsoutbox.FieldTraceID)
+	return u
+}
+
+// ClearTraceID clears the value of the "trace_id" field.
+func (u *EntityEventsOutboxUpsert) ClearTraceID() *EntityEventsOutboxUpsert {
+	u.SetNull(entityeventsoutbox.FieldTraceID)
+	return u
+}
+
+// SetRequestID sets the "request_id" field.
+func (u *EntityEventsOutboxUpsert) SetRequestID(v string) *EntityEventsOutboxUpsert {
+	u.Set(entityeventsoutbox.FieldRequestID, v)
+	return u
+}
+
+// UpdateRequestID sets the "request_id" field to the value that was provided on create.
+func (u *EntityEventsOutboxUpsert) UpdateRequestID() *EntityEventsOutboxUpsert {
+	u.SetExcluded(entityeventsoutbox.FieldRequestID)
+	return u
+}
+
+// ClearRequestID clears the value of the "request_id" field.
+func (u *EntityEventsOutboxUpsert) ClearRequestID() *EntityEventsOutboxUpsert {
+	u.SetNull(entityeventsoutbox.FieldRequestID)
 	return u
 }
 
@@ -642,12 +704,6 @@ func (u *EntityEventsOutboxUpsert) UpdateTenantID() *EntityEventsOutboxUpsert {
 	return u
 }
 
-// ClearTenantID clears the value of the "tenant_id" field.
-func (u *EntityEventsOutboxUpsert) ClearTenantID() *EntityEventsOutboxUpsert {
-	u.SetNull(entityeventsoutbox.FieldTenantID)
-	return u
-}
-
 // UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
 // Using this option is equivalent to using:
 //
@@ -741,17 +797,59 @@ func (u *EntityEventsOutboxUpsertOne) ClearUserID() *EntityEventsOutboxUpsertOne
 	})
 }
 
-// SetCorrelationID sets the "correlation_id" field.
-func (u *EntityEventsOutboxUpsertOne) SetCorrelationID(v string) *EntityEventsOutboxUpsertOne {
+// SetTransactionID sets the "transaction_id" field.
+func (u *EntityEventsOutboxUpsertOne) SetTransactionID(v uuid.UUID) *EntityEventsOutboxUpsertOne {
 	return u.Update(func(s *EntityEventsOutboxUpsert) {
-		s.SetCorrelationID(v)
+		s.SetTransactionID(v)
 	})
 }
 
-// UpdateCorrelationID sets the "correlation_id" field to the value that was provided on create.
-func (u *EntityEventsOutboxUpsertOne) UpdateCorrelationID() *EntityEventsOutboxUpsertOne {
+// UpdateTransactionID sets the "transaction_id" field to the value that was provided on create.
+func (u *EntityEventsOutboxUpsertOne) UpdateTransactionID() *EntityEventsOutboxUpsertOne {
 	return u.Update(func(s *EntityEventsOutboxUpsert) {
-		s.UpdateCorrelationID()
+		s.UpdateTransactionID()
+	})
+}
+
+// SetTraceID sets the "trace_id" field.
+func (u *EntityEventsOutboxUpsertOne) SetTraceID(v string) *EntityEventsOutboxUpsertOne {
+	return u.Update(func(s *EntityEventsOutboxUpsert) {
+		s.SetTraceID(v)
+	})
+}
+
+// UpdateTraceID sets the "trace_id" field to the value that was provided on create.
+func (u *EntityEventsOutboxUpsertOne) UpdateTraceID() *EntityEventsOutboxUpsertOne {
+	return u.Update(func(s *EntityEventsOutboxUpsert) {
+		s.UpdateTraceID()
+	})
+}
+
+// ClearTraceID clears the value of the "trace_id" field.
+func (u *EntityEventsOutboxUpsertOne) ClearTraceID() *EntityEventsOutboxUpsertOne {
+	return u.Update(func(s *EntityEventsOutboxUpsert) {
+		s.ClearTraceID()
+	})
+}
+
+// SetRequestID sets the "request_id" field.
+func (u *EntityEventsOutboxUpsertOne) SetRequestID(v string) *EntityEventsOutboxUpsertOne {
+	return u.Update(func(s *EntityEventsOutboxUpsert) {
+		s.SetRequestID(v)
+	})
+}
+
+// UpdateRequestID sets the "request_id" field to the value that was provided on create.
+func (u *EntityEventsOutboxUpsertOne) UpdateRequestID() *EntityEventsOutboxUpsertOne {
+	return u.Update(func(s *EntityEventsOutboxUpsert) {
+		s.UpdateRequestID()
+	})
+}
+
+// ClearRequestID clears the value of the "request_id" field.
+func (u *EntityEventsOutboxUpsertOne) ClearRequestID() *EntityEventsOutboxUpsertOne {
+	return u.Update(func(s *EntityEventsOutboxUpsert) {
+		s.ClearRequestID()
 	})
 }
 
@@ -934,13 +1032,6 @@ func (u *EntityEventsOutboxUpsertOne) SetTenantID(v uuid.UUID) *EntityEventsOutb
 func (u *EntityEventsOutboxUpsertOne) UpdateTenantID() *EntityEventsOutboxUpsertOne {
 	return u.Update(func(s *EntityEventsOutboxUpsert) {
 		s.UpdateTenantID()
-	})
-}
-
-// ClearTenantID clears the value of the "tenant_id" field.
-func (u *EntityEventsOutboxUpsertOne) ClearTenantID() *EntityEventsOutboxUpsertOne {
-	return u.Update(func(s *EntityEventsOutboxUpsert) {
-		s.ClearTenantID()
 	})
 }
 
@@ -1204,17 +1295,59 @@ func (u *EntityEventsOutboxUpsertBulk) ClearUserID() *EntityEventsOutboxUpsertBu
 	})
 }
 
-// SetCorrelationID sets the "correlation_id" field.
-func (u *EntityEventsOutboxUpsertBulk) SetCorrelationID(v string) *EntityEventsOutboxUpsertBulk {
+// SetTransactionID sets the "transaction_id" field.
+func (u *EntityEventsOutboxUpsertBulk) SetTransactionID(v uuid.UUID) *EntityEventsOutboxUpsertBulk {
 	return u.Update(func(s *EntityEventsOutboxUpsert) {
-		s.SetCorrelationID(v)
+		s.SetTransactionID(v)
 	})
 }
 
-// UpdateCorrelationID sets the "correlation_id" field to the value that was provided on create.
-func (u *EntityEventsOutboxUpsertBulk) UpdateCorrelationID() *EntityEventsOutboxUpsertBulk {
+// UpdateTransactionID sets the "transaction_id" field to the value that was provided on create.
+func (u *EntityEventsOutboxUpsertBulk) UpdateTransactionID() *EntityEventsOutboxUpsertBulk {
 	return u.Update(func(s *EntityEventsOutboxUpsert) {
-		s.UpdateCorrelationID()
+		s.UpdateTransactionID()
+	})
+}
+
+// SetTraceID sets the "trace_id" field.
+func (u *EntityEventsOutboxUpsertBulk) SetTraceID(v string) *EntityEventsOutboxUpsertBulk {
+	return u.Update(func(s *EntityEventsOutboxUpsert) {
+		s.SetTraceID(v)
+	})
+}
+
+// UpdateTraceID sets the "trace_id" field to the value that was provided on create.
+func (u *EntityEventsOutboxUpsertBulk) UpdateTraceID() *EntityEventsOutboxUpsertBulk {
+	return u.Update(func(s *EntityEventsOutboxUpsert) {
+		s.UpdateTraceID()
+	})
+}
+
+// ClearTraceID clears the value of the "trace_id" field.
+func (u *EntityEventsOutboxUpsertBulk) ClearTraceID() *EntityEventsOutboxUpsertBulk {
+	return u.Update(func(s *EntityEventsOutboxUpsert) {
+		s.ClearTraceID()
+	})
+}
+
+// SetRequestID sets the "request_id" field.
+func (u *EntityEventsOutboxUpsertBulk) SetRequestID(v string) *EntityEventsOutboxUpsertBulk {
+	return u.Update(func(s *EntityEventsOutboxUpsert) {
+		s.SetRequestID(v)
+	})
+}
+
+// UpdateRequestID sets the "request_id" field to the value that was provided on create.
+func (u *EntityEventsOutboxUpsertBulk) UpdateRequestID() *EntityEventsOutboxUpsertBulk {
+	return u.Update(func(s *EntityEventsOutboxUpsert) {
+		s.UpdateRequestID()
+	})
+}
+
+// ClearRequestID clears the value of the "request_id" field.
+func (u *EntityEventsOutboxUpsertBulk) ClearRequestID() *EntityEventsOutboxUpsertBulk {
+	return u.Update(func(s *EntityEventsOutboxUpsert) {
+		s.ClearRequestID()
 	})
 }
 
@@ -1397,13 +1530,6 @@ func (u *EntityEventsOutboxUpsertBulk) SetTenantID(v uuid.UUID) *EntityEventsOut
 func (u *EntityEventsOutboxUpsertBulk) UpdateTenantID() *EntityEventsOutboxUpsertBulk {
 	return u.Update(func(s *EntityEventsOutboxUpsert) {
 		s.UpdateTenantID()
-	})
-}
-
-// ClearTenantID clears the value of the "tenant_id" field.
-func (u *EntityEventsOutboxUpsertBulk) ClearTenantID() *EntityEventsOutboxUpsertBulk {
-	return u.Update(func(s *EntityEventsOutboxUpsert) {
-		s.ClearTenantID()
 	})
 }
 

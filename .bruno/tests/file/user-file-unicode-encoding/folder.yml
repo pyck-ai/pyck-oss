@@ -1,0 +1,10 @@
+info:
+  name: User - File Unicode Encoding
+  type: folder
+  seq: 1
+
+docs: |-
+  Demonstrates the NFC vs NFD Unicode encoding on the .name field — create with NFC, query with NFD returns zero rows.
+
+request:
+  auth: inherit

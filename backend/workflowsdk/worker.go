@@ -88,6 +88,25 @@ func RunDefaultWorker(opts ...WorkerOption) {
 	defer logger.Info().
 		Msg("worker stopped")
 
+	// Spin up the health server. It uses a dedicated Temporal client
+	// (dialed inside the probe loop) so probe gRPC traffic is isolated
+	// from the worker's long-polls. The HTTP listener binds
+	// unconditionally — if Temporal is unreachable it serves 503 rather
+	// than leaving the port unbound, so fly gets a clean failing check
+	// instead of connection-refused.
+	if worker.healthConfig.Enabled {
+		cfg := worker.healthConfig
+		cfg.Identity = worker.clientOptions.Identity
+		cfg.TaskQueues = worker.taskQueues
+		go func() {
+			if err := runHealthServer(ctx, cfg, worker.clientOptions); err != nil {
+				logger.Error().
+					Err(err).
+					Msg("health server exited with error")
+			}
+		}()
+	}
+
 	<-ctx.Done() // Wait for context cancellation
 
 	if err := ctx.Err(); err != nil {
@@ -107,6 +126,15 @@ func NewWorker(ctx context.Context, opts ...WorkerOption) (*worker, error) {
 		return nil, fmt.Errorf("failed to load Temporal client options from environment: %w", err)
 	}
 
+	// Pin an explicit client identity. The Temporal worker inherits the
+	// client identity for its pollers (it only overrides when
+	// WorkerOptions.Identity is set, which we don't), so this is the exact
+	// string the health server matches against in DescribeTaskQueue —
+	// independent of the SDK's internal default-identity format.
+	if clientOpts.Identity == "" {
+		clientOpts.Identity = defaultWorkerIdentity()
+	}
+
 	wfapi, err := pyckworkflowapi.DefaultClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Pyck Workflow API client: %w", err)
@@ -115,6 +143,7 @@ func NewWorker(ctx context.Context, opts ...WorkerOption) (*worker, error) {
 	worker := &worker{
 		clientOptions:   clientOpts,
 		pyckWorkflowAPI: wfapi,
+		healthConfig:    defaultHealthServerConfig(),
 	}
 
 	for _, opt := range opts {
@@ -134,6 +163,20 @@ type worker struct {
 	workerErrs      chan error
 	workerOptions   temporalworker.Options
 	workers         map[string]temporalworker.Worker
+	taskQueues      []string
+	healthConfig    healthServerConfig
+}
+
+// defaultWorkerIdentity returns a stable per-process identity in the
+// Temporal-conventional "<pid>@<host>" form. Stable for the process
+// lifetime so the health server can match this worker's pollers across
+// probes.
+func defaultWorkerIdentity() string {
+	host, err := os.Hostname()
+	if err != nil {
+		host = "unknown"
+	}
+	return fmt.Sprintf("%d@%s", os.Getpid(), host)
 }
 
 func (w *worker) Stop() {
@@ -262,8 +305,10 @@ func (w *worker) registerAllWorkers(ctx context.Context, activities []registry.A
 		taskQueues[wf.TaskQueue()] = struct{}{}
 	}
 
+	w.taskQueues = make([]string, 0, len(taskQueues))
 	for tq := range taskQueues {
 		w.registerWorker(ctx, tq)
+		w.taskQueues = append(w.taskQueues, tq)
 	}
 }
 

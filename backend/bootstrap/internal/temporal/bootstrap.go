@@ -9,8 +9,6 @@ import (
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/operatorservice/v1"
 	temporalclient "go.temporal.io/sdk/client"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/pyck-ai/pyck/backend/common/log"
 	logadapter "github.com/pyck-ai/pyck/backend/common/log/adapter"
@@ -40,6 +38,10 @@ func bootstrap(ctx context.Context, url string, namespace string) error {
 
 // addSearchAttributes registers the platform's custom search attributes
 // (e.g. pyck_workflow_name, pyck_tenant_id) on the given Temporal namespace.
+//
+// Lists existing attributes first and sends one batched AddSearchAttributes
+// call for only the missing ones. The previous per-attribute loop tripped
+// Temporal's per-namespace AddSearchAttributes rate limit on cold bootstrap.
 func addSearchAttributes(ctx context.Context, url string, namespace string) error {
 	logger := log.ForContext(ctx)
 
@@ -53,24 +55,41 @@ func addSearchAttributes(ctx context.Context, url string, namespace string) erro
 	}
 	defer client.Close()
 
+	operatorService := client.OperatorService()
+
+	existing, err := operatorService.ListSearchAttributes(ctx, &operatorservice.ListSearchAttributesRequest{
+		Namespace: namespace,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list existing search attributes: %w", err)
+	}
+
+	missingSearchAttributes := make(map[string]enums.IndexedValueType)
+	for _, attr := range workflow.SearchAttributes {
+		if _, ok := existing.GetCustomAttributes()[attr.GetName()]; ok {
+			continue
+		}
+		missingSearchAttributes[attr.GetName()] = attr.GetValueType()
+	}
+
+	if len(missingSearchAttributes) == 0 {
+		logger.Debug().
+			Int("registered", len(workflow.SearchAttributes)).
+			Str("namespace", namespace).
+			Msg("All search attributes already registered")
+		return nil
+	}
+
 	logger.Debug().
-		Int("count", len(workflow.SearchAttributes)).
+		Int("count", len(missingSearchAttributes)).
 		Str("namespace", namespace).
 		Msg("Registering search attributes on Temporal namespace")
 
-	operatorService := client.OperatorService()
-	for _, attr := range workflow.SearchAttributes {
-		if _, err := operatorService.AddSearchAttributes(ctx, &operatorservice.AddSearchAttributesRequest{
-			Namespace: namespace,
-			SearchAttributes: map[string]enums.IndexedValueType{
-				attr.GetName(): attr.GetValueType(),
-			},
-		}); err != nil {
-			if status.Code(err) == codes.AlreadyExists {
-				continue
-			}
-			return fmt.Errorf("failed to add search attribute %q: %w", attr.GetName(), err)
-		}
+	if _, err := operatorService.AddSearchAttributes(ctx, &operatorservice.AddSearchAttributesRequest{
+		Namespace:        namespace,
+		SearchAttributes: missingSearchAttributes,
+	}); err != nil {
+		return fmt.Errorf("failed to add search attributes: %w", err)
 	}
 
 	logger.Debug().Msg("Search attributes registered successfully")

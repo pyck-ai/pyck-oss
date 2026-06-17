@@ -67,6 +67,19 @@ func EnsurePostCommitContainer(ctx context.Context) context.Context {
 	return context.WithValue(ctx, postCommitKey{}, c)
 }
 
+// WithFreshPostCommitContainer always installs a new, empty container on ctx,
+// shadowing any existing one. This is the variant the Tx middleware MUST use
+// per attempt: on OCC retries the failing attempt's ctx (with its registered
+// hooks) is reused, and EnsurePostCommitContainer would short-circuit, causing
+// hooks from a rolled-back attempt to fire after the successful retry's commit.
+func WithFreshPostCommitContainer(ctx context.Context) context.Context {
+	c := &postCommitContainer{
+		hooks:   make([]func() error, 0, 2),
+		patches: make([]func(*graphql.Response) error, 0, 2),
+	}
+	return context.WithValue(ctx, postCommitKey{}, c)
+}
+
 // RunPostCommit executes all registered hooks and returns the first error encountered.
 // Returns error if container is missing or already closed.
 // Best-effort: runs all hooks even if one fails. Marks the container closed.

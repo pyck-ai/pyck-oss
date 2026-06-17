@@ -10,8 +10,10 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/feature"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
+	"github.com/pyck-ai/pyck/backend/common/txid"
 
 	ent "github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 )
@@ -338,7 +340,7 @@ func TestReplenishmentOrder_Create(t *testing.T) {
 		assert.InDelta(t, float64(15), created.Data["sum"], 0.001)
 
 		// Verify persisted
-		orders, err := te.Ent.ReplenishmentOrder.Query().All(ctx)
+		orders, err := te.Ent.ReplenishmentOrder.Query().AllPages(ctx, mixin.Limit)
 		require.NoError(t, err)
 		require.Len(t, orders, 1)
 		assert.Equal(t, created.ID, orders[0].ID)
@@ -365,7 +367,7 @@ func TestReplenishmentOrder_Create(t *testing.T) {
 		assert.Equal(t, itemDataTypeID, created.DataTypeID)
 
 		// Verify persisted
-		orders, err := te.Ent.ReplenishmentOrder.Query().All(ctx)
+		orders, err := te.Ent.ReplenishmentOrder.Query().AllPages(ctx, mixin.Limit)
 		require.NoError(t, err)
 		require.Len(t, orders, 1)
 		assert.Equal(t, uuid.Nil, orders[0].SupplierID)
@@ -696,7 +698,7 @@ func TestReplenishmentOrder_Delete(t *testing.T) {
 				SetData(itemData).
 				SetDataTypeID(itemDataTypeID).
 				SetDataTypeSlug("item").
-				Save(ent.NewTxContext(ctx, tx))
+				Save(ent.NewTxContext(txid.With(ctx, txid.New()), tx))
 			return err
 		})
 		require.NoError(t, err)
@@ -948,7 +950,7 @@ func TestReplenishmentOrderItems_Query(t *testing.T) {
 				SetData(testItemData).
 				SetDataTypeID(itemDataTypeID).
 				SetDataTypeSlug("item").
-				Save(ent.NewTxContext(ctx, tx))
+				Save(ent.NewTxContext(txid.With(ctx, txid.New()), tx))
 			return err
 		})
 		require.NoError(t, err)
@@ -991,7 +993,7 @@ func TestReplenishmentOrderItems_Query(t *testing.T) {
 				SetData(testItemData).
 				SetDataTypeID(itemDataTypeID).
 				SetDataTypeSlug("item").
-				Save(ent.NewTxContext(ctx, tx))
+				Save(ent.NewTxContext(txid.With(ctx, txid.New()), tx))
 			return err
 		})
 		require.NoError(t, err)
@@ -1052,13 +1054,13 @@ func TestReplenishmentOrder_CreateWithItems(t *testing.T) {
 		assert.Equal(t, itemDataTypeID, created.DataTypeID)
 
 		// Verify order in database
-		orders, err := te.Ent.ReplenishmentOrder.Query().All(ctx)
+		orders, err := te.Ent.ReplenishmentOrder.Query().AllPages(ctx, mixin.Limit)
 		require.NoError(t, err)
 		require.Len(t, orders, 1)
 		assert.Equal(t, created.ID, orders[0].ID)
 
 		// Verify items were created with correct foreign key
-		orderItems, err := te.Ent.ReplenishmentOrderItem.Query().All(ctx)
+		orderItems, err := te.Ent.ReplenishmentOrderItem.Query().AllPages(ctx, mixin.Limit)
 		require.NoError(t, err)
 		require.Len(t, orderItems, 2)
 
@@ -1094,7 +1096,7 @@ func TestReplenishmentOrder_CreateWithItems(t *testing.T) {
 		assert.NotEqual(t, uuid.Nil, created.ID)
 
 		// Verify no items were created
-		orderItems, err := te.Ent.ReplenishmentOrderItem.Query().All(ctx)
+		orderItems, err := te.Ent.ReplenishmentOrderItem.Query().AllPages(ctx, mixin.Limit)
 		require.NoError(t, err)
 		assert.Empty(t, orderItems)
 	})
@@ -1186,11 +1188,11 @@ func TestReplenishmentOrder_CreateWithItems(t *testing.T) {
 
 		// Query with tenant2 context - should not see tenant1's order
 		ctxB := te.ctx(userB)
-		orders, err := te.Ent.ReplenishmentOrder.Query().All(ctxB)
+		orders, err := te.Ent.ReplenishmentOrder.Query().AllPages(ctxB, mixin.Limit)
 		require.NoError(t, err)
 		assert.Empty(t, orders)
 
-		orderItems, err := te.Ent.ReplenishmentOrderItem.Query().All(ctxB)
+		orderItems, err := te.Ent.ReplenishmentOrderItem.Query().AllPages(ctxB, mixin.Limit)
 		require.NoError(t, err)
 		assert.Empty(t, orderItems)
 	})
@@ -1232,7 +1234,7 @@ func TestReplenishmentOrder_CreateWithItems(t *testing.T) {
 		orderID := data.CreateReplenishmentOrder.ReplenishmentOrder.ID
 
 		// Verify all items have correct foreign key
-		orderItems, err := te.Ent.ReplenishmentOrderItem.Query().All(ctx)
+		orderItems, err := te.Ent.ReplenishmentOrderItem.Query().AllPages(ctx, mixin.Limit)
 		require.NoError(t, err)
 		require.Len(t, orderItems, 3)
 

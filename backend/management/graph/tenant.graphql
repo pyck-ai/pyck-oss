@@ -10,4 +10,66 @@ input RegisterTenantInput {
   Synced to Zitadel org metadata and tenant.data.
   """
   data: Map
+  """
+  Optional expiry timestamp. Written directly to
+  tenant.expires_at; the periodic tenant-expiry-check workflow
+  soft-deletes the tenant once the timestamp is in the past.
+  """
+  expiresAt: Time
+}
+
+"""
+Result of a manually-triggered tenant delete. Triggers the
+soft-delete half of the lifecycle — the row remains in the database
+and can be reactivated via restoreTenant during the grace period.
+Returns an error when the tenant does not exist; idempotent on
+already-deleted tenants.
+
+Target tenant is derived from X-Pyck-Tenant-Id (req.MutationTenantID),
+validated by tenant.Middleware; the resolver additionally enforces
+ROLE_ADMIN on that tenant before any state change.
+"""
+type DeleteTenantResponse {
+  success: Boolean!
+}
+
+"""
+Input for restoreTenant. Target tenant derived from
+X-Pyck-Tenant-Id (req.MutationTenantID); ROLE_ADMIN required.
+"""
+input RestoreTenantInput {
+  """
+  Optional new expiry timestamp written alongside the restore. When
+  omitted, the tenant's prior expires_at persists.
+  """
+  expiresAt: Time
+}
+
+"""
+Result of a manually-triggered tenant restore. Returns an error when
+the tenant does not exist; idempotent on already-active tenants.
+"""
+type RestoreTenantResponse {
+  success: Boolean!
+}
+
+"""
+Input for setTenantExpiry. Target tenant derived from
+X-Pyck-Tenant-Id (req.MutationTenantID); ROLE_ADMIN required.
+"""
+input SetTenantExpiryInput {
+  """
+  New expiry timestamp; pass null to clear.
+  """
+  expiresAt: Time
+}
+
+"""
+Result of setTenantExpiry. Returns an error when the tenant does not
+exist; soft-deleted tenants are invisible to the mutation and report
+the same error. Idempotent on the already-at-target-state cases
+(clear against empty, set matching the current value).
+"""
+type SetTenantExpiryResponse {
+  success: Boolean!
 }

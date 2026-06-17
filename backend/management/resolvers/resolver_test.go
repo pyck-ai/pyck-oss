@@ -23,6 +23,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/test"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
+	"github.com/pyck-ai/pyck/backend/common/txid"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 
@@ -68,6 +69,8 @@ var (
 		Roles:    map[uuid.UUID]authn.Role{resolver.TenantB: authn.ROLE_READER},
 	}
 
+	systemUser = authn.SystemUser()
+
 	testDataTypeSlug   = "item"
 	testDataTypeSchema = string(test.MustLoadSchemaByName(testDataTypeSlug))
 )
@@ -101,7 +104,7 @@ func setup(t *testing.T) *testEnv {
 	}))
 
 	v := validator.NewValidator(te.DataTypeProvider)
-	r := resolvers.NewResolver("management", client, v, te.WorkflowClient)
+	r := resolvers.NewResolver("management", client, v, te.WorkflowClient, nil)
 	schema := resolvers.NewSchema(r)
 
 	te.Init(client, schema, func(s *handler.Server) {
@@ -114,7 +117,16 @@ func setup(t *testing.T) *testEnv {
 // ctx creates a request context for the given user.
 func (te *testEnv) ctx(user *authn.User) context.Context {
 	te.t.Helper()
-	ctx := request.Context(te.t.Context(), user, user.TenantID)
+	return te.ctxForTenant(user, user.TenantID)
+}
+
+// ctxForTenant creates a request context with MutationTenantID set to
+// the supplied tenantID instead of the user's own TenantID. Used by
+// tenant-lifecycle tests where the test tenant ID is generated fresh
+// per-subtest and the caller must target that specific tenant.
+func (te *testEnv) ctxForTenant(user *authn.User, tenantID uuid.UUID) context.Context {
+	te.t.Helper()
+	ctx := request.Context(te.t.Context(), user, tenantID)
 	tracer := otelapi.Tracer("management-test")
 	ctx, span := tracer.Start(ctx, "test")
 	te.t.Cleanup(func() { span.End() })
@@ -198,7 +210,7 @@ func (b *locationBuilder) Create() *gen.Location {
 		}
 
 		var err error
-		loc, err = builder.Save(gen.NewTxContext(b.ctx, tx))
+		loc, err = builder.Save(gen.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -257,7 +269,7 @@ func (b *deviceBuilder) Create() *gen.Device {
 		}
 
 		var err error
-		dev, err = builder.Save(gen.NewTxContext(b.ctx, tx))
+		dev, err = builder.Save(gen.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -314,7 +326,7 @@ func (b *deviceLocationBuilder) Create() *gen.DeviceLocation {
 		}
 
 		var err error
-		dl, err = builder.Save(gen.NewTxContext(b.ctx, tx))
+		dl, err = builder.Save(gen.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -387,7 +399,7 @@ func (b *userBuilder) Create() *gen.User {
 		}
 
 		var err error
-		usr, err = builder.Save(gen.NewTxContext(b.ctx, tx))
+		usr, err = builder.Save(gen.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -434,7 +446,7 @@ func (b *deviceUserBuilder) Create() *gen.DeviceUser {
 		}
 
 		var err error
-		du, err = builder.Save(gen.NewTxContext(b.ctx, tx))
+		du, err = builder.Save(gen.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -444,10 +456,12 @@ func (b *deviceUserBuilder) Create() *gen.DeviceUser {
 // --- Tenant Builder ---
 
 type tenantBuilder struct {
-	te       *testEnv
-	ctx      context.Context //nolint:containedctx // Builder pattern for tests
-	tenantID uuid.UUID
-	name     string
+	te        *testEnv
+	ctx       context.Context //nolint:containedctx // Builder pattern for tests
+	tenantID  uuid.UUID
+	name      string
+	expiresAt *time.Time
+	deleted   bool
 }
 
 func (te *testEnv) newTenant(ctx context.Context, tenantID uuid.UUID) *tenantBuilder {
@@ -464,16 +478,35 @@ func (b *tenantBuilder) Name(name string) *tenantBuilder {
 	return b
 }
 
+func (b *tenantBuilder) ExpiresAt(t time.Time) *tenantBuilder {
+	utc := t.UTC()
+	b.expiresAt = &utc
+	return b
+}
+
+func (b *tenantBuilder) Deleted() *tenantBuilder {
+	b.deleted = true
+	return b
+}
+
 func (b *tenantBuilder) Create() *gen.Tenant {
 	b.te.t.Helper()
 	var tenant *gen.Tenant
 	err := b.te.withTx(b.ctx, func(tx *gen.Tx) error {
-		var err error
-		tenant, err = tx.Tenant.Create().
+		builder := tx.Tenant.Create().
 			SetID(b.tenantID).
 			SetName(b.name).
-			SetIdpOrgRef(b.tenantID.String()).
-			Save(gen.NewTxContext(b.ctx, tx))
+			SetIdpOrgRef(b.tenantID.String())
+
+		if b.expiresAt != nil {
+			builder = builder.SetExpiresAt(*b.expiresAt)
+		}
+		if b.deleted {
+			builder = builder.SetDeletedAt(time.Now().UTC()).SetDeletedBy(uuid.Max)
+		}
+
+		var err error
+		tenant, err = builder.Save(gen.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -532,7 +565,7 @@ func (b *eventBuilder) Create() *gen.Event {
 			SetDescription(b.description).
 			SetTopic(b.topic).
 			SetExample(b.example).
-			Save(gen.NewTxContext(b.ctx, tx))
+			Save(gen.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -614,7 +647,7 @@ func (b *dataTypeBuilder) Create() *gen.DataType {
 		}
 
 		var err error
-		dt, err = builder.Save(gen.NewTxContext(b.ctx, tx))
+		dt, err = builder.Save(gen.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -622,6 +655,10 @@ func (b *dataTypeBuilder) Create() *gen.DataType {
 }
 
 func (te *testEnv) withTx(ctx context.Context, fn func(tx *gen.Tx) error) error {
+	// Inject a fresh transaction ID so the MutationEventHook (which now
+	// requires one for the outbox row's dedup key) is satisfied — this
+	// mirrors what the gqltx middleware does at BeginTx in production.
+	ctx = txid.With(ctx, txid.New())
 	tx, err := te.Ent.Tx(ctx)
 	if err != nil {
 		return err

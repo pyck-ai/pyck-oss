@@ -19,10 +19,10 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/validator"
-	"github.com/pyck-ai/pyck/backend/file"
 	"github.com/pyck-ai/pyck/backend/file/core"
 	ent "github.com/pyck-ai/pyck/backend/file/ent/gen"
 	entfile "github.com/pyck-ai/pyck/backend/file/ent/gen/file"
+	"github.com/pyck-ai/pyck/backend/file/exec"
 	"github.com/pyck-ai/pyck/backend/file/model"
 	"github.com/pyck-ai/pyck/backend/file/workflows"
 	imageanalyzer "github.com/pyck-ai/pyck/backend/file/workflows/image-analyzer"
@@ -235,7 +235,7 @@ func (r *mutationResolver) PatchFileData(ctx context.Context, id uuid.UUID, patc
 	return tx.File.UpdateOneID(id).SetData(patched).Save(ctx)
 }
 
-// Mutation returns file.MutationResolver implementation.
-func (r *Resolver) Mutation() file.MutationResolver { return &mutationResolver{r} }
+// Mutation returns exec.MutationResolver implementation.
+func (r *Resolver) Mutation() exec.MutationResolver { return &mutationResolver{r} }
 
 type mutationResolver struct{ *Resolver }

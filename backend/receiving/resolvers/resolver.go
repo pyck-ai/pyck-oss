@@ -2,9 +2,11 @@ package resolvers
 
 import (
 	"github.com/99designs/gqlgen/graphql"
+
 	"github.com/pyck-ai/pyck/backend/common/validator"
-	m "github.com/pyck-ai/pyck/backend/receiving"
+
 	ent "github.com/pyck-ai/pyck/backend/receiving/ent/gen"
+	"github.com/pyck-ai/pyck/backend/receiving/exec"
 )
 
 // Resolver is the resolver root.
@@ -23,7 +25,7 @@ func NewResolver(serviceName string, client *ent.Client, validator *validator.Va
 }
 
 func NewSchema(resolver *Resolver) graphql.ExecutableSchema {
-	return m.NewExecutableSchema(m.Config{
+	return exec.NewExecutableSchema(exec.Config{
 		Resolvers: resolver,
 	})
 }

@@ -33,7 +33,7 @@ func (checker *DbHealthChecker) HealthCheck(ctx context.Context) error {
 	}
 
 	if transactionIsolationLevel != strings.ToLower(sql.LevelSerializable.String()) {
-		log.ForContext(ctx).Warn().
+		log.ForContext(ctx).Debug().
 			Str("transactionIsolationLevel", transactionIsolationLevel).
 			Str("expectedTransactionIsolationLevel", sql.LevelSerializable.String()).
 			Msg("Unexpected transaction isolation level")

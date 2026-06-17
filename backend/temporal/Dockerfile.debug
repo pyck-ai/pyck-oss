@@ -2,7 +2,7 @@
 #   CONFIGURATION                                                     #
 #######################################################################
 
-ARG TEMPORAL_VERSION=1.29.4
+ARG TEMPORAL_VERSION=1.31.1
 
 ARG DELVE_PORT=7031
 

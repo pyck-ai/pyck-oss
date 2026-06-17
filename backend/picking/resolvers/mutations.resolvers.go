@@ -17,12 +17,12 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/validator"
-	"github.com/pyck-ai/pyck/backend/picking"
 	"github.com/pyck-ai/pyck/backend/picking/core"
 	ent "github.com/pyck-ai/pyck/backend/picking/ent/gen"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen/order"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen/orderitems"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen/outboundshipmentnotification"
+	"github.com/pyck-ai/pyck/backend/picking/exec"
 	"github.com/pyck-ai/pyck/backend/picking/model"
 )
 
@@ -173,7 +173,7 @@ func (r *mutationResolver) DeletePickingOrder(ctx context.Context, id uuid.UUID)
 	items, err := tx.OrderItems.
 		Query().
 		Where(orderitems.OrderID(id)).
-		All(ctx)
+		AllPages(ctx, mixin.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -530,7 +530,7 @@ func (r *mutationResolver) PatchPickingOutboundShipmentNotificationData(ctx cont
 	return &model.PickingOutboundShipmentNotificationOutput{PickingOutboundShipmentNotification: updated}, nil
 }
 
-// Mutation returns picking.MutationResolver implementation.
-func (r *Resolver) Mutation() picking.MutationResolver { return &mutationResolver{r} }
+// Mutation returns exec.MutationResolver implementation.
+func (r *Resolver) Mutation() exec.MutationResolver { return &mutationResolver{r} }
 
 type mutationResolver struct{ *Resolver }

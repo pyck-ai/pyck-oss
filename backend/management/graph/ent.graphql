@@ -1336,7 +1336,9 @@ type EntityEventsOutbox implements Node {
   createdAt: Time!
   publishedAt: Time
   userID: UUID
-  correlationID: String!
+  transactionID: UUID!
+  traceID: String
+  requestID: String
   topic: String!
   payload: Map!
   withReply: Boolean!
@@ -1346,7 +1348,7 @@ type EntityEventsOutbox implements Node {
   nextRetryAt: Time
   entityType: String
   entityID: UUID
-  tenantID: UUID
+  tenantID: UUID!
 }
 """
 EntityEventsOutboxWhereInput is used for filtering EntityEventsOutbox objects.
@@ -1405,21 +1407,52 @@ input EntityEventsOutboxWhereInput {
   userIDIsNil: Boolean
   userIDNotNil: Boolean
   """
-  correlation_id field predicates
+  transaction_id field predicates
   """
-  correlationID: String
-  correlationIDNEQ: String
-  correlationIDIn: [String!]
-  correlationIDNotIn: [String!]
-  correlationIDGT: String
-  correlationIDGTE: String
-  correlationIDLT: String
-  correlationIDLTE: String
-  correlationIDContains: String
-  correlationIDHasPrefix: String
-  correlationIDHasSuffix: String
-  correlationIDEqualFold: String
-  correlationIDContainsFold: String
+  transactionID: UUID
+  transactionIDNEQ: UUID
+  transactionIDIn: [UUID!]
+  transactionIDNotIn: [UUID!]
+  transactionIDGT: UUID
+  transactionIDGTE: UUID
+  transactionIDLT: UUID
+  transactionIDLTE: UUID
+  """
+  trace_id field predicates
+  """
+  traceID: String
+  traceIDNEQ: String
+  traceIDIn: [String!]
+  traceIDNotIn: [String!]
+  traceIDGT: String
+  traceIDGTE: String
+  traceIDLT: String
+  traceIDLTE: String
+  traceIDContains: String
+  traceIDHasPrefix: String
+  traceIDHasSuffix: String
+  traceIDIsNil: Boolean
+  traceIDNotNil: Boolean
+  traceIDEqualFold: String
+  traceIDContainsFold: String
+  """
+  request_id field predicates
+  """
+  requestID: String
+  requestIDNEQ: String
+  requestIDIn: [String!]
+  requestIDNotIn: [String!]
+  requestIDGT: String
+  requestIDGTE: String
+  requestIDLT: String
+  requestIDLTE: String
+  requestIDContains: String
+  requestIDHasPrefix: String
+  requestIDHasSuffix: String
+  requestIDIsNil: Boolean
+  requestIDNotNil: Boolean
+  requestIDEqualFold: String
+  requestIDContainsFold: String
   """
   topic field predicates
   """
@@ -1538,8 +1571,6 @@ input EntityEventsOutboxWhereInput {
   tenantIDGTE: UUID
   tenantIDLT: UUID
   tenantIDLTE: UUID
-  tenantIDIsNil: Boolean
-  tenantIDNotNil: Boolean
 }
 type Event implements Node {
   id: ID!
@@ -3225,6 +3256,7 @@ type Tenant implements Node {
   deletedBy: UUID
   name: String!
   idpOrgRef: String!
+  expiresAt: Time
   tenantUsers(
     """
     Returns the elements in the list that come after the specified cursor.
@@ -3320,6 +3352,7 @@ enum TenantOrderField {
   DELETED_BY
   NAME
   IDP_ORG_REF
+  EXPIRES_AT
 }
 """
 TenantWhereInput is used for filtering Tenant objects.
@@ -3451,6 +3484,19 @@ input TenantWhereInput {
   idpOrgRefHasSuffix: String
   idpOrgRefEqualFold: String
   idpOrgRefContainsFold: String
+  """
+  expires_at field predicates
+  """
+  expiresAt: Time
+  expiresAtNEQ: Time
+  expiresAtIn: [Time!]
+  expiresAtNotIn: [Time!]
+  expiresAtGT: Time
+  expiresAtGTE: Time
+  expiresAtLT: Time
+  expiresAtLTE: Time
+  expiresAtIsNil: Boolean
+  expiresAtNotNil: Boolean
   """
   tenantUsers edge predicates
   """

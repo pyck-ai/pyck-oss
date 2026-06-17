@@ -35,60 +35,6 @@ graphql:
               dataTypeSlug
               deletedAt
               deletedBy
-              deviceLocationsDevice {
-                edges {
-                  cursor
-                  node {
-                    createdAt
-                    createdBy
-                    data
-                    dataTypeID
-                    dataTypeSlug
-                    deletedAt
-                    deletedBy
-                    deviceID
-                    id
-                    locationID
-                    tenantID
-                    updatedAt
-                    updatedBy
-                  }
-                }
-                pageInfo {
-                  endCursor
-                  hasNextPage
-                  hasPreviousPage
-                  startCursor
-                }
-                totalCount
-              }
-              deviceUsersDevice {
-                edges {
-                  cursor
-                  node {
-                    createdAt
-                    createdBy
-                    data
-                    dataTypeID
-                    dataTypeSlug
-                    deletedAt
-                    deletedBy
-                    deviceID
-                    id
-                    tenantID
-                    updatedAt
-                    updatedBy
-                    userID
-                  }
-                }
-                pageInfo {
-                  endCursor
-                  hasNextPage
-                  hasPreviousPage
-                  startCursor
-                }
-                totalCount
-              }
               id
               name
               tenantID

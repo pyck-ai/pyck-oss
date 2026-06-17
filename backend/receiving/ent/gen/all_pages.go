@@ -27,6 +27,29 @@ func (_q *EntityEventsOutboxQuery) AllPages(ctx context.Context, pageSize int) (
 	return all, nil
 }
 
+// AllPages paginates through all IdempotencyKey records matching the current
+// query predicates in pages of pageSize, collecting every row. This avoids the
+// LimitMixin hard cap that silently truncates results when no explicit Limit is
+// set.
+//
+// An ORDER BY id ASC is appended so pagination is deterministic — without it,
+// Postgres LIMIT/OFFSET returns rows in unspecified order and pages can
+// overlap or skip rows depending on the chosen plan.
+func (_q *IdempotencyKeyQuery) AllPages(ctx context.Context, pageSize int) ([]*IdempotencyKey, error) {
+	var all []*IdempotencyKey
+	for offset := 0; ; offset += pageSize {
+		page, err := _q.Clone().Order(Asc("id")).Limit(pageSize).Offset(offset).All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if len(page) < pageSize {
+			break
+		}
+	}
+	return all, nil
+}
+
 // AllPages paginates through all Inbound records matching the current
 // query predicates in pages of pageSize, collecting every row. This avoids the
 // LimitMixin hard cap that silently truncates results when no explicit Limit is

@@ -193,7 +193,9 @@ var (
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "published_at", Type: field.TypeTime, Nullable: true},
 		{Name: "user_id", Type: field.TypeUUID, Nullable: true},
-		{Name: "correlation_id", Type: field.TypeString},
+		{Name: "transaction_id", Type: field.TypeUUID},
+		{Name: "trace_id", Type: field.TypeString, Nullable: true},
+		{Name: "request_id", Type: field.TypeString, Nullable: true},
 		{Name: "topic", Type: field.TypeString},
 		{Name: "payload", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "with_reply", Type: field.TypeBool, Default: false},
@@ -203,7 +205,7 @@ var (
 		{Name: "next_retry_at", Type: field.TypeTime, Nullable: true},
 		{Name: "entity_type", Type: field.TypeString, Nullable: true},
 		{Name: "entity_id", Type: field.TypeUUID, Nullable: true},
-		{Name: "tenant_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "tenant_id", Type: field.TypeUUID},
 	}
 	// EventOutboxTable holds the schema information for the "event_outbox" table.
 	EventOutboxTable = &schema.Table{
@@ -212,15 +214,15 @@ var (
 		PrimaryKey: []*schema.Column{EventOutboxColumns[0]},
 		Indexes: []*schema.Index{
 			{
-				Name:    "entityeventsoutbox_next_retry_at_correlation_id_created_at",
+				Name:    "entityeventsoutbox_next_retry_at_transaction_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{EventOutboxColumns[11], EventOutboxColumns[4], EventOutboxColumns[1]},
+				Columns: []*schema.Column{EventOutboxColumns[13], EventOutboxColumns[4], EventOutboxColumns[1]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "published_at IS NULL AND dead_at IS NULL",
 				},
 			},
 			{
-				Name:    "entityeventsoutbox_correlation_id_created_at",
+				Name:    "entityeventsoutbox_transaction_id_created_at",
 				Unique:  false,
 				Columns: []*schema.Column{EventOutboxColumns[4], EventOutboxColumns[1]},
 				Annotation: &entsql.IndexAnnotation{
@@ -230,7 +232,7 @@ var (
 			{
 				Name:    "entityeventsoutbox_tenant_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{EventOutboxColumns[14], EventOutboxColumns[1]},
+				Columns: []*schema.Column{EventOutboxColumns[16], EventOutboxColumns[1]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "published_at IS NULL AND dead_at IS NULL",
 				},
@@ -239,6 +241,14 @@ var (
 				Name:    "entityeventsoutbox_user_id_created_at",
 				Unique:  false,
 				Columns: []*schema.Column{EventOutboxColumns[3], EventOutboxColumns[1]},
+			},
+			{
+				Name:    "entityeventsoutbox_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{EventOutboxColumns[1]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "dead_at IS NOT NULL AND published_at IS NULL",
+				},
 			},
 		},
 	}
@@ -287,6 +297,40 @@ var (
 				Columns: []*schema.Column{GroupsColumns[8], GroupsColumns[7]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
+				},
+			},
+		},
+	}
+	// IdempotencyKeysColumns holds the columns for the "idempotency_keys" table.
+	IdempotencyKeysColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID, Unique: true},
+		{Name: "key", Type: field.TypeString, Size: 255},
+		{Name: "tenant_id", Type: field.TypeUUID},
+		{Name: "user_id", Type: field.TypeUUID},
+		{Name: "operation_name", Type: field.TypeString},
+		{Name: "operation_checksum", Type: field.TypeBytes, Size: 32},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"in_flight", "committed"}, Default: "in_flight"},
+		{Name: "response", Type: field.TypeBytes, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// IdempotencyKeysTable holds the schema information for the "idempotency_keys" table.
+	IdempotencyKeysTable = &schema.Table{
+		Name:       "idempotency_keys",
+		Columns:    IdempotencyKeysColumns,
+		PrimaryKey: []*schema.Column{IdempotencyKeysColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idempotencykey_tenant_id_user_id_key",
+				Unique:  true,
+				Columns: []*schema.Column{IdempotencyKeysColumns[2], IdempotencyKeysColumns[3], IdempotencyKeysColumns[1]},
+			},
+			{
+				Name:    "idempotencykey_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{IdempotencyKeysColumns[8]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "status = 'committed'",
 				},
 			},
 		},
@@ -397,6 +441,7 @@ var (
 		{Name: "deleted_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "name", Type: field.TypeString},
 		{Name: "idp_org_ref", Type: field.TypeString},
+		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
 	}
 	// TenantsTable holds the schema information for the "tenants" table.
 	TenantsTable = &schema.Table{
@@ -410,6 +455,14 @@ var (
 				Columns: []*schema.Column{TenantsColumns[11]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
+				},
+			},
+			{
+				Name:    "tenant_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{TenantsColumns[12]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "expires_at IS NOT NULL AND deleted_at IS NULL",
 				},
 			},
 		},
@@ -549,6 +602,7 @@ var (
 		EventOutboxTable,
 		EventsTable,
 		GroupsTable,
+		IdempotencyKeysTable,
 		KeyvaluesTable,
 		LocationsTable,
 		RolesTable,
@@ -589,6 +643,9 @@ func init() {
 	}
 	GroupsTable.Annotation = &entsql.Annotation{
 		Table: "groups",
+	}
+	IdempotencyKeysTable.Annotation = &entsql.Annotation{
+		Table: "idempotency_keys",
 	}
 	KeyvaluesTable.Annotation = &entsql.Annotation{
 		Table: "keyvalues",

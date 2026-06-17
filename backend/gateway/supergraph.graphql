@@ -20,8 +20,8 @@ directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on
 
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
-type AccessPolicy implements Node
-  @join__implements(graph: MANAGEMENT, interface: "Node")
+type AccessPolicy implements NodeDataType
+  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -1075,8 +1075,8 @@ input DataBoolInput
   value: Boolean
 }
 
-type DataType implements Node
-  @join__implements(graph: MANAGEMENT, interface: "Node")
+type DataType implements NodeDataType
+  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -1340,8 +1340,25 @@ input DataTypeWhereInput
   entityContainsFold: String
 }
 
-type Device implements Node
-  @join__implements(graph: MANAGEMENT, interface: "Node")
+"""
+Result of a manually-triggered tenant delete. Triggers the
+soft-delete half of the lifecycle — the row remains in the database
+and can be reactivated via restoreTenant during the grace period.
+Returns an error when the tenant does not exist; idempotent on
+already-deleted tenants.
+
+Target tenant is derived from X-Pyck-Tenant-Id (req.MutationTenantID),
+validated by tenant.Middleware; the resolver additionally enforces
+ROLE_ADMIN on that tenant before any state change.
+"""
+type DeleteTenantResponse
+  @join__type(graph: MANAGEMENT)
+{
+  success: Boolean!
+}
+
+type Device implements NodeDataType
+  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -1432,8 +1449,8 @@ type DeviceEdge
   cursor: Cursor!
 }
 
-type DeviceLocation implements Node
-  @join__implements(graph: MANAGEMENT, interface: "Node")
+type DeviceLocation implements NodeDataType
+  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -1689,8 +1706,8 @@ type DeviceOutput
   workflows: [TemporalWorkflow!]!
 }
 
-type DeviceUser implements Node
-  @join__implements(graph: MANAGEMENT, interface: "Node")
+type DeviceUser implements NodeDataType
+  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -2022,14 +2039,14 @@ input DeviceWhereInput
   DataContains: [String!]
 }
 
-type EntityEventsOutbox implements Node
-  @join__implements(graph: FILE, interface: "Node")
-  @join__implements(graph: INVENTORY, interface: "Node")
+type EntityEventsOutbox implements NodeFile & NodeInventory & Node & NodeDataType & NodePicking & NodeReceiving & NodeWorkflow
+  @join__implements(graph: FILE, interface: "NodeFile")
+  @join__implements(graph: INVENTORY, interface: "NodeInventory")
   @join__implements(graph: MAINDATA, interface: "Node")
-  @join__implements(graph: MANAGEMENT, interface: "Node")
-  @join__implements(graph: PICKING, interface: "Node")
-  @join__implements(graph: RECEIVING, interface: "Node")
-  @join__implements(graph: WORKFLOW, interface: "Node")
+  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
+  @join__implements(graph: PICKING, interface: "NodePicking")
+  @join__implements(graph: RECEIVING, interface: "NodeReceiving")
+  @join__implements(graph: WORKFLOW, interface: "NodeWorkflow")
   @join__type(graph: FILE)
   @join__type(graph: INVENTORY)
   @join__type(graph: MAINDATA)
@@ -2042,7 +2059,9 @@ type EntityEventsOutbox implements Node
   createdAt: Time!
   publishedAt: Time
   userID: UUID
-  correlationID: String!
+  transactionID: UUID!
+  traceID: String
+  requestID: String
   topic: String!
   payload: Map!
   withReply: Boolean!
@@ -2052,7 +2071,7 @@ type EntityEventsOutbox implements Node
   nextRetryAt: Time
   entityType: String
   entityID: UUID
-  tenantID: UUID
+  tenantID: UUID!
 }
 
 """
@@ -2116,20 +2135,49 @@ input EntityEventsOutboxWhereInput
   userIDIsNil: Boolean
   userIDNotNil: Boolean
 
-  """correlation_id field predicates"""
-  correlationID: String
-  correlationIDNEQ: String
-  correlationIDIn: [String!]
-  correlationIDNotIn: [String!]
-  correlationIDGT: String
-  correlationIDGTE: String
-  correlationIDLT: String
-  correlationIDLTE: String
-  correlationIDContains: String
-  correlationIDHasPrefix: String
-  correlationIDHasSuffix: String
-  correlationIDEqualFold: String
-  correlationIDContainsFold: String
+  """transaction_id field predicates"""
+  transactionID: UUID
+  transactionIDNEQ: UUID
+  transactionIDIn: [UUID!]
+  transactionIDNotIn: [UUID!]
+  transactionIDGT: UUID
+  transactionIDGTE: UUID
+  transactionIDLT: UUID
+  transactionIDLTE: UUID
+
+  """trace_id field predicates"""
+  traceID: String
+  traceIDNEQ: String
+  traceIDIn: [String!]
+  traceIDNotIn: [String!]
+  traceIDGT: String
+  traceIDGTE: String
+  traceIDLT: String
+  traceIDLTE: String
+  traceIDContains: String
+  traceIDHasPrefix: String
+  traceIDHasSuffix: String
+  traceIDIsNil: Boolean
+  traceIDNotNil: Boolean
+  traceIDEqualFold: String
+  traceIDContainsFold: String
+
+  """request_id field predicates"""
+  requestID: String
+  requestIDNEQ: String
+  requestIDIn: [String!]
+  requestIDNotIn: [String!]
+  requestIDGT: String
+  requestIDGTE: String
+  requestIDLT: String
+  requestIDLTE: String
+  requestIDContains: String
+  requestIDHasPrefix: String
+  requestIDHasSuffix: String
+  requestIDIsNil: Boolean
+  requestIDNotNil: Boolean
+  requestIDEqualFold: String
+  requestIDContainsFold: String
 
   """topic field predicates"""
   topic: String
@@ -2239,12 +2287,10 @@ input EntityEventsOutboxWhereInput
   tenantIDGTE: UUID
   tenantIDLT: UUID
   tenantIDLTE: UUID
-  tenantIDIsNil: Boolean
-  tenantIDNotNil: Boolean
 }
 
-type Event implements Node
-  @join__implements(graph: MANAGEMENT, interface: "Node")
+type Event implements NodeDataType
+  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -2428,8 +2474,8 @@ input EventWhereInput
   descriptionContainsFold: String
 }
 
-type File implements Node
-  @join__implements(graph: FILE, interface: "Node")
+type File implements NodeFile
+  @join__implements(graph: FILE, interface: "NodeFile")
   @join__type(graph: FILE, key: "id")
 {
   id: ID!
@@ -2816,8 +2862,8 @@ type GetWorkflowTargetsResponse
   targets: [WorkflowTarget!]!
 }
 
-type Group implements Node
-  @join__implements(graph: MANAGEMENT, interface: "Node")
+type Group implements NodeDataType
+  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -3053,8 +3099,8 @@ type ImageAnalysisResponse
   jsonData: String!
 }
 
-type InventoryCollection implements Node
-  @join__implements(graph: INVENTORY, interface: "Node")
+type InventoryCollection implements NodeInventory
+  @join__implements(graph: INVENTORY, interface: "NodeInventory")
   @join__type(graph: INVENTORY)
 {
   id: ID!
@@ -3260,8 +3306,8 @@ input InventoryCollectionWhereInput
   DataContains: [String!]
 }
 
-type InventoryItem implements Node
-  @join__implements(graph: INVENTORY, interface: "Node")
+type InventoryItem implements NodeInventory
+  @join__implements(graph: INVENTORY, interface: "NodeInventory")
   @join__type(graph: FILE, key: "id")
   @join__type(graph: INVENTORY, key: "sku")
 {
@@ -3368,8 +3414,8 @@ type InventoryItemOutput
   workflows: [TemporalWorkflow]
 }
 
-type InventoryItemSet implements Node
-  @join__implements(graph: INVENTORY, interface: "Node")
+type InventoryItemSet implements NodeInventory
+  @join__implements(graph: INVENTORY, interface: "NodeInventory")
   @join__type(graph: INVENTORY)
 {
   id: ID!
@@ -3773,8 +3819,8 @@ type InventoryRepositoryOutput
   workflows: [TemporalWorkflow]
 }
 
-type ItemMovement implements Node
-  @join__implements(graph: INVENTORY, interface: "Node")
+type ItemMovement implements NodeInventory
+  @join__implements(graph: INVENTORY, interface: "NodeInventory")
   @join__type(graph: INVENTORY)
 {
   id: ID!
@@ -4222,8 +4268,8 @@ enum JSONType
   BOOLEAN @join__enumValue(graph: FILE) @join__enumValue(graph: INVENTORY) @join__enumValue(graph: MAINDATA) @join__enumValue(graph: MANAGEMENT) @join__enumValue(graph: PICKING) @join__enumValue(graph: RECEIVING) @join__enumValue(graph: WORKFLOW)
 }
 
-type KeyValue implements Node
-  @join__implements(graph: MANAGEMENT, interface: "Node")
+type KeyValue implements NodeDataType
+  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -4450,8 +4496,8 @@ enum link__Purpose {
   EXECUTION
 }
 
-type Location implements Node
-  @join__implements(graph: MANAGEMENT, interface: "Node")
+type Location implements NodeDataType
+  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -4799,6 +4845,47 @@ type Mutation
   deleteDataType(id: ID!): DataTypeDeletePayload! @join__field(graph: MANAGEMENT)
   sendCustomEvent(input: SendCustomEventInput!): SendCustomEventResponse @join__field(graph: MANAGEMENT)
   registerTenant(input: RegisterTenantInput!): RegisterTenantResponse! @join__field(graph: MANAGEMENT)
+
+  """
+  Manually delete a tenant by setting deleted_at via soft-delete. This
+  triggers the soft-delete half of the tenant lifecycle — the row
+  remains in the database and can be reactivated via restoreTenant
+  during the grace period. Hard-delete is automated by the periodic
+  expiry sweep, not exposed to the API.
+  
+  Target tenant is derived from the X-Pyck-Tenant-Id header
+  (req.MutationTenantID). The caller must hold ROLE_ADMIN on that
+  tenant; ROLE_SYSTEM satisfies this for system flows.
+  """
+  deleteTenant: DeleteTenantResponse! @join__field(graph: MANAGEMENT)
+
+  """
+  Restore a previously disabled tenant by clearing its deleted_at
+  flag. An optional input.expiresAt overrides the tenant's prior
+  expiry; when omitted, the prior expiry persists, which can
+  re-disable the tenant on the next tenant-expiry-check sweep if the
+  value is already in the past.
+  
+  Target tenant is derived from X-Pyck-Tenant-Id (req.MutationTenantID);
+  ROLE_ADMIN required.
+  """
+  restoreTenant(input: RestoreTenantInput!): RestoreTenantResponse! @join__field(graph: MANAGEMENT)
+
+  """
+  Sets or clears the tenant's expiry timestamp. Pass input.expiresAt
+  as null to clear. Soft-deleted (disabled) tenants are not visible
+  to this mutation — call restoreTenant first (it accepts an optional
+  new expiry). Returns an error when the tenant does not exist
+  (including the disabled case). The value is written directly to
+  tenant.expires_at; the periodic tenant-expiry-check workflow
+  soft-deletes the tenant once the timestamp is in the past.
+  Idempotent on the already-at-target-state cases (clear against
+  empty, set matching the current value).
+  
+  Target tenant is derived from X-Pyck-Tenant-Id (req.MutationTenantID);
+  ROLE_ADMIN required.
+  """
+  setTenantExpiry(input: SetTenantExpiryInput!): SetTenantExpiryResponse! @join__field(graph: MANAGEMENT)
   generateJsonSchema(jsonData: String!): GenerateJsonSchemaResponse! @join__field(graph: MANAGEMENT)
   createPolicy(input: CreateAccessPolicyInput!): AccessPolicy! @join__field(graph: MANAGEMENT)
   updatePolicy(id: ID!, input: UpdateAccessPolicyInput!): AccessPolicy! @join__field(graph: MANAGEMENT)
@@ -4912,12 +4999,72 @@ An object with an ID.
 Follows the [Relay Global Object Identification Specification](https://relay.dev/graphql/objectidentification.htm)
 """
 interface Node
-  @join__type(graph: FILE)
-  @join__type(graph: INVENTORY)
   @join__type(graph: MAINDATA)
+{
+  """The id of the object."""
+  id: ID!
+}
+
+"""
+An object with an ID.
+Follows the [Relay Global Object Identification Specification](https://relay.dev/graphql/objectidentification.htm)
+"""
+interface NodeDataType
   @join__type(graph: MANAGEMENT)
+{
+  """The id of the object."""
+  id: ID!
+}
+
+"""
+An object with an ID.
+Follows the [Relay Global Object Identification Specification](https://relay.dev/graphql/objectidentification.htm)
+"""
+interface NodeFile
+  @join__type(graph: FILE)
+{
+  """The id of the object."""
+  id: ID!
+}
+
+"""
+An object with an ID.
+Follows the [Relay Global Object Identification Specification](https://relay.dev/graphql/objectidentification.htm)
+"""
+interface NodeInventory
+  @join__type(graph: INVENTORY)
+{
+  """The id of the object."""
+  id: ID!
+}
+
+"""
+An object with an ID.
+Follows the [Relay Global Object Identification Specification](https://relay.dev/graphql/objectidentification.htm)
+"""
+interface NodePicking
   @join__type(graph: PICKING)
+{
+  """The id of the object."""
+  id: ID!
+}
+
+"""
+An object with an ID.
+Follows the [Relay Global Object Identification Specification](https://relay.dev/graphql/objectidentification.htm)
+"""
+interface NodeReceiving
   @join__type(graph: RECEIVING)
+{
+  """The id of the object."""
+  id: ID!
+}
+
+"""
+An object with an ID.
+Follows the [Relay Global Object Identification Specification](https://relay.dev/graphql/objectidentification.htm)
+"""
+interface NodeWorkflow
   @join__type(graph: WORKFLOW)
 {
   """The id of the object."""
@@ -4941,6 +5088,13 @@ enum OrderDirection
 
   """Specifies a descending order for a given `orderBy` argument."""
   DESC @join__enumValue(graph: FILE) @join__enumValue(graph: INVENTORY) @join__enumValue(graph: MAINDATA) @join__enumValue(graph: MANAGEMENT) @join__enumValue(graph: PICKING) @join__enumValue(graph: RECEIVING) @join__enumValue(graph: WORKFLOW)
+}
+
+type Organization
+  @join__type(graph: MANAGEMENT)
+{
+  id: String
+  active: Boolean!
 }
 
 """
@@ -4969,8 +5123,8 @@ type PageInfo
   endCursor: Cursor
 }
 
-type PickingOrder implements Node
-  @join__implements(graph: PICKING, interface: "Node")
+type PickingOrder implements NodePicking
+  @join__implements(graph: PICKING, interface: "NodePicking")
   @join__type(graph: FILE, key: "id")
   @join__type(graph: PICKING, key: "id")
 {
@@ -5067,8 +5221,8 @@ type PickingOrderEdge
   cursor: Cursor!
 }
 
-type PickingOrderItem implements Node
-  @join__implements(graph: PICKING, interface: "Node")
+type PickingOrderItem implements NodePicking
+  @join__implements(graph: PICKING, interface: "NodePicking")
   @join__type(graph: INVENTORY, key: "sku")
   @join__type(graph: PICKING, key: "sku")
 {
@@ -5473,8 +5627,8 @@ input PickingOrderWhereInput
   DataContains: [String!]
 }
 
-type PickingOutboundShipmentNotification implements Node
-  @join__implements(graph: PICKING, interface: "Node")
+type PickingOutboundShipmentNotification implements NodePicking
+  @join__implements(graph: PICKING, interface: "NodePicking")
   @join__type(graph: PICKING)
 {
   id: ID!
@@ -5696,13 +5850,13 @@ type Query
   nodeFile(
     """ID of the object."""
     id: ID!
-  ): Node @join__field(graph: FILE)
+  ): NodeFile @join__field(graph: FILE)
 
   """Lookup nodes by a list of IDs."""
   nodesFile(
     """The list of node IDs."""
     ids: [ID!]!
-  ): [Node]! @join__field(graph: FILE)
+  ): [NodeFile]! @join__field(graph: FILE)
   files(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor
@@ -5730,13 +5884,13 @@ type Query
   nodeInventory(
     """ID of the object."""
     id: ID!
-  ): Node @join__field(graph: INVENTORY)
+  ): NodeInventory @join__field(graph: INVENTORY)
 
   """Lookup nodes by a list of IDs."""
   nodesInventory(
     """The list of node IDs."""
     ids: [ID!]!
-  ): [Node]! @join__field(graph: INVENTORY)
+  ): [NodeInventory]! @join__field(graph: INVENTORY)
   inventoryCollections(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor
@@ -6021,13 +6175,13 @@ type Query
   nodeDataType(
     """ID of the object."""
     id: ID!
-  ): Node @join__field(graph: MANAGEMENT)
+  ): NodeDataType @join__field(graph: MANAGEMENT)
 
   """Lookup nodes by a list of IDs."""
   nodesDataType(
     """The list of node IDs."""
     ids: [ID!]!
-  ): [Node]! @join__field(graph: MANAGEMENT)
+  ): [NodeDataType]! @join__field(graph: MANAGEMENT)
   accessPolicies(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor
@@ -6284,6 +6438,7 @@ type Query
 
   """Fetch a specific group by ID"""
   group(id: ID!): Group @join__field(graph: MANAGEMENT)
+  organization(sub: String!): Organization! @join__field(graph: MANAGEMENT)
 
   """Fetch a specific policy by ID"""
   policy(id: ID!): AccessPolicy @join__field(graph: MANAGEMENT)
@@ -6297,13 +6452,13 @@ type Query
   nodePicking(
     """ID of the object."""
     id: ID!
-  ): Node @join__field(graph: PICKING)
+  ): NodePicking @join__field(graph: PICKING)
 
   """Lookup nodes by a list of IDs."""
   nodesPicking(
     """The list of node IDs."""
     ids: [ID!]!
-  ): [Node]! @join__field(graph: PICKING)
+  ): [NodePicking]! @join__field(graph: PICKING)
   pickingOrders(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor
@@ -6377,13 +6532,13 @@ type Query
   nodeReceiving(
     """ID of the object."""
     id: ID!
-  ): Node @join__field(graph: RECEIVING)
+  ): NodeReceiving @join__field(graph: RECEIVING)
 
   """Lookup nodes by a list of IDs."""
   nodesReceiving(
     """The list of node IDs."""
     ids: [ID!]!
-  ): [Node]! @join__field(graph: RECEIVING)
+  ): [NodeReceiving]! @join__field(graph: RECEIVING)
   receivingInbounds(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor
@@ -6461,13 +6616,13 @@ type Query
   nodeWorkflow(
     """ID of the object."""
     id: ID!
-  ): Node @join__field(graph: WORKFLOW)
+  ): NodeWorkflow @join__field(graph: WORKFLOW)
 
   """Lookup nodes by a list of IDs."""
   nodesWorkflow(
     """The list of node IDs."""
     ids: [ID!]!
-  ): [Node]! @join__field(graph: WORKFLOW)
+  ): [NodeWorkflow]! @join__field(graph: WORKFLOW)
   workflows(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor
@@ -6594,8 +6749,8 @@ type RebuildStockOutput
   success: Boolean!
 }
 
-type ReceivingInbound implements Node
-  @join__implements(graph: RECEIVING, interface: "Node")
+type ReceivingInbound implements NodeReceiving
+  @join__implements(graph: RECEIVING, interface: "NodeReceiving")
   @join__type(graph: RECEIVING)
 {
   id: ID!
@@ -6695,8 +6850,8 @@ type ReceivingInboundEdge
   cursor: Cursor!
 }
 
-type ReceivingInboundItem implements Node
-  @join__implements(graph: RECEIVING, interface: "Node")
+type ReceivingInboundItem implements NodeReceiving
+  @join__implements(graph: RECEIVING, interface: "NodeReceiving")
   @join__type(graph: RECEIVING)
 {
   id: ID!
@@ -6971,8 +7126,8 @@ type ReceivingInboundOutput
   workflows: [TemporalWorkflow]
 }
 
-type ReceivingInboundShipmentNotification implements Node
-  @join__implements(graph: RECEIVING, interface: "Node")
+type ReceivingInboundShipmentNotification implements NodeReceiving
+  @join__implements(graph: RECEIVING, interface: "NodeReceiving")
   @join__type(graph: RECEIVING)
 {
   id: ID!
@@ -7340,12 +7495,20 @@ input RegisterTenantInput
   Synced to Zitadel org metadata and tenant.data.
   """
   data: Map
+
+  """
+  Optional expiry timestamp. Written directly to
+  tenant.expires_at; the periodic tenant-expiry-check workflow
+  soft-deletes the tenant once the timestamp is in the past.
+  """
+  expiresAt: Time
 }
 
 type RegisterTenantResponse
   @join__type(graph: MANAGEMENT)
 {
   success: Boolean!
+  tenant: Tenant
 }
 
 input RegisterWorkflowSignalInput
@@ -7368,8 +7531,8 @@ input RegisterWorkflowWithSignalsInput
   signals: [RegisterWorkflowSignalInput!]
 }
 
-type ReplenishmentOrder implements Node
-  @join__implements(graph: INVENTORY, interface: "Node")
+type ReplenishmentOrder implements NodeInventory
+  @join__implements(graph: INVENTORY, interface: "NodeInventory")
   @join__type(graph: INVENTORY)
 {
   id: ID!
@@ -7443,8 +7606,8 @@ type ReplenishmentOrderEdge
   cursor: Cursor!
 }
 
-type ReplenishmentOrderItem implements Node
-  @join__implements(graph: INVENTORY, interface: "Node")
+type ReplenishmentOrderItem implements NodeInventory
+  @join__implements(graph: INVENTORY, interface: "NodeInventory")
   @join__type(graph: INVENTORY, key: "id")
 {
   id: ID!
@@ -7843,8 +8006,8 @@ input ReplenishmentOrderWhereInput
   DataContains: [String!]
 }
 
-type Repository implements Node
-  @join__implements(graph: INVENTORY, interface: "Node")
+type Repository implements NodeInventory
+  @join__implements(graph: INVENTORY, interface: "NodeInventory")
   @join__type(graph: FILE, key: "id")
   @join__type(graph: INVENTORY, key: "id")
 {
@@ -8074,8 +8237,8 @@ type RepositoryEdge
   cursor: Cursor!
 }
 
-type RepositoryMovement implements Node
-  @join__implements(graph: INVENTORY, interface: "Node")
+type RepositoryMovement implements NodeInventory
+  @join__implements(graph: INVENTORY, interface: "NodeInventory")
   @join__type(graph: INVENTORY)
 {
   id: ID!
@@ -8680,8 +8843,32 @@ input RepositoryWhereInput
   DataContainsBool: DataBoolInput
 }
 
-type Role implements Node
-  @join__implements(graph: MANAGEMENT, interface: "Node")
+"""
+Input for restoreTenant. Target tenant derived from
+X-Pyck-Tenant-Id (req.MutationTenantID); ROLE_ADMIN required.
+"""
+input RestoreTenantInput
+  @join__type(graph: MANAGEMENT)
+{
+  """
+  Optional new expiry timestamp written alongside the restore. When
+  omitted, the tenant's prior expires_at persists.
+  """
+  expiresAt: Time
+}
+
+"""
+Result of a manually-triggered tenant restore. Returns an error when
+the tenant does not exist; idempotent on already-active tenants.
+"""
+type RestoreTenantResponse
+  @join__type(graph: MANAGEMENT)
+{
+  success: Boolean!
+}
+
+type Role implements NodeDataType
+  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -8973,6 +9160,29 @@ input SetKeyValueInput
   data: Map!
 }
 
+"""
+Input for setTenantExpiry. Target tenant derived from
+X-Pyck-Tenant-Id (req.MutationTenantID); ROLE_ADMIN required.
+"""
+input SetTenantExpiryInput
+  @join__type(graph: MANAGEMENT)
+{
+  """New expiry timestamp; pass null to clear."""
+  expiresAt: Time
+}
+
+"""
+Result of setTenantExpiry. Returns an error when the tenant does not
+exist; soft-deleted tenants are invisible to the mutation and report
+the same error. Idempotent on the already-at-target-state cases
+(clear against empty, set matching the current value).
+"""
+type SetTenantExpiryResponse
+  @join__type(graph: MANAGEMENT)
+{
+  success: Boolean!
+}
+
 input SetWorkflowAssigneeInput
   @join__type(graph: WORKFLOW)
 {
@@ -9015,8 +9225,8 @@ type SetWorkflowTargetsResponse
   targets: [WorkflowTarget!]!
 }
 
-type Stock implements Node
-  @join__implements(graph: INVENTORY, interface: "Node")
+type Stock implements NodeInventory
+  @join__implements(graph: INVENTORY, interface: "NodeInventory")
   @join__type(graph: INVENTORY)
 {
   id: ID!
@@ -9503,8 +9713,8 @@ type TemporalWorkflow
   runID: String!
 }
 
-type Tenant implements Node
-  @join__implements(graph: MANAGEMENT, interface: "Node")
+type Tenant implements NodeDataType
+  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -9519,6 +9729,7 @@ type Tenant implements Node
   deletedBy: UUID
   name: String!
   idpOrgRef: String!
+  expiresAt: Time
   tenantUsers(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor
@@ -9596,6 +9807,7 @@ enum TenantOrderField
   DELETED_BY @join__enumValue(graph: MANAGEMENT)
   NAME @join__enumValue(graph: MANAGEMENT)
   IDP_ORG_REF @join__enumValue(graph: MANAGEMENT)
+  EXPIRES_AT @join__enumValue(graph: MANAGEMENT)
 }
 
 """
@@ -9722,6 +9934,18 @@ input TenantWhereInput
   idpOrgRefEqualFold: String
   idpOrgRefContainsFold: String
 
+  """expires_at field predicates"""
+  expiresAt: Time
+  expiresAtNEQ: Time
+  expiresAtIn: [Time!]
+  expiresAtNotIn: [Time!]
+  expiresAtGT: Time
+  expiresAtGTE: Time
+  expiresAtLT: Time
+  expiresAtLTE: Time
+  expiresAtIsNil: Boolean
+  expiresAtNotNil: Boolean
+
   """tenantUsers edge predicates"""
   hasTenantUsers: Boolean
   hasTenantUsersWith: [UserWhereInput!]
@@ -9737,8 +9961,8 @@ scalar Time
   @join__type(graph: RECEIVING)
   @join__type(graph: WORKFLOW)
 
-type Transaction implements Node
-  @join__implements(graph: INVENTORY, interface: "Node")
+type Transaction implements NodeInventory
+  @join__implements(graph: INVENTORY, interface: "NodeInventory")
   @join__type(graph: INVENTORY)
 {
   id: ID!
@@ -10525,8 +10749,8 @@ input UpdateWorkflowSignalInput
   workflowID: ID
 }
 
-type User implements Node
-  @join__implements(graph: MANAGEMENT, interface: "Node")
+type User implements NodeDataType
+  @join__implements(graph: MANAGEMENT, interface: "NodeDataType")
   @join__type(graph: MANAGEMENT)
 {
   id: ID!
@@ -10887,8 +11111,8 @@ scalar UUID
   @join__type(graph: RECEIVING)
   @join__type(graph: WORKFLOW)
 
-type Workflow implements Node
-  @join__implements(graph: WORKFLOW, interface: "Node")
+type Workflow implements NodeWorkflow
+  @join__implements(graph: WORKFLOW, interface: "NodeWorkflow")
   @join__type(graph: WORKFLOW)
 {
   id: ID!
@@ -10930,7 +11154,16 @@ type Workflow implements Node
 input WorkflowActionsWhereInput
   @join__type(graph: WORKFLOW)
 {
+  """name field predicates"""
   name: String
+  nameNEQ: String
+  nameIn: [String!]
+  nameNotIn: [String!]
+  nameContains: String
+  nameHasPrefix: String
+  nameHasSuffix: String
+  nameEqualFold: String
+  nameContainsFold: String
   enabled: Boolean
 }
 
@@ -11441,8 +11674,8 @@ type WorkflowPageInfo
   endCursor: String
 }
 
-type WorkflowSignal implements Node
-  @join__implements(graph: WORKFLOW, interface: "Node")
+type WorkflowSignal implements NodeWorkflow
+  @join__implements(graph: WORKFLOW, interface: "NodeWorkflow")
   @join__type(graph: WORKFLOW)
 {
   id: ID!

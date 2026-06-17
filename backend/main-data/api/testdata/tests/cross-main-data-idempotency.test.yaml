@@ -1,0 +1,254 @@
+---
+name: "Cross - Main-Data Idempotency"
+description: >
+  Idempotency-Key middleware exercise on the main-data service via
+  createCustomer. createCustomer requires an existing dataTypeID, so
+  step 0 creates one via management (cross-service). See
+  backend/inventory/api/testdata/tests/cross-inventory-idempotency.test.yaml
+  for the full idempotency design notes.
+
+  Note on re-runs: setupDT uses $fake slug so re-runs of this scenario
+  don't collide on the management.datatypes unique-slug constraint.
+  This means each run gets a NEW dataTypeID — which is included in the
+  createCustomer variables. The idempotency-key is fixed, so the
+  cached row from a previous run carries an OLD operation_checksum
+  (computed over the OLD dataTypeID). On re-run, the new dataTypeID
+  produces a different checksum → OPERATION_MISMATCH 422 instead of a
+  clean replay. Two fixes:
+    1. Wait 24h for the janitor to prune the cached row, OR
+    2. `docker exec db psql -U admin -d pyck_dev -c "DELETE FROM \"main-data\".idempotency_keys WHERE key LIKE 'bruno-idem-main-data%' OR length(key) = 255;"`
+  Other services don't have this problem because their variables don't
+  reference per-run setup state.
+
+steps:
+  - id: setupDT
+    name: "Setup: create a dataType for customers"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Bruno Idempotency Customer DataType"
+        slug: {$fake: "bruno-idem-cust-{{nonce}}"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"name":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "DataType created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: fresh
+    name: "Fresh call with key"
+    operation: main-data.createCustomer
+    headers:
+      Idempotency-Key: "{{bru_idem_maindata}}"
+    vars:
+      input:
+        dataTypeID: {$ref: "res[setupDT].body.data.createDataType.id"}
+        data:
+          name: "Bruno Idempotency Customer"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Customer created"
+        assertions:
+          - ref: res.body.data.createCustomer.id
+            nil: false
+
+  - id: replay
+    name: "Replay with the same key"
+    operation: main-data.createCustomer
+    headers:
+      Idempotency-Key: "{{bru_idem_maindata}}"
+    vars:
+      input:
+        dataTypeID: {$ref: "res[setupDT].body.data.createDataType.id"}
+        data:
+          name: "Bruno Idempotency Customer"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Same Customer id as fresh call"
+        assertions:
+          - ref: res.body.data.createCustomer.id
+            equal: {$ref: "res[fresh].body.data.createCustomer.id"}
+
+  - id: mismatch
+    name: "Same key, different variables — OPERATION_MISMATCH"
+    operation: main-data.createCustomer
+    headers:
+      Idempotency-Key: "{{bru_idem_maindata}}"
+    vars:
+      input:
+        dataTypeID: {$ref: "res[setupDT].body.data.createDataType.id"}
+        data:
+          name: "Mismatch Customer"
+    tests:
+      - msg: "errors[].extensions.code is OPERATION_MISMATCH"
+        assertions:
+          - ref: res.body.errors[0].extensions.code
+            equal: "OPERATION_MISMATCH"
+      - msg: "errors[].extensions.httpStatus is 422"
+        assertions:
+          - ref: res.body.errors[0].extensions.httpStatus
+            equal: 422
+
+  - id: malformedKey
+    name: "256-char key — INVALID_IDEMPOTENCY_KEY"
+    operation: main-data.createCustomer
+    headers:
+      Idempotency-Key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    vars:
+      input:
+        dataTypeID: {$ref: "res[setupDT].body.data.createDataType.id"}
+        data:
+          name: "Never Created Customer"
+    tests:
+      - msg: "errors[].extensions.code is INVALID_IDEMPOTENCY_KEY"
+        assertions:
+          - ref: res.body.errors[0].extensions.code
+            equal: "INVALID_IDEMPOTENCY_KEY"
+      - msg: "errors[].extensions.httpStatus is 400"
+        assertions:
+          - ref: res.body.errors[0].extensions.httpStatus
+            equal: 400
+
+  - id: emptyKey
+    name: "Empty header value — degrades to no-key behavior"
+    description: >
+      An empty Idempotency-Key value is treated as if the header was
+      absent. Customer name is randomized so re-runs don't collide.
+    operation: main-data.createCustomer
+    headers:
+      Idempotency-Key: ""
+    vars:
+      input:
+        dataTypeID: {$ref: "res[setupDT].body.data.createDataType.id"}
+        data:
+          name: {$fake: "Bruno Idem Empty {{nonce}}"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Fresh Customer created (no replay)"
+        assertions:
+          - ref: res.body.data.createCustomer.id
+            nil: false
+
+  - id: whitespaceKey
+    name: "Whitespace-only header value — degrades to no-key behavior"
+    description: >
+      Whitespace-only header is trimmed and treated as absent.
+    operation: main-data.createCustomer
+    headers:
+      Idempotency-Key: "   "
+    vars:
+      input:
+        dataTypeID: {$ref: "res[setupDT].body.data.createDataType.id"}
+        data:
+          name: {$fake: "Bruno Idem Whitespace {{nonce}}"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Fresh Customer created (no replay)"
+        assertions:
+          - ref: res.body.data.createCustomer.id
+            nil: false
+
+  - id: maxLengthKey
+    name: "255-char key — exact maximum is accepted"
+    description: >
+      Positive boundary: collection hook pads
+      {{bru_idem_maindata_max}} to 255 chars per run. Customer name
+      is $fake — required because main-data also has a per-run-fresh
+      dataTypeID (from setupDT) in the vars, so checksum cannot be
+      stable across runs anyway.
+    operation: main-data.createCustomer
+    headers:
+      Idempotency-Key: "{{bru_idem_maindata_max}}"
+    vars:
+      input:
+        dataTypeID: {$ref: "res[setupDT].body.data.createDataType.id"}
+        data:
+          name: {$fake: "Bruno Idem Max {{nonce}}"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Customer created at max-length boundary"
+        assertions:
+          - ref: res.body.data.createCustomer.id
+            nil: false
+
+  - id: crossServiceKey
+    name: "Same key on another service — independent stores"
+    description: >
+      Each service has its own <svc>.idempotency_keys table, so the
+      same key VALUE scoped to the same (tenant, user) is independent
+      per service. {{bru_idem_maindata}} is already committed in
+      main-data's store (fresh step above); using it on a management
+      mutation must execute normally — no replay, no mismatch.
+    operation: management.createDataType
+    headers:
+      Idempotency-Key: "{{bru_idem_maindata}}"
+    vars:
+      input:
+        name: "Bruno Idem Cross-Service"
+        slug: {$fake: "bruno-idem-xsvc-{{nonce}}"}
+        entity: "device"
+        jsonSchema: '{"type":"object"}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No errors — key spaces are per-service"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Management executed normally with main-data's key"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: cleanupDT
+    name: "Cleanup: delete the setup dataType"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[setupDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200

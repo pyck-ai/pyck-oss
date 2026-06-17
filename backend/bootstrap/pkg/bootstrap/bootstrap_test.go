@@ -16,6 +16,19 @@ func TestLoadConfig(t *testing.T) {
 
 	configBytes := []byte(`
 zitadel:
+  pre_token_action:
+    key-creation:
+    - type: env
+      file: config/keys/bootstrap.env
+      name: PYCK_ZITADEL_ACTION_SIGNING_KEY
+    exports:
+    - type: env
+      file: config/keys/bootstrap.env
+      name: PYCK_ZITADEL_ACTION_SIGNING_KEY
+      field: signing_key
+    - type: k8s
+      name: pyck-zitadel-action-signing-key
+      field: signing_key
   organizations:
   - name: TestOrg
     human_users:
@@ -75,6 +88,24 @@ zitadel:
 
 	loadedConfig, err := loadConfig(context.Background(), "", configBytes)
 	require.NoError(t, err)
+
+	// PreTokenAction (instance-scoped Actions v2 webhook signing-key exports)
+	require.NotNil(t, loadedConfig.Zitadel.PreTokenAction)
+	require.Len(t, loadedConfig.Zitadel.PreTokenAction.KeyCreation, 1)
+	guard := loadedConfig.Zitadel.PreTokenAction.KeyCreation[0]
+	assert.Equal(t, exporters.ExportTypeEnv, guard.Type)
+	assert.Equal(t, "config/keys/bootstrap.env", guard.File)
+	assert.Equal(t, "PYCK_ZITADEL_ACTION_SIGNING_KEY", guard.Name)
+	require.Len(t, loadedConfig.Zitadel.PreTokenAction.Exports, 2)
+	envExport := loadedConfig.Zitadel.PreTokenAction.Exports[0]
+	assert.Equal(t, exporters.ExportTypeEnv, envExport.Type)
+	assert.Equal(t, "config/keys/bootstrap.env", envExport.File)
+	assert.Equal(t, "PYCK_ZITADEL_ACTION_SIGNING_KEY", envExport.Name)
+	assert.Equal(t, "signing_key", envExport.Field)
+	k8sExport := loadedConfig.Zitadel.PreTokenAction.Exports[1]
+	assert.Equal(t, exporters.ExportTypeK8s, k8sExport.Type)
+	assert.Equal(t, "pyck-zitadel-action-signing-key", k8sExport.Name)
+	assert.Equal(t, "signing_key", k8sExport.Field)
 
 	// Organization
 	require.Len(t, loadedConfig.Zitadel.Organizations, 1)

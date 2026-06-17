@@ -1,0 +1,1644 @@
+# Own Quantity Survives Many Soft-Deleted Pending Picks
+# Reproduces issue-stock-map-resets-own-quantity-to-zero-on-pending-pick-creation.md
+#
+# Scenario:
+# 1. Seed: place 14 items at slot (virtual -> slot, qty=14, executed).
+# 2. 50 create-then-delete cycles of a small pending pick from slot,
+#    matching the live count "1 pending + 50 soft-deleted" the issue
+#    reports for the production tenant.
+# 3. After all cycles, create one more pending pick (the "real" one)
+#    and execute it. own_quantity on the slot must drop from 14 -> 13,
+#    NOT 14 -> 0 -> underflow.
+#
+# Result: this test PASSES. The Go orchestration path
+# (createItemMovementViaGo + simulateRepositoryStockMap + insertStockMap)
+# correctly preserves own_quantity through the entire cycle batch.
+# Hypothesis 3 in the issue (deleted_at vs spurious executed_at affecting
+# the live projection) is therefore refuted - no live mutation path
+# iterates item_movements to read other movements' executed_at.
+#
+# The actual production bug is in the Postgres create_item_movement_proc
+# (not exercised by this SQLite-backed test). The proc's tmp_stock_deltas
+# baseline is built ONCE before the OCC retry LOOP. On a unique_violation
+# retry of the version index, the INSERT recomputes MAX(version)+1
+# dynamically but reuses the FROZEN own_quantity baseline. Validated by a
+# concurrent race against a disposable Postgres + port of the proc:
+# slow proc captures baseline=row_v0 (own_quantity=0), a fast EXECUTE
+# commits row_v1 (own_quantity=14), slow proc wakes, INSERT collides,
+# retries -> lands at version=2 with own_quantity=0 and created_at < T_fast.
+# Subsequent CREATE proc calls then read version=2 as baseline (the proc
+# uses ORDER BY version DESC) and persist new rows with own_quantity=0,
+# matching the production buggy snapshot exactly (version=290,
+# own_quantity=0, own_incoming_stock=154, own_outgoing_stock>=1).
+# After that any execute underflows on the FROM walk: 0 + (-1) = -1.
+#
+# Fix surface: production proc should refresh its baseline read inside
+# the retry block (or order the baseline LATERAL by created_at DESC, to
+# match the Go path and the proc's own availability check).
+name: own-quantity-survives-many-soft-deleted-pending-picks
+itemSKU: own-qty-collapse-test-item
+
+# ========================================================================
+# REPOSITORY STRUCTURE OVERVIEW
+# ========================================================================
+#
+#  virtual (virtual, root)
+#
+#  warehouse (root)
+#  ├─ slot
+#  └─ box
+#
+# ========================================================================
+
+repositories:
+  # Virtual repository for the initial stock placement (mimics WF050).
+  - name: virtual
+    parent: ""
+    type: static
+    virtual: true
+
+  # Root warehouse — common ancestor of slot and box.
+  - name: warehouse
+    parent: ""
+    type: static
+    virtual: false
+
+  # The test slot that mirrors production "1-510-B-10h":
+  # holds the 14 placed units, source of every pending pick below.
+  - name: slot
+    parent: warehouse
+    type: static
+    virtual: false
+
+  # Target box for the pending picks — reused across all cycles.
+  - name: box
+    parent: warehouse
+    type: static
+    virtual: false
+
+steps:
+  # =========================================================================
+  # Seed: place 14 items at slot (mimics WF050 placement).
+  #
+  #  virtual                             warehouse
+  #    └─[14 items]────────────────────► └─ slot
+  # =========================================================================
+  - name: seed_create
+    action: create
+    moveType: item
+    from: virtual
+    to: slot
+    qty: 14
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out: 14, ownOut: 14 }
+      warehouse: { qty:   0, ownQty:   0, in:  14, ownIn:   0, out:   0, ownOut:   0 }
+      slot:      { qty:   0, ownQty:   0, in:  14, ownIn:  14, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  - name: seed_execute
+    action: execute
+    movement: seed_create
+    expectedStocks:
+      virtual:   { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  # Create-then-delete cycles: 50 pending picks of qty=1 slot -> box.
+  # Each cycle leaves a soft-deleted item_movement and 2x stocks rows behind.
+  # After every cycle the slot must still read qty=14, ownQty=14.
+  # =========================================================================
+
+  # ----- cycle 1 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_01_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_01_delete
+    action: delete
+    movement: cycle_01_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 2 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_02_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_02_delete
+    action: delete
+    movement: cycle_02_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 3 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_03_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_03_delete
+    action: delete
+    movement: cycle_03_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 4 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_04_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_04_delete
+    action: delete
+    movement: cycle_04_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 5 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_05_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_05_delete
+    action: delete
+    movement: cycle_05_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 6 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_06_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_06_delete
+    action: delete
+    movement: cycle_06_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 7 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_07_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_07_delete
+    action: delete
+    movement: cycle_07_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 8 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_08_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_08_delete
+    action: delete
+    movement: cycle_08_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 9 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_09_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_09_delete
+    action: delete
+    movement: cycle_09_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 10 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_10_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_10_delete
+    action: delete
+    movement: cycle_10_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 11 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_11_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_11_delete
+    action: delete
+    movement: cycle_11_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 12 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_12_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_12_delete
+    action: delete
+    movement: cycle_12_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 13 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_13_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_13_delete
+    action: delete
+    movement: cycle_13_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 14 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_14_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_14_delete
+    action: delete
+    movement: cycle_14_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 15 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_15_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_15_delete
+    action: delete
+    movement: cycle_15_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 16 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_16_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_16_delete
+    action: delete
+    movement: cycle_16_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 17 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_17_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_17_delete
+    action: delete
+    movement: cycle_17_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 18 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_18_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_18_delete
+    action: delete
+    movement: cycle_18_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 19 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_19_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_19_delete
+    action: delete
+    movement: cycle_19_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 20 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_20_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_20_delete
+    action: delete
+    movement: cycle_20_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 21 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_21_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_21_delete
+    action: delete
+    movement: cycle_21_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 22 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_22_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_22_delete
+    action: delete
+    movement: cycle_22_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 23 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_23_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_23_delete
+    action: delete
+    movement: cycle_23_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 24 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_24_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_24_delete
+    action: delete
+    movement: cycle_24_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 25 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_25_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_25_delete
+    action: delete
+    movement: cycle_25_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 26 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_26_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_26_delete
+    action: delete
+    movement: cycle_26_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 27 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_27_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_27_delete
+    action: delete
+    movement: cycle_27_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 28 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_28_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_28_delete
+    action: delete
+    movement: cycle_28_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 29 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_29_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_29_delete
+    action: delete
+    movement: cycle_29_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 30 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_30_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_30_delete
+    action: delete
+    movement: cycle_30_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 31 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_31_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_31_delete
+    action: delete
+    movement: cycle_31_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 32 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_32_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_32_delete
+    action: delete
+    movement: cycle_32_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 33 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_33_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_33_delete
+    action: delete
+    movement: cycle_33_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 34 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_34_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_34_delete
+    action: delete
+    movement: cycle_34_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 35 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_35_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_35_delete
+    action: delete
+    movement: cycle_35_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 36 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_36_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_36_delete
+    action: delete
+    movement: cycle_36_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 37 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_37_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_37_delete
+    action: delete
+    movement: cycle_37_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 38 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_38_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_38_delete
+    action: delete
+    movement: cycle_38_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 39 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_39_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_39_delete
+    action: delete
+    movement: cycle_39_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 40 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_40_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_40_delete
+    action: delete
+    movement: cycle_40_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 41 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_41_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_41_delete
+    action: delete
+    movement: cycle_41_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 42 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_42_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_42_delete
+    action: delete
+    movement: cycle_42_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 43 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_43_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_43_delete
+    action: delete
+    movement: cycle_43_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 44 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_44_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_44_delete
+    action: delete
+    movement: cycle_44_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 45 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_45_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_45_delete
+    action: delete
+    movement: cycle_45_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 46 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_46_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_46_delete
+    action: delete
+    movement: cycle_46_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 47 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_47_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_47_delete
+    action: delete
+    movement: cycle_47_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 48 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_48_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_48_delete
+    action: delete
+    movement: cycle_48_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 49 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_49_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_49_delete
+    action: delete
+    movement: cycle_49_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # ----- cycle 50 -----
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_50_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╳ (delete movement)
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: cycle_50_delete
+    action: delete
+    movement: cycle_50_create
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   0, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  # Final create: the "real" pending pick that production fails to execute.
+  # If the bug is reproducible, the slot stock row written here will have
+  # ownQty=0 instead of 14, and the assertion below will fail.
+  # =========================================================================
+  # =========================================================================
+  #  warehouse
+  #  ├─ slot ──[1 items]─╮
+  #  └─ box  ◄──────────╯
+  # =========================================================================
+  - name: final_create
+    action: create
+    moveType: item
+    from: slot
+    to: box
+    qty: 1
+    expectedStocks:
+      slot:      { qty:  14, ownQty:  14, in:   0, ownIn:   0, out:   1, ownOut:   1 }
+      box:       { qty:   0, ownQty:   0, in:   1, ownIn:   1, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+
+  # =========================================================================
+  # Final execute: should drop slot.ownQty from 14 -> 13,
+  # NOT explode with "stock underflow: quantity would be -1".
+  # =========================================================================
+  - name: final_execute
+    action: execute
+    movement: final_create
+    expectedStocks:
+      slot:      { qty:  13, ownQty:  13, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      box:       { qty:   1, ownQty:   1, in:   0, ownIn:   0, out:   0, ownOut:   0 }
+      warehouse: { qty:  14, ownQty:   0, in:   0, ownIn:   0, out:   0, ownOut:   0 }

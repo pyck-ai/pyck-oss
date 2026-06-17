@@ -23,89 +23,11 @@ graphql:
           deletedAt
           deletedBy
           description
-          groups {
-            edges {
-              cursor
-              node {
-                createdAt
-                createdBy
-                deletedAt
-                deletedBy
-                description
-                id
-                name
-                tenantID
-                updatedAt
-                updatedBy
-              }
-            }
-            pageInfo {
-              endCursor
-              hasNextPage
-              hasPreviousPage
-              startCursor
-            }
-            totalCount
-          }
           id
           name
-          policies {
-            edges {
-              cursor
-              node {
-                action
-                createdAt
-                createdBy
-                deletedAt
-                deletedBy
-                effect
-                id
-                resource
-                tenantID
-                updatedAt
-                updatedBy
-              }
-            }
-            pageInfo {
-              endCursor
-              hasNextPage
-              hasPreviousPage
-              startCursor
-            }
-            totalCount
-          }
           tenantID
           updatedAt
           updatedBy
-          users {
-            edges {
-              cursor
-              node {
-                createdAt
-                createdBy
-                deletedAt
-                deletedBy
-                email
-                firstName
-                id
-                idpID
-                isAdmin
-                lastName
-                legacyRoles
-                tenantID
-                updatedAt
-                updatedBy
-                username
-              }
-            }
-            pageInfo {
-              endCursor
-              hasNextPage
-              hasPreviousPage
-              startCursor
-            }
-            totalCount
-          }
         }
       }
     variables: |-

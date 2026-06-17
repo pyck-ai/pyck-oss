@@ -7,6 +7,7 @@ import (
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
 
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
@@ -140,6 +141,15 @@ func (ItemMovement) Edges() []ent.Edge {
 		//	Field("collection_id").
 		//	Required().
 		//	Unique(),
+	}
+}
+
+func (ItemMovement) Indexes() []ent.Index {
+	return []ent.Index{
+		index.Fields("collection_id", "position"),
+		index.Fields("from_id"),
+		index.Fields("item_id"),
+		index.Fields("executed"),
 	}
 }
 

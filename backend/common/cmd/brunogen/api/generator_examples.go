@@ -106,7 +106,7 @@ func generateExampleFile(serviceDir string, cfg types.Config, op types.Operation
 		return generateExampleFileFromScenario(filename, cfg, op, scenario, repoRelPath(absDataFile))
 	}
 
-	content, err := gen.RenderFile(gen.ExampleTemplate, cfg, op, "", "", nil, nil, nil, false, false, crudSeq(op.Name), "bru-example", nil, "")
+	content, err := gen.RenderFile(gen.ExampleTemplate, cfg, op, "", "", nil, nil, nil, false, false, crudSeq(op.Name), "bru-example", nil, "", 0, nil)
 	if err != nil {
 		return fmt.Errorf("failed to render example file: %w", err)
 	}
@@ -116,7 +116,7 @@ func generateExampleFile(serviceDir string, cfg types.Config, op types.Operation
 func generateExampleFileFromScenario(filename string, cfg types.Config, op types.Operation, scenario *types.ExampleScenario, sourceFile string) error {
 	tests, useBody, useReqVars := gen.ProcessExampleScenario(*scenario)
 	skipChecks := gen.ResolveSkip(scenario.Skip, "bru-example")
-	content, err := gen.RenderFile(gen.ExampleTemplate, cfg, op, scenario.Name, scenario.Description, scenario.Vars, tests, nil, useBody, useReqVars, crudSeq(op.Name), "bru-example", skipChecks, sourceFile)
+	content, err := gen.RenderFile(gen.ExampleTemplate, cfg, op, scenario.Name, scenario.Description, scenario.Vars, tests, nil, useBody, useReqVars, crudSeq(op.Name), "bru-example", skipChecks, sourceFile, 0, nil)
 	if err != nil {
 		return fmt.Errorf("failed to render example for %q: %w", scenario.Name, err)
 	}

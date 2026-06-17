@@ -10,10 +10,10 @@ import (
 
 	"entgo.io/contrib/entgql"
 	"github.com/google/uuid"
-	m "github.com/pyck-ai/pyck/backend/main-data"
 	"github.com/pyck-ai/pyck/backend/main-data/ent/gen"
 	"github.com/pyck-ai/pyck/backend/main-data/ent/gen/customer"
 	"github.com/pyck-ai/pyck/backend/main-data/ent/gen/supplier"
+	"github.com/pyck-ai/pyck/backend/main-data/exec"
 )
 
 // Node is the resolver for the node field.
@@ -44,16 +44,16 @@ func (r *queryResolver) Suppliers(ctx context.Context, after *entgql.Cursor[uuid
 		)
 }
 
-// Query returns m.QueryResolver implementation.
-func (r *Resolver) Query() m.QueryResolver { return &queryResolver{r} }
+// Query returns exec.QueryResolver implementation.
+func (r *Resolver) Query() exec.QueryResolver { return &queryResolver{r} }
 
-// CustomerWhereInput returns m.CustomerWhereInputResolver implementation.
-func (r *Resolver) CustomerWhereInput() m.CustomerWhereInputResolver {
+// CustomerWhereInput returns exec.CustomerWhereInputResolver implementation.
+func (r *Resolver) CustomerWhereInput() exec.CustomerWhereInputResolver {
 	return &customerWhereInputResolver{r}
 }
 
-// SupplierWhereInput returns m.SupplierWhereInputResolver implementation.
-func (r *Resolver) SupplierWhereInput() m.SupplierWhereInputResolver {
+// SupplierWhereInput returns exec.SupplierWhereInputResolver implementation.
+func (r *Resolver) SupplierWhereInput() exec.SupplierWhereInputResolver {
 	return &supplierWhereInputResolver{r}
 }
 

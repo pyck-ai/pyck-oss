@@ -10,6 +10,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 )
@@ -176,7 +177,7 @@ func TestOrder_Create(t *testing.T) {
 		assert.Equal(t, customerID, created.CustomerID)
 
 		// Verify order items
-		items, err := te.Ent.OrderItems.Query().All(ctx)
+		items, err := te.Ent.OrderItems.Query().AllPages(ctx, mixin.Limit)
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 		assert.Equal(t, "MK-ENT-X2", items[0].Sku)

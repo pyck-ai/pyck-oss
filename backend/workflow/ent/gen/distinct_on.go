@@ -26,6 +26,25 @@ func (_q *EntityEventsOutboxQuery) DistinctOnExists(groupFields []string, orderF
 	return _q
 }
 
+// DistinctOnExists filters IdempotencyKey records to include only the latest per group
+// of groupFields, ordered by orderField. Filters are propagated to the NOT EXISTS subquery.
+func (_q *IdempotencyKeyQuery) DistinctOnExists(groupFields []string, orderField string, filters ...predicate.IdempotencyKey) *IdempotencyKeyQuery {
+	_q.Where(func(s *sql.Selector) {
+		t := sql.Table("idempotency_keys").As("s2")
+		conditions := make([]*sql.Predicate, 0, len(groupFields)+1)
+		for _, f := range groupFields {
+			conditions = append(conditions, sql.ColumnsEQ(t.C(f), s.C(f)))
+		}
+		conditions = append(conditions, sql.ColumnsGT(t.C(orderField), s.C(orderField)))
+		sub := sql.SelectExpr(sql.Expr("1")).From(t).Where(sql.And(conditions...))
+		for _, pf := range filters {
+			pf(sub)
+		}
+		s.Where(sql.Not(sql.Exists(sub)))
+	})
+	return _q
+}
+
 // DistinctOnExists filters Workflow records to include only the latest per group
 // of groupFields, ordered by orderField. Filters are propagated to the NOT EXISTS subquery.
 func (_q *WorkflowQuery) DistinctOnExists(groupFields []string, orderField string, filters ...predicate.Workflow) *WorkflowQuery {

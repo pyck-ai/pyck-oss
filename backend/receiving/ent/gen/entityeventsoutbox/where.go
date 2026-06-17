@@ -70,9 +70,19 @@ func UserID(v uuid.UUID) predicate.EntityEventsOutbox {
 	return predicate.EntityEventsOutbox(sql.FieldEQ(FieldUserID, v))
 }
 
-// CorrelationID applies equality check predicate on the "correlation_id" field. It's identical to CorrelationIDEQ.
-func CorrelationID(v string) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldEQ(FieldCorrelationID, v))
+// TransactionID applies equality check predicate on the "transaction_id" field. It's identical to TransactionIDEQ.
+func TransactionID(v uuid.UUID) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldEQ(FieldTransactionID, v))
+}
+
+// TraceID applies equality check predicate on the "trace_id" field. It's identical to TraceIDEQ.
+func TraceID(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldEQ(FieldTraceID, v))
+}
+
+// RequestID applies equality check predicate on the "request_id" field. It's identical to RequestIDEQ.
+func RequestID(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldEQ(FieldRequestID, v))
 }
 
 // Topic applies equality check predicate on the "topic" field. It's identical to TopicEQ.
@@ -260,69 +270,194 @@ func UserIDNotNil() predicate.EntityEventsOutbox {
 	return predicate.EntityEventsOutbox(sql.FieldNotNull(FieldUserID))
 }
 
-// CorrelationIDEQ applies the EQ predicate on the "correlation_id" field.
-func CorrelationIDEQ(v string) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldEQ(FieldCorrelationID, v))
+// TransactionIDEQ applies the EQ predicate on the "transaction_id" field.
+func TransactionIDEQ(v uuid.UUID) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldEQ(FieldTransactionID, v))
 }
 
-// CorrelationIDNEQ applies the NEQ predicate on the "correlation_id" field.
-func CorrelationIDNEQ(v string) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldNEQ(FieldCorrelationID, v))
+// TransactionIDNEQ applies the NEQ predicate on the "transaction_id" field.
+func TransactionIDNEQ(v uuid.UUID) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldNEQ(FieldTransactionID, v))
 }
 
-// CorrelationIDIn applies the In predicate on the "correlation_id" field.
-func CorrelationIDIn(vs ...string) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldIn(FieldCorrelationID, vs...))
+// TransactionIDIn applies the In predicate on the "transaction_id" field.
+func TransactionIDIn(vs ...uuid.UUID) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldIn(FieldTransactionID, vs...))
 }
 
-// CorrelationIDNotIn applies the NotIn predicate on the "correlation_id" field.
-func CorrelationIDNotIn(vs ...string) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldNotIn(FieldCorrelationID, vs...))
+// TransactionIDNotIn applies the NotIn predicate on the "transaction_id" field.
+func TransactionIDNotIn(vs ...uuid.UUID) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldNotIn(FieldTransactionID, vs...))
 }
 
-// CorrelationIDGT applies the GT predicate on the "correlation_id" field.
-func CorrelationIDGT(v string) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldGT(FieldCorrelationID, v))
+// TransactionIDGT applies the GT predicate on the "transaction_id" field.
+func TransactionIDGT(v uuid.UUID) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldGT(FieldTransactionID, v))
 }
 
-// CorrelationIDGTE applies the GTE predicate on the "correlation_id" field.
-func CorrelationIDGTE(v string) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldGTE(FieldCorrelationID, v))
+// TransactionIDGTE applies the GTE predicate on the "transaction_id" field.
+func TransactionIDGTE(v uuid.UUID) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldGTE(FieldTransactionID, v))
 }
 
-// CorrelationIDLT applies the LT predicate on the "correlation_id" field.
-func CorrelationIDLT(v string) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldLT(FieldCorrelationID, v))
+// TransactionIDLT applies the LT predicate on the "transaction_id" field.
+func TransactionIDLT(v uuid.UUID) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldLT(FieldTransactionID, v))
 }
 
-// CorrelationIDLTE applies the LTE predicate on the "correlation_id" field.
-func CorrelationIDLTE(v string) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldLTE(FieldCorrelationID, v))
+// TransactionIDLTE applies the LTE predicate on the "transaction_id" field.
+func TransactionIDLTE(v uuid.UUID) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldLTE(FieldTransactionID, v))
 }
 
-// CorrelationIDContains applies the Contains predicate on the "correlation_id" field.
-func CorrelationIDContains(v string) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldContains(FieldCorrelationID, v))
+// TraceIDEQ applies the EQ predicate on the "trace_id" field.
+func TraceIDEQ(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldEQ(FieldTraceID, v))
 }
 
-// CorrelationIDHasPrefix applies the HasPrefix predicate on the "correlation_id" field.
-func CorrelationIDHasPrefix(v string) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldHasPrefix(FieldCorrelationID, v))
+// TraceIDNEQ applies the NEQ predicate on the "trace_id" field.
+func TraceIDNEQ(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldNEQ(FieldTraceID, v))
 }
 
-// CorrelationIDHasSuffix applies the HasSuffix predicate on the "correlation_id" field.
-func CorrelationIDHasSuffix(v string) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldHasSuffix(FieldCorrelationID, v))
+// TraceIDIn applies the In predicate on the "trace_id" field.
+func TraceIDIn(vs ...string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldIn(FieldTraceID, vs...))
 }
 
-// CorrelationIDEqualFold applies the EqualFold predicate on the "correlation_id" field.
-func CorrelationIDEqualFold(v string) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldEqualFold(FieldCorrelationID, v))
+// TraceIDNotIn applies the NotIn predicate on the "trace_id" field.
+func TraceIDNotIn(vs ...string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldNotIn(FieldTraceID, vs...))
 }
 
-// CorrelationIDContainsFold applies the ContainsFold predicate on the "correlation_id" field.
-func CorrelationIDContainsFold(v string) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldContainsFold(FieldCorrelationID, v))
+// TraceIDGT applies the GT predicate on the "trace_id" field.
+func TraceIDGT(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldGT(FieldTraceID, v))
+}
+
+// TraceIDGTE applies the GTE predicate on the "trace_id" field.
+func TraceIDGTE(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldGTE(FieldTraceID, v))
+}
+
+// TraceIDLT applies the LT predicate on the "trace_id" field.
+func TraceIDLT(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldLT(FieldTraceID, v))
+}
+
+// TraceIDLTE applies the LTE predicate on the "trace_id" field.
+func TraceIDLTE(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldLTE(FieldTraceID, v))
+}
+
+// TraceIDContains applies the Contains predicate on the "trace_id" field.
+func TraceIDContains(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldContains(FieldTraceID, v))
+}
+
+// TraceIDHasPrefix applies the HasPrefix predicate on the "trace_id" field.
+func TraceIDHasPrefix(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldHasPrefix(FieldTraceID, v))
+}
+
+// TraceIDHasSuffix applies the HasSuffix predicate on the "trace_id" field.
+func TraceIDHasSuffix(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldHasSuffix(FieldTraceID, v))
+}
+
+// TraceIDIsNil applies the IsNil predicate on the "trace_id" field.
+func TraceIDIsNil() predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldIsNull(FieldTraceID))
+}
+
+// TraceIDNotNil applies the NotNil predicate on the "trace_id" field.
+func TraceIDNotNil() predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldNotNull(FieldTraceID))
+}
+
+// TraceIDEqualFold applies the EqualFold predicate on the "trace_id" field.
+func TraceIDEqualFold(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldEqualFold(FieldTraceID, v))
+}
+
+// TraceIDContainsFold applies the ContainsFold predicate on the "trace_id" field.
+func TraceIDContainsFold(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldContainsFold(FieldTraceID, v))
+}
+
+// RequestIDEQ applies the EQ predicate on the "request_id" field.
+func RequestIDEQ(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldEQ(FieldRequestID, v))
+}
+
+// RequestIDNEQ applies the NEQ predicate on the "request_id" field.
+func RequestIDNEQ(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldNEQ(FieldRequestID, v))
+}
+
+// RequestIDIn applies the In predicate on the "request_id" field.
+func RequestIDIn(vs ...string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldIn(FieldRequestID, vs...))
+}
+
+// RequestIDNotIn applies the NotIn predicate on the "request_id" field.
+func RequestIDNotIn(vs ...string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldNotIn(FieldRequestID, vs...))
+}
+
+// RequestIDGT applies the GT predicate on the "request_id" field.
+func RequestIDGT(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldGT(FieldRequestID, v))
+}
+
+// RequestIDGTE applies the GTE predicate on the "request_id" field.
+func RequestIDGTE(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldGTE(FieldRequestID, v))
+}
+
+// RequestIDLT applies the LT predicate on the "request_id" field.
+func RequestIDLT(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldLT(FieldRequestID, v))
+}
+
+// RequestIDLTE applies the LTE predicate on the "request_id" field.
+func RequestIDLTE(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldLTE(FieldRequestID, v))
+}
+
+// RequestIDContains applies the Contains predicate on the "request_id" field.
+func RequestIDContains(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldContains(FieldRequestID, v))
+}
+
+// RequestIDHasPrefix applies the HasPrefix predicate on the "request_id" field.
+func RequestIDHasPrefix(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldHasPrefix(FieldRequestID, v))
+}
+
+// RequestIDHasSuffix applies the HasSuffix predicate on the "request_id" field.
+func RequestIDHasSuffix(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldHasSuffix(FieldRequestID, v))
+}
+
+// RequestIDIsNil applies the IsNil predicate on the "request_id" field.
+func RequestIDIsNil() predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldIsNull(FieldRequestID))
+}
+
+// RequestIDNotNil applies the NotNil predicate on the "request_id" field.
+func RequestIDNotNil() predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldNotNull(FieldRequestID))
+}
+
+// RequestIDEqualFold applies the EqualFold predicate on the "request_id" field.
+func RequestIDEqualFold(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldEqualFold(FieldRequestID, v))
+}
+
+// RequestIDContainsFold applies the ContainsFold predicate on the "request_id" field.
+func RequestIDContainsFold(v string) predicate.EntityEventsOutbox {
+	return predicate.EntityEventsOutbox(sql.FieldContainsFold(FieldRequestID, v))
 }
 
 // TopicEQ applies the EQ predicate on the "topic" field.
@@ -778,16 +913,6 @@ func TenantIDLT(v uuid.UUID) predicate.EntityEventsOutbox {
 // TenantIDLTE applies the LTE predicate on the "tenant_id" field.
 func TenantIDLTE(v uuid.UUID) predicate.EntityEventsOutbox {
 	return predicate.EntityEventsOutbox(sql.FieldLTE(FieldTenantID, v))
-}
-
-// TenantIDIsNil applies the IsNil predicate on the "tenant_id" field.
-func TenantIDIsNil() predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldIsNull(FieldTenantID))
-}
-
-// TenantIDNotNil applies the NotNil predicate on the "tenant_id" field.
-func TenantIDNotNil() predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldNotNull(FieldTenantID))
 }
 
 // And groups predicates with the AND operator between them.

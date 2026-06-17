@@ -36,88 +36,13 @@ graphql:
               createdBy
               deletedAt
               deletedBy
-              deviceUsersUsers {
-                edges {
-                  cursor
-                  node {
-                    createdAt
-                    createdBy
-                    data
-                    dataTypeID
-                    dataTypeSlug
-                    deletedAt
-                    deletedBy
-                    deviceID
-                    id
-                    tenantID
-                    updatedAt
-                    updatedBy
-                    userID
-                  }
-                }
-                pageInfo {
-                  endCursor
-                  hasNextPage
-                  hasPreviousPage
-                  startCursor
-                }
-                totalCount
-              }
               email
               firstName
-              groups {
-                edges {
-                  cursor
-                  node {
-                    createdAt
-                    createdBy
-                    deletedAt
-                    deletedBy
-                    description
-                    id
-                    name
-                    tenantID
-                    updatedAt
-                    updatedBy
-                  }
-                }
-                pageInfo {
-                  endCursor
-                  hasNextPage
-                  hasPreviousPage
-                  startCursor
-                }
-                totalCount
-              }
               id
               idpID
               isAdmin
               lastName
               legacyRoles
-              roles {
-                edges {
-                  cursor
-                  node {
-                    createdAt
-                    createdBy
-                    deletedAt
-                    deletedBy
-                    description
-                    id
-                    name
-                    tenantID
-                    updatedAt
-                    updatedBy
-                  }
-                }
-                pageInfo {
-                  endCursor
-                  hasNextPage
-                  hasPreviousPage
-                  startCursor
-                }
-                totalCount
-              }
               tenantID
               updatedAt
               updatedBy

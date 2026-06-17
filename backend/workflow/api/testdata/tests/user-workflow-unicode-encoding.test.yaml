@@ -1,0 +1,64 @@
+---
+name: "User - Workflow Unicode Encoding"
+description: "Demonstrates the NFC vs NFD Unicode encoding on the .name field — create with NFC, query with NFD returns zero rows."
+steps:
+  - id: createNFC
+    name: Register Workflow with NFC Unicode name
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "Caf\u00E9 M\u00FCnchner"
+        taskQueue: "test-task-queue"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: No GraphQL errors
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: Workflow was registered
+        assertions:
+          - ref: res.body.data.registerWorkflow.id
+            notNil: true
+
+  - name: Query by NFC name — control case, must find
+    operation: workflow.getWorkflows
+    vars:
+      where:
+        name: "Caf\u00E9 M\u00FCnchner"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: NFC query finds the row
+        assertions:
+          - ref: res.body.data.workflows.totalCount
+            equal: 1
+
+  - name: Query by NFD name — now matches NFC-stored row
+    operation: workflow.getWorkflows
+    vars:
+      where:
+        name: "Cafe\u0301 Mu\u0308nchner"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "NFD-encoded query now matches NFC-stored row"
+        assertions:
+          - ref: res.body.data.workflows.totalCount
+            equal: 1
+
+  - name: Cleanup — delete the workflow
+    operation: workflow.deleteWorkflow
+    vars:
+      id: {$ref: "res[createNFC].body.data.registerWorkflow.id"}
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200

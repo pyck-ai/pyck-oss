@@ -1,0 +1,25 @@
+---
+operation: RestoreTenant
+name: "Restore Tenant"
+description: >
+  Manually restores a previously disabled tenant by clearing its
+  deleted_at flag via the RestoreTenantWorkflow. Returns an error
+  when the tenant does not exist; idempotent on already-active
+  tenants.
+vars:
+  input:
+    id: { $placeholder: "tenant ID" }
+    expiresAt: { $placeholder: "RFC3339 timestamp, omit to keep existing expiry" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Restore succeeded"
+    assertions:
+      - ref: res.body.data.restoreTenant.success
+        equal: true

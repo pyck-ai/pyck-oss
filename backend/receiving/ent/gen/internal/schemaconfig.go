@@ -8,6 +8,7 @@ import "context"
 // that can be passed at runtime.
 type SchemaConfig struct {
 	EntityEventsOutbox          string // EntityEventsOutbox table.
+	IdempotencyKey              string // IdempotencyKey table.
 	Inbound                     string // Inbound table.
 	InboundItem                 string // InboundItem table.
 	InboundShipmentNotification string // InboundShipmentNotification table.

@@ -19,18 +19,6 @@ graphql:
       mutation CreateInventoryRepository($input: CreateRepositoryInput!) {
         createInventoryRepository(input: $input) {
           inventoryRepository {
-            children {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
             createdAt
             createdBy
             data
@@ -39,94 +27,10 @@ graphql:
             deletedAt
             deletedBy
             id
-            itemMovementFromRepositories {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
-            itemMovementToRepositories {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
             layout
             locationID
             name
             parentID
-            repositoryMovementFromRepositories {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
-            repositoryMovementRepositories {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
-            repositoryMovementToRepositories {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
-            repositoryStocks {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
-            repositoryTransactions {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
             tenantID
             type
             updatedAt

@@ -11,6 +11,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/entityeventsoutbox"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/event"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/group"
+	"github.com/pyck-ai/pyck/backend/management/ent/gen/idempotencykey"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/keyvalue"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/location"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/predicate"
@@ -26,7 +27,7 @@ import (
 
 // schemaGraph holds a representation of ent/schema at runtime.
 var schemaGraph = func() *sqlgraph.Schema {
-	graph := &sqlgraph.Schema{Nodes: make([]*sqlgraph.Node, 13)}
+	graph := &sqlgraph.Schema{Nodes: make([]*sqlgraph.Node, 14)}
 	graph.Nodes[0] = &sqlgraph.Node{
 		NodeSpec: sqlgraph.NodeSpec{
 			Table:   accesspolicy.Table,
@@ -165,7 +166,9 @@ var schemaGraph = func() *sqlgraph.Schema {
 			entityeventsoutbox.FieldCreatedAt:     {Type: field.TypeTime, Column: entityeventsoutbox.FieldCreatedAt},
 			entityeventsoutbox.FieldPublishedAt:   {Type: field.TypeTime, Column: entityeventsoutbox.FieldPublishedAt},
 			entityeventsoutbox.FieldUserID:        {Type: field.TypeUUID, Column: entityeventsoutbox.FieldUserID},
-			entityeventsoutbox.FieldCorrelationID: {Type: field.TypeString, Column: entityeventsoutbox.FieldCorrelationID},
+			entityeventsoutbox.FieldTransactionID: {Type: field.TypeUUID, Column: entityeventsoutbox.FieldTransactionID},
+			entityeventsoutbox.FieldTraceID:       {Type: field.TypeString, Column: entityeventsoutbox.FieldTraceID},
+			entityeventsoutbox.FieldRequestID:     {Type: field.TypeString, Column: entityeventsoutbox.FieldRequestID},
 			entityeventsoutbox.FieldTopic:         {Type: field.TypeString, Column: entityeventsoutbox.FieldTopic},
 			entityeventsoutbox.FieldPayload:       {Type: field.TypeJSON, Column: entityeventsoutbox.FieldPayload},
 			entityeventsoutbox.FieldWithReply:     {Type: field.TypeBool, Column: entityeventsoutbox.FieldWithReply},
@@ -225,6 +228,28 @@ var schemaGraph = func() *sqlgraph.Schema {
 	}
 	graph.Nodes[8] = &sqlgraph.Node{
 		NodeSpec: sqlgraph.NodeSpec{
+			Table:   idempotencykey.Table,
+			Columns: idempotencykey.Columns,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeUUID,
+				Column: idempotencykey.FieldID,
+			},
+		},
+		Type: "IdempotencyKey",
+		Fields: map[string]*sqlgraph.FieldSpec{
+			idempotencykey.FieldKey:               {Type: field.TypeString, Column: idempotencykey.FieldKey},
+			idempotencykey.FieldTenantID:          {Type: field.TypeUUID, Column: idempotencykey.FieldTenantID},
+			idempotencykey.FieldUserID:            {Type: field.TypeUUID, Column: idempotencykey.FieldUserID},
+			idempotencykey.FieldOperationName:     {Type: field.TypeString, Column: idempotencykey.FieldOperationName},
+			idempotencykey.FieldOperationChecksum: {Type: field.TypeBytes, Column: idempotencykey.FieldOperationChecksum},
+			idempotencykey.FieldStatus:            {Type: field.TypeEnum, Column: idempotencykey.FieldStatus},
+			idempotencykey.FieldResponse:          {Type: field.TypeBytes, Column: idempotencykey.FieldResponse},
+			idempotencykey.FieldCreatedAt:         {Type: field.TypeTime, Column: idempotencykey.FieldCreatedAt},
+			idempotencykey.FieldUpdatedAt:         {Type: field.TypeTime, Column: idempotencykey.FieldUpdatedAt},
+		},
+	}
+	graph.Nodes[9] = &sqlgraph.Node{
+		NodeSpec: sqlgraph.NodeSpec{
 			Table:   keyvalue.Table,
 			Columns: keyvalue.Columns,
 			ID: &sqlgraph.FieldSpec{
@@ -248,7 +273,7 @@ var schemaGraph = func() *sqlgraph.Schema {
 			keyvalue.FieldName:         {Type: field.TypeString, Column: keyvalue.FieldName},
 		},
 	}
-	graph.Nodes[9] = &sqlgraph.Node{
+	graph.Nodes[10] = &sqlgraph.Node{
 		NodeSpec: sqlgraph.NodeSpec{
 			Table:   location.Table,
 			Columns: location.Columns,
@@ -272,7 +297,7 @@ var schemaGraph = func() *sqlgraph.Schema {
 			location.FieldName:         {Type: field.TypeString, Column: location.FieldName},
 		},
 	}
-	graph.Nodes[10] = &sqlgraph.Node{
+	graph.Nodes[11] = &sqlgraph.Node{
 		NodeSpec: sqlgraph.NodeSpec{
 			Table:   role.Table,
 			Columns: role.Columns,
@@ -294,7 +319,7 @@ var schemaGraph = func() *sqlgraph.Schema {
 			role.FieldDescription: {Type: field.TypeString, Column: role.FieldDescription},
 		},
 	}
-	graph.Nodes[11] = &sqlgraph.Node{
+	graph.Nodes[12] = &sqlgraph.Node{
 		NodeSpec: sqlgraph.NodeSpec{
 			Table:   tenant.Table,
 			Columns: tenant.Columns,
@@ -316,9 +341,10 @@ var schemaGraph = func() *sqlgraph.Schema {
 			tenant.FieldDeletedBy:    {Type: field.TypeUUID, Column: tenant.FieldDeletedBy},
 			tenant.FieldName:         {Type: field.TypeString, Column: tenant.FieldName},
 			tenant.FieldIdpOrgRef:    {Type: field.TypeString, Column: tenant.FieldIdpOrgRef},
+			tenant.FieldExpiresAt:    {Type: field.TypeTime, Column: tenant.FieldExpiresAt},
 		},
 	}
-	graph.Nodes[12] = &sqlgraph.Node{
+	graph.Nodes[13] = &sqlgraph.Node{
 		NodeSpec: sqlgraph.NodeSpec{
 			Table:   user.Table,
 			Columns: user.Columns,
@@ -1218,9 +1244,19 @@ func (f *EntityEventsOutboxFilter) WhereUserID(p entql.ValueP) {
 	f.Where(p.Field(entityeventsoutbox.FieldUserID))
 }
 
-// WhereCorrelationID applies the entql string predicate on the correlation_id field.
-func (f *EntityEventsOutboxFilter) WhereCorrelationID(p entql.StringP) {
-	f.Where(p.Field(entityeventsoutbox.FieldCorrelationID))
+// WhereTransactionID applies the entql [16]byte predicate on the transaction_id field.
+func (f *EntityEventsOutboxFilter) WhereTransactionID(p entql.ValueP) {
+	f.Where(p.Field(entityeventsoutbox.FieldTransactionID))
+}
+
+// WhereTraceID applies the entql string predicate on the trace_id field.
+func (f *EntityEventsOutboxFilter) WhereTraceID(p entql.StringP) {
+	f.Where(p.Field(entityeventsoutbox.FieldTraceID))
+}
+
+// WhereRequestID applies the entql string predicate on the request_id field.
+func (f *EntityEventsOutboxFilter) WhereRequestID(p entql.StringP) {
+	f.Where(p.Field(entityeventsoutbox.FieldRequestID))
 }
 
 // WhereTopic applies the entql string predicate on the topic field.
@@ -1477,6 +1513,91 @@ func (f *GroupFilter) WhereHasRolesWith(preds ...predicate.Role) {
 }
 
 // addPredicate implements the predicateAdder interface.
+func (_q *IdempotencyKeyQuery) addPredicate(pred func(s *sql.Selector)) {
+	_q.predicates = append(_q.predicates, pred)
+}
+
+// Filter returns a Filter implementation to apply filters on the IdempotencyKeyQuery builder.
+func (_q *IdempotencyKeyQuery) Filter() *IdempotencyKeyFilter {
+	return &IdempotencyKeyFilter{config: _q.config, predicateAdder: _q}
+}
+
+// addPredicate implements the predicateAdder interface.
+func (m *IdempotencyKeyMutation) addPredicate(pred func(s *sql.Selector)) {
+	m.predicates = append(m.predicates, pred)
+}
+
+// Filter returns an entql.Where implementation to apply filters on the IdempotencyKeyMutation builder.
+func (m *IdempotencyKeyMutation) Filter() *IdempotencyKeyFilter {
+	return &IdempotencyKeyFilter{config: m.config, predicateAdder: m}
+}
+
+// IdempotencyKeyFilter provides a generic filtering capability at runtime for IdempotencyKeyQuery.
+type IdempotencyKeyFilter struct {
+	predicateAdder
+	config
+}
+
+// Where applies the entql predicate on the query filter.
+func (f *IdempotencyKeyFilter) Where(p entql.P) {
+	f.addPredicate(func(s *sql.Selector) {
+		if err := schemaGraph.EvalP(schemaGraph.Nodes[8].Type, p, s); err != nil {
+			s.AddError(err)
+		}
+	})
+}
+
+// WhereID applies the entql [16]byte predicate on the id field.
+func (f *IdempotencyKeyFilter) WhereID(p entql.ValueP) {
+	f.Where(p.Field(idempotencykey.FieldID))
+}
+
+// WhereKey applies the entql string predicate on the key field.
+func (f *IdempotencyKeyFilter) WhereKey(p entql.StringP) {
+	f.Where(p.Field(idempotencykey.FieldKey))
+}
+
+// WhereTenantID applies the entql [16]byte predicate on the tenant_id field.
+func (f *IdempotencyKeyFilter) WhereTenantID(p entql.ValueP) {
+	f.Where(p.Field(idempotencykey.FieldTenantID))
+}
+
+// WhereUserID applies the entql [16]byte predicate on the user_id field.
+func (f *IdempotencyKeyFilter) WhereUserID(p entql.ValueP) {
+	f.Where(p.Field(idempotencykey.FieldUserID))
+}
+
+// WhereOperationName applies the entql string predicate on the operation_name field.
+func (f *IdempotencyKeyFilter) WhereOperationName(p entql.StringP) {
+	f.Where(p.Field(idempotencykey.FieldOperationName))
+}
+
+// WhereOperationChecksum applies the entql []byte predicate on the operation_checksum field.
+func (f *IdempotencyKeyFilter) WhereOperationChecksum(p entql.BytesP) {
+	f.Where(p.Field(idempotencykey.FieldOperationChecksum))
+}
+
+// WhereStatus applies the entql string predicate on the status field.
+func (f *IdempotencyKeyFilter) WhereStatus(p entql.StringP) {
+	f.Where(p.Field(idempotencykey.FieldStatus))
+}
+
+// WhereResponse applies the entql []byte predicate on the response field.
+func (f *IdempotencyKeyFilter) WhereResponse(p entql.BytesP) {
+	f.Where(p.Field(idempotencykey.FieldResponse))
+}
+
+// WhereCreatedAt applies the entql time.Time predicate on the created_at field.
+func (f *IdempotencyKeyFilter) WhereCreatedAt(p entql.TimeP) {
+	f.Where(p.Field(idempotencykey.FieldCreatedAt))
+}
+
+// WhereUpdatedAt applies the entql time.Time predicate on the updated_at field.
+func (f *IdempotencyKeyFilter) WhereUpdatedAt(p entql.TimeP) {
+	f.Where(p.Field(idempotencykey.FieldUpdatedAt))
+}
+
+// addPredicate implements the predicateAdder interface.
 func (_q *KeyValueQuery) addPredicate(pred func(s *sql.Selector)) {
 	_q.predicates = append(_q.predicates, pred)
 }
@@ -1505,7 +1626,7 @@ type KeyValueFilter struct {
 // Where applies the entql predicate on the query filter.
 func (f *KeyValueFilter) Where(p entql.P) {
 	f.addPredicate(func(s *sql.Selector) {
-		if err := schemaGraph.EvalP(schemaGraph.Nodes[8].Type, p, s); err != nil {
+		if err := schemaGraph.EvalP(schemaGraph.Nodes[9].Type, p, s); err != nil {
 			s.AddError(err)
 		}
 	})
@@ -1605,7 +1726,7 @@ type LocationFilter struct {
 // Where applies the entql predicate on the query filter.
 func (f *LocationFilter) Where(p entql.P) {
 	f.addPredicate(func(s *sql.Selector) {
-		if err := schemaGraph.EvalP(schemaGraph.Nodes[9].Type, p, s); err != nil {
+		if err := schemaGraph.EvalP(schemaGraph.Nodes[10].Type, p, s); err != nil {
 			s.AddError(err)
 		}
 	})
@@ -1714,7 +1835,7 @@ type RoleFilter struct {
 // Where applies the entql predicate on the query filter.
 func (f *RoleFilter) Where(p entql.P) {
 	f.addPredicate(func(s *sql.Selector) {
-		if err := schemaGraph.EvalP(schemaGraph.Nodes[10].Type, p, s); err != nil {
+		if err := schemaGraph.EvalP(schemaGraph.Nodes[11].Type, p, s); err != nil {
 			s.AddError(err)
 		}
 	})
@@ -1841,7 +1962,7 @@ type TenantFilter struct {
 // Where applies the entql predicate on the query filter.
 func (f *TenantFilter) Where(p entql.P) {
 	f.addPredicate(func(s *sql.Selector) {
-		if err := schemaGraph.EvalP(schemaGraph.Nodes[11].Type, p, s); err != nil {
+		if err := schemaGraph.EvalP(schemaGraph.Nodes[12].Type, p, s); err != nil {
 			s.AddError(err)
 		}
 	})
@@ -1907,6 +2028,11 @@ func (f *TenantFilter) WhereIdpOrgRef(p entql.StringP) {
 	f.Where(p.Field(tenant.FieldIdpOrgRef))
 }
 
+// WhereExpiresAt applies the entql time.Time predicate on the expires_at field.
+func (f *TenantFilter) WhereExpiresAt(p entql.TimeP) {
+	f.Where(p.Field(tenant.FieldExpiresAt))
+}
+
 // WhereHasTenantUsers applies a predicate to check if query has an edge tenantUsers.
 func (f *TenantFilter) WhereHasTenantUsers() {
 	f.Where(entql.HasEdge("tenantUsers"))
@@ -1950,7 +2076,7 @@ type UserFilter struct {
 // Where applies the entql predicate on the query filter.
 func (f *UserFilter) Where(p entql.P) {
 	f.addPredicate(func(s *sql.Selector) {
-		if err := schemaGraph.EvalP(schemaGraph.Nodes[12].Type, p, s); err != nil {
+		if err := schemaGraph.EvalP(schemaGraph.Nodes[13].Type, p, s); err != nil {
 			s.AddError(err)
 		}
 	})

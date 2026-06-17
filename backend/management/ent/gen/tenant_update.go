@@ -192,6 +192,26 @@ func (_u *TenantUpdate) SetNillableIdpOrgRef(v *string) *TenantUpdate {
 	return _u
 }
 
+// SetExpiresAt sets the "expires_at" field.
+func (_u *TenantUpdate) SetExpiresAt(v time.Time) *TenantUpdate {
+	_u.mutation.SetExpiresAt(v)
+	return _u
+}
+
+// SetNillableExpiresAt sets the "expires_at" field if the given value is not nil.
+func (_u *TenantUpdate) SetNillableExpiresAt(v *time.Time) *TenantUpdate {
+	if v != nil {
+		_u.SetExpiresAt(*v)
+	}
+	return _u
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (_u *TenantUpdate) ClearExpiresAt() *TenantUpdate {
+	_u.mutation.ClearExpiresAt()
+	return _u
+}
+
 // AddTenantUserIDs adds the "tenantUsers" edge to the User entity by IDs.
 func (_u *TenantUpdate) AddTenantUserIDs(ids ...uuid.UUID) *TenantUpdate {
 	_u.mutation.AddTenantUserIDs(ids...)
@@ -329,6 +349,12 @@ func (_u *TenantUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.IdpOrgRef(); ok {
 		_spec.SetField(tenant.FieldIdpOrgRef, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ExpiresAt(); ok {
+		_spec.SetField(tenant.FieldExpiresAt, field.TypeTime, value)
+	}
+	if _u.mutation.ExpiresAtCleared() {
+		_spec.ClearField(tenant.FieldExpiresAt, field.TypeTime)
 	}
 	if _u.mutation.TenantUsersCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -560,6 +586,26 @@ func (_u *TenantUpdateOne) SetNillableIdpOrgRef(v *string) *TenantUpdateOne {
 	return _u
 }
 
+// SetExpiresAt sets the "expires_at" field.
+func (_u *TenantUpdateOne) SetExpiresAt(v time.Time) *TenantUpdateOne {
+	_u.mutation.SetExpiresAt(v)
+	return _u
+}
+
+// SetNillableExpiresAt sets the "expires_at" field if the given value is not nil.
+func (_u *TenantUpdateOne) SetNillableExpiresAt(v *time.Time) *TenantUpdateOne {
+	if v != nil {
+		_u.SetExpiresAt(*v)
+	}
+	return _u
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (_u *TenantUpdateOne) ClearExpiresAt() *TenantUpdateOne {
+	_u.mutation.ClearExpiresAt()
+	return _u
+}
+
 // AddTenantUserIDs adds the "tenantUsers" edge to the User entity by IDs.
 func (_u *TenantUpdateOne) AddTenantUserIDs(ids ...uuid.UUID) *TenantUpdateOne {
 	_u.mutation.AddTenantUserIDs(ids...)
@@ -727,6 +773,12 @@ func (_u *TenantUpdateOne) sqlSave(ctx context.Context) (_node *Tenant, err erro
 	}
 	if value, ok := _u.mutation.IdpOrgRef(); ok {
 		_spec.SetField(tenant.FieldIdpOrgRef, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ExpiresAt(); ok {
+		_spec.SetField(tenant.FieldExpiresAt, field.TypeTime, value)
+	}
+	if _u.mutation.ExpiresAtCleared() {
+		_spec.ClearField(tenant.FieldExpiresAt, field.TypeTime)
 	}
 	if _u.mutation.TenantUsersCleared() {
 		edge := &sqlgraph.EdgeSpec{

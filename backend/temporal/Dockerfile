@@ -5,7 +5,7 @@
 #   CONFIGURATION                                                     #
 #######################################################################
 
-ARG TEMPORAL_VERSION=1.29.3
+ARG TEMPORAL_VERSION=1.31.1
 
 #######################################################################
 #   END OF CONFIGURATION                                              #
@@ -21,6 +21,19 @@ COPY ./backend/common/go.mod ./backend/common/go.sum ./
 RUN --mount=type=cache,id=go-cache,target=/var/cache/go/ \
     --mount=type=cache,id=go-modcache,target=/go/pkg/mod/ \
     go mod download all
+
+WORKDIR /app/bootstrap
+COPY ./backend/bootstrap/go.mod ./backend/bootstrap/go.sum ./
+RUN --mount=type=cache,id=go-cache,target=/var/cache/go/ \
+    --mount=type=cache,id=go-modcache,target=/go/pkg/mod/ \
+    go mod download all
+
+WORKDIR /app/management
+COPY ./backend/management/go.mod ./backend/management/go.sum ./
+RUN --mount=type=cache,id=go-cache,target=/var/cache/go/ \
+    --mount=type=cache,id=go-modcache,target=/go/pkg/mod/ \
+    go mod download all
+
 WORKDIR /app/temporal
 COPY ./backend/temporal/go.mod ./backend/temporal/go.sum ./
 RUN --mount=type=cache,id=go-cache,target=/var/cache/go/ \
@@ -29,6 +42,8 @@ RUN --mount=type=cache,id=go-cache,target=/var/cache/go/ \
 
 WORKDIR /app
 COPY ./backend/common/ ./common/
+COPY ./backend/bootstrap/ ./bootstrap/
+COPY ./backend/management/ ./management/
 COPY ./backend/temporal/ ./temporal/
 WORKDIR /app/temporal
 RUN --mount=type=cache,id=go-cache,target=/var/cache/go/ \

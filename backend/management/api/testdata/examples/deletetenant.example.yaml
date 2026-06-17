@@ -1,0 +1,27 @@
+---
+operation: DeleteTenant
+name: "Delete Tenant"
+description: >
+  Manually triggers the soft-delete half of the tenant lifecycle by
+  setting deleted_at. The tenant-lifecycle NATS subscriber observes
+  the resulting CRUD event and starts DisableTenantWorkflow to
+  deactivate the Zitadel org. Returns an error when the tenant does
+  not exist; idempotent on already-deleted tenants. The tenant row
+  stays in the database and can be reactivated via restoreTenant
+  during the grace period.
+vars:
+  input:
+    id: { $placeholder: "tenant ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Delete succeeded"
+    assertions:
+      - ref: res.body.data.deleteTenant.success
+        equal: true

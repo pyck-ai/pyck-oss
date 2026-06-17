@@ -16,6 +16,8 @@ type Tx struct {
 	config
 	// EntityEventsOutbox is the client for interacting with the EntityEventsOutbox builders.
 	EntityEventsOutbox *EntityEventsOutboxClient
+	// IdempotencyKey is the client for interacting with the IdempotencyKey builders.
+	IdempotencyKey *IdempotencyKeyClient
 	// Workflow is the client for interacting with the Workflow builders.
 	Workflow *WorkflowClient
 	// WorkflowSignal is the client for interacting with the WorkflowSignal builders.
@@ -152,6 +154,7 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.EntityEventsOutbox = NewEntityEventsOutboxClient(tx.config)
+	tx.IdempotencyKey = NewIdempotencyKeyClient(tx.config)
 	tx.Workflow = NewWorkflowClient(tx.config)
 	tx.WorkflowSignal = NewWorkflowSignalClient(tx.config)
 }

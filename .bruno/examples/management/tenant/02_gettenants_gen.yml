@@ -39,38 +39,10 @@ graphql:
               dataTypeSlug
               deletedAt
               deletedBy
+              expiresAt
               id
               idpOrgRef
               name
-              tenantUsers {
-                edges {
-                  cursor
-                  node {
-                    createdAt
-                    createdBy
-                    deletedAt
-                    deletedBy
-                    email
-                    firstName
-                    id
-                    idpID
-                    isAdmin
-                    lastName
-                    legacyRoles
-                    tenantID
-                    updatedAt
-                    updatedBy
-                    username
-                  }
-                }
-                pageInfo {
-                  endCursor
-                  hasNextPage
-                  hasPreviousPage
-                  startCursor
-                }
-                totalCount
-              }
               updatedAt
               updatedBy
             }

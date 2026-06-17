@@ -39,30 +39,6 @@ graphql:
             deletedAt
             deletedBy
             id
-            orderItems {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
-            outboundShipmentNotifications {
-              edges {
-                cursor
-              }
-              pageInfo {
-                endCursor
-                hasNextPage
-                hasPreviousPage
-                startCursor
-              }
-              totalCount
-            }
             tenantID
             updatedAt
             updatedBy

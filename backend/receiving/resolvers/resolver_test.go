@@ -25,6 +25,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/test"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
+	"github.com/pyck-ai/pyck/backend/common/txid"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 
@@ -243,7 +244,7 @@ func (b *inboundBuilder) Create() *ent.Inbound {
 		}
 
 		var err error
-		inbound, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		inbound, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -310,7 +311,7 @@ func (b *itemBuilder) Create() *ent.InboundItem {
 		}
 
 		var err error
-		item, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		item, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -361,7 +362,7 @@ func (b *notificationBuilder) Create() *ent.InboundShipmentNotification {
 		}
 
 		var err error
-		notification, err = builder.Save(ent.NewTxContext(b.ctx, tx))
+		notification, err = builder.Save(ent.NewTxContext(txid.With(b.ctx, txid.New()), tx))
 		return err
 	})
 	require.NoError(b.te.t, err)
@@ -369,6 +370,10 @@ func (b *notificationBuilder) Create() *ent.InboundShipmentNotification {
 }
 
 func (te *testEnv) withTx(ctx context.Context, fn func(tx *ent.Tx) error) error {
+	// Inject a fresh transaction ID so the MutationEventHook (which now
+	// requires one for the outbox row's dedup key) is satisfied — this
+	// mirrors what the gqltx middleware does at BeginTx in production.
+	ctx = txid.With(ctx, txid.New())
 	tx, err := te.Ent.Tx(ctx)
 	if err != nil {
 		return err

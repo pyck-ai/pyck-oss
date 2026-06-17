@@ -13,11 +13,11 @@ import (
 	"strings"
 )
 
-const _FeatureName = "showdeletedsyncupdatesasyncsignals"
+const _FeatureName = "showdeletedsyncupdatesasyncsignalssuppressevents"
 
-var _FeatureIndex = [...]uint8{0, 11, 22, 34}
+var _FeatureIndex = [...]uint8{0, 11, 22, 34, 48}
 
-const _FeatureLowerName = "showdeletedsyncupdatesasyncsignals"
+const _FeatureLowerName = "showdeletedsyncupdatesasyncsignalssuppressevents"
 
 func (i Feature) String() string {
 	i -= 1
@@ -34,9 +34,10 @@ func _FeatureNoOp() {
 	_ = x[FEATURE_SHOW_DELETED-(1)]
 	_ = x[FEATURE_SYNC_UPDATES-(2)]
 	_ = x[FEATURE_ASYNC_SIGNALS-(3)]
+	_ = x[FEATURE_SUPPRESS_EVENTS-(4)]
 }
 
-var _FeatureValues = []Feature{FEATURE_SHOW_DELETED, FEATURE_SYNC_UPDATES, FEATURE_ASYNC_SIGNALS}
+var _FeatureValues = []Feature{FEATURE_SHOW_DELETED, FEATURE_SYNC_UPDATES, FEATURE_ASYNC_SIGNALS, FEATURE_SUPPRESS_EVENTS}
 
 var _FeatureNameToValueMap = map[string]Feature{
 	_FeatureName[0:11]:       FEATURE_SHOW_DELETED,
@@ -45,12 +46,15 @@ var _FeatureNameToValueMap = map[string]Feature{
 	_FeatureLowerName[11:22]: FEATURE_SYNC_UPDATES,
 	_FeatureName[22:34]:      FEATURE_ASYNC_SIGNALS,
 	_FeatureLowerName[22:34]: FEATURE_ASYNC_SIGNALS,
+	_FeatureName[34:48]:      FEATURE_SUPPRESS_EVENTS,
+	_FeatureLowerName[34:48]: FEATURE_SUPPRESS_EVENTS,
 }
 
 var _FeatureNames = []string{
 	_FeatureName[0:11],
 	_FeatureName[11:22],
 	_FeatureName[22:34],
+	_FeatureName[34:48],
 }
 
 // FeatureString retrieves an enum value from the enum constants string name.

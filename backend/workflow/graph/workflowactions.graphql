@@ -11,7 +11,19 @@ input GetWorkflowActionsInput {
 }
 
 input WorkflowActionsWhereInput {
+  """
+  name field predicates
+  """
   name: String
+  nameNEQ: String
+  nameIn: [String!]
+  nameNotIn: [String!]
+  nameContains: String
+  nameHasPrefix: String
+  nameHasSuffix: String
+  nameEqualFold: String
+  nameContainsFold: String
+
   enabled: Boolean
 }
 

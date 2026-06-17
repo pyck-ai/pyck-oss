@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/pyck-ai/pyck/backend/main-data/ent/gen/customer"
 	"github.com/pyck-ai/pyck/backend/main-data/ent/gen/entityeventsoutbox"
+	"github.com/pyck-ai/pyck/backend/main-data/ent/gen/idempotencykey"
 	"github.com/pyck-ai/pyck/backend/main-data/ent/gen/supplier"
 )
 
@@ -77,6 +78,7 @@ func checkColumn(t, c string) error {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			customer.Table:           customer.ValidColumn,
 			entityeventsoutbox.Table: entityeventsoutbox.ValidColumn,
+			idempotencykey.Table:     idempotencykey.ValidColumn,
 			supplier.Table:           supplier.ValidColumn,
 		})
 	})

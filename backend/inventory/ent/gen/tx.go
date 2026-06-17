@@ -18,6 +18,8 @@ type Tx struct {
 	Collection_Movement *CollectionMovementClient
 	// EntityEventsOutbox is the client for interacting with the EntityEventsOutbox builders.
 	EntityEventsOutbox *EntityEventsOutboxClient
+	// IdempotencyKey is the client for interacting with the IdempotencyKey builders.
+	IdempotencyKey *IdempotencyKeyClient
 	// Item is the client for interacting with the Item builders.
 	Item *ItemClient
 	// ItemMovement is the client for interacting with the ItemMovement builders.
@@ -169,6 +171,7 @@ func (tx *Tx) Client() *Client {
 func (tx *Tx) init() {
 	tx.Collection_Movement = NewCollectionMovementClient(tx.config)
 	tx.EntityEventsOutbox = NewEntityEventsOutboxClient(tx.config)
+	tx.IdempotencyKey = NewIdempotencyKeyClient(tx.config)
 	tx.Item = NewItemClient(tx.config)
 	tx.ItemMovement = NewItemMovementClient(tx.config)
 	tx.ItemSet = NewItemSetClient(tx.config)

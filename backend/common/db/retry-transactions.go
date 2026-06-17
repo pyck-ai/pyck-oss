@@ -40,6 +40,14 @@ func ErrIsRetryable(err error) bool {
 		return false
 	}
 
+	// Phase 6.3: treat the OCC sentinel as retryable. Inventory's
+	// append-only stocks ledger surfaces it when two transactions race
+	// on the same per-group version slot; retrying the whole tx lets the
+	// loser re-read the latest committed version and try again.
+	if errors.Is(err, ErrOCCConflict) {
+		return true
+	}
+
 	var pqErr *pq.Error
 	if errors.As(err, &pqErr) {
 		return retryableStates[string(pqErr.Code)]

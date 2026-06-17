@@ -11,3 +11,6 @@ type EntityEventsOutbox func(*sql.Selector)
 
 // File is the predicate function for file builders.
 type File func(*sql.Selector)
+
+// IdempotencyKey is the predicate function for idempotencykey builders.
+type IdempotencyKey func(*sql.Selector)

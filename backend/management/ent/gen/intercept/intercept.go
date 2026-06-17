@@ -16,6 +16,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/entityeventsoutbox"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/event"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/group"
+	"github.com/pyck-ai/pyck/backend/management/ent/gen/idempotencykey"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/keyvalue"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/location"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/predicate"
@@ -296,6 +297,33 @@ func (f TraverseGroup) Traverse(ctx context.Context, q gen.Query) error {
 	return fmt.Errorf("unexpected query type %T. expect *gen.GroupQuery", q)
 }
 
+// The IdempotencyKeyFunc type is an adapter to allow the use of ordinary function as a Querier.
+type IdempotencyKeyFunc func(context.Context, *gen.IdempotencyKeyQuery) (gen.Value, error)
+
+// Query calls f(ctx, q).
+func (f IdempotencyKeyFunc) Query(ctx context.Context, q gen.Query) (gen.Value, error) {
+	if q, ok := q.(*gen.IdempotencyKeyQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *gen.IdempotencyKeyQuery", q)
+}
+
+// The TraverseIdempotencyKey type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseIdempotencyKey func(context.Context, *gen.IdempotencyKeyQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseIdempotencyKey) Intercept(next gen.Querier) gen.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseIdempotencyKey) Traverse(ctx context.Context, q gen.Query) error {
+	if q, ok := q.(*gen.IdempotencyKeyQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *gen.IdempotencyKeyQuery", q)
+}
+
 // The KeyValueFunc type is an adapter to allow the use of ordinary function as a Querier.
 type KeyValueFunc func(context.Context, *gen.KeyValueQuery) (gen.Value, error)
 
@@ -450,6 +478,8 @@ func NewQuery(q gen.Query) (Query, error) {
 		return &query[*gen.EventQuery, predicate.Event, event.OrderOption]{typ: gen.TypeEvent, tq: q}, nil
 	case *gen.GroupQuery:
 		return &query[*gen.GroupQuery, predicate.Group, group.OrderOption]{typ: gen.TypeGroup, tq: q}, nil
+	case *gen.IdempotencyKeyQuery:
+		return &query[*gen.IdempotencyKeyQuery, predicate.IdempotencyKey, idempotencykey.OrderOption]{typ: gen.TypeIdempotencyKey, tq: q}, nil
 	case *gen.KeyValueQuery:
 		return &query[*gen.KeyValueQuery, predicate.KeyValue, keyvalue.OrderOption]{typ: gen.TypeKeyValue, tq: q}, nil
 	case *gen.LocationQuery:

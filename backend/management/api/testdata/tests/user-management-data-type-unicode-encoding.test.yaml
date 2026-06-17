@@ -1,0 +1,122 @@
+---
+name: "User - Data Type Unicode Encoding"
+description: "Demonstrates the NFC vs NFD Unicode encoding on the .name field — create with NFC, query with NFD returns zero rows."
+steps:
+  - id: createGreekDataType
+    name: Create DataType with Greek name (slug regression)
+    operation: management.createDataType
+    vars:
+      input:
+        name: "\u03C1\u03AC\u03C6\u03B9 \u03AD\u03BD\u03B1"
+        jsonSchema: '{"type":"object"}'
+        entity: "datatype-unicode-greek-{{$randomInt}}"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: No GraphQL errors
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: DataType was created
+        assertions:
+          - ref: res.body.data.createDataType.id
+            notNil: true
+      - msg: "Slug regression — Greek transliterates, never collapses to empty"
+        assertions:
+          - ref: res.body.data.createDataType.slug
+            notEmpty: true
+          - ref: res.body.data.createDataType.slug
+            equal: "raphi-ena"
+
+  - id: createNFC
+    name: Create DataType with NFC Unicode name (composed)
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Caf\u00E9 M\u00FCnchner"
+        jsonSchema: '{"type":"object"}'
+        entity: "datatype-unicode-name-{{$randomInt}}"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: No GraphQL errors
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: DataType was created with NFC name
+        assertions:
+          - ref: res.body.data.createDataType.id
+            notNil: true
+          - ref: res.body.data.createDataType.name
+            equal: "Caf\u00E9 M\u00FCnchner"
+
+  - name: Query by NFC name — control case, must find the row
+    operation: management.getDataTypes
+    vars:
+      where:
+        name: "Caf\u00E9 M\u00FCnchner"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: NFC query finds the NFC-stored row
+        assertions:
+          - ref: res.body.data.dataTypes.totalCount
+            equal: 1
+          - ref: res.body.data.dataTypes.edges[].node.id
+            equal: {$ref: "res[createNFC].body.data.createDataType.id"}
+
+  - name: Query by NFD name (decomposed) — now matches NFC-stored row
+    operation: management.getDataTypes
+    vars:
+      where:
+        name: "Cafe\u0301 Mu\u0308nchner"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "NFD-encoded query now matches NFC-stored row"
+        assertions:
+          - ref: res.body.data.dataTypes.totalCount
+            equal: 1
+
+  - name: nameContains with NFD substring — bug, must return zero
+    operation: management.getDataTypes
+    vars:
+      where:
+        nameContains: "Cafe\u0301"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "nameContains with NFD substring now matches NFC-stored row"
+        assertions:
+          - ref: res.body.data.dataTypes.totalCount
+            equal: 1
+
+  - name: Delete NFC DataType
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createNFC].body.data.createDataType.id"}
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+
+  - name: Delete Greek DataType
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createGreekDataType].body.data.createDataType.id"}
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200

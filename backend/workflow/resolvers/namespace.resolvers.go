@@ -9,7 +9,7 @@ import (
 	"context"
 
 	"github.com/pyck-ai/pyck/backend/common/request"
-	"github.com/pyck-ai/pyck/backend/workflow"
+	"github.com/pyck-ai/pyck/backend/workflow/exec"
 )
 
 // EnsureTemporalNamespace is the resolver for the ensureTemporalNamespace field.
@@ -28,7 +28,7 @@ func (r *mutationResolver) EnsureTemporalNamespace(ctx context.Context) (bool, e
 	return true, nil
 }
 
-// Mutation returns workflow.MutationResolver implementation.
-func (r *Resolver) Mutation() workflow.MutationResolver { return &mutationResolver{r} }
+// Mutation returns exec.MutationResolver implementation.
+func (r *Resolver) Mutation() exec.MutationResolver { return &mutationResolver{r} }
 
 type mutationResolver struct{ *Resolver }

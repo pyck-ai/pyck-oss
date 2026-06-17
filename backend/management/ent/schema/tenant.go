@@ -9,6 +9,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
+
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 )
@@ -52,6 +53,12 @@ func (Tenant) Fields() []ent.Field {
 			Annotations(
 				entgql.OrderField("IDP_ORG_REF"),
 			),
+		field.Time("expires_at").
+			Optional().
+			Nillable().
+			Annotations(
+				entgql.OrderField("EXPIRES_AT"),
+			),
 	}
 }
 
@@ -60,6 +67,12 @@ func (Tenant) Indexes() []ent.Index {
 		index.Fields("idp_org_ref").
 			Unique().
 			Annotations(mixin.HistoryMixinNotDeletedIndexAnnotation()),
+		// Serves the tenant-expiry-check sweep query
+		// (expires_at IS NOT NULL AND expires_at <= now AND deleted_at IS NULL).
+		// Partial WHERE filters out the dominant "no expiry / already deleted"
+		// rows so the sweep stays O(eligible) instead of O(tenants).
+		index.Fields("expires_at").
+			Annotations(entsql.IndexWhere("expires_at IS NOT NULL AND deleted_at IS NULL")),
 	}
 }
 

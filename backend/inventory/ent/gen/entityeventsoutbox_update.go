@@ -71,17 +71,57 @@ func (_u *EntityEventsOutboxUpdate) ClearUserID() *EntityEventsOutboxUpdate {
 	return _u
 }
 
-// SetCorrelationID sets the "correlation_id" field.
-func (_u *EntityEventsOutboxUpdate) SetCorrelationID(v string) *EntityEventsOutboxUpdate {
-	_u.mutation.SetCorrelationID(v)
+// SetTransactionID sets the "transaction_id" field.
+func (_u *EntityEventsOutboxUpdate) SetTransactionID(v uuid.UUID) *EntityEventsOutboxUpdate {
+	_u.mutation.SetTransactionID(v)
 	return _u
 }
 
-// SetNillableCorrelationID sets the "correlation_id" field if the given value is not nil.
-func (_u *EntityEventsOutboxUpdate) SetNillableCorrelationID(v *string) *EntityEventsOutboxUpdate {
+// SetNillableTransactionID sets the "transaction_id" field if the given value is not nil.
+func (_u *EntityEventsOutboxUpdate) SetNillableTransactionID(v *uuid.UUID) *EntityEventsOutboxUpdate {
 	if v != nil {
-		_u.SetCorrelationID(*v)
+		_u.SetTransactionID(*v)
 	}
+	return _u
+}
+
+// SetTraceID sets the "trace_id" field.
+func (_u *EntityEventsOutboxUpdate) SetTraceID(v string) *EntityEventsOutboxUpdate {
+	_u.mutation.SetTraceID(v)
+	return _u
+}
+
+// SetNillableTraceID sets the "trace_id" field if the given value is not nil.
+func (_u *EntityEventsOutboxUpdate) SetNillableTraceID(v *string) *EntityEventsOutboxUpdate {
+	if v != nil {
+		_u.SetTraceID(*v)
+	}
+	return _u
+}
+
+// ClearTraceID clears the value of the "trace_id" field.
+func (_u *EntityEventsOutboxUpdate) ClearTraceID() *EntityEventsOutboxUpdate {
+	_u.mutation.ClearTraceID()
+	return _u
+}
+
+// SetRequestID sets the "request_id" field.
+func (_u *EntityEventsOutboxUpdate) SetRequestID(v string) *EntityEventsOutboxUpdate {
+	_u.mutation.SetRequestID(v)
+	return _u
+}
+
+// SetNillableRequestID sets the "request_id" field if the given value is not nil.
+func (_u *EntityEventsOutboxUpdate) SetNillableRequestID(v *string) *EntityEventsOutboxUpdate {
+	if v != nil {
+		_u.SetRequestID(*v)
+	}
+	return _u
+}
+
+// ClearRequestID clears the value of the "request_id" field.
+func (_u *EntityEventsOutboxUpdate) ClearRequestID() *EntityEventsOutboxUpdate {
+	_u.mutation.ClearRequestID()
 	return _u
 }
 
@@ -254,12 +294,6 @@ func (_u *EntityEventsOutboxUpdate) SetNillableTenantID(v *uuid.UUID) *EntityEve
 	return _u
 }
 
-// ClearTenantID clears the value of the "tenant_id" field.
-func (_u *EntityEventsOutboxUpdate) ClearTenantID() *EntityEventsOutboxUpdate {
-	_u.mutation.ClearTenantID()
-	return _u
-}
-
 // Mutation returns the EntityEventsOutboxMutation object of the builder.
 func (_u *EntityEventsOutboxUpdate) Mutation() *EntityEventsOutboxMutation {
 	return _u.mutation
@@ -294,11 +328,6 @@ func (_u *EntityEventsOutboxUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *EntityEventsOutboxUpdate) check() error {
-	if v, ok := _u.mutation.CorrelationID(); ok {
-		if err := entityeventsoutbox.CorrelationIDValidator(v); err != nil {
-			return &ValidationError{Name: "correlation_id", err: fmt.Errorf(`gen: validator failed for field "EntityEventsOutbox.correlation_id": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.Topic(); ok {
 		if err := entityeventsoutbox.TopicValidator(v); err != nil {
 			return &ValidationError{Name: "topic", err: fmt.Errorf(`gen: validator failed for field "EntityEventsOutbox.topic": %w`, err)}
@@ -331,8 +360,20 @@ func (_u *EntityEventsOutboxUpdate) sqlSave(ctx context.Context) (_node int, err
 	if _u.mutation.UserIDCleared() {
 		_spec.ClearField(entityeventsoutbox.FieldUserID, field.TypeUUID)
 	}
-	if value, ok := _u.mutation.CorrelationID(); ok {
-		_spec.SetField(entityeventsoutbox.FieldCorrelationID, field.TypeString, value)
+	if value, ok := _u.mutation.TransactionID(); ok {
+		_spec.SetField(entityeventsoutbox.FieldTransactionID, field.TypeUUID, value)
+	}
+	if value, ok := _u.mutation.TraceID(); ok {
+		_spec.SetField(entityeventsoutbox.FieldTraceID, field.TypeString, value)
+	}
+	if _u.mutation.TraceIDCleared() {
+		_spec.ClearField(entityeventsoutbox.FieldTraceID, field.TypeString)
+	}
+	if value, ok := _u.mutation.RequestID(); ok {
+		_spec.SetField(entityeventsoutbox.FieldRequestID, field.TypeString, value)
+	}
+	if _u.mutation.RequestIDCleared() {
+		_spec.ClearField(entityeventsoutbox.FieldRequestID, field.TypeString)
 	}
 	if value, ok := _u.mutation.Topic(); ok {
 		_spec.SetField(entityeventsoutbox.FieldTopic, field.TypeString, value)
@@ -381,9 +422,6 @@ func (_u *EntityEventsOutboxUpdate) sqlSave(ctx context.Context) (_node int, err
 	}
 	if value, ok := _u.mutation.TenantID(); ok {
 		_spec.SetField(entityeventsoutbox.FieldTenantID, field.TypeUUID, value)
-	}
-	if _u.mutation.TenantIDCleared() {
-		_spec.ClearField(entityeventsoutbox.FieldTenantID, field.TypeUUID)
 	}
 	_spec.Node.Schema = _u.schemaConfig.EntityEventsOutbox
 	ctx = internal.NewSchemaConfigContext(ctx, _u.schemaConfig)
@@ -447,17 +485,57 @@ func (_u *EntityEventsOutboxUpdateOne) ClearUserID() *EntityEventsOutboxUpdateOn
 	return _u
 }
 
-// SetCorrelationID sets the "correlation_id" field.
-func (_u *EntityEventsOutboxUpdateOne) SetCorrelationID(v string) *EntityEventsOutboxUpdateOne {
-	_u.mutation.SetCorrelationID(v)
+// SetTransactionID sets the "transaction_id" field.
+func (_u *EntityEventsOutboxUpdateOne) SetTransactionID(v uuid.UUID) *EntityEventsOutboxUpdateOne {
+	_u.mutation.SetTransactionID(v)
 	return _u
 }
 
-// SetNillableCorrelationID sets the "correlation_id" field if the given value is not nil.
-func (_u *EntityEventsOutboxUpdateOne) SetNillableCorrelationID(v *string) *EntityEventsOutboxUpdateOne {
+// SetNillableTransactionID sets the "transaction_id" field if the given value is not nil.
+func (_u *EntityEventsOutboxUpdateOne) SetNillableTransactionID(v *uuid.UUID) *EntityEventsOutboxUpdateOne {
 	if v != nil {
-		_u.SetCorrelationID(*v)
+		_u.SetTransactionID(*v)
 	}
+	return _u
+}
+
+// SetTraceID sets the "trace_id" field.
+func (_u *EntityEventsOutboxUpdateOne) SetTraceID(v string) *EntityEventsOutboxUpdateOne {
+	_u.mutation.SetTraceID(v)
+	return _u
+}
+
+// SetNillableTraceID sets the "trace_id" field if the given value is not nil.
+func (_u *EntityEventsOutboxUpdateOne) SetNillableTraceID(v *string) *EntityEventsOutboxUpdateOne {
+	if v != nil {
+		_u.SetTraceID(*v)
+	}
+	return _u
+}
+
+// ClearTraceID clears the value of the "trace_id" field.
+func (_u *EntityEventsOutboxUpdateOne) ClearTraceID() *EntityEventsOutboxUpdateOne {
+	_u.mutation.ClearTraceID()
+	return _u
+}
+
+// SetRequestID sets the "request_id" field.
+func (_u *EntityEventsOutboxUpdateOne) SetRequestID(v string) *EntityEventsOutboxUpdateOne {
+	_u.mutation.SetRequestID(v)
+	return _u
+}
+
+// SetNillableRequestID sets the "request_id" field if the given value is not nil.
+func (_u *EntityEventsOutboxUpdateOne) SetNillableRequestID(v *string) *EntityEventsOutboxUpdateOne {
+	if v != nil {
+		_u.SetRequestID(*v)
+	}
+	return _u
+}
+
+// ClearRequestID clears the value of the "request_id" field.
+func (_u *EntityEventsOutboxUpdateOne) ClearRequestID() *EntityEventsOutboxUpdateOne {
+	_u.mutation.ClearRequestID()
 	return _u
 }
 
@@ -630,12 +708,6 @@ func (_u *EntityEventsOutboxUpdateOne) SetNillableTenantID(v *uuid.UUID) *Entity
 	return _u
 }
 
-// ClearTenantID clears the value of the "tenant_id" field.
-func (_u *EntityEventsOutboxUpdateOne) ClearTenantID() *EntityEventsOutboxUpdateOne {
-	_u.mutation.ClearTenantID()
-	return _u
-}
-
 // Mutation returns the EntityEventsOutboxMutation object of the builder.
 func (_u *EntityEventsOutboxUpdateOne) Mutation() *EntityEventsOutboxMutation {
 	return _u.mutation
@@ -683,11 +755,6 @@ func (_u *EntityEventsOutboxUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *EntityEventsOutboxUpdateOne) check() error {
-	if v, ok := _u.mutation.CorrelationID(); ok {
-		if err := entityeventsoutbox.CorrelationIDValidator(v); err != nil {
-			return &ValidationError{Name: "correlation_id", err: fmt.Errorf(`gen: validator failed for field "EntityEventsOutbox.correlation_id": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.Topic(); ok {
 		if err := entityeventsoutbox.TopicValidator(v); err != nil {
 			return &ValidationError{Name: "topic", err: fmt.Errorf(`gen: validator failed for field "EntityEventsOutbox.topic": %w`, err)}
@@ -737,8 +804,20 @@ func (_u *EntityEventsOutboxUpdateOne) sqlSave(ctx context.Context) (_node *Enti
 	if _u.mutation.UserIDCleared() {
 		_spec.ClearField(entityeventsoutbox.FieldUserID, field.TypeUUID)
 	}
-	if value, ok := _u.mutation.CorrelationID(); ok {
-		_spec.SetField(entityeventsoutbox.FieldCorrelationID, field.TypeString, value)
+	if value, ok := _u.mutation.TransactionID(); ok {
+		_spec.SetField(entityeventsoutbox.FieldTransactionID, field.TypeUUID, value)
+	}
+	if value, ok := _u.mutation.TraceID(); ok {
+		_spec.SetField(entityeventsoutbox.FieldTraceID, field.TypeString, value)
+	}
+	if _u.mutation.TraceIDCleared() {
+		_spec.ClearField(entityeventsoutbox.FieldTraceID, field.TypeString)
+	}
+	if value, ok := _u.mutation.RequestID(); ok {
+		_spec.SetField(entityeventsoutbox.FieldRequestID, field.TypeString, value)
+	}
+	if _u.mutation.RequestIDCleared() {
+		_spec.ClearField(entityeventsoutbox.FieldRequestID, field.TypeString)
 	}
 	if value, ok := _u.mutation.Topic(); ok {
 		_spec.SetField(entityeventsoutbox.FieldTopic, field.TypeString, value)
@@ -787,9 +866,6 @@ func (_u *EntityEventsOutboxUpdateOne) sqlSave(ctx context.Context) (_node *Enti
 	}
 	if value, ok := _u.mutation.TenantID(); ok {
 		_spec.SetField(entityeventsoutbox.FieldTenantID, field.TypeUUID, value)
-	}
-	if _u.mutation.TenantIDCleared() {
-		_spec.ClearField(entityeventsoutbox.FieldTenantID, field.TypeUUID)
 	}
 	_spec.Node.Schema = _u.schemaConfig.EntityEventsOutbox
 	ctx = internal.NewSchemaConfigContext(ctx, _u.schemaConfig)

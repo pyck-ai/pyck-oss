@@ -42,12 +42,68 @@ type (
 		// upgrade) needs an explicit go-ahead to mint a new one, since doing
 		// so invalidates the previous secret.
 		RegenerateClientSecrets bool `env:"PYCK_BOOTSTRAP_ZITADEL_REGENERATE_CLIENT_SECRETS"`
+
+		// PreTokenWebhookBaseURL is the base URL Zitadel uses to reach pyck-
+		// management's Actions v2 webhook that emits the pyck_tenant_id
+		// claim onto OIDC tokens. Bootstrap appends
+		// /webhook/zitadel/actions/pre-token. Defaults to
+		// http://management:8082 — that's the **compose service name +
+		// HTTP port** for pyck-management (the `pyck-management` you see in
+		// `docker ps` is container_name, used for display; inter-service
+		// DNS uses the service name). Production environments override to
+		// their in-cluster Service DNS.
+		PreTokenWebhookBaseURL string `env:"PYCK_BOOTSTRAP_PRE_TOKEN_WEBHOOK_BASE_URL" envDefault:"http://management:8082"`
 	}
 
 	// Zitadel is the configuration for seeding Zitadel.
 	Zitadel struct {
 		// Organizations is a list of organizations
 		Organizations []Organization `yaml:"organizations"`
+
+		// PreTokenAction configures the instance-scoped Actions v2 Target +
+		// Executions that emit pyck_tenant_id as a plain top-level OIDC
+		// claim. The HMAC signing_key Zitadel mints at Target creation is
+		// routed through the listed exporters — local compose uses
+		// file/env/process-env; production K8s uses k8s Secrets.
+		PreTokenAction *PreTokenAction `yaml:"pre_token_action,omitempty"`
+
+		// LoginEventAction configures the Actions v2 Target + Event Executions
+		// that POST to pyck-management on human login, so it can publish a NATS
+		// login event. The Target's server-minted HMAC key is routed through
+		// the listed exporters.
+		LoginEventAction *LoginEventAction `yaml:"login_event_action,omitempty"`
+	}
+
+	// PreTokenAction declares how the Actions v2 pre-token webhook's HMAC
+	// signing key is provisioned and where it gets routed. The key is
+	// server-minted by Zitadel on CreateTarget and only returned once —
+	// pyck never persists it locally; it goes straight from Zitadel into
+	// the configured Exports sinks.
+	//
+	// KeyCreation guards control idempotency: before any Zitadel call,
+	// bootstrap checks whether the key is already present in the listed
+	// destinations. If yes, the entire Target+Execution provisioning is
+	// skipped on this run. If no, the existing Target (if any) is deleted
+	// and a fresh one is created — the new signing key flows out through
+	// Exports.
+	//
+	// The `field` on each Exports entry must be "signing_key" — that's the
+	// only value the producer puts in the fields map.
+	PreTokenAction struct {
+		KeyCreation []*exporters.Export `yaml:"key-creation,omitempty"`
+		Exports     []*exporters.Export `yaml:"exports"`
+	}
+
+	// LoginEventAction declares how the login-event webhook's HMAC signing key
+	// is provisioned and routed. Same contract as PreTokenAction: the key is
+	// server-minted on Target creation, returned once, and flows into the
+	// configured Exports. KeyCreation guards drive self-healing — if the key is
+	// absent at its destination (lost export), bootstrap rotates the Target to
+	// mint and re-export a fresh one. The `field` on each Exports entry must be
+	// "signing_key".
+	LoginEventAction struct {
+		KeyCreation []*exporters.Export `yaml:"key-creation,omitempty"`
+		Exports     []*exporters.Export `yaml:"exports"`
 	}
 
 	// Organization represents an organization in Zitadel.

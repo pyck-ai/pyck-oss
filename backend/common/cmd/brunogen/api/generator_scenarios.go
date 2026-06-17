@@ -158,8 +158,13 @@ func generateScenarioDir(cfg types.Config, basename string, scenario *types.Test
 		extracts := extractMap[step.ID]
 		skipChecks := gen.ResolveSkip(step.Skip, varNS)
 
+		// apigen skips reverse-Connection fields in default queries to keep
+		// responses bounded; augment per-step from the assertion refs so
+		// nothing the test reads is silently undefined.
+		stepOp.Content = gen.AugmentOperationContent(stepOp.Content, step.Tests)
+
 		filename := filepath.Join(scenarioDir, fmt.Sprintf("%02d_%s_gen.yml", seq, strings.ToLower(stepOp.Name)))
-		content, err := gen.RenderFile(gen.TestTemplate, stepCfg, stepOp, step.Name, step.Description, step.Vars, tests, extracts, useBody, useReqVars, seq, varNS, skipChecks, sourceFile)
+		content, err := gen.RenderFile(gen.TestTemplate, stepCfg, stepOp, step.Name, step.Description, step.Vars, tests, extracts, useBody, useReqVars, seq, varNS, skipChecks, sourceFile, step.WaitAfterMs, step.Headers)
 		if err != nil {
 			return fmt.Errorf("failed to render step %q: %w", step.Name, err)
 		}

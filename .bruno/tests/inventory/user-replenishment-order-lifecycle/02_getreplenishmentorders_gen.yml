@@ -36,34 +36,6 @@ graphql:
               deletedAt
               deletedBy
               id
-              replenishmentOrderItems {
-                edges {
-                  cursor
-                  node {
-                    createdAt
-                    createdBy
-                    data
-                    dataTypeID
-                    dataTypeSlug
-                    deletedAt
-                    deletedBy
-                    id
-                    quantity
-                    replenishmentOrderID
-                    sku
-                    tenantID
-                    updatedAt
-                    updatedBy
-                  }
-                }
-                pageInfo {
-                  endCursor
-                  hasNextPage
-                  hasPreviousPage
-                  startCursor
-                }
-                totalCount
-              }
               supplierID
               tenantID
               updatedAt

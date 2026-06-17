@@ -30,6 +30,9 @@ func initProvider(serviceName, environment string, cfg *OTelConfig) (*sdktrace.T
 	opts := []sdktrace.TracerProviderOption{
 		sdktrace.WithResource(res),
 		sdktrace.WithSampler(sampler),
+		// Stamp tenant.id onto spans from the request context so traces are
+		// filterable by tenant in the observability backend.
+		sdktrace.WithSpanProcessor(newTenantSpanProcessor()),
 	}
 
 	// Create and add exporter if endpoint is configured

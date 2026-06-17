@@ -20,3 +20,15 @@ expect:
     assertions:
       - ref: res.body.data.registerTenant.success
         equal: true
+  - msg: "Tenant returned"
+    assertions:
+      - ref: res.body.data.registerTenant.tenant
+        nil: false
+  - msg: "Tenant has an ID"
+    assertions:
+      - ref: res.body.data.registerTenant.tenant.id
+        nil: false
+  - msg: "Tenant name matches input"
+    assertions:
+      - ref: res.body.data.registerTenant.tenant.name
+        equal: { $ref: "req.body.variables.input.name" }

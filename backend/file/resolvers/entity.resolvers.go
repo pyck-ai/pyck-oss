@@ -10,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
-	backend_file "github.com/pyck-ai/pyck/backend/file"
 	"github.com/pyck-ai/pyck/backend/file/ent/gen"
 	entfile "github.com/pyck-ai/pyck/backend/file/ent/gen/file"
+	"github.com/pyck-ai/pyck/backend/file/exec"
 	"github.com/pyck-ai/pyck/backend/file/model"
 )
 
@@ -86,7 +86,7 @@ func (r *entityResolver) FindSupplierByID(ctx context.Context, id uuid.UUID) (*m
 	}, nil
 }
 
-// Entity returns backend_file.EntityResolver implementation.
-func (r *Resolver) Entity() backend_file.EntityResolver { return &entityResolver{r} }
+// Entity returns exec.EntityResolver implementation.
+func (r *Resolver) Entity() exec.EntityResolver { return &entityResolver{r} }
 
 type entityResolver struct{ *Resolver }

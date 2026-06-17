@@ -42,7 +42,17 @@ services:
       - PYCK_BOOTSTRAP_MODULE=zitadel
       - PYCK_BOOTSTRAP_ZITADEL_KEY_PATH=/data/keys
       - PYCK_BOOTSTRAP_ZITADEL_ENV_PATH=/data/env
+      - PYCK_BOOTSTRAP_PRE_TOKEN_WEBHOOK_BASE_URL=http://management:8082
       # - PYCK_BOOTSTRAP_CONFIG_FILE=/data/config/bootstrap.json
+    networks:
+      default:
+        # Claim the `management` DNS name during bootstrap so Zitadel's
+        # CreateTarget validation (which resolves the URL host at create time)
+        # succeeds — pyck-management isn't up yet at this point. Once
+        # bootstrap-zitadel exits, Docker's DNS hands `management` over to the
+        # pyck-management container that takes it as its service name.
+        aliases:
+          - management
     volumes:
       - ./../../../:/src:ro,z
       - ./../../keys/:/data/keys/

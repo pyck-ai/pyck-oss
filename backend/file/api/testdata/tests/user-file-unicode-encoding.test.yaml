@@ -1,0 +1,82 @@
+---
+name: "User - File Unicode Encoding"
+description: "Demonstrates the NFC vs NFD Unicode encoding on the .name field — create with NFC, query with NFD returns zero rows."
+steps:
+  - id: createNFC
+    name: Create File with NFC Unicode name
+    operation: file.createFile
+    vars:
+      input:
+        refid: {$fake: uuid}
+        reftype: supplier
+        name: "Caf\u00E9 M\u00FCnchner.jpg"
+        contentType: "image/jpeg"
+        size: 1024
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: No GraphQL errors
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: File was created
+        assertions:
+          - ref: res.body.data.createFile.file.id
+            notNil: true
+
+  - name: Query by NFC name — control case, must find
+    operation: file.getFiles
+    vars:
+      where:
+        name: "Caf\u00E9 M\u00FCnchner.jpg"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: NFC query finds the row
+        assertions:
+          - ref: res.body.data.files.totalCount
+            equal: 1
+
+  - name: Query by NFD name — now matches NFC-stored row
+    operation: file.getFiles
+    vars:
+      where:
+        name: "Cafe\u0301 Mu\u0308nchner.jpg"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "NFD-encoded query now matches NFC-stored row"
+        assertions:
+          - ref: res.body.data.files.totalCount
+            equal: 1
+
+  - name: nameContains with NFD substring — now matches NFC-stored row
+    operation: file.getFiles
+    vars:
+      where:
+        nameContains: "Cafe\u0301"
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "nameContains with NFD substring now matches NFC-stored row"
+        assertions:
+          - ref: res.body.data.files.totalCount
+            equal: 1
+
+  - name: Cleanup — delete the file
+    operation: file.deleteFile
+    vars:
+      id: {$ref: "res[createNFC].body.data.createFile.file.id"}
+    tests:
+      - msg: Status is 200
+        assertions:
+          - ref: res.status
+            equal: 200

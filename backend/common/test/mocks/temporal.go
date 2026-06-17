@@ -77,9 +77,33 @@ func (m *MockTemporalClient) CompleteActivity(ctx context.Context, taskToken []b
 	return args.Error(0)
 }
 
+// CompleteActivityWithOptions mocks the CompleteActivityWithOptions method.
+func (m *MockTemporalClient) CompleteActivityWithOptions(ctx context.Context, opts client.CompleteActivityOptions) error {
+	args := m.Called(ctx, opts)
+	return args.Error(0)
+}
+
 // CompleteActivityByID mocks the CompleteActivityByID method.
 func (m *MockTemporalClient) CompleteActivityByID(ctx context.Context, namespace, workflowID, runID, activityID string, result interface{}, err error) error {
 	args := m.Called(ctx, namespace, workflowID, runID, activityID, result, err)
+	return args.Error(0)
+}
+
+// CompleteActivityByIDWithOptions mocks the CompleteActivityByIDWithOptions method.
+func (m *MockTemporalClient) CompleteActivityByIDWithOptions(ctx context.Context, opts client.CompleteActivityByIDOptions) error {
+	args := m.Called(ctx, opts)
+	return args.Error(0)
+}
+
+// CompleteActivityByActivityID mocks the CompleteActivityByActivityID method.
+func (m *MockTemporalClient) CompleteActivityByActivityID(ctx context.Context, namespace, activityID, activityRunID string, result interface{}, err error) error {
+	args := m.Called(ctx, namespace, activityID, activityRunID, result, err)
+	return args.Error(0)
+}
+
+// CompleteActivityByActivityIDWithOptions mocks the CompleteActivityByActivityIDWithOptions method.
+func (m *MockTemporalClient) CompleteActivityByActivityIDWithOptions(ctx context.Context, opts client.CompleteActivityByActivityIDOptions) error {
+	args := m.Called(ctx, opts)
 	return args.Error(0)
 }
 
@@ -89,10 +113,46 @@ func (m *MockTemporalClient) RecordActivityHeartbeat(ctx context.Context, taskTo
 	return args.Error(0)
 }
 
+// RecordActivityHeartbeatWithOptions mocks the RecordActivityHeartbeatWithOptions method.
+func (m *MockTemporalClient) RecordActivityHeartbeatWithOptions(ctx context.Context, opts client.RecordActivityHeartbeatOptions) error {
+	args := m.Called(ctx, opts)
+	return args.Error(0)
+}
+
 // RecordActivityHeartbeatByID mocks the RecordActivityHeartbeatByID method.
 func (m *MockTemporalClient) RecordActivityHeartbeatByID(ctx context.Context, namespace, workflowID, runID, activityID string, details ...interface{}) error {
 	args := m.Called(ctx, namespace, workflowID, runID, activityID, details)
 	return args.Error(0)
+}
+
+// RecordActivityHeartbeatByIDWithOptions mocks the RecordActivityHeartbeatByIDWithOptions method.
+func (m *MockTemporalClient) RecordActivityHeartbeatByIDWithOptions(ctx context.Context, opts client.RecordActivityHeartbeatByIDOptions) error {
+	args := m.Called(ctx, opts)
+	return args.Error(0)
+}
+
+// ExecuteActivity mocks the ExecuteActivity method.
+func (m *MockTemporalClient) ExecuteActivity(ctx context.Context, options client.StartActivityOptions, activity any, activityArgs ...any) (client.ActivityHandle, error) {
+	args := m.Called(ctx, options, activity, activityArgs)
+	return args.Get(0).(client.ActivityHandle), args.Error(1)
+}
+
+// GetActivityHandle mocks the GetActivityHandle method.
+func (m *MockTemporalClient) GetActivityHandle(options client.GetActivityHandleOptions) client.ActivityHandle {
+	args := m.Called(options)
+	return args.Get(0).(client.ActivityHandle)
+}
+
+// ListActivities mocks the ListActivities method.
+func (m *MockTemporalClient) ListActivities(ctx context.Context, options client.ListActivitiesOptions) (client.ListActivitiesResult, error) {
+	args := m.Called(ctx, options)
+	return args.Get(0).(client.ListActivitiesResult), args.Error(1)
+}
+
+// CountActivities mocks the CountActivities method.
+func (m *MockTemporalClient) CountActivities(ctx context.Context, options client.CountActivitiesOptions) (*client.CountActivitiesResult, error) {
+	args := m.Called(ctx, options)
+	return args.Get(0).(*client.CountActivitiesResult), args.Error(1)
 }
 
 // ListClosedWorkflow mocks the ListClosedWorkflow method.

@@ -26,8 +26,14 @@
         "operation":   { "type": "string", "minLength": 1 },
         "description": { "type": "string" },
         "vars":        { "type": "object" },
+        "headers":     {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Optional HTTP request headers. Values are literal strings (no $fake / $ref substitution today). Keys are emitted alphabetically into the generated Bruno YAML for stable output."
+        },
         "skip":        { "type": "array", "items": { "$ref": "#/$defs/TestAssertion" } },
-        "tests":       { "type": "array", "items": { "$ref": "#/$defs/TestAssertion" } }
+        "tests":       { "type": "array", "items": { "$ref": "#/$defs/TestAssertion" } },
+        "wait_after_ms": { "type": "integer", "minimum": 1, "description": "Append 'await bru.sleep(N);' to the end of the generated test script. Use this when the next step depends on async side effects (e.g. NATS event propagation) with no observable signal to poll." }
       }
     },
     "TestAssertion": {

@@ -1,0 +1,192 @@
+---
+name: "User - File Idempotency"
+description: >
+  Idempotency-Key middleware exercise on the file service via
+  createFile. See backend/inventory/api/testdata/tests/cross-inventory-idempotency.test.yaml
+  for the full design notes — this fixture mirrors it.
+
+steps:
+  - id: fresh
+    name: "Fresh call with key"
+    operation: file.createFile
+    headers:
+      Idempotency-Key: "{{bru_idem_file}}"
+    vars:
+      input:
+        refid: "00000000-0000-0000-0000-000000000010"
+        reftype: supplier
+        name: "bruno-idem-file-{{bru_idem_file}}.pdf"
+        size: 1024
+        contentType: "application/pdf"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "File created"
+        assertions:
+          - ref: res.body.data.createFile.file.id
+            nil: false
+
+  - id: replay
+    name: "Replay with the same key"
+    operation: file.createFile
+    headers:
+      Idempotency-Key: "{{bru_idem_file}}"
+    vars:
+      input:
+        refid: "00000000-0000-0000-0000-000000000010"
+        reftype: supplier
+        name: "bruno-idem-file-{{bru_idem_file}}.pdf"
+        size: 1024
+        contentType: "application/pdf"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Same File id as fresh call"
+        assertions:
+          - ref: res.body.data.createFile.file.id
+            equal: {$ref: "res[fresh].body.data.createFile.file.id"}
+
+  - id: mismatch
+    name: "Same key, different variables — OPERATION_MISMATCH"
+    operation: file.createFile
+    headers:
+      Idempotency-Key: "{{bru_idem_file}}"
+    vars:
+      input:
+        refid: "00000000-0000-0000-0000-0000000000ff"
+        reftype: supplier
+        name: "mismatch.pdf"
+        size: 2048
+        contentType: "application/pdf"
+    tests:
+      - msg: "errors[].extensions.code is OPERATION_MISMATCH"
+        assertions:
+          - ref: res.body.errors[0].extensions.code
+            equal: "OPERATION_MISMATCH"
+      - msg: "errors[].extensions.httpStatus is 422"
+        assertions:
+          - ref: res.body.errors[0].extensions.httpStatus
+            equal: 422
+
+  - id: malformedKey
+    name: "256-char key — INVALID_IDEMPOTENCY_KEY"
+    operation: file.createFile
+    headers:
+      Idempotency-Key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    vars:
+      input:
+        refid: "00000000-0000-0000-0000-000000000010"
+        reftype: supplier
+        name: "never-created.pdf"
+        size: 1024
+        contentType: "application/pdf"
+    tests:
+      - msg: "errors[].extensions.code is INVALID_IDEMPOTENCY_KEY"
+        assertions:
+          - ref: res.body.errors[0].extensions.code
+            equal: "INVALID_IDEMPOTENCY_KEY"
+      - msg: "errors[].extensions.httpStatus is 400"
+        assertions:
+          - ref: res.body.errors[0].extensions.httpStatus
+            equal: 400
+
+  - id: emptyKey
+    name: "Empty header value — degrades to no-key behavior"
+    description: >
+      An empty Idempotency-Key value is treated as if the header was
+      absent. Mutation runs normally with no replay. Filename is
+      randomized so re-runs don't collide.
+    operation: file.createFile
+    headers:
+      Idempotency-Key: ""
+    vars:
+      input:
+        refid: "00000000-0000-0000-0000-000000000010"
+        reftype: supplier
+        name: {$fake: "bruno-idem-file-empty-{{nonce}}.pdf"}
+        size: 1024
+        contentType: "application/pdf"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Fresh file created (no replay)"
+        assertions:
+          - ref: res.body.data.createFile.file.id
+            nil: false
+
+  - id: whitespaceKey
+    name: "Whitespace-only header value — degrades to no-key behavior"
+    description: >
+      Whitespace-only header is trimmed and treated as absent.
+    operation: file.createFile
+    headers:
+      Idempotency-Key: "   "
+    vars:
+      input:
+        refid: "00000000-0000-0000-0000-000000000010"
+        reftype: supplier
+        name: {$fake: "bruno-idem-file-ws-{{nonce}}.pdf"}
+        size: 1024
+        contentType: "application/pdf"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Fresh file created (no replay)"
+        assertions:
+          - ref: res.body.data.createFile.file.id
+            nil: false
+
+  - id: maxLengthKey
+    name: "255-char key — exact maximum is accepted"
+    description: >
+      Positive boundary: MaxKeyLen is 255 bytes. The collection hook
+      pads {{bru_idem_file_max}} to exactly 255 chars per run (16-char
+      hex + 239 x's). Filename is $fake to avoid the
+      (tenant_id, refid, name) unique constraint on re-runs.
+    operation: file.createFile
+    headers:
+      Idempotency-Key: "{{bru_idem_file_max}}"
+    vars:
+      input:
+        refid: "00000000-0000-0000-0000-000000000010"
+        reftype: supplier
+        name: {$fake: "bruno-idem-file-max-{{nonce}}.pdf"}
+        size: 1024
+        contentType: "application/pdf"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No idempotency error"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "File created at max-length boundary"
+        assertions:
+          - ref: res.body.data.createFile.file.id
+            nil: false

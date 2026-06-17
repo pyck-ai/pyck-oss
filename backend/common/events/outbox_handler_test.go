@@ -130,8 +130,8 @@ type mockOutboxFunctions struct {
 	markPublishedErr error
 	markFailedCalls  []markFailedCall
 	markFailedErr    error
-	markDeadCalls    []markDeadCall //nolint:unused // Used by markCorrelationDead
-	markDeadErr      error          //nolint:unused // Used by markCorrelationDead
+	markDeadCalls    []markDeadCall
+	markDeadErr      error
 }
 
 type markFailedCall struct {
@@ -140,7 +140,7 @@ type markFailedCall struct {
 }
 
 type markDeadCall struct {
-	CorrelationID string
+	TransactionID uuid.UUID
 	Reason        string
 }
 
@@ -172,47 +172,51 @@ func (m *mockOutboxFunctions) markFailed(_ context.Context, _ *sql.Tx, id uuid.U
 }
 
 //nolint:unused // Available for future integration tests
-func (m *mockOutboxFunctions) markCorrelationDead(_ context.Context, _ *sql.Tx, correlationID, reason string) error {
+func (m *mockOutboxFunctions) markTransactionDead(_ context.Context, _ *sql.Tx, transactionID uuid.UUID, reason string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.markDeadCalls = append(m.markDeadCalls, markDeadCall{CorrelationID: correlationID, Reason: reason})
+	m.markDeadCalls = append(m.markDeadCalls, markDeadCall{TransactionID: transactionID, Reason: reason})
 	return m.markDeadErr
 }
 
 // =============================================================================
-// GROUP BY CORRELATION TESTS
+// GROUP BY TRANSACTION TESTS
 // =============================================================================
 
-func TestGroupByCorrelation(t *testing.T) {
+func TestGroupByTransaction(t *testing.T) {
 	t.Parallel()
 
-	t.Run("groups entries by correlation ID", func(t *testing.T) {
+	t.Run("groups entries by transaction ID", func(t *testing.T) {
 		t.Parallel()
 
+		txA := uuid.New()
+		txB := uuid.New()
+		txC := uuid.New()
+
 		entries := []events.OutboxRow{
-			{ID: uuid.New(), CorrelationID: "corr-1"},
-			{ID: uuid.New(), CorrelationID: "corr-2"},
-			{ID: uuid.New(), CorrelationID: "corr-1"},
-			{ID: uuid.New(), CorrelationID: "corr-3"},
-			{ID: uuid.New(), CorrelationID: "corr-2"},
+			{ID: uuid.New(), TransactionID: txA},
+			{ID: uuid.New(), TransactionID: txB},
+			{ID: uuid.New(), TransactionID: txA},
+			{ID: uuid.New(), TransactionID: txC},
+			{ID: uuid.New(), TransactionID: txB},
 		}
 
-		groups := events.GroupByCorrelation(entries)
+		groups := events.GroupByTransaction(entries)
 
 		assert.Len(t, groups, 3)
-		assert.Len(t, groups["corr-1"], 2)
-		assert.Len(t, groups["corr-2"], 2)
-		assert.Len(t, groups["corr-3"], 1)
+		assert.Len(t, groups[txA], 2)
+		assert.Len(t, groups[txB], 2)
+		assert.Len(t, groups[txC], 1)
 	})
 
 	t.Run("empty entries returns empty map", func(t *testing.T) {
 		t.Parallel()
 
-		groups := events.GroupByCorrelation(nil)
+		groups := events.GroupByTransaction(nil)
 		assert.Empty(t, groups)
 
-		groups = events.GroupByCorrelation([]events.OutboxRow{})
+		groups = events.GroupByTransaction([]events.OutboxRow{})
 		assert.Empty(t, groups)
 	})
 
@@ -222,19 +226,20 @@ func TestGroupByCorrelation(t *testing.T) {
 		id1 := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 		id2 := uuid.MustParse("00000000-0000-0000-0000-000000000002")
 		id3 := uuid.MustParse("00000000-0000-0000-0000-000000000003")
+		txID := uuid.New()
 
 		entries := []events.OutboxRow{
-			{ID: id1, CorrelationID: "corr-1"},
-			{ID: id2, CorrelationID: "corr-1"},
-			{ID: id3, CorrelationID: "corr-1"},
+			{ID: id1, TransactionID: txID},
+			{ID: id2, TransactionID: txID},
+			{ID: id3, TransactionID: txID},
 		}
 
-		groups := events.GroupByCorrelation(entries)
+		groups := events.GroupByTransaction(entries)
 
-		require.Len(t, groups["corr-1"], 3)
-		assert.Equal(t, id1, groups["corr-1"][0].ID)
-		assert.Equal(t, id2, groups["corr-1"][1].ID)
-		assert.Equal(t, id3, groups["corr-1"][2].ID)
+		require.Len(t, groups[txID], 3)
+		assert.Equal(t, id1, groups[txID][0].ID)
+		assert.Equal(t, id2, groups[txID][1].ID)
+		assert.Equal(t, id3, groups[txID][2].ID)
 	})
 }
 
@@ -245,36 +250,43 @@ func TestGroupByCorrelation(t *testing.T) {
 func TestBuildMessageID(t *testing.T) {
 	t.Parallel()
 
-	t.Run("builds correct message ID format", func(t *testing.T) {
+	t.Run("builds correct message ID format service-txID-entryID", func(t *testing.T) {
 		t.Parallel()
 
-		entityID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
-		payload := events.MutationEventMessage{
-			Schema: "Order",
-			ID:     entityID,
-		}
-		payloadBytes, err := json.Marshal(payload)
-		require.NoError(t, err)
+		txID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+		entryID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
 
 		entry := events.OutboxRow{
-			CorrelationID: "trace-123",
-			Payload:       payloadBytes,
+			ID:            entryID,
+			TransactionID: txID,
+			// Payload is unused by buildMessageID now (msgID is derived
+			// only from service+txID+entryID), but include one for realism.
+			Payload: []byte(`{}`),
 		}
 
-		msgID := events.BuildMessageID(entry)
-		assert.Equal(t, "trace-123-Order-11111111-1111-1111-1111-111111111111", msgID)
+		msgID := events.BuildMessageID("inventory", entry)
+		assert.Equal(t,
+			"inventory-22222222-2222-2222-2222-222222222222-33333333-3333-3333-3333-333333333333",
+			msgID,
+		)
 	})
 
-	t.Run("falls back to correlation ID on invalid payload", func(t *testing.T) {
+	t.Run("does not depend on payload contents", func(t *testing.T) {
 		t.Parallel()
 
+		txID := uuid.New()
+		entryID := uuid.New()
+		// Invalid JSON in payload must not affect the msgID — the new
+		// format derives only from structural fields stored on the row.
 		entry := events.OutboxRow{
-			CorrelationID: "trace-456",
-			Payload:       []byte("invalid json"),
+			ID:            entryID,
+			TransactionID: txID,
+			Payload:       []byte("not valid json at all"),
 		}
 
-		msgID := events.BuildMessageID(entry)
-		assert.Equal(t, "trace-456", msgID)
+		msgID := events.BuildMessageID("management", entry)
+		expected := "management-" + txID.String() + "-" + entryID.String()
+		assert.Equal(t, expected, msgID)
 	})
 }
 
@@ -304,7 +316,7 @@ func TestOutboxHandler_ProcessEntry(t *testing.T) {
 
 		entry := events.OutboxRow{
 			ID:            uuid.New(),
-			CorrelationID: "corr-1",
+			TransactionID: uuid.New(),
 			Topic:         "pyck.test.order.create",
 			Payload:       payloadBytes,
 			WithReply:     false,
@@ -353,9 +365,10 @@ func TestOutboxHandler_ProcessEntry(t *testing.T) {
 		registry.Start(ctx)
 		defer registry.Stop()
 
-		// Pre-register for reply
-		correlationID := "corr-with-reply"
-		replyCh := registry.Register(correlationID, 5*time.Second)
+		// Pre-register for reply, keyed by the same transaction ID we
+		// put on the outbox row.
+		transactionID := uuid.New()
+		replyCh := registry.Register(transactionID, 5*time.Second)
 
 		entityID := uuid.New()
 		payload := events.MutationEventMessage{
@@ -369,7 +382,7 @@ func TestOutboxHandler_ProcessEntry(t *testing.T) {
 
 		entry := events.OutboxRow{
 			ID:            uuid.New(),
-			CorrelationID: correlationID,
+			TransactionID: transactionID,
 			Topic:         "request.reply.pyck.test.order.create",
 			Payload:       payloadBytes,
 			WithReply:     true,
@@ -401,6 +414,16 @@ func TestOutboxHandler_ProcessEntry(t *testing.T) {
 		case <-time.After(time.Second):
 			t.Fatal("timeout waiting for workflows")
 		}
+
+		// Chase fire-and-forget publish must carry a non-empty, deterministic
+		// msgID so JetStream dedup can suppress republishes of the same row
+		// (e.g. after an outbox-handler restart between PublishRaw success
+		// and markEntryPublished). Empty msgID was the pre-fix regression.
+		chaseCalls := publisher.getPublishCalls()
+		require.Len(t, chaseCalls, 1, "expected exactly one chase publish on the fire-and-forget topic")
+		assert.NotEmpty(t, chaseCalls[0].MsgID, "chase publish msgID must be non-empty for JetStream dedup to engage")
+		assert.Contains(t, chaseCalls[0].MsgID, transactionID.String(), "chase publish msgID should include the transaction ID")
+		assert.Contains(t, chaseCalls[0].MsgID, entry.ID.String(), "chase publish msgID should include the outbox entry ID")
 	})
 
 	t.Run("marks entry failed on publish error", func(t *testing.T) {
@@ -414,7 +437,7 @@ func TestOutboxHandler_ProcessEntry(t *testing.T) {
 
 		entry := events.OutboxRow{
 			ID:            uuid.New(),
-			CorrelationID: "corr-fail",
+			TransactionID: uuid.New(),
 			Topic:         "pyck.test.order.create",
 			Payload:       []byte(`{}`),
 			WithReply:     false,
@@ -458,7 +481,7 @@ func TestOutboxHandler_ProcessEntry(t *testing.T) {
 
 		entry := events.OutboxRow{
 			ID:            uuid.New(),
-			CorrelationID: "corr-fail-db",
+			TransactionID: uuid.New(),
 			Topic:         "pyck.test.order.create",
 			Payload:       []byte(`{}`),
 			WithReply:     false,
@@ -482,10 +505,10 @@ func TestOutboxHandler_ProcessEntry(t *testing.T) {
 }
 
 // =============================================================================
-// CORRELATION GROUP PROCESSING TESTS
+// TRANSACTION GROUP PROCESSING TESTS
 // =============================================================================
 
-func TestOutboxHandler_ProcessCorrelationGroup(t *testing.T) {
+func TestOutboxHandler_ProcessTransactionGroup(t *testing.T) {
 	t.Parallel()
 
 	t.Run("processes all entries in order", func(t *testing.T) {
@@ -504,7 +527,7 @@ func TestOutboxHandler_ProcessCorrelationGroup(t *testing.T) {
 		markFailed := func(_ context.Context, _ *sql.Tx, _ uuid.UUID, _ string) error {
 			return nil
 		}
-		markDead := func(_ context.Context, _ *sql.Tx, _, _ string) error {
+		markDead := func(_ context.Context, _ *sql.Tx, _ uuid.UUID, _ string) error {
 			return nil
 		}
 		registry := events.NewReplyRegistry(time.Minute)
@@ -512,17 +535,18 @@ func TestOutboxHandler_ProcessCorrelationGroup(t *testing.T) {
 		id1 := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 		id2 := uuid.MustParse("00000000-0000-0000-0000-000000000002")
 		id3 := uuid.MustParse("00000000-0000-0000-0000-000000000003")
+		txID := uuid.New()
 
 		entries := []events.OutboxRow{
-			{ID: id1, CorrelationID: "corr-1", Topic: "t1", Payload: []byte(`{}`)},
-			{ID: id2, CorrelationID: "corr-1", Topic: "t2", Payload: []byte(`{}`)},
-			{ID: id3, CorrelationID: "corr-1", Topic: "t3", Payload: []byte(`{}`)},
+			{ID: id1, TransactionID: txID, Topic: "t1", Payload: []byte(`{}`)},
+			{ID: id2, TransactionID: txID, Topic: "t2", Payload: []byte(`{}`)},
+			{ID: id3, TransactionID: txID, Topic: "t3", Payload: []byte(`{}`)},
 		}
 
-		events.ProcessCorrelationGroupForTest(
+		events.ProcessTransactionGroupForTest(
 			context.Background(),
 			nil,
-			"corr-1",
+			txID,
 			entries,
 			publisher,
 			registry,
@@ -549,7 +573,7 @@ func TestOutboxHandler_ProcessCorrelationGroup(t *testing.T) {
 		publisher := &outboxMockPublisher{}
 
 		// Fail on second entry
-		markPublished := func(_ context.Context, _ *sql.Tx, id uuid.UUID) error {
+		markPublished := func(_ context.Context, _ *sql.Tx, _ uuid.UUID) error {
 			count := processedCount.Add(1)
 			if count == 2 {
 				return errors.New("db error")
@@ -559,21 +583,22 @@ func TestOutboxHandler_ProcessCorrelationGroup(t *testing.T) {
 		markFailed := func(_ context.Context, _ *sql.Tx, _ uuid.UUID, _ string) error {
 			return nil
 		}
-		markDead := func(_ context.Context, _ *sql.Tx, _, _ string) error {
+		markDead := func(_ context.Context, _ *sql.Tx, _ uuid.UUID, _ string) error {
 			return nil
 		}
 		registry := events.NewReplyRegistry(time.Minute)
 
+		txID := uuid.New()
 		entries := []events.OutboxRow{
-			{ID: uuid.New(), CorrelationID: "corr-1", Topic: "t1", Payload: []byte(`{}`)},
-			{ID: uuid.New(), CorrelationID: "corr-1", Topic: "t2", Payload: []byte(`{}`)},
-			{ID: uuid.New(), CorrelationID: "corr-1", Topic: "t3", Payload: []byte(`{}`)},
+			{ID: uuid.New(), TransactionID: txID, Topic: "t1", Payload: []byte(`{}`)},
+			{ID: uuid.New(), TransactionID: txID, Topic: "t2", Payload: []byte(`{}`)},
+			{ID: uuid.New(), TransactionID: txID, Topic: "t3", Payload: []byte(`{}`)},
 		}
 
-		events.ProcessCorrelationGroupForTest(
+		events.ProcessTransactionGroupForTest(
 			context.Background(),
 			nil,
-			"corr-1",
+			txID,
 			entries,
 			publisher,
 			registry,
@@ -588,7 +613,7 @@ func TestOutboxHandler_ProcessCorrelationGroup(t *testing.T) {
 		assert.Equal(t, int32(2), processedCount.Load())
 	})
 
-	t.Run("marks correlation dead when max retries exceeded", func(t *testing.T) {
+	t.Run("marks transaction dead when max retries exceeded", func(t *testing.T) {
 		t.Parallel()
 
 		publisher := &outboxMockPublisher{}
@@ -601,23 +626,24 @@ func TestOutboxHandler_ProcessCorrelationGroup(t *testing.T) {
 		markFailed := func(_ context.Context, _ *sql.Tx, _ uuid.UUID, _ string) error {
 			return nil
 		}
-		markDead := func(_ context.Context, _ *sql.Tx, correlationID, reason string) error {
+		markDead := func(_ context.Context, _ *sql.Tx, transactionID uuid.UUID, reason string) error {
 			mu.Lock()
-			deadCalls = append(deadCalls, markDeadCall{CorrelationID: correlationID, Reason: reason})
+			deadCalls = append(deadCalls, markDeadCall{TransactionID: transactionID, Reason: reason})
 			mu.Unlock()
 			return nil
 		}
 		registry := events.NewReplyRegistry(time.Minute)
 
 		// Entry with retry count >= max retries
+		deadTxID := uuid.New()
 		entries := []events.OutboxRow{
-			{ID: uuid.New(), CorrelationID: "corr-dead", Topic: "t1", Payload: []byte(`{}`), RetryCount: 10},
+			{ID: uuid.New(), TransactionID: deadTxID, Topic: "t1", Payload: []byte(`{}`), RetryCount: 10},
 		}
 
-		events.ProcessCorrelationGroupForTest(
+		events.ProcessTransactionGroupForTest(
 			context.Background(),
 			nil,
-			"corr-dead",
+			deadTxID,
 			entries,
 			publisher,
 			registry,
@@ -632,7 +658,7 @@ func TestOutboxHandler_ProcessCorrelationGroup(t *testing.T) {
 		defer mu.Unlock()
 
 		require.Len(t, deadCalls, 1)
-		assert.Equal(t, "corr-dead", deadCalls[0].CorrelationID)
+		assert.Equal(t, deadTxID, deadCalls[0].TransactionID)
 		assert.Contains(t, deadCalls[0].Reason, "exceeded max retries")
 	})
 }

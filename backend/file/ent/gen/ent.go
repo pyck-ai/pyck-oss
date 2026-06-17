@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/pyck-ai/pyck/backend/file/ent/gen/entityeventsoutbox"
 	"github.com/pyck-ai/pyck/backend/file/ent/gen/file"
+	"github.com/pyck-ai/pyck/backend/file/ent/gen/idempotencykey"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -76,6 +77,7 @@ func checkColumn(t, c string) error {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			entityeventsoutbox.Table: entityeventsoutbox.ValidColumn,
 			file.Table:               file.ValidColumn,
+			idempotencykey.Table:     idempotencykey.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/pyck-ai/pyck/backend/common/cmd/brunogen/types"
@@ -117,6 +118,13 @@ func CollectExtracts(steps []types.TestStep, varNS string) map[string][]Rendered
 				scan(a.Args)
 			}
 		}
+	}
+	// scan walks map[string]any children in Go's randomized iteration order, so
+	// sort each step's extracts by VarName (unique per step) for stable output.
+	for _, extracts := range result {
+		sort.Slice(extracts, func(i, j int) bool {
+			return extracts[i].VarName < extracts[j].VarName
+		})
 	}
 	return result
 }

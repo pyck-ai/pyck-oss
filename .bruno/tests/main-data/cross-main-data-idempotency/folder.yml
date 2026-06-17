@@ -1,0 +1,15 @@
+info:
+  name: Cross - Main-Data Idempotency
+  type: folder
+  seq: 1
+
+docs: |-
+  Idempotency-Key middleware exercise on the main-data service via createCustomer. createCustomer requires an existing dataTypeID, so step 0 creates one via management (cross-service). See backend/inventory/api/testdata/tests/cross-inventory-idempotency.test.yaml for the full idempotency design notes.
+    Note on re-runs: setupDT uses $fake slug so re-runs of this scenario don't collide on the management.datatypes unique-slug constraint. This means each run gets a NEW dataTypeID — which is included in the createCustomer variables. The idempotency-key is fixed, so the cached row from a previous run carries an OLD operation_checksum (computed over the OLD dataTypeID). On re-run, the new dataTypeID produces a different checksum → OPERATION_MISMATCH 422 instead of a clean replay. Two fixes:
+      1. Wait 24h for the janitor to prune the cached row, OR
+      2. `docker exec db psql -U admin -d pyck_dev -c "DELETE FROM \"main-data\".idempotency_keys WHERE key LIKE 'bruno-idem-main-data%' OR length(key) = 255;"`
+    Other services don't have this problem because their variables don't reference per-run setup state.
+
+
+request:
+  auth: inherit

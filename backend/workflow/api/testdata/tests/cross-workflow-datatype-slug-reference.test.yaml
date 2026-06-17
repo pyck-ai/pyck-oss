@@ -1,0 +1,95 @@
+---
+name: "Cross - Workflow Data Type Slug Reference"
+description: >
+  Creates a data type with a slug, then registers a workflow that
+  references it via dataTypeSlug + custom data. Exercises the workflow
+  service's data type cache (cache is populated via the NATS event
+  emitted by createDataType).
+steps:
+  - id: createDT
+    name: "Create data type with slug for workflows"
+    operation: management.createDataType
+    # Give the NATS create event time to propagate into the workflow service's
+    # in-memory data type cache before the next step resolves the slug.
+    wait_after_ms: 500
+    vars:
+      input:
+        name: "Slug Workflow Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "workflow"
+        jsonSchema: '{"type":"object","properties":{"priority":{"type":"string","enum":["low","high"]}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created with slug"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.slug
+            nil: false
+
+  - id: register
+    name: "Register workflow via slug (resolves through cache)"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: {$fake: "SlugRefWf-{{nonce}}"}
+        taskQueue: "cache-slug-ref-queue"
+        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        data:
+          priority: "high"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Workflow registered"
+        assertions:
+          - ref: res.body.data.registerWorkflow.id
+            nil: false
+      - msg: "DataTypeID populated from cache lookup"
+        assertions:
+          - ref: res.body.data.registerWorkflow.dataTypeID
+            equal: {$ref: "res[createDT].body.data.createDataType.id"}
+      - msg: "DataTypeSlug persisted"
+        assertions:
+          - ref: res.body.data.registerWorkflow.dataTypeSlug
+            equal: {$ref: "res[createDT].body.data.createDataType.slug"}
+
+  - name: "Cleanup - delete workflow"
+    operation: workflow.deleteWorkflow
+    vars:
+      id: {$ref: "res[register].body.data.registerWorkflow.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

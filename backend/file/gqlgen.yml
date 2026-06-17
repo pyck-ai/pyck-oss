@@ -4,11 +4,21 @@
 schema:
   - graph/*.graphql
 
+# The exec/federation output lives in its own `exec` subpackage rather than the
+# module root. gqlgen's post-codegen validation runs `go build` across the exec,
+# model and resolver import paths plus their subpackages. With exec at the module
+# root that wildcard covers the whole module and pulls in packages that import
+# this service's generated GraphQL API client (api/*_gen.go), which is produced
+# later in the pipeline by gqlgenc + apigenc. On a clean build (after `task
+# clean`) that client doesn't exist yet, so validation fails with "undefined:
+# <svc>api.Client". Scoping exec to a subpackage limits validation to the
+# generated server code, which never imports the client, so generation
+# bootstraps cleanly. Do not move these back to the module root.
 exec:
-  filename: gqlgen_gen.go
+  filename: exec/gqlgen_gen.go
 
 federation:
-  filename: gqlgen_federation_gen.go
+  filename: exec/gqlgen_federation_gen.go
   version: 2
 
 model:
@@ -36,6 +46,10 @@ autobind:
 
 # This section declares type mapping between the GraphQL and Go type systems.
 models:
+  # NFC-normalize every String argument & response (issue #824).
+  String:
+    model:
+      - github.com/pyck-ai/pyck/backend/common/gqlscalar.NormalizedString
   ID:
     model:
       - github.com/99designs/gqlgen/graphql.UUID

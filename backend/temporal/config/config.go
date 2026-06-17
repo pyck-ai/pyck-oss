@@ -27,8 +27,10 @@ type EventAdapterConfig struct {
 
 type config struct {
 	envconfig.EnvironmentConfig
+	envconfig.GatewayConfig
 	envconfig.LogConfig
 	envconfig.NatsConfig
+	envconfig.ServiceConfig
 	envconfig.ZitadelConfig
 
 	EventWorkerConfig

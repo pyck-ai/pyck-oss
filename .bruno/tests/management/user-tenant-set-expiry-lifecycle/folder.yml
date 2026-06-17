@@ -1,0 +1,11 @@
+info:
+  name: User - Tenant Set Expiry Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Exercises the synchronous half of the tenant-expiry pipeline: registers a fresh tenant, sets its expiry to a future timestamp, re-sets it to a different timestamp (overwrite), clears it (null argument), and finally disables the tenant for cleanup. Does NOT wait for the async tenant-expiry-check sweep — that path is exercised end-to-end by the integration suite at integrations/tests/tenants/tn_expiry_test.go. Bruno covers only the resolver's direct DB write to tenant.expires_at. Runs against the management subgraph through the gateway as the authenticated Bruno user; the resolver bumps to system context internally.
+
+
+request:
+  auth: inherit
