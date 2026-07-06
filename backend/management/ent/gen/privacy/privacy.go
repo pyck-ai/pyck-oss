@@ -111,30 +111,6 @@ func DenyMutationOperationRule(op gen.Op) MutationRule {
 	return OnMutationOperation(rule, op)
 }
 
-// The AccessPolicyQueryRuleFunc type is an adapter to allow the use of ordinary
-// functions as a query rule.
-type AccessPolicyQueryRuleFunc func(context.Context, *gen.AccessPolicyQuery) error
-
-// EvalQuery return f(ctx, q).
-func (f AccessPolicyQueryRuleFunc) EvalQuery(ctx context.Context, q gen.Query) error {
-	if q, ok := q.(*gen.AccessPolicyQuery); ok {
-		return f(ctx, q)
-	}
-	return Denyf("gen/privacy: unexpected query type %T, expect *gen.AccessPolicyQuery", q)
-}
-
-// The AccessPolicyMutationRuleFunc type is an adapter to allow the use of ordinary
-// functions as a mutation rule.
-type AccessPolicyMutationRuleFunc func(context.Context, *gen.AccessPolicyMutation) error
-
-// EvalMutation calls f(ctx, m).
-func (f AccessPolicyMutationRuleFunc) EvalMutation(ctx context.Context, m gen.Mutation) error {
-	if m, ok := m.(*gen.AccessPolicyMutation); ok {
-		return f(ctx, m)
-	}
-	return Denyf("gen/privacy: unexpected mutation type %T, expect *gen.AccessPolicyMutation", m)
-}
-
 // The DataTypeQueryRuleFunc type is an adapter to allow the use of ordinary
 // functions as a query rule.
 type DataTypeQueryRuleFunc func(context.Context, *gen.DataTypeQuery) error
@@ -279,30 +255,6 @@ func (f EventMutationRuleFunc) EvalMutation(ctx context.Context, m gen.Mutation)
 	return Denyf("gen/privacy: unexpected mutation type %T, expect *gen.EventMutation", m)
 }
 
-// The GroupQueryRuleFunc type is an adapter to allow the use of ordinary
-// functions as a query rule.
-type GroupQueryRuleFunc func(context.Context, *gen.GroupQuery) error
-
-// EvalQuery return f(ctx, q).
-func (f GroupQueryRuleFunc) EvalQuery(ctx context.Context, q gen.Query) error {
-	if q, ok := q.(*gen.GroupQuery); ok {
-		return f(ctx, q)
-	}
-	return Denyf("gen/privacy: unexpected query type %T, expect *gen.GroupQuery", q)
-}
-
-// The GroupMutationRuleFunc type is an adapter to allow the use of ordinary
-// functions as a mutation rule.
-type GroupMutationRuleFunc func(context.Context, *gen.GroupMutation) error
-
-// EvalMutation calls f(ctx, m).
-func (f GroupMutationRuleFunc) EvalMutation(ctx context.Context, m gen.Mutation) error {
-	if m, ok := m.(*gen.GroupMutation); ok {
-		return f(ctx, m)
-	}
-	return Denyf("gen/privacy: unexpected mutation type %T, expect *gen.GroupMutation", m)
-}
-
 // The IdempotencyKeyQueryRuleFunc type is an adapter to allow the use of ordinary
 // functions as a query rule.
 type IdempotencyKeyQueryRuleFunc func(context.Context, *gen.IdempotencyKeyQuery) error
@@ -373,30 +325,6 @@ func (f LocationMutationRuleFunc) EvalMutation(ctx context.Context, m gen.Mutati
 		return f(ctx, m)
 	}
 	return Denyf("gen/privacy: unexpected mutation type %T, expect *gen.LocationMutation", m)
-}
-
-// The RoleQueryRuleFunc type is an adapter to allow the use of ordinary
-// functions as a query rule.
-type RoleQueryRuleFunc func(context.Context, *gen.RoleQuery) error
-
-// EvalQuery return f(ctx, q).
-func (f RoleQueryRuleFunc) EvalQuery(ctx context.Context, q gen.Query) error {
-	if q, ok := q.(*gen.RoleQuery); ok {
-		return f(ctx, q)
-	}
-	return Denyf("gen/privacy: unexpected query type %T, expect *gen.RoleQuery", q)
-}
-
-// The RoleMutationRuleFunc type is an adapter to allow the use of ordinary
-// functions as a mutation rule.
-type RoleMutationRuleFunc func(context.Context, *gen.RoleMutation) error
-
-// EvalMutation calls f(ctx, m).
-func (f RoleMutationRuleFunc) EvalMutation(ctx context.Context, m gen.Mutation) error {
-	if m, ok := m.(*gen.RoleMutation); ok {
-		return f(ctx, m)
-	}
-	return Denyf("gen/privacy: unexpected mutation type %T, expect *gen.RoleMutation", m)
 }
 
 // The TenantQueryRuleFunc type is an adapter to allow the use of ordinary
@@ -482,8 +410,6 @@ var _ QueryMutationRule = FilterFunc(nil)
 
 func queryFilter(q gen.Query) (Filter, error) {
 	switch q := q.(type) {
-	case *gen.AccessPolicyQuery:
-		return q.Filter(), nil
 	case *gen.DataTypeQuery:
 		return q.Filter(), nil
 	case *gen.DeviceQuery:
@@ -496,15 +422,11 @@ func queryFilter(q gen.Query) (Filter, error) {
 		return q.Filter(), nil
 	case *gen.EventQuery:
 		return q.Filter(), nil
-	case *gen.GroupQuery:
-		return q.Filter(), nil
 	case *gen.IdempotencyKeyQuery:
 		return q.Filter(), nil
 	case *gen.KeyValueQuery:
 		return q.Filter(), nil
 	case *gen.LocationQuery:
-		return q.Filter(), nil
-	case *gen.RoleQuery:
 		return q.Filter(), nil
 	case *gen.TenantQuery:
 		return q.Filter(), nil
@@ -517,8 +439,6 @@ func queryFilter(q gen.Query) (Filter, error) {
 
 func mutationFilter(m gen.Mutation) (Filter, error) {
 	switch m := m.(type) {
-	case *gen.AccessPolicyMutation:
-		return m.Filter(), nil
 	case *gen.DataTypeMutation:
 		return m.Filter(), nil
 	case *gen.DeviceMutation:
@@ -531,15 +451,11 @@ func mutationFilter(m gen.Mutation) (Filter, error) {
 		return m.Filter(), nil
 	case *gen.EventMutation:
 		return m.Filter(), nil
-	case *gen.GroupMutation:
-		return m.Filter(), nil
 	case *gen.IdempotencyKeyMutation:
 		return m.Filter(), nil
 	case *gen.KeyValueMutation:
 		return m.Filter(), nil
 	case *gen.LocationMutation:
-		return m.Filter(), nil
-	case *gen.RoleMutation:
 		return m.Filter(), nil
 	case *gen.TenantMutation:
 		return m.Filter(), nil

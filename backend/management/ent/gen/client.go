@@ -16,18 +16,15 @@ import (
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/accesspolicy"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/datatype"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/device"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/devicelocation"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/deviceuser"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/entityeventsoutbox"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/event"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/group"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/idempotencykey"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/keyvalue"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/location"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/role"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/user"
 
@@ -41,8 +38,6 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
-	// AccessPolicy is the client for interacting with the AccessPolicy builders.
-	AccessPolicy *AccessPolicyClient
 	// DataType is the client for interacting with the DataType builders.
 	DataType *DataTypeClient
 	// Device is the client for interacting with the Device builders.
@@ -55,16 +50,12 @@ type Client struct {
 	EntityEventsOutbox *EntityEventsOutboxClient
 	// Event is the client for interacting with the Event builders.
 	Event *EventClient
-	// Group is the client for interacting with the Group builders.
-	Group *GroupClient
 	// IdempotencyKey is the client for interacting with the IdempotencyKey builders.
 	IdempotencyKey *IdempotencyKeyClient
 	// KeyValue is the client for interacting with the KeyValue builders.
 	KeyValue *KeyValueClient
 	// Location is the client for interacting with the Location builders.
 	Location *LocationClient
-	// Role is the client for interacting with the Role builders.
-	Role *RoleClient
 	// Tenant is the client for interacting with the Tenant builders.
 	Tenant *TenantClient
 	// User is the client for interacting with the User builders.
@@ -80,18 +71,15 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
-	c.AccessPolicy = NewAccessPolicyClient(c.config)
 	c.DataType = NewDataTypeClient(c.config)
 	c.Device = NewDeviceClient(c.config)
 	c.DeviceLocation = NewDeviceLocationClient(c.config)
 	c.DeviceUser = NewDeviceUserClient(c.config)
 	c.EntityEventsOutbox = NewEntityEventsOutboxClient(c.config)
 	c.Event = NewEventClient(c.config)
-	c.Group = NewGroupClient(c.config)
 	c.IdempotencyKey = NewIdempotencyKeyClient(c.config)
 	c.KeyValue = NewKeyValueClient(c.config)
 	c.Location = NewLocationClient(c.config)
-	c.Role = NewRoleClient(c.config)
 	c.Tenant = NewTenantClient(c.config)
 	c.User = NewUserClient(c.config)
 }
@@ -189,18 +177,15 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	return &Tx{
 		ctx:                ctx,
 		config:             cfg,
-		AccessPolicy:       NewAccessPolicyClient(cfg),
 		DataType:           NewDataTypeClient(cfg),
 		Device:             NewDeviceClient(cfg),
 		DeviceLocation:     NewDeviceLocationClient(cfg),
 		DeviceUser:         NewDeviceUserClient(cfg),
 		EntityEventsOutbox: NewEntityEventsOutboxClient(cfg),
 		Event:              NewEventClient(cfg),
-		Group:              NewGroupClient(cfg),
 		IdempotencyKey:     NewIdempotencyKeyClient(cfg),
 		KeyValue:           NewKeyValueClient(cfg),
 		Location:           NewLocationClient(cfg),
-		Role:               NewRoleClient(cfg),
 		Tenant:             NewTenantClient(cfg),
 		User:               NewUserClient(cfg),
 	}, nil
@@ -222,18 +207,15 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	return &Tx{
 		ctx:                ctx,
 		config:             cfg,
-		AccessPolicy:       NewAccessPolicyClient(cfg),
 		DataType:           NewDataTypeClient(cfg),
 		Device:             NewDeviceClient(cfg),
 		DeviceLocation:     NewDeviceLocationClient(cfg),
 		DeviceUser:         NewDeviceUserClient(cfg),
 		EntityEventsOutbox: NewEntityEventsOutboxClient(cfg),
 		Event:              NewEventClient(cfg),
-		Group:              NewGroupClient(cfg),
 		IdempotencyKey:     NewIdempotencyKeyClient(cfg),
 		KeyValue:           NewKeyValueClient(cfg),
 		Location:           NewLocationClient(cfg),
-		Role:               NewRoleClient(cfg),
 		Tenant:             NewTenantClient(cfg),
 		User:               NewUserClient(cfg),
 	}, nil
@@ -242,7 +224,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		AccessPolicy.
+//		DataType.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -265,9 +247,8 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.AccessPolicy, c.DataType, c.Device, c.DeviceLocation, c.DeviceUser,
-		c.EntityEventsOutbox, c.Event, c.Group, c.IdempotencyKey, c.KeyValue,
-		c.Location, c.Role, c.Tenant, c.User,
+		c.DataType, c.Device, c.DeviceLocation, c.DeviceUser, c.EntityEventsOutbox,
+		c.Event, c.IdempotencyKey, c.KeyValue, c.Location, c.Tenant, c.User,
 	} {
 		n.Use(hooks...)
 	}
@@ -277,9 +258,8 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.AccessPolicy, c.DataType, c.Device, c.DeviceLocation, c.DeviceUser,
-		c.EntityEventsOutbox, c.Event, c.Group, c.IdempotencyKey, c.KeyValue,
-		c.Location, c.Role, c.Tenant, c.User,
+		c.DataType, c.Device, c.DeviceLocation, c.DeviceUser, c.EntityEventsOutbox,
+		c.Event, c.IdempotencyKey, c.KeyValue, c.Location, c.Tenant, c.User,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -288,8 +268,6 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
-	case *AccessPolicyMutation:
-		return c.AccessPolicy.mutate(ctx, m)
 	case *DataTypeMutation:
 		return c.DataType.mutate(ctx, m)
 	case *DeviceMutation:
@@ -302,176 +280,18 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.EntityEventsOutbox.mutate(ctx, m)
 	case *EventMutation:
 		return c.Event.mutate(ctx, m)
-	case *GroupMutation:
-		return c.Group.mutate(ctx, m)
 	case *IdempotencyKeyMutation:
 		return c.IdempotencyKey.mutate(ctx, m)
 	case *KeyValueMutation:
 		return c.KeyValue.mutate(ctx, m)
 	case *LocationMutation:
 		return c.Location.mutate(ctx, m)
-	case *RoleMutation:
-		return c.Role.mutate(ctx, m)
 	case *TenantMutation:
 		return c.Tenant.mutate(ctx, m)
 	case *UserMutation:
 		return c.User.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("gen: unknown mutation type %T", m)
-	}
-}
-
-// AccessPolicyClient is a client for the AccessPolicy schema.
-type AccessPolicyClient struct {
-	config
-}
-
-// NewAccessPolicyClient returns a client for the AccessPolicy from the given config.
-func NewAccessPolicyClient(c config) *AccessPolicyClient {
-	return &AccessPolicyClient{config: c}
-}
-
-// Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `accesspolicy.Hooks(f(g(h())))`.
-func (c *AccessPolicyClient) Use(hooks ...Hook) {
-	c.hooks.AccessPolicy = append(c.hooks.AccessPolicy, hooks...)
-}
-
-// Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `accesspolicy.Intercept(f(g(h())))`.
-func (c *AccessPolicyClient) Intercept(interceptors ...Interceptor) {
-	c.inters.AccessPolicy = append(c.inters.AccessPolicy, interceptors...)
-}
-
-// Create returns a builder for creating a AccessPolicy entity.
-func (c *AccessPolicyClient) Create() *AccessPolicyCreate {
-	mutation := newAccessPolicyMutation(c.config, OpCreate)
-	return &AccessPolicyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// CreateBulk returns a builder for creating a bulk of AccessPolicy entities.
-func (c *AccessPolicyClient) CreateBulk(builders ...*AccessPolicyCreate) *AccessPolicyCreateBulk {
-	return &AccessPolicyCreateBulk{config: c.config, builders: builders}
-}
-
-// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
-// a builder and applies setFunc on it.
-func (c *AccessPolicyClient) MapCreateBulk(slice any, setFunc func(*AccessPolicyCreate, int)) *AccessPolicyCreateBulk {
-	rv := reflect.ValueOf(slice)
-	if rv.Kind() != reflect.Slice {
-		return &AccessPolicyCreateBulk{err: fmt.Errorf("calling to AccessPolicyClient.MapCreateBulk with wrong type %T, need slice", slice)}
-	}
-	builders := make([]*AccessPolicyCreate, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		builders[i] = c.Create()
-		setFunc(builders[i], i)
-	}
-	return &AccessPolicyCreateBulk{config: c.config, builders: builders}
-}
-
-// Update returns an update builder for AccessPolicy.
-func (c *AccessPolicyClient) Update() *AccessPolicyUpdate {
-	mutation := newAccessPolicyMutation(c.config, OpUpdate)
-	return &AccessPolicyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOne returns an update builder for the given entity.
-func (c *AccessPolicyClient) UpdateOne(_m *AccessPolicy) *AccessPolicyUpdateOne {
-	mutation := newAccessPolicyMutation(c.config, OpUpdateOne, withAccessPolicy(_m))
-	return &AccessPolicyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOneID returns an update builder for the given id.
-func (c *AccessPolicyClient) UpdateOneID(id uuid.UUID) *AccessPolicyUpdateOne {
-	mutation := newAccessPolicyMutation(c.config, OpUpdateOne, withAccessPolicyID(id))
-	return &AccessPolicyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// Delete returns a delete builder for AccessPolicy.
-func (c *AccessPolicyClient) Delete() *AccessPolicyDelete {
-	mutation := newAccessPolicyMutation(c.config, OpDelete)
-	return &AccessPolicyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// DeleteOne returns a builder for deleting the given entity.
-func (c *AccessPolicyClient) DeleteOne(_m *AccessPolicy) *AccessPolicyDeleteOne {
-	return c.DeleteOneID(_m.ID)
-}
-
-// DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *AccessPolicyClient) DeleteOneID(id uuid.UUID) *AccessPolicyDeleteOne {
-	builder := c.Delete().Where(accesspolicy.ID(id))
-	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
-	return &AccessPolicyDeleteOne{builder}
-}
-
-// Query returns a query builder for AccessPolicy.
-func (c *AccessPolicyClient) Query() *AccessPolicyQuery {
-	return &AccessPolicyQuery{
-		config: c.config,
-		ctx:    &QueryContext{Type: TypeAccessPolicy},
-		inters: c.Interceptors(),
-	}
-}
-
-// Get returns a AccessPolicy entity by its id.
-func (c *AccessPolicyClient) Get(ctx context.Context, id uuid.UUID) (*AccessPolicy, error) {
-	return c.Query().Where(accesspolicy.ID(id)).Only(ctx)
-}
-
-// GetX is like Get, but panics if an error occurs.
-func (c *AccessPolicyClient) GetX(ctx context.Context, id uuid.UUID) *AccessPolicy {
-	obj, err := c.Get(ctx, id)
-	if err != nil {
-		panic(err)
-	}
-	return obj
-}
-
-// QueryRole queries the role edge of a AccessPolicy.
-func (c *AccessPolicyClient) QueryRole(_m *AccessPolicy) *RoleQuery {
-	query := (&RoleClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(accesspolicy.Table, accesspolicy.FieldID, id),
-			sqlgraph.To(role.Table, role.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, accesspolicy.RoleTable, accesspolicy.RoleColumn),
-		)
-		schemaConfig := _m.schemaConfig
-		step.To.Schema = schemaConfig.Role
-		step.Edge.Schema = schemaConfig.AccessPolicy
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// Hooks returns the client hooks.
-func (c *AccessPolicyClient) Hooks() []Hook {
-	hooks := c.hooks.AccessPolicy
-	return append(hooks[:len(hooks):len(hooks)], accesspolicy.Hooks[:]...)
-}
-
-// Interceptors returns the client interceptors.
-func (c *AccessPolicyClient) Interceptors() []Interceptor {
-	inters := c.inters.AccessPolicy
-	return append(inters[:len(inters):len(inters)], accesspolicy.Interceptors[:]...)
-}
-
-func (c *AccessPolicyClient) mutate(ctx context.Context, m *AccessPolicyMutation) (Value, error) {
-	switch m.Op() {
-	case OpCreate:
-		return (&AccessPolicyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdate:
-		return (&AccessPolicyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdateOne:
-		return (&AccessPolicyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpDelete, OpDeleteOne:
-		return (&AccessPolicyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
-	default:
-		return nil, fmt.Errorf("gen: unknown AccessPolicy mutation op: %q", m.Op())
 	}
 }
 
@@ -1396,179 +1216,6 @@ func (c *EventClient) mutate(ctx context.Context, m *EventMutation) (Value, erro
 	}
 }
 
-// GroupClient is a client for the Group schema.
-type GroupClient struct {
-	config
-}
-
-// NewGroupClient returns a client for the Group from the given config.
-func NewGroupClient(c config) *GroupClient {
-	return &GroupClient{config: c}
-}
-
-// Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `group.Hooks(f(g(h())))`.
-func (c *GroupClient) Use(hooks ...Hook) {
-	c.hooks.Group = append(c.hooks.Group, hooks...)
-}
-
-// Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `group.Intercept(f(g(h())))`.
-func (c *GroupClient) Intercept(interceptors ...Interceptor) {
-	c.inters.Group = append(c.inters.Group, interceptors...)
-}
-
-// Create returns a builder for creating a Group entity.
-func (c *GroupClient) Create() *GroupCreate {
-	mutation := newGroupMutation(c.config, OpCreate)
-	return &GroupCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// CreateBulk returns a builder for creating a bulk of Group entities.
-func (c *GroupClient) CreateBulk(builders ...*GroupCreate) *GroupCreateBulk {
-	return &GroupCreateBulk{config: c.config, builders: builders}
-}
-
-// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
-// a builder and applies setFunc on it.
-func (c *GroupClient) MapCreateBulk(slice any, setFunc func(*GroupCreate, int)) *GroupCreateBulk {
-	rv := reflect.ValueOf(slice)
-	if rv.Kind() != reflect.Slice {
-		return &GroupCreateBulk{err: fmt.Errorf("calling to GroupClient.MapCreateBulk with wrong type %T, need slice", slice)}
-	}
-	builders := make([]*GroupCreate, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		builders[i] = c.Create()
-		setFunc(builders[i], i)
-	}
-	return &GroupCreateBulk{config: c.config, builders: builders}
-}
-
-// Update returns an update builder for Group.
-func (c *GroupClient) Update() *GroupUpdate {
-	mutation := newGroupMutation(c.config, OpUpdate)
-	return &GroupUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOne returns an update builder for the given entity.
-func (c *GroupClient) UpdateOne(_m *Group) *GroupUpdateOne {
-	mutation := newGroupMutation(c.config, OpUpdateOne, withGroup(_m))
-	return &GroupUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOneID returns an update builder for the given id.
-func (c *GroupClient) UpdateOneID(id uuid.UUID) *GroupUpdateOne {
-	mutation := newGroupMutation(c.config, OpUpdateOne, withGroupID(id))
-	return &GroupUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// Delete returns a delete builder for Group.
-func (c *GroupClient) Delete() *GroupDelete {
-	mutation := newGroupMutation(c.config, OpDelete)
-	return &GroupDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// DeleteOne returns a builder for deleting the given entity.
-func (c *GroupClient) DeleteOne(_m *Group) *GroupDeleteOne {
-	return c.DeleteOneID(_m.ID)
-}
-
-// DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *GroupClient) DeleteOneID(id uuid.UUID) *GroupDeleteOne {
-	builder := c.Delete().Where(group.ID(id))
-	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
-	return &GroupDeleteOne{builder}
-}
-
-// Query returns a query builder for Group.
-func (c *GroupClient) Query() *GroupQuery {
-	return &GroupQuery{
-		config: c.config,
-		ctx:    &QueryContext{Type: TypeGroup},
-		inters: c.Interceptors(),
-	}
-}
-
-// Get returns a Group entity by its id.
-func (c *GroupClient) Get(ctx context.Context, id uuid.UUID) (*Group, error) {
-	return c.Query().Where(group.ID(id)).Only(ctx)
-}
-
-// GetX is like Get, but panics if an error occurs.
-func (c *GroupClient) GetX(ctx context.Context, id uuid.UUID) *Group {
-	obj, err := c.Get(ctx, id)
-	if err != nil {
-		panic(err)
-	}
-	return obj
-}
-
-// QueryUsers queries the users edge of a Group.
-func (c *GroupClient) QueryUsers(_m *Group) *UserQuery {
-	query := (&UserClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(group.Table, group.FieldID, id),
-			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, false, group.UsersTable, group.UsersPrimaryKey...),
-		)
-		schemaConfig := _m.schemaConfig
-		step.To.Schema = schemaConfig.User
-		step.Edge.Schema = schemaConfig.GroupUsers
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryRoles queries the roles edge of a Group.
-func (c *GroupClient) QueryRoles(_m *Group) *RoleQuery {
-	query := (&RoleClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(group.Table, group.FieldID, id),
-			sqlgraph.To(role.Table, role.FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, false, group.RolesTable, group.RolesPrimaryKey...),
-		)
-		schemaConfig := _m.schemaConfig
-		step.To.Schema = schemaConfig.Role
-		step.Edge.Schema = schemaConfig.GroupRoles
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// Hooks returns the client hooks.
-func (c *GroupClient) Hooks() []Hook {
-	hooks := c.hooks.Group
-	return append(hooks[:len(hooks):len(hooks)], group.Hooks[:]...)
-}
-
-// Interceptors returns the client interceptors.
-func (c *GroupClient) Interceptors() []Interceptor {
-	inters := c.inters.Group
-	return append(inters[:len(inters):len(inters)], group.Interceptors[:]...)
-}
-
-func (c *GroupClient) mutate(ctx context.Context, m *GroupMutation) (Value, error) {
-	switch m.Op() {
-	case OpCreate:
-		return (&GroupCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdate:
-		return (&GroupUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdateOne:
-		return (&GroupUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpDelete, OpDeleteOne:
-		return (&GroupDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
-	default:
-		return nil, fmt.Errorf("gen: unknown Group mutation op: %q", m.Op())
-	}
-}
-
 // IdempotencyKeyClient is a client for the IdempotencyKey schema.
 type IdempotencyKeyClient struct {
 	config
@@ -1991,198 +1638,6 @@ func (c *LocationClient) mutate(ctx context.Context, m *LocationMutation) (Value
 	}
 }
 
-// RoleClient is a client for the Role schema.
-type RoleClient struct {
-	config
-}
-
-// NewRoleClient returns a client for the Role from the given config.
-func NewRoleClient(c config) *RoleClient {
-	return &RoleClient{config: c}
-}
-
-// Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `role.Hooks(f(g(h())))`.
-func (c *RoleClient) Use(hooks ...Hook) {
-	c.hooks.Role = append(c.hooks.Role, hooks...)
-}
-
-// Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `role.Intercept(f(g(h())))`.
-func (c *RoleClient) Intercept(interceptors ...Interceptor) {
-	c.inters.Role = append(c.inters.Role, interceptors...)
-}
-
-// Create returns a builder for creating a Role entity.
-func (c *RoleClient) Create() *RoleCreate {
-	mutation := newRoleMutation(c.config, OpCreate)
-	return &RoleCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// CreateBulk returns a builder for creating a bulk of Role entities.
-func (c *RoleClient) CreateBulk(builders ...*RoleCreate) *RoleCreateBulk {
-	return &RoleCreateBulk{config: c.config, builders: builders}
-}
-
-// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
-// a builder and applies setFunc on it.
-func (c *RoleClient) MapCreateBulk(slice any, setFunc func(*RoleCreate, int)) *RoleCreateBulk {
-	rv := reflect.ValueOf(slice)
-	if rv.Kind() != reflect.Slice {
-		return &RoleCreateBulk{err: fmt.Errorf("calling to RoleClient.MapCreateBulk with wrong type %T, need slice", slice)}
-	}
-	builders := make([]*RoleCreate, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		builders[i] = c.Create()
-		setFunc(builders[i], i)
-	}
-	return &RoleCreateBulk{config: c.config, builders: builders}
-}
-
-// Update returns an update builder for Role.
-func (c *RoleClient) Update() *RoleUpdate {
-	mutation := newRoleMutation(c.config, OpUpdate)
-	return &RoleUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOne returns an update builder for the given entity.
-func (c *RoleClient) UpdateOne(_m *Role) *RoleUpdateOne {
-	mutation := newRoleMutation(c.config, OpUpdateOne, withRole(_m))
-	return &RoleUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOneID returns an update builder for the given id.
-func (c *RoleClient) UpdateOneID(id uuid.UUID) *RoleUpdateOne {
-	mutation := newRoleMutation(c.config, OpUpdateOne, withRoleID(id))
-	return &RoleUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// Delete returns a delete builder for Role.
-func (c *RoleClient) Delete() *RoleDelete {
-	mutation := newRoleMutation(c.config, OpDelete)
-	return &RoleDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// DeleteOne returns a builder for deleting the given entity.
-func (c *RoleClient) DeleteOne(_m *Role) *RoleDeleteOne {
-	return c.DeleteOneID(_m.ID)
-}
-
-// DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *RoleClient) DeleteOneID(id uuid.UUID) *RoleDeleteOne {
-	builder := c.Delete().Where(role.ID(id))
-	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
-	return &RoleDeleteOne{builder}
-}
-
-// Query returns a query builder for Role.
-func (c *RoleClient) Query() *RoleQuery {
-	return &RoleQuery{
-		config: c.config,
-		ctx:    &QueryContext{Type: TypeRole},
-		inters: c.Interceptors(),
-	}
-}
-
-// Get returns a Role entity by its id.
-func (c *RoleClient) Get(ctx context.Context, id uuid.UUID) (*Role, error) {
-	return c.Query().Where(role.ID(id)).Only(ctx)
-}
-
-// GetX is like Get, but panics if an error occurs.
-func (c *RoleClient) GetX(ctx context.Context, id uuid.UUID) *Role {
-	obj, err := c.Get(ctx, id)
-	if err != nil {
-		panic(err)
-	}
-	return obj
-}
-
-// QueryUsers queries the users edge of a Role.
-func (c *RoleClient) QueryUsers(_m *Role) *UserQuery {
-	query := (&UserClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(role.Table, role.FieldID, id),
-			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, true, role.UsersTable, role.UsersPrimaryKey...),
-		)
-		schemaConfig := _m.schemaConfig
-		step.To.Schema = schemaConfig.User
-		step.Edge.Schema = schemaConfig.UserRoles
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryGroups queries the groups edge of a Role.
-func (c *RoleClient) QueryGroups(_m *Role) *GroupQuery {
-	query := (&GroupClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(role.Table, role.FieldID, id),
-			sqlgraph.To(group.Table, group.FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, true, role.GroupsTable, role.GroupsPrimaryKey...),
-		)
-		schemaConfig := _m.schemaConfig
-		step.To.Schema = schemaConfig.Group
-		step.Edge.Schema = schemaConfig.GroupRoles
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryPolicies queries the policies edge of a Role.
-func (c *RoleClient) QueryPolicies(_m *Role) *AccessPolicyQuery {
-	query := (&AccessPolicyClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(role.Table, role.FieldID, id),
-			sqlgraph.To(accesspolicy.Table, accesspolicy.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, role.PoliciesTable, role.PoliciesColumn),
-		)
-		schemaConfig := _m.schemaConfig
-		step.To.Schema = schemaConfig.AccessPolicy
-		step.Edge.Schema = schemaConfig.AccessPolicy
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// Hooks returns the client hooks.
-func (c *RoleClient) Hooks() []Hook {
-	hooks := c.hooks.Role
-	return append(hooks[:len(hooks):len(hooks)], role.Hooks[:]...)
-}
-
-// Interceptors returns the client interceptors.
-func (c *RoleClient) Interceptors() []Interceptor {
-	inters := c.inters.Role
-	return append(inters[:len(inters):len(inters)], role.Interceptors[:]...)
-}
-
-func (c *RoleClient) mutate(ctx context.Context, m *RoleMutation) (Value, error) {
-	switch m.Op() {
-	case OpCreate:
-		return (&RoleCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdate:
-		return (&RoleUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdateOne:
-		return (&RoleUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpDelete, OpDeleteOne:
-		return (&RoleDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
-	default:
-		return nil, fmt.Errorf("gen: unknown Role mutation op: %q", m.Op())
-	}
-}
-
 // TenantClient is a client for the Tenant schema.
 type TenantClient struct {
 	config
@@ -2464,44 +1919,6 @@ func (c *UserClient) QueryTenant(_m *User) *TenantQuery {
 	return query
 }
 
-// QueryRoles queries the roles edge of a User.
-func (c *UserClient) QueryRoles(_m *User) *RoleQuery {
-	query := (&RoleClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(user.Table, user.FieldID, id),
-			sqlgraph.To(role.Table, role.FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, false, user.RolesTable, user.RolesPrimaryKey...),
-		)
-		schemaConfig := _m.schemaConfig
-		step.To.Schema = schemaConfig.Role
-		step.Edge.Schema = schemaConfig.UserRoles
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryGroups queries the groups edge of a User.
-func (c *UserClient) QueryGroups(_m *User) *GroupQuery {
-	query := (&GroupClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(user.Table, user.FieldID, id),
-			sqlgraph.To(group.Table, group.FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, true, user.GroupsTable, user.GroupsPrimaryKey...),
-		)
-		schemaConfig := _m.schemaConfig
-		step.To.Schema = schemaConfig.Group
-		step.Edge.Schema = schemaConfig.GroupUsers
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
 // QueryDeviceUsersUsers queries the deviceUsersUsers edge of a User.
 func (c *UserClient) QueryDeviceUsersUsers(_m *User) *DeviceUserQuery {
 	query := (&DeviceUserClient{config: c.config}).Query()
@@ -2551,36 +1968,29 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		AccessPolicy, DataType, Device, DeviceLocation, DeviceUser, EntityEventsOutbox,
-		Event, Group, IdempotencyKey, KeyValue, Location, Role, Tenant, User []ent.Hook
+		DataType, Device, DeviceLocation, DeviceUser, EntityEventsOutbox, Event,
+		IdempotencyKey, KeyValue, Location, Tenant, User []ent.Hook
 	}
 	inters struct {
-		AccessPolicy, DataType, Device, DeviceLocation, DeviceUser, EntityEventsOutbox,
-		Event, Group, IdempotencyKey, KeyValue, Location, Role, Tenant,
-		User []ent.Interceptor
+		DataType, Device, DeviceLocation, DeviceUser, EntityEventsOutbox, Event,
+		IdempotencyKey, KeyValue, Location, Tenant, User []ent.Interceptor
 	}
 )
 
 var (
 	// DefaultSchemaConfig represents the default schema names for all tables as defined in ent/schema.
 	DefaultSchemaConfig = SchemaConfig{
-		AccessPolicy:       tableSchemas[0],
 		DataType:           tableSchemas[0],
 		Device:             tableSchemas[0],
 		DeviceLocation:     tableSchemas[0],
 		DeviceUser:         tableSchemas[0],
 		EntityEventsOutbox: tableSchemas[0],
 		Event:              tableSchemas[0],
-		Group:              tableSchemas[0],
-		GroupUsers:         tableSchemas[0],
-		GroupRoles:         tableSchemas[0],
 		IdempotencyKey:     tableSchemas[0],
 		KeyValue:           tableSchemas[0],
 		Location:           tableSchemas[0],
-		Role:               tableSchemas[0],
 		Tenant:             tableSchemas[0],
 		User:               tableSchemas[0],
-		UserRoles:          tableSchemas[0],
 	}
 	tableSchemas = [...]string{"management"}
 )

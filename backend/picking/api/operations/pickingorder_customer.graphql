@@ -1,0 +1,19 @@
+# Exercises the federated PickingOrder.customer relation, which is contributed
+# and resolved by the main-data subgraph. apigen cannot auto-generate this:
+# `customer` is an entity edge (skipped) and lives on another subgraph, so the
+# selection is only valid against the composed supergraph. brunogen runs it
+# through the gateway. See main-data/graph/pickingorder.graphql.
+query GetPickingOrderWithCustomer($where: PickingOrderWhereInput) {
+  pickingOrders(where: $where) {
+    edges {
+      node {
+        id
+        customerID
+        customer {
+          id
+          data
+        }
+      }
+    }
+  }
+}

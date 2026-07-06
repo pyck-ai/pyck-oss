@@ -5,10 +5,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pyck-ai/pyck/backend/common/authn"
-	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 )
 
 // =============================================================================

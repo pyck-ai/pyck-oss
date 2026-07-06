@@ -8,19 +8,16 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/accesspolicy"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/datatype"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/device"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/devicelocation"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/deviceuser"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/entityeventsoutbox"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/event"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/group"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/idempotencykey"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/keyvalue"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/location"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/predicate"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/role"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/user"
 )
@@ -79,33 +76,6 @@ func (f TraverseFunc) Traverse(ctx context.Context, q gen.Query) error {
 		return err
 	}
 	return f(ctx, query)
-}
-
-// The AccessPolicyFunc type is an adapter to allow the use of ordinary function as a Querier.
-type AccessPolicyFunc func(context.Context, *gen.AccessPolicyQuery) (gen.Value, error)
-
-// Query calls f(ctx, q).
-func (f AccessPolicyFunc) Query(ctx context.Context, q gen.Query) (gen.Value, error) {
-	if q, ok := q.(*gen.AccessPolicyQuery); ok {
-		return f(ctx, q)
-	}
-	return nil, fmt.Errorf("unexpected query type %T. expect *gen.AccessPolicyQuery", q)
-}
-
-// The TraverseAccessPolicy type is an adapter to allow the use of ordinary function as Traverser.
-type TraverseAccessPolicy func(context.Context, *gen.AccessPolicyQuery) error
-
-// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
-func (f TraverseAccessPolicy) Intercept(next gen.Querier) gen.Querier {
-	return next
-}
-
-// Traverse calls f(ctx, q).
-func (f TraverseAccessPolicy) Traverse(ctx context.Context, q gen.Query) error {
-	if q, ok := q.(*gen.AccessPolicyQuery); ok {
-		return f(ctx, q)
-	}
-	return fmt.Errorf("unexpected query type %T. expect *gen.AccessPolicyQuery", q)
 }
 
 // The DataTypeFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -270,33 +240,6 @@ func (f TraverseEvent) Traverse(ctx context.Context, q gen.Query) error {
 	return fmt.Errorf("unexpected query type %T. expect *gen.EventQuery", q)
 }
 
-// The GroupFunc type is an adapter to allow the use of ordinary function as a Querier.
-type GroupFunc func(context.Context, *gen.GroupQuery) (gen.Value, error)
-
-// Query calls f(ctx, q).
-func (f GroupFunc) Query(ctx context.Context, q gen.Query) (gen.Value, error) {
-	if q, ok := q.(*gen.GroupQuery); ok {
-		return f(ctx, q)
-	}
-	return nil, fmt.Errorf("unexpected query type %T. expect *gen.GroupQuery", q)
-}
-
-// The TraverseGroup type is an adapter to allow the use of ordinary function as Traverser.
-type TraverseGroup func(context.Context, *gen.GroupQuery) error
-
-// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
-func (f TraverseGroup) Intercept(next gen.Querier) gen.Querier {
-	return next
-}
-
-// Traverse calls f(ctx, q).
-func (f TraverseGroup) Traverse(ctx context.Context, q gen.Query) error {
-	if q, ok := q.(*gen.GroupQuery); ok {
-		return f(ctx, q)
-	}
-	return fmt.Errorf("unexpected query type %T. expect *gen.GroupQuery", q)
-}
-
 // The IdempotencyKeyFunc type is an adapter to allow the use of ordinary function as a Querier.
 type IdempotencyKeyFunc func(context.Context, *gen.IdempotencyKeyQuery) (gen.Value, error)
 
@@ -378,33 +321,6 @@ func (f TraverseLocation) Traverse(ctx context.Context, q gen.Query) error {
 	return fmt.Errorf("unexpected query type %T. expect *gen.LocationQuery", q)
 }
 
-// The RoleFunc type is an adapter to allow the use of ordinary function as a Querier.
-type RoleFunc func(context.Context, *gen.RoleQuery) (gen.Value, error)
-
-// Query calls f(ctx, q).
-func (f RoleFunc) Query(ctx context.Context, q gen.Query) (gen.Value, error) {
-	if q, ok := q.(*gen.RoleQuery); ok {
-		return f(ctx, q)
-	}
-	return nil, fmt.Errorf("unexpected query type %T. expect *gen.RoleQuery", q)
-}
-
-// The TraverseRole type is an adapter to allow the use of ordinary function as Traverser.
-type TraverseRole func(context.Context, *gen.RoleQuery) error
-
-// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
-func (f TraverseRole) Intercept(next gen.Querier) gen.Querier {
-	return next
-}
-
-// Traverse calls f(ctx, q).
-func (f TraverseRole) Traverse(ctx context.Context, q gen.Query) error {
-	if q, ok := q.(*gen.RoleQuery); ok {
-		return f(ctx, q)
-	}
-	return fmt.Errorf("unexpected query type %T. expect *gen.RoleQuery", q)
-}
-
 // The TenantFunc type is an adapter to allow the use of ordinary function as a Querier.
 type TenantFunc func(context.Context, *gen.TenantQuery) (gen.Value, error)
 
@@ -462,8 +378,6 @@ func (f TraverseUser) Traverse(ctx context.Context, q gen.Query) error {
 // NewQuery returns the generic Query interface for the given typed query.
 func NewQuery(q gen.Query) (Query, error) {
 	switch q := q.(type) {
-	case *gen.AccessPolicyQuery:
-		return &query[*gen.AccessPolicyQuery, predicate.AccessPolicy, accesspolicy.OrderOption]{typ: gen.TypeAccessPolicy, tq: q}, nil
 	case *gen.DataTypeQuery:
 		return &query[*gen.DataTypeQuery, predicate.DataType, datatype.OrderOption]{typ: gen.TypeDataType, tq: q}, nil
 	case *gen.DeviceQuery:
@@ -476,16 +390,12 @@ func NewQuery(q gen.Query) (Query, error) {
 		return &query[*gen.EntityEventsOutboxQuery, predicate.EntityEventsOutbox, entityeventsoutbox.OrderOption]{typ: gen.TypeEntityEventsOutbox, tq: q}, nil
 	case *gen.EventQuery:
 		return &query[*gen.EventQuery, predicate.Event, event.OrderOption]{typ: gen.TypeEvent, tq: q}, nil
-	case *gen.GroupQuery:
-		return &query[*gen.GroupQuery, predicate.Group, group.OrderOption]{typ: gen.TypeGroup, tq: q}, nil
 	case *gen.IdempotencyKeyQuery:
 		return &query[*gen.IdempotencyKeyQuery, predicate.IdempotencyKey, idempotencykey.OrderOption]{typ: gen.TypeIdempotencyKey, tq: q}, nil
 	case *gen.KeyValueQuery:
 		return &query[*gen.KeyValueQuery, predicate.KeyValue, keyvalue.OrderOption]{typ: gen.TypeKeyValue, tq: q}, nil
 	case *gen.LocationQuery:
 		return &query[*gen.LocationQuery, predicate.Location, location.OrderOption]{typ: gen.TypeLocation, tq: q}, nil
-	case *gen.RoleQuery:
-		return &query[*gen.RoleQuery, predicate.Role, role.OrderOption]{typ: gen.TypeRole, tq: q}, nil
 	case *gen.TenantQuery:
 		return &query[*gen.TenantQuery, predicate.Tenant, tenant.OrderOption]{typ: gen.TypeTenant, tq: q}, nil
 	case *gen.UserQuery:

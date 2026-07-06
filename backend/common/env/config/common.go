@@ -64,6 +64,10 @@ type ZitadelConfig struct {
 	ZitadelTlsInsecure        bool          `env:"PYCK_ZITADEL_TLS_INSECURE,notEmpty" envDefault:"false"`
 	ZitadelPATCacheTTL        time.Duration `env:"PYCK_ZITADEL_PAT_CACHE_TTL,notEmpty" envDefault:"1h"`
 	ZitadelPATCacheTTLOverlap time.Duration `env:"PYCK_ZITADEL_PAT_CACHE_TTL_OVERLAP,notEmpty" envDefault:"1m"`
+
+	// ZitadelOrganizationCacheTTL bounds how long a positive org-active verdict
+	// is reused before the validator is consulted again.
+	ZitadelOrganizationCacheTTL time.Duration `env:"PYCK_ZITADEL_ORGANIZATION_CACHE_TTL,notEmpty" envDefault:"1m"`
 }
 
 type NatsConfig struct {

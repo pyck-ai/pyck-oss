@@ -46,6 +46,8 @@ func DefaultClient(ctx context.Context, interceptors ...clientv2.RequestIntercep
 type Client interface {
 	GetWorkflows(ctx context.Context, input GetWorkflowsArgs) (*GetWorkflows, error)
 	GetWorkflowSignals(ctx context.Context, input GetWorkflowSignalsArgs) (*GetWorkflowSignals, error)
+	GetRemoteUI(ctx context.Context, input GetRemoteUIArgs) (*GetRemoteUI, error)
+	GetWorkerDeploymentUIBundles(ctx context.Context, input GetWorkerDeploymentUIBundlesArgs) (*GetWorkerDeploymentUIBundles, error)
 	GetWorkflowServiceInfo(ctx context.Context) (*GetWorkflowServiceInfo, error)
 	GetCurrentUserDataInput(ctx context.Context, input GetCurrentUserDataInputArgs) (*GetCurrentUserDataInput, error)
 	GetWorkflowExecutions(ctx context.Context, input GetWorkflowExecutionsArgs) (*GetWorkflowExecutions, error)
@@ -104,6 +106,25 @@ type GetWorkflowSignalsArgs struct {
 
 func (c *client) GetWorkflowSignals(ctx context.Context, input GetWorkflowSignalsArgs) (*GetWorkflowSignals, error) {
 	return c.api.GetWorkflowSignals(ctx, input.After, input.First, input.Before, input.Last, input.OrderBy, input.Where)
+}
+
+// GetRemoteUIArgs is a sparse struct for GetRemoteUI parameters
+type GetRemoteUIArgs struct {
+	Input model.RemoteUIQueryInput
+}
+
+func (c *client) GetRemoteUI(ctx context.Context, input GetRemoteUIArgs) (*GetRemoteUI, error) {
+	return c.api.GetRemoteUI(ctx, input.Input)
+}
+
+// GetWorkerDeploymentUIBundlesArgs is a sparse struct for GetWorkerDeploymentUIBundles parameters
+type GetWorkerDeploymentUIBundlesArgs struct {
+	First *int
+	After *string
+}
+
+func (c *client) GetWorkerDeploymentUIBundles(ctx context.Context, input GetWorkerDeploymentUIBundlesArgs) (*GetWorkerDeploymentUIBundles, error) {
+	return c.api.GetWorkerDeploymentUIBundles(ctx, input.First, input.After)
 }
 
 func (c *client) GetWorkflowServiceInfo(ctx context.Context) (*GetWorkflowServiceInfo, error) {

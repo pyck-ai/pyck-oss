@@ -9,18 +9,6 @@ import (
 	"github.com/pyck-ai/pyck/backend/management/ent/gen"
 )
 
-// The AccessPolicyFunc type is an adapter to allow the use of ordinary
-// function as AccessPolicy mutator.
-type AccessPolicyFunc func(context.Context, *gen.AccessPolicyMutation) (gen.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f AccessPolicyFunc) Mutate(ctx context.Context, m gen.Mutation) (gen.Value, error) {
-	if mv, ok := m.(*gen.AccessPolicyMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *gen.AccessPolicyMutation", m)
-}
-
 // The DataTypeFunc type is an adapter to allow the use of ordinary
 // function as DataType mutator.
 type DataTypeFunc func(context.Context, *gen.DataTypeMutation) (gen.Value, error)
@@ -93,18 +81,6 @@ func (f EventFunc) Mutate(ctx context.Context, m gen.Mutation) (gen.Value, error
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *gen.EventMutation", m)
 }
 
-// The GroupFunc type is an adapter to allow the use of ordinary
-// function as Group mutator.
-type GroupFunc func(context.Context, *gen.GroupMutation) (gen.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f GroupFunc) Mutate(ctx context.Context, m gen.Mutation) (gen.Value, error) {
-	if mv, ok := m.(*gen.GroupMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *gen.GroupMutation", m)
-}
-
 // The IdempotencyKeyFunc type is an adapter to allow the use of ordinary
 // function as IdempotencyKey mutator.
 type IdempotencyKeyFunc func(context.Context, *gen.IdempotencyKeyMutation) (gen.Value, error)
@@ -139,18 +115,6 @@ func (f LocationFunc) Mutate(ctx context.Context, m gen.Mutation) (gen.Value, er
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *gen.LocationMutation", m)
-}
-
-// The RoleFunc type is an adapter to allow the use of ordinary
-// function as Role mutator.
-type RoleFunc func(context.Context, *gen.RoleMutation) (gen.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f RoleFunc) Mutate(ctx context.Context, m gen.Mutation) (gen.Value, error) {
-	if mv, ok := m.(*gen.RoleMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *gen.RoleMutation", m)
 }
 
 // The TenantFunc type is an adapter to allow the use of ordinary

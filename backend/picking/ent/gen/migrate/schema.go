@@ -77,15 +77,15 @@ var (
 	// IdempotencyKeysColumns holds the columns for the "idempotency_keys" table.
 	IdempotencyKeysColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
-		{Name: "key", Type: field.TypeString, Size: 255},
+		{Name: "key", Type: field.TypeString, Size: 255, SchemaType: map[string]string{"postgres": "varchar(255)"}},
 		{Name: "tenant_id", Type: field.TypeUUID},
 		{Name: "user_id", Type: field.TypeUUID},
 		{Name: "operation_name", Type: field.TypeString},
 		{Name: "operation_checksum", Type: field.TypeBytes, Size: 32},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"in_flight", "committed"}, Default: "in_flight"},
 		{Name: "response", Type: field.TypeBytes, Nullable: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "created_at", Type: field.TypeTime, Default: schema.Expr("now()")},
+		{Name: "updated_at", Type: field.TypeTime, Default: schema.Expr("now()")},
 	}
 	// IdempotencyKeysTable holds the schema information for the "idempotency_keys" table.
 	IdempotencyKeysTable = &schema.Table{
@@ -94,12 +94,12 @@ var (
 		PrimaryKey: []*schema.Column{IdempotencyKeysColumns[0]},
 		Indexes: []*schema.Index{
 			{
-				Name:    "idempotencykey_tenant_id_user_id_key",
+				Name:    "idempotency_keys_tenant_user_key",
 				Unique:  true,
 				Columns: []*schema.Column{IdempotencyKeysColumns[2], IdempotencyKeysColumns[3], IdempotencyKeysColumns[1]},
 			},
 			{
-				Name:    "idempotencykey_created_at",
+				Name:    "idempotency_keys_committed_created",
 				Unique:  false,
 				Columns: []*schema.Column{IdempotencyKeysColumns[8]},
 				Annotation: &entsql.IndexAnnotation{
@@ -217,6 +217,10 @@ func init() {
 	}
 	IdempotencyKeysTable.Annotation = &entsql.Annotation{
 		Table: "idempotency_keys",
+	}
+	IdempotencyKeysTable.Annotation.Checks = map[string]string{
+		"idempotency_keys_checksum_len_check": "octet_length(operation_checksum) = 32",
+		"idempotency_keys_status_check":       "status IN ('in_flight', 'committed')",
 	}
 	OrdersTable.Annotation = &entsql.Annotation{
 		Table: "orders",

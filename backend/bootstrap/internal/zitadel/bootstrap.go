@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -258,7 +259,17 @@ func (s *Seeder) seedHumanUsers(ctx context.Context, adminConn, orgConn *zitadel
 			}
 		}
 
-		// Ensure user grants for project roles
+		// Ensure user grants for project roles. Aggregate every role key
+		// targeting the same project into a single ensureUserGrant call —
+		// calling it per role key races against Zitadel's eventual-consistency
+		// projection (see seedMachineUsers for the full explanation).
+		type humanGrantGroup struct {
+			conn      *zitadel.Connection
+			projectID string
+			roleKeys  []string
+		}
+		humanGrants := make(map[string]*humanGrantGroup)
+		humanGrantOrder := make([]string, 0)
 		for _, grant := range userSeed.UserGrants {
 			targetOrgName := grant.OrganizationName
 			if targetOrgName == "" {
@@ -282,8 +293,18 @@ func (s *Seeder) seedHumanUsers(ctx context.Context, adminConn, orgConn *zitadel
 				grantConn = orgConn
 			}
 
-			if err := s.ensureUserGrant(ctx, grantConn, projectInfo.projectID, orgID, userID, []string{grant.RoleKey}); err != nil {
-				return fmt.Errorf("failed to grant role %s to user %s: %w", grant.RoleKey, userSeed.Email, err)
+			g, ok := humanGrants[projectInfo.projectID]
+			if !ok {
+				g = &humanGrantGroup{conn: grantConn, projectID: projectInfo.projectID}
+				humanGrants[projectInfo.projectID] = g
+				humanGrantOrder = append(humanGrantOrder, projectInfo.projectID)
+			}
+			g.roleKeys = append(g.roleKeys, grant.RoleKey)
+		}
+		for _, projectID := range humanGrantOrder {
+			g := humanGrants[projectID]
+			if err := s.ensureUserGrant(ctx, g.conn, g.projectID, orgID, userID, g.roleKeys); err != nil {
+				return fmt.Errorf("failed to grant roles %v to user %s: %w", g.roleKeys, userSeed.Email, err)
 			}
 		}
 	}
@@ -527,7 +548,14 @@ func (s *Seeder) seedMachineUsers(ctx context.Context, adminConn, orgConn *zitad
 			}
 		}
 
-		// ensure user grants
+		// Ensure user grants. Aggregate every role key targeting the same
+		// project into a single ensureUserGrant call. Calling it once per role
+		// key races against Zitadel's eventual-consistency projection: each
+		// call's List can miss the prior call's Update, and since
+		// UpdateAuthorization replaces the whole role set, the later call
+		// overwrites with a stale union — only a subset of the roles survives.
+		machineGrants := make(map[string][]string)
+		machineGrantOrder := make([]string, 0)
 		for _, grants := range machSeed.UserGrants {
 			// Use the organization name from the grant if specified, otherwise use current org
 			targetOrgName := grants.OrganizationName
@@ -550,9 +578,16 @@ func (s *Seeder) seedMachineUsers(ctx context.Context, adminConn, orgConn *zitad
 				}
 			}
 
+			if _, seen := machineGrants[projectInfo.projectID]; !seen {
+				machineGrantOrder = append(machineGrantOrder, projectInfo.projectID)
+			}
+			machineGrants[projectInfo.projectID] = append(machineGrants[projectInfo.projectID], grants.RoleKey)
+		}
+		for _, projectID := range machineGrantOrder {
+			roleKeys := machineGrants[projectID]
 			// Always use the current org's connection (where the user exists)
-			if err := s.ensureUserGrant(ctx, orgConn, projectInfo.projectID, orgID, machineUserID, []string{grants.RoleKey}); err != nil {
-				return fmt.Errorf("failed to grant role %s to machine user %s (base: %s): %w", grants.RoleKey, username, machSeed.Username, err)
+			if err := s.ensureUserGrant(ctx, orgConn, projectID, orgID, machineUserID, roleKeys); err != nil {
+				return fmt.Errorf("failed to grant roles %v to machine user %s (base: %s): %w", roleKeys, username, machSeed.Username, err)
 			}
 		}
 
@@ -1160,28 +1195,71 @@ func (s *Seeder) ensureUserGrant(ctx context.Context, conn *zitadel.Connection, 
 					},
 				},
 			},
+			{
+				// Scope to the granted org so a cross-tenant user (authorized
+				// in multiple orgs for this project) yields exactly their
+				// authorization in THIS org, not an arbitrary one.
+				Filter: &authz_pb.AuthorizationsSearchFilter_OrganizationId{
+					OrganizationId: &filter_pb.IDFilter{
+						Id: orgID,
+					},
+				},
+			},
 		},
 	})
 	if err != nil {
 		return fmt.Errorf("listing authorizations for user %q: %w", userID, err)
 	}
 
-	if len(listResp.GetAuthorizations()) > 0 {
-		logger.Debug().Str("user-id", userID).Str("project-id", projectID).Msg("User grant already exists")
+	auths := listResp.GetAuthorizations()
+
+	// No authorization yet: create one with the requested roles.
+	if len(auths) == 0 {
+		if _, err = authzClient.CreateAuthorization(ctx, &authz_pb.CreateAuthorizationRequest{
+			UserId:         userID,
+			ProjectId:      projectID,
+			OrganizationId: orgID,
+			RoleKeys:       roleKeys,
+		}); err != nil {
+			return fmt.Errorf("creating authorization for user %q on project %q: %w", userID, projectID, err)
+		}
+		logger.Debug().Str("user-id", userID).Str("project-id", projectID).Msg("Created user authorization")
 		return nil
 	}
 
-	// Create authorization via v2 Authorization API
-	_, err = authzClient.CreateAuthorization(ctx, &authz_pb.CreateAuthorizationRequest{
-		UserId:         userID,
-		ProjectId:      projectID,
-		OrganizationId: orgID,
-		RoleKeys:       roleKeys,
-	})
-	if err != nil {
-		return fmt.Errorf("creating authorization for user %q on project %q: %w", userID, projectID, err)
+	// Authorization already exists: union the requested roles into the existing
+	// set so multiple grant entries for the same project accumulate instead of
+	// the first one winning. Idempotent — a no-op when all roles are held.
+	authz := auths[0]
+	have := make(map[string]struct{})
+	for _, role := range authz.GetRoles() {
+		have[role.GetKey()] = struct{}{}
 	}
-	logger.Debug().Str("user-id", userID).Str("project-id", projectID).Msg("Created user authorization")
+	missing := false
+	for _, k := range roleKeys {
+		if _, ok := have[k]; !ok {
+			have[k] = struct{}{}
+			missing = true
+		}
+	}
+	if !missing {
+		logger.Debug().Str("user-id", userID).Str("project-id", projectID).Msg("User grant already up to date")
+		return nil
+	}
+
+	keys := make([]string, 0, len(have))
+	for k := range have {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	if _, err = authzClient.UpdateAuthorization(ctx, &authz_pb.UpdateAuthorizationRequest{
+		Id:       authz.GetId(),
+		RoleKeys: keys,
+	}); err != nil {
+		return fmt.Errorf("updating authorization for user %q on project %q: %w", userID, projectID, err)
+	}
+	logger.Debug().Str("user-id", userID).Str("project-id", projectID).Msg("Updated user authorization roles")
 	return nil
 }
 
@@ -1212,20 +1290,54 @@ func (s *Seeder) ensureProjectGrant(ctx context.Context, conn *zitadel.Connectio
 		return fmt.Errorf("listing project grants for %q: %w", projectID, err)
 	}
 
-	if len(listResp.GetProjectGrants()) > 0 {
-		logger.Debug().Str("org-id", grantingOrgID).Str("project-id", projectID).Msg("Project grant already exists")
+	grants := listResp.GetProjectGrants()
+
+	// No grant yet: create one with the requested roles.
+	if len(grants) == 0 {
+		if _, err = projClient.CreateProjectGrant(ctx, &proj_pb.CreateProjectGrantRequest{
+			ProjectId:             projectID,
+			GrantedOrganizationId: grantingOrgID,
+			RoleKeys:              roleKeys,
+		}); err != nil {
+			return fmt.Errorf("creating project grant for org %q on project %q: %w", grantingOrgID, projectID, err)
+		}
+		logger.Debug().Str("org-id", grantingOrgID).Str("project-id", projectID).Msg("Created project grant")
 		return nil
 	}
 
-	_, err = projClient.CreateProjectGrant(ctx, &proj_pb.CreateProjectGrantRequest{
+	// Grant exists: union the requested roles into its granted role set so roles
+	// added to the seed config land on re-bootstrap. Idempotent — a no-op when
+	// all requested roles are already granted.
+	have := make(map[string]struct{})
+	for _, k := range grants[0].GetGrantedRoleKeys() {
+		have[k] = struct{}{}
+	}
+	missing := false
+	for _, k := range roleKeys {
+		if _, ok := have[k]; !ok {
+			have[k] = struct{}{}
+			missing = true
+		}
+	}
+	if !missing {
+		logger.Debug().Str("org-id", grantingOrgID).Str("project-id", projectID).Msg("Project grant already up to date")
+		return nil
+	}
+
+	keys := make([]string, 0, len(have))
+	for k := range have {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	if _, err = projClient.UpdateProjectGrant(ctx, &proj_pb.UpdateProjectGrantRequest{
 		ProjectId:             projectID,
 		GrantedOrganizationId: grantingOrgID,
-		RoleKeys:              roleKeys,
-	})
-	if err != nil {
-		return fmt.Errorf("creating project grant for org %q on project %q: %w", grantingOrgID, projectID, err)
+		RoleKeys:              keys,
+	}); err != nil {
+		return fmt.Errorf("updating project grant for org %q on project %q: %w", grantingOrgID, projectID, err)
 	}
-	logger.Debug().Str("org-id", grantingOrgID).Str("project-id", projectID).Msg("Created project grant")
+	logger.Debug().Str("org-id", grantingOrgID).Str("project-id", projectID).Msg("Updated project grant roles")
 	return nil
 }
 

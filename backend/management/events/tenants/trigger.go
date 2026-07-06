@@ -21,18 +21,12 @@ import (
 	temporalclient "go.temporal.io/sdk/client"
 
 	"github.com/pyck-ai/pyck/backend/common/events"
+	"github.com/pyck-ai/pyck/backend/common/events/topic"
 	"github.com/pyck-ai/pyck/backend/common/log"
 
 	"github.com/pyck-ai/pyck/backend/management/workflows"
 	disabletenant "github.com/pyck-ai/pyck/backend/management/workflows/disable-tenant"
 	restoretenant "github.com/pyck-ai/pyck/backend/management/workflows/restore-tenant"
-)
-
-// Constants for the subject builder and inbound-event guard. Kept
-// together so the subscribe-side and accept-side spellings can't drift.
-const (
-	managementService = "management"
-	tenantSchema      = "tenant"
 )
 
 // SubscribeTrigger creates a JetStream consumer for tenant CRUD update
@@ -56,14 +50,14 @@ func SubscribeTrigger(
 	subjects := []string{
 		events.MutationEventTopic{
 			StreamName:    streamName,
-			ServiceName:   managementService,
-			SchemaName:    tenantSchema,
+			ServiceName:   topic.ManagementService,
+			SchemaName:    topic.TenantSchema,
 			OperationName: events.OpUpdate,
 		}.String(),
 		events.MutationEventTopic{
 			StreamName:    streamName,
-			ServiceName:   managementService,
-			SchemaName:    tenantSchema,
+			ServiceName:   topic.ManagementService,
+			SchemaName:    topic.TenantSchema,
 			OperationName: events.OpDelete,
 		}.String(),
 	}
@@ -123,7 +117,7 @@ func handleTriggerMessage(
 	// Sanity-check the event matches what we expect to handle.
 	// The outbox hook emits "deleted" for disable (soft delete) and
 	// "updated" for restore (clearing deleted_at).
-	if event.Service != managementService || !strings.EqualFold(event.Schema, tenantSchema) {
+	if event.Service != topic.ManagementService || !strings.EqualFold(event.Schema, topic.TenantSchema) {
 		_ = msg.Ack()
 		return
 	}
@@ -167,8 +161,8 @@ func handleTriggerMessage(
 	//
 	// Ent serializes Go's zero time as "0001-01-01T00:00:00Z" (not null),
 	// so we must treat both nil and the zero-time string as "not deleted".
-	deletedBefore := isDeletedAt(dataBefore["deleted_at"])
-	deletedAfter := isDeletedAt(dataAfter["deleted_at"])
+	deletedBefore := topic.IsDeletedAt(dataBefore["deleted_at"])
+	deletedAfter := topic.IsDeletedAt(dataAfter["deleted_at"])
 
 	// when the field is unchanged, we skip the workflows
 	if deletedBefore == deletedAfter {

@@ -1,0 +1,66 @@
+extend type Query {
+  """
+  List the per-service roles that can be assigned to users (the fixed,
+  seeded set). For populating an admin UI.
+  """
+  serviceRoles: [ServiceRole!]!
+
+  """
+  List the per-service roles currently assigned to a user within a tenant,
+  read directly from Zitadel. Tenant-admin only.
+  """
+  userServiceRoles(input: UserServiceRolesInput!): [String!]!
+}
+
+extend type Mutation {
+  """
+  Assign one or more per-service roles to an existing user within a tenant.
+  Additive: roles the user already holds are preserved. Only per-service
+  role keys are accepted; ladder roles (reader/writer/admin) are rejected.
+  Tenant-admin only.
+  """
+  assignRoles(input: AssignRolesInput!): AssignRolesResponse!
+
+  """
+  Remove one or more per-service roles from an existing user within a tenant.
+  Idempotent: removing a role the user does not hold is a no-op. The user's
+  ladder roles (reader/writer/admin) and any other service roles are preserved.
+  Only per-service role keys are accepted; ladder roles are rejected. Tenant-
+  admin only.
+  """
+  removeRoles(input: RemoveRolesInput!): RemoveRolesResponse!
+}
+
+"""An assignable per-service gate role."""
+type ServiceRole {
+  key: String!
+}
+
+input UserServiceRolesInput {
+  tenantId: UUID!
+  userId: UUID!
+}
+
+input AssignRolesInput {
+  tenantId: UUID!
+  userId: UUID!
+  roles: [String!]!
+}
+
+type AssignRolesResponse {
+  userId: UUID!
+  """All per-service roles the user holds after the assignment."""
+  roles: [String!]!
+}
+
+input RemoveRolesInput {
+  tenantId: UUID!
+  userId: UUID!
+  roles: [String!]!
+}
+
+type RemoveRolesResponse {
+  userId: UUID!
+  """All per-service roles the user holds after the removal."""
+  roles: [String!]!
+}

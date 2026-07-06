@@ -47,15 +47,12 @@ skip_mod_tidy: false
 autobind:
   - github.com/99designs/gqlgen/graphql/introspection
   - github.com/pyck-ai/pyck/backend/management/ent/gen
-  - github.com/pyck-ai/pyck/backend/management/ent/gen/accesspolicy
   - github.com/pyck-ai/pyck/backend/management/ent/gen/datatype
   - github.com/pyck-ai/pyck/backend/management/ent/gen/device
   - github.com/pyck-ai/pyck/backend/management/ent/gen/devicelocation
   - github.com/pyck-ai/pyck/backend/management/ent/gen/deviceuser
   - github.com/pyck-ai/pyck/backend/management/ent/gen/event
-  - github.com/pyck-ai/pyck/backend/management/ent/gen/group
   - github.com/pyck-ai/pyck/backend/management/ent/gen/keyvalue
-  - github.com/pyck-ai/pyck/backend/management/ent/gen/role
   - github.com/pyck-ai/pyck/backend/management/ent/gen/tenant
   - github.com/pyck-ai/pyck/backend/management/ent/gen/user
 

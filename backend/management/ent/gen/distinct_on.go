@@ -7,25 +7,6 @@ import (
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/predicate"
 )
 
-// DistinctOnExists filters AccessPolicy records to include only the latest per group
-// of groupFields, ordered by orderField. Filters are propagated to the NOT EXISTS subquery.
-func (_q *AccessPolicyQuery) DistinctOnExists(groupFields []string, orderField string, filters ...predicate.AccessPolicy) *AccessPolicyQuery {
-	_q.Where(func(s *sql.Selector) {
-		t := sql.Table("policies").As("s2")
-		conditions := make([]*sql.Predicate, 0, len(groupFields)+1)
-		for _, f := range groupFields {
-			conditions = append(conditions, sql.ColumnsEQ(t.C(f), s.C(f)))
-		}
-		conditions = append(conditions, sql.ColumnsGT(t.C(orderField), s.C(orderField)))
-		sub := sql.SelectExpr(sql.Expr("1")).From(t).Where(sql.And(conditions...))
-		for _, pf := range filters {
-			pf(sub)
-		}
-		s.Where(sql.Not(sql.Exists(sub)))
-	})
-	return _q
-}
-
 // DistinctOnExists filters DataType records to include only the latest per group
 // of groupFields, ordered by orderField. Filters are propagated to the NOT EXISTS subquery.
 func (_q *DataTypeQuery) DistinctOnExists(groupFields []string, orderField string, filters ...predicate.DataType) *DataTypeQuery {
@@ -140,25 +121,6 @@ func (_q *EventQuery) DistinctOnExists(groupFields []string, orderField string, 
 	return _q
 }
 
-// DistinctOnExists filters Group records to include only the latest per group
-// of groupFields, ordered by orderField. Filters are propagated to the NOT EXISTS subquery.
-func (_q *GroupQuery) DistinctOnExists(groupFields []string, orderField string, filters ...predicate.Group) *GroupQuery {
-	_q.Where(func(s *sql.Selector) {
-		t := sql.Table("groups").As("s2")
-		conditions := make([]*sql.Predicate, 0, len(groupFields)+1)
-		for _, f := range groupFields {
-			conditions = append(conditions, sql.ColumnsEQ(t.C(f), s.C(f)))
-		}
-		conditions = append(conditions, sql.ColumnsGT(t.C(orderField), s.C(orderField)))
-		sub := sql.SelectExpr(sql.Expr("1")).From(t).Where(sql.And(conditions...))
-		for _, pf := range filters {
-			pf(sub)
-		}
-		s.Where(sql.Not(sql.Exists(sub)))
-	})
-	return _q
-}
-
 // DistinctOnExists filters IdempotencyKey records to include only the latest per group
 // of groupFields, ordered by orderField. Filters are propagated to the NOT EXISTS subquery.
 func (_q *IdempotencyKeyQuery) DistinctOnExists(groupFields []string, orderField string, filters ...predicate.IdempotencyKey) *IdempotencyKeyQuery {
@@ -202,25 +164,6 @@ func (_q *KeyValueQuery) DistinctOnExists(groupFields []string, orderField strin
 func (_q *LocationQuery) DistinctOnExists(groupFields []string, orderField string, filters ...predicate.Location) *LocationQuery {
 	_q.Where(func(s *sql.Selector) {
 		t := sql.Table("locations").As("s2")
-		conditions := make([]*sql.Predicate, 0, len(groupFields)+1)
-		for _, f := range groupFields {
-			conditions = append(conditions, sql.ColumnsEQ(t.C(f), s.C(f)))
-		}
-		conditions = append(conditions, sql.ColumnsGT(t.C(orderField), s.C(orderField)))
-		sub := sql.SelectExpr(sql.Expr("1")).From(t).Where(sql.And(conditions...))
-		for _, pf := range filters {
-			pf(sub)
-		}
-		s.Where(sql.Not(sql.Exists(sub)))
-	})
-	return _q
-}
-
-// DistinctOnExists filters Role records to include only the latest per group
-// of groupFields, ordered by orderField. Filters are propagated to the NOT EXISTS subquery.
-func (_q *RoleQuery) DistinctOnExists(groupFields []string, orderField string, filters ...predicate.Role) *RoleQuery {
-	_q.Where(func(s *sql.Selector) {
-		t := sql.Table("roles").As("s2")
 		conditions := make([]*sql.Predicate, 0, len(groupFields)+1)
 		for _, f := range groupFields {
 			conditions = append(conditions, sql.ColumnsEQ(t.C(f), s.C(f)))

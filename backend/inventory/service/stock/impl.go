@@ -1953,13 +1953,15 @@ func (s *service) loadLatestStockPerRepo(ctx context.Context, tx *ent.Tx, tenant
 
 	// Inline a NOT EXISTS subquery (same shape DistinctOnExists generates)
 	// rather than calling that helper: DistinctOnExists is removed in a
-	// later step, so we keep the shape decoupled from it.
+	// later step, so we keep the shape decoupled from it. "Current" is the
+	// highest version, not the latest created_at (which is not a total order
+	// across workers), matching create_item_movement_proc's ORDER BY version.
 	latestPredicate := entpredicate.Stock(func(sel *sql.Selector) {
 		t := sql.Table(entstock.Table).As("s2")
 		sub := sql.SelectExpr(sql.Expr("1")).From(t).Where(sql.And(
 			sql.ColumnsEQ(t.C(entstock.RepositoryColumn), sel.C(entstock.RepositoryColumn)),
 			sql.ColumnsEQ(t.C(entstock.ItemColumn), sel.C(entstock.ItemColumn)),
-			sql.ColumnsGT(t.C(entstock.FieldCreatedAt), sel.C(entstock.FieldCreatedAt)),
+			sql.ColumnsGT(t.C(entstock.FieldVersion), sel.C(entstock.FieldVersion)),
 		))
 		sel.Where(sql.Not(sql.Exists(sub)))
 	})

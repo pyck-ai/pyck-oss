@@ -311,36 +311,6 @@ func main() {
 		return
 	}
 
-	// Set up event registry
-	eventRegistryService, err := service.NewEventRegistryService(dbClient)
-	if err != nil {
-		log.ForContext(ctx).Error().
-			Err(err).
-			Msg("failed setting up event registry service")
-		return
-	}
-
-	err = eventRegistryService.PreloadEventsCache(ctx)
-	if err != nil {
-		log.ForContext(ctx).Error().
-			Err(err).
-			Msg("failed preloading events cache")
-		return
-	}
-
-	cons, err := jetstreamClient.CreateOrUpdateConsumer(context.Background(), core.Config.NatsStreamName, jetstream.ConsumerConfig{
-		Name:    fmt.Sprintf("%s-event-registry", serviceName),
-		Durable: fmt.Sprintf("%s-event-registry", serviceName),
-	})
-	if err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed setting up JetStream consumer")
-		return
-	}
-
-	go eventRegistryService.ListenToEvents(ctx, cons)
-
 	// Set up GraphQL resolver
 	// authorizer := authz.NewManagementAuthorizer(client)
 	dataTypeValidator := validator.NewValidator(service.NewDatabaseDataTypeProvider(dbClient))

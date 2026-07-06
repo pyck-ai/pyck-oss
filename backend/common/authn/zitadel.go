@@ -18,21 +18,34 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/pyck-ai/pyck/backend/common/env/config"
 	httputil "github.com/pyck-ai/pyck/backend/common/http"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	"github.com/pyck-ai/pyck/backend/common/memkv"
+	"github.com/pyck-ai/pyck/backend/common/serviceroles"
 	"github.com/pyck-ai/pyck/backend/common/services/zitadel"
 )
+
+// DefaultOrganizationCacheTTL is the fallback TTL for the org-active verdict
+// cache when config.ZitadelOrganizationCacheTTL is unset (zero). It is kept
+// short on purpose: the verdict cache trades a small, bounded staleness
+// window for removing a synchronous Zitadel/management round-trip from
+// every authenticated request. The NATS OnTenantDisabled fast-path evicts
+// entries the instant a tenant is disabled, so this TTL only bounds the
+// worst case where that event is missed.
+const DefaultOrganizationCacheTTL = time.Minute
 
 // ZitadelAuthProvider implements authentication using Zitadel as the identity provider.
 // It provides token introspection with caching to reduce API calls and improve performance.
 type ZitadelAuthProvider struct {
-	systemTenantID uuid.UUID
-	config         config.ZitadelConfig
-	client         zitadel.Client
-	cache          *memkv.InMemoryKVStore
-	orgValidator   OrgValidator
+	systemTenantID       uuid.UUID
+	config               config.ZitadelConfig
+	client               zitadel.Client
+	cache                *memkv.InMemoryKVStore
+	orgValidator         OrgValidator
+	organizationCache    *memkv.InMemoryKVStore
+	organizationCacheTTL time.Duration
 }
 
 // OrgValidator is the post-introspection check: "is the org behind
@@ -58,17 +71,51 @@ var _ Authenticator = (*ZitadelAuthProvider)(nil)
 // inline closure that calls its local v2 SDK helper directly against
 // the system gRPC connection.
 //
-// orgValidator MUST NOT be nil; without it a revoked tenant's tokens
-// stay accepted until their natural expiry because Zitadel
-// introspection does not propagate org deactivation.
+// orgValidator MUST NOT be nil; Zitadel introspection does not
+// propagate org deactivation, so without the validator a revoked
+// tenant's tokens stay accepted until natural expiry. Panics at
+// construction so a wiring mistake fails at boot, not at the first
+// authenticated request.
 func NewZitadelAuthProvider(client zitadel.Client, config config.ZitadelConfig, orgValidator OrgValidator) *ZitadelAuthProvider {
-	return &ZitadelAuthProvider{
-		systemTenantID: ComputeUUID(config.ZitadelAudience, config.ZitadelOrganizationId),
-		config:         config,
-		client:         client,
-		cache:          memkv.NewInMemoryKVStore(config.ZitadelPATCacheTTL),
-		orgValidator:   orgValidator,
+	if orgValidator == nil {
+		panic("authn.NewZitadelAuthProvider: orgValidator MUST NOT be nil")
 	}
+
+	// Overlap must not exceed the TTL. When overlap > TTL every freshly
+	// introspected token yields a negative effective TTL
+	// (cacheExp.Sub(now) - overlap), which historically turned the cache
+	// into a process-lifetime allowlist that outlived PAT/user revocation
+	// (#1169). overlap == TTL is allowed: it yields a zero effective TTL,
+	// which Authenticate treats as "do not cache, re-introspect every
+	// request" — a valid way to disable caching on purpose. Only the
+	// nonsensical overlap > TTL fails loud at boot.
+	if config.ZitadelPATCacheTTLOverlap > config.ZitadelPATCacheTTL {
+		panic("authn.NewZitadelAuthProvider: PYCK_ZITADEL_PAT_CACHE_TTL_OVERLAP MUST NOT exceed PYCK_ZITADEL_PAT_CACHE_TTL")
+	}
+
+	organizationTTL := config.ZitadelOrganizationCacheTTL
+	if organizationTTL <= 0 {
+		organizationTTL = DefaultOrganizationCacheTTL
+	}
+
+	return &ZitadelAuthProvider{
+		systemTenantID:       ComputeUUID(config.ZitadelAudience, config.ZitadelOrganizationId),
+		config:               config,
+		client:               client,
+		cache:                memkv.NewInMemoryKVStore(config.ZitadelPATCacheTTL),
+		orgValidator:         orgValidator,
+		organizationCache:    memkv.NewInMemoryKVStore(organizationTTL),
+		organizationCacheTTL: organizationTTL,
+	}
+}
+
+// Close stops the cleanup goroutines of both underlying caches (the
+// token cache and the org-active verdict cache). Idempotent and safe
+// to defer. Tests and any per-request provider accumulate goroutines
+// without it.
+func (z *ZitadelAuthProvider) Close() {
+	z.cache.Close()
+	z.organizationCache.Close()
 }
 
 // OnTenantDisabled evicts every cached User entry whose tenant matches the
@@ -91,10 +138,15 @@ func NewZitadelAuthProvider(client zitadel.Client, config config.ZitadelConfig, 
 // missed is bounded by ZitadelPATCacheTTL: stale entries auto-expire,
 // then the validator catches the disabled tenant on the next miss.
 func (z *ZitadelAuthProvider) OnTenantDisabled(tenantID uuid.UUID) {
-	z.cache.DeleteWhere(func(_ string, v any) bool {
-		u, ok := v.(User)
-		return ok && u.TenantID == tenantID
-	})
+	// O(k) eviction via the tenant secondary index — concurrent
+	// Authenticate calls for unrelated tenants are not blocked by a
+	// full-cache scan. Authenticate populates the index via
+	// cache.SetWithSecondaryKey.
+	z.cache.DeleteBySecondaryKey(tenantID.String())
+	// Drop the cached org-active verdict too, otherwise a tenant disabled
+	// mid-TTL would keep being treated as active until the verdict expires.
+	// The verdict cache is keyed by tenant ID (see checkOrgActive).
+	z.organizationCache.Delete(tenantID.String())
 }
 
 // Authenticate validates a token and returns the authenticated user information.
@@ -137,6 +189,14 @@ func (z *ZitadelAuthProvider) Authenticate(ctx context.Context, token string) (U
 		return User{}, ErrUnauthorized
 	}
 
+	// Reject empty sub before caching. rejectOrgActive treats validator
+	// errors as "stay cached", so a cached User with empty Sub would
+	// bypass the org-active gate for the full TTL.
+	if resp.Sub == "" {
+		logger.Error().Msg("Token introspection returned empty sub")
+		return User{}, ErrUnauthorized
+	}
+
 	// Generate deterministic UUIDs from issuer and IDs.
 	userID := ComputeUUID(resp.Iss, resp.Sub)
 	// Prefer the webhook-injected pyck_tenant_id claim — it's already
@@ -170,17 +230,31 @@ func (z *ZitadelAuthProvider) Authenticate(ctx context.Context, token string) (U
 	}
 
 	var roles map[uuid.UUID]Role
+	var serviceRoles map[uuid.UUID]map[string]struct{}
 	if resp.ProjectRoles != nil {
 		roles = make(map[uuid.UUID]Role, len(resp.ProjectRoles))
+		serviceRoles = make(map[uuid.UUID]map[string]struct{})
 
 		for roleName, roleOrgMap := range resp.ProjectRoles {
 			for orgID := range roleOrgMap {
+				orgUUID := ComputeUUID(resp.Iss, orgID)
+
+				// Per-service gate roles are recognised by suffix and tracked
+				// separately from the privilege ladder; the gate (authn
+				// middleware) enforces them per service. They are not part of
+				// the reader/writer/admin hierarchy.
+				if serviceroles.IsServiceRole(roleName) {
+					if serviceRoles[orgUUID] == nil {
+						serviceRoles[orgUUID] = make(map[string]struct{})
+					}
+					serviceRoles[orgUUID][roleName] = struct{}{}
+					continue
+				}
+
 				role, err := RoleString(roleName)
 				if err != nil {
 					continue // Skip unknown roles
 				}
-
-				orgUUID := ComputeUUID(resp.Iss, orgID)
 
 				// Keep highest privilege role when multiple exist for same org
 				if r, ok := roles[orgUUID]; !ok || r < role {
@@ -191,18 +265,21 @@ func (z *ZitadelAuthProvider) Authenticate(ctx context.Context, token string) (U
 	}
 
 	user := User{
-		ID:       userID,
-		Sub:      resp.Sub,
-		Username: resp.Username,
-		TenantID: tenantID,
-		Roles:    roles,
-		Token:    token,
+		ID:           userID,
+		Sub:          resp.Sub,
+		Username:     resp.Username,
+		TenantID:     tenantID,
+		Roles:        roles,
+		ServiceRoles: serviceRoles,
+		Token:        token,
 	}
 
-	// If the user has ROLE_SYSTEM on their home org, overwrite with the
-	// system service-user identity so downstream code skips all tenant
-	// scoping.
-	if user.HasRole(ROLE_SYSTEM, tenantID) {
+	// Upgrade to system identity when the user holds ROLE_SYSTEM on
+	// their home org. Anchor on the home-org-derived key so a
+	// misconfigured pyck_tenant_id claim cannot silently demote a
+	// system PAT to normal-user scoping.
+	homeOrgTenantID := ComputeUUID(resp.Iss, resp.ResourceOwnerID)
+	if user.HasRole(ROLE_SYSTEM, homeOrgTenantID) {
 		user = *SystemUser()
 	}
 
@@ -231,20 +308,71 @@ func (z *ZitadelAuthProvider) Authenticate(ctx context.Context, token string) (U
 		return User{}, ErrUnauthorized
 	}
 
-	z.cache.Set(token, user, ttl)
+	// A non-positive effective TTL means there is no useful window to cache
+	// for: the token sits inside the overlap, its own expiry is closer than
+	// the overlap, or caching was disabled on purpose (overlap == TTL). This
+	// is an accepted state, not an error — but the entry must NOT be written,
+	// because memkv treats a zero TTL as "never expires", which is exactly
+	// the eternal-allowlist defect from #1169. Skip the cache and
+	// re-introspect on the next request. Logged at Debug, not Warn: under
+	// overlap == TTL this fires on every request by design, and the only
+	// genuinely broken config (overlap > TTL) is already rejected at boot.
+	if ttl <= 0 {
+		logger.Debug().
+			Dur("ttl", ttl).
+			Msg("non-positive PAT cache TTL; skipping cache and re-introspecting")
+		return user, nil
+	}
+
+	// Index by tenant ID so OnTenantDisabled evicts in O(k). System
+	// users use the unindexed path — they're never the target of a
+	// tenant-revocation event.
+	if user.IsSystemUser() {
+		z.cache.Set(token, user, ttl)
+	} else {
+		z.cache.SetWithSecondaryKey(token, user, ttl, user.TenantID.String())
+	}
 
 	return user, nil
 }
 
-// checkOrgActive delegates to the configured [OrgValidator] with the
-// user's raw Zitadel `sub`. System users (ROLE_SYSTEM machine
-// accounts) bypass — they have no tenant scope and are validated
-// implicitly by the system-role check during introspection.
+// checkOrgActive reports whether the org behind the user's token is still
+// active. System users (ROLE_SYSTEM machine accounts) bypass — they have no
+// tenant scope and are validated implicitly by the system-role check during
+// introspection.
+//
+// A positive verdict is cached per tenant for organizationCacheTTL so the
+// validator (a synchronous Zitadel / management round-trip) does not run on
+// every request. Only positive verdicts are cached:
+//   - a definitive (false, nil) "inactive" answer is NOT cached, so a
+//     disabled tenant keeps being re-checked and a later restore is picked
+//     up on the very next request without any eviction signal; and
+//   - an infrastructure fault (false, err) is NOT cached, so a transient
+//     blip never poisons the verdict.
+//
+// The cache is keyed by tenant ID rather than `sub` because the verdict is a
+// property of the org, shared by all of its users, and because that lets
+// OnTenantDisabled evict it with a single keyed Delete.
 func (z *ZitadelAuthProvider) checkOrgActive(ctx context.Context, user User) (bool, error) {
 	if user.IsSystemUser() {
 		return true, nil
 	}
-	return z.orgValidator(ctx, user.Sub)
+
+	cacheKey := user.TenantID.String()
+	if v, ok := z.organizationCache.Get(cacheKey); ok {
+		if active, ok := v.(bool); ok && active {
+			return true, nil
+		}
+	}
+
+	active, err := z.orgValidator(ctx, user.Sub)
+	if err != nil {
+		return false, err
+	}
+	if active {
+		z.organizationCache.Set(cacheKey, true, z.organizationCacheTTL)
+	}
+	return active, nil
 }
 
 // rejectOrgActive runs the org-active probe and returns true when the

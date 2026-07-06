@@ -1,0 +1,29 @@
+---
+operation: AssignRoles
+name: "Assign service roles to a user"
+description: >
+  Grants one or more per-service roles to an existing user within a tenant.
+  Additive — roles the user already holds are preserved. Only per-service role
+  keys are accepted (ladder roles reader/writer/admin are rejected).
+  Tenant-admin only.
+vars:
+  input:
+    tenantId: {$placeholder: "tenant UUID"}
+    userId: {$placeholder: "management user UUID"}
+    roles:
+      - inventory_service
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Returns the user's service roles after assignment"
+    assertions:
+      - ref: res.body.data.assignRoles.userId
+        nil: false
+      - ref: res.body.data.assignRoles.roles
+        contains: inventory_service

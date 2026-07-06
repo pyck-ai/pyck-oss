@@ -12,18 +12,15 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/accesspolicy"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/datatype"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/device"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/devicelocation"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/deviceuser"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/entityeventsoutbox"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/event"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/group"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/idempotencykey"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/keyvalue"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/location"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/role"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/user"
 )
@@ -86,18 +83,15 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			accesspolicy.Table:       accesspolicy.ValidColumn,
 			datatype.Table:           datatype.ValidColumn,
 			device.Table:             device.ValidColumn,
 			devicelocation.Table:     devicelocation.ValidColumn,
 			deviceuser.Table:         deviceuser.ValidColumn,
 			entityeventsoutbox.Table: entityeventsoutbox.ValidColumn,
 			event.Table:              event.ValidColumn,
-			group.Table:              group.ValidColumn,
 			idempotencykey.Table:     idempotencykey.ValidColumn,
 			keyvalue.Table:           keyvalue.ValidColumn,
 			location.Table:           location.ValidColumn,
-			role.Table:               role.ValidColumn,
 			tenant.Table:             tenant.ValidColumn,
 			user.Table:               user.ValidColumn,
 		})

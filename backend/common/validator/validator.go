@@ -300,42 +300,55 @@ func (v *Validator) createQueryForCountingUniqueRecords(
 	var (
 		cond string
 		args []any
+		ph   int
 	)
+
+	// nextPlaceholder returns the bind placeholder for the next argument in the
+	// dialect's positional style. PostgreSQL uses $1, $2, …; SQLite (and the
+	// empty test dialect) use ?. Postgres must not use ? — it collides with the
+	// jsonb ? existence operator and the driver does not rebind raw SQL, so a
+	// literal ? produces a syntax error before the placeholder is ever bound.
+	nextPlaceholder := func() string {
+		ph++
+		if dbDriver == dialect.Postgres {
+			return fmt.Sprintf("$%d", ph)
+		}
+		return "?"
+	}
 
 	switch dbDriver {
 	case dialect.SQLite, "": // dialect is not set during tests
 		// For SQLite, we use the json_extract function with a dot-separated path.
 		path := strings.Join(uniqueField.Path(), ".")
-		cond = fmt.Sprintf("json_extract(%s, '$.%s') = ?", jsonColumn, path)
+		cond = fmt.Sprintf("json_extract(%s, '$.%s') = %s", jsonColumn, path, nextPlaceholder())
 		args = append(args, fieldValue)
 
 	case dialect.Postgres:
-		// For PostgreSQL, we build a chain of -> and ->> operators.
-		// We iterate through the path parts, wrapping each key in single quotes.
+		// For PostgreSQL, we build a chain of -> and ->> operators, wrapping each
+		// key in single quotes. Every part but the last uses -> to return a JSONB
+		// object for further traversal; the last uses ->> to return text.
 		parts := uniqueField.Path()
-
-		// The last part of the path must use the ->> operator to return text.
-		lastPart := fmt.Sprintf("->> '%s'", parts[len(parts)-1])
-
-		// The preceding parts must use the -> operator to return a JSONB object for further traversal.
-		leadingParts := []string{}
-		for _, part := range parts[:len(parts)-1] {
-			leadingParts = append(leadingParts, fmt.Sprintf("-> '%s'", part))
+		ops := make([]string, len(parts))
+		for i, part := range parts {
+			if i == len(parts)-1 {
+				ops[i] = fmt.Sprintf("->> '%s'", part)
+			} else {
+				ops[i] = fmt.Sprintf("-> '%s'", part)
+			}
 		}
 
-		cond = fmt.Sprintf("(%s::jsonb %s) = ?", jsonColumn, strings.Join(leadingParts, " ")+" "+lastPart)
+		cond = fmt.Sprintf("(%s::jsonb %s) = %s", jsonColumn, strings.Join(ops, " "), nextPlaceholder())
 		args = append(args, fieldValue)
 	default:
 		return "", nil, fmt.Errorf("%w: %q", ErrUnsupportedDialect, dbDriver)
 	}
 
 	// build query with placeholders
-	whereClause := fmt.Sprintf("%s AND data_type_id = ? AND tenant_id = ?", cond)
+	whereClause := fmt.Sprintf("%s AND data_type_id = %s AND tenant_id = %s", cond, nextPlaceholder(), nextPlaceholder())
+	args = append(args, dataTypeID, req.MutationTenantID())
 	if excludeID != nil {
-		whereClause += " AND id != ?"
-		args = append(args, dataTypeID, req.MutationTenantID(), *excludeID)
-	} else {
-		args = append(args, dataTypeID, req.MutationTenantID())
+		whereClause += fmt.Sprintf(" AND id != %s", nextPlaceholder())
+		args = append(args, *excludeID)
 	}
 
 	query := fmt.Sprintf("SELECT count(*) FROM %s WHERE %s", table, whereClause)

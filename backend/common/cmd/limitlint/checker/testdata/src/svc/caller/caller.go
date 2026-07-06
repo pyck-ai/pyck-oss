@@ -34,6 +34,42 @@ func safeEventNoLimitMixin(ctx context.Context, c *gen.Client) {
 	_, _ = c.Event.Query().All(ctx)
 }
 
+// --- .IDs(ctx) coverage: same silent cap as .All(ctx) ---
+
+func unsafeIDs(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().IDs(ctx) // want `unsafe \.IDs\(ctx\) on Item`
+}
+
+func safeIDsWithLimit(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().Limit(50).IDs(ctx)
+}
+
+// The suggested remedy must not itself trip the linter: .PagedIDs is the
+// paged id-only drop-in and is not a flagged terminator.
+func safePagedIDs(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().PagedIDs(ctx, 50)
+}
+
+func unsafeIDsWhereWithoutLimit(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().Where().Order().IDs(ctx) // want `unsafe \.IDs\(ctx\) on Item`
+}
+
+// Event has no LimitMixin; .IDs must NOT be flagged either.
+func safeEventIDsNoLimitMixin(ctx context.Context, c *gen.Client) {
+	_, _ = c.Event.Query().IDs(ctx)
+}
+
+// Mutation .IDs(ctx) returns the rows an update/delete targets and is not
+// subject to the read-query limit interceptor — must NOT be flagged.
+func safeMutationIDs(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Mutate().IDs(ctx)
+}
+
+// allowMarkerIDs exercises the //limitlint:allow opt-out for .IDs(ctx) too.
+func allowMarkerIDs(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().IDs(ctx) //limitlint:allow exercising the cap deliberately
+}
+
 func safeNonEntAll(ctx context.Context) {
 	// .All on a non-query type must not be flagged.
 	xs := []int{1, 2, 3}

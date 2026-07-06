@@ -3,7 +3,6 @@ package zitadel_sync
 import (
 	"context"
 	"errors"
-	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -12,7 +11,10 @@ import (
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/services/zitadel/sdk"
@@ -24,6 +26,26 @@ import (
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/user"
 )
+
+// ErrZitadelOrgNotFound is the application-error type returned by
+// FetchZitadelUsersActivity when a tenant's Zitadel org no longer exists
+// (e.g. deleted mid-cycle, after the tenant reconcile but before user
+// sync). It is non-retryable so TenantSyncWorkflow skips the tenant
+// instead of burning its retry budget; the tenant-level reconcile will
+// soft-delete the now-orphaned tenant on its next pass.
+const ErrZitadelOrgNotFound = "ZitadelOrgNotFound"
+
+// orgNotFoundErr maps a Zitadel NotFound gRPC error to a non-retryable
+// application error so per-tenant user sync can skip a deleted org rather
+// than retry an operation that can never succeed. Any other error is
+// returned unchanged (and stays retryable).
+func orgNotFoundErr(err error) error {
+	if status.Code(err) == codes.NotFound {
+		return temporal.NewNonRetryableApplicationError(
+			"zitadel org no longer exists", ErrZitadelOrgNotFound, err)
+	}
+	return err
+}
 
 // NewActivities wires dependencies for all Zitadel sync activities.
 func NewActivities(ent *ent.Client, temporal client.Client, apiURL, grpcAddr, audience, keyFilePath, projectID string, tlsInsecure bool) *Activities {
@@ -149,7 +171,12 @@ func (a *Activities) ReconcileTenantsActivity(ctx context.Context, input Reconci
 				err = e
 				return err
 			}
-			logger.Debug("delete tenant", "tenant_id", dbT.ID)
+			// Active DB tenant whose Zitadel org has disappeared (deleted out
+			// of band). Zitadel is the SSOT, so we soft-delete — but surface
+			// it at Info: an active tenant losing its org is unexpected and
+			// worth flagging, unlike the routine disabled/inactive alignment.
+			logger.Info("tenant active in DB but Zitadel org no longer exists; soft-deleting",
+				"idp_org_ref", dbT.ID, "name", dbT.Name)
 		}
 	}
 
@@ -188,9 +215,9 @@ func (a *Activities) ReconcileTenantsActivity(ctx context.Context, input Reconci
 			return err
 		}
 
-		// Merge + enrich via extracted pipeline function
-		mergedData := core.ReconcileTenantData(existingTenant.Data, zitadelData,
-			tenantID.String(), core.Config.FrontendBaseURL, core.Config.EnvironmentName)
+		// Merge only the Zitadel-synced flag keys onto stored data. Sync must not
+		// re-derive UI templates: that would resurrect a cleared override (#1317).
+		mergedData := core.MergeData(existingTenant.Data, zitadelData)
 
 		// Check if update is needed
 		needsNameUpdate := zt.Name != dbT.Name
@@ -257,7 +284,7 @@ func (a *Activities) StartTenantSyncActivity(ctx context.Context, in StartTenant
 	return nil
 }
 
-// FetchZitadelUsersActivity returns all users/owners/roles from Zitadel for a tenant.
+// FetchZitadelUsersActivity returns all users/owners from Zitadel for a tenant.
 func (a *Activities) FetchZitadelUsersActivity(ctx context.Context, input FetchZitadelUsersActivityInput) ([]User, error) {
 	logger := activity.GetLogger(ctx)
 
@@ -271,29 +298,18 @@ func (a *Activities) FetchZitadelUsersActivity(ctx context.Context, input FetchZ
 	users, err := c.GetAllOrganizationUsers(ctx)
 	if err != nil {
 		logger.Error("failed to fetch Zitadel users", "err", err)
-		return nil, err
+		return nil, orgNotFoundErr(err)
 	}
 
 	owners, err := c.GetAllOrganizationOwners(ctx)
 	if err != nil {
 		logger.Error("failed to fetch Zitadel owners", "err", err)
-		return nil, err
-	}
-
-	roles, err := c.GetAllOrganizationUsersRoles(ctx, a.ZitadelProjectID)
-	if err != nil {
-		logger.Error("failed to fetch Zitadel user roles", "err", err)
-		return nil, err
+		return nil, orgNotFoundErr(err)
 	}
 
 	ownersMap := make(map[string]bool, len(owners))
 	for _, id := range owners {
 		ownersMap[id] = true
-	}
-
-	userRolesMap := make(map[string][]string, len(roles))
-	for _, ur := range roles {
-		userRolesMap[ur.ID] = ur.Roles
 	}
 
 	out := make([]User, len(users))
@@ -305,7 +321,6 @@ func (a *Activities) FetchZitadelUsersActivity(ctx context.Context, input FetchZ
 			FirstName: u.FirstName,
 			LastName:  u.LastName,
 			TenantID:  input.TenantID,
-			Roles:     userRolesMap[u.ID],
 			IsOwner:   ownersMap[u.ID],
 		}
 	}
@@ -341,14 +356,6 @@ func (a *Activities) FetchDbUsersActivity(ctx context.Context, input FetchDbUser
 
 	out := make([]User, 0, len(dbUsers))
 	for _, u := range dbUsers {
-		//TODO Remove when fully switching to rbac roles
-		/*var roles []string
-		  if relRoles, e := u.Roles(serviceUserCtx); e == nil {
-		  	for _, rr := range relRoles {
-		  		roles = append(roles, rr.Name)
-		  	}
-		  }*/
-
 		out = append(out, User{
 			ID:        u.IdpID,
 			Username:  u.Username,
@@ -356,7 +363,6 @@ func (a *Activities) FetchDbUsersActivity(ctx context.Context, input FetchDbUser
 			FirstName: u.FirstName,
 			LastName:  u.LastName,
 			TenantID:  input.TenantID,
-			Roles:     canonRoles(u.LegacyRoles),
 			IsOwner:   u.IsAdmin,
 		})
 	}
@@ -370,10 +376,6 @@ func (a *Activities) ReconcileUsersActivity(ctx context.Context, input Reconcile
 	tenantUUID := authn.ComputeUUID(a.Audience, input.TenantID)
 	serviceUserCtx := authn.Context(ctx, authn.SystemUser())
 	serviceUserCtx = common_tenant.Context(serviceUserCtx, tenantUUID)
-
-	for i := range input.ZitadelUsers {
-		input.ZitadelUsers[i].Roles = canonRoles(input.ZitadelUsers[i].Roles)
-	}
 
 	zitadelUsersMap := make(map[string]User, len(input.ZitadelUsers))
 	for _, u := range input.ZitadelUsers {
@@ -410,7 +412,6 @@ func (a *Activities) ReconcileUsersActivity(ctx context.Context, input Reconcile
 				SetLastName(zu.LastName).
 				SetTenantID(tenantUUID).
 				SetIsAdmin(zu.IsOwner).
-				SetLegacyRoles(zu.Roles).
 				Save(serviceUserCtx); e != nil {
 				logger.Error("failed to create user", "idp_id", zu.ID, "username", zu.Username, "err", e)
 				err = e
@@ -424,8 +425,7 @@ func (a *Activities) ReconcileUsersActivity(ctx context.Context, input Reconcile
 			zu.Email == dbu.Email &&
 			zu.FirstName == dbu.FirstName &&
 			zu.LastName == dbu.LastName &&
-			zu.IsOwner == dbu.IsOwner &&
-			stringSlicesEqual(zu.Roles, dbu.Roles) {
+			zu.IsOwner == dbu.IsOwner {
 			continue
 		}
 
@@ -450,10 +450,6 @@ func (a *Activities) ReconcileUsersActivity(ctx context.Context, input Reconcile
 
 		if zu.IsOwner != dbu.IsOwner {
 			uu = uu.SetIsAdmin(zu.IsOwner)
-		}
-
-		if !stringSlicesEqual(zu.Roles, dbu.Roles) {
-			uu = uu.SetLegacyRoles(zu.Roles)
 		}
 
 		if _, e := uu.Save(serviceUserCtx); e != nil {
@@ -533,53 +529,4 @@ func (a *Activities) fetchAllOrgMetadata(ctx context.Context, orgIDs []string) m
 // GetZitadelClient builds a Zitadel SDK client for the given API URL and audience.
 func GetZitadelClient(ctx context.Context, apiURL, grpcAddr, audience, keyFilePath string, tlsInsecure bool, orgID string) (*sdk.ZitadelSdkClient, error) {
 	return sdk.SdkClient(ctx, audience, grpcAddr, apiURL, keyFilePath, orgID, tlsInsecure)
-}
-
-
-// stringSlicesEqual compares two string slices as sets (order-insensitive).
-func stringSlicesEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	m := make(map[string]int, len(a))
-	for _, s := range a {
-		m[s]++
-	}
-	for _, s := range b {
-		if m[s] == 0 {
-			return false
-		}
-		m[s]--
-	}
-	for _, v := range m {
-		if v != 0 {
-			return false
-		}
-	}
-	return true
-}
-
-// canonRoles returns a sorted, de-duplicated copy of roles.
-func canonRoles(in []string) []string {
-	if len(in) == 0 {
-		return nil
-	}
-
-	m := make(map[string]struct{}, len(in))
-	out := make([]string, 0, len(in))
-
-	for _, r := range in {
-		if r == "" {
-			continue
-		}
-
-		if _, ok := m[r]; !ok {
-			m[r] = struct{}{}
-			out = append(out, r)
-		}
-	}
-
-	sort.Strings(out)
-
-	return out
 }

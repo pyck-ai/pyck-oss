@@ -14,8 +14,6 @@ import (
 // Tx is a transactional client that is created by calling Client.Tx().
 type Tx struct {
 	config
-	// AccessPolicy is the client for interacting with the AccessPolicy builders.
-	AccessPolicy *AccessPolicyClient
 	// DataType is the client for interacting with the DataType builders.
 	DataType *DataTypeClient
 	// Device is the client for interacting with the Device builders.
@@ -28,16 +26,12 @@ type Tx struct {
 	EntityEventsOutbox *EntityEventsOutboxClient
 	// Event is the client for interacting with the Event builders.
 	Event *EventClient
-	// Group is the client for interacting with the Group builders.
-	Group *GroupClient
 	// IdempotencyKey is the client for interacting with the IdempotencyKey builders.
 	IdempotencyKey *IdempotencyKeyClient
 	// KeyValue is the client for interacting with the KeyValue builders.
 	KeyValue *KeyValueClient
 	// Location is the client for interacting with the Location builders.
 	Location *LocationClient
-	// Role is the client for interacting with the Role builders.
-	Role *RoleClient
 	// Tenant is the client for interacting with the Tenant builders.
 	Tenant *TenantClient
 	// User is the client for interacting with the User builders.
@@ -173,18 +167,15 @@ func (tx *Tx) Client() *Client {
 }
 
 func (tx *Tx) init() {
-	tx.AccessPolicy = NewAccessPolicyClient(tx.config)
 	tx.DataType = NewDataTypeClient(tx.config)
 	tx.Device = NewDeviceClient(tx.config)
 	tx.DeviceLocation = NewDeviceLocationClient(tx.config)
 	tx.DeviceUser = NewDeviceUserClient(tx.config)
 	tx.EntityEventsOutbox = NewEntityEventsOutboxClient(tx.config)
 	tx.Event = NewEventClient(tx.config)
-	tx.Group = NewGroupClient(tx.config)
 	tx.IdempotencyKey = NewIdempotencyKeyClient(tx.config)
 	tx.KeyValue = NewKeyValueClient(tx.config)
 	tx.Location = NewLocationClient(tx.config)
-	tx.Role = NewRoleClient(tx.config)
 	tx.Tenant = NewTenantClient(tx.config)
 	tx.User = NewUserClient(tx.config)
 }
@@ -196,7 +187,7 @@ func (tx *Tx) init() {
 // of them in order to commit or rollback the transaction.
 //
 // If a closed transaction is embedded in one of the generated entities, and the entity
-// applies a query, for example: AccessPolicy.QueryXXX(), the query will be executed
+// applies a query, for example: DataType.QueryXXX(), the query will be executed
 // through the driver which created this transaction.
 //
 // Note that txDriver is not goroutine safe.

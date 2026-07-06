@@ -66,3 +66,14 @@ models:
   Node:
     model:
       - github.com/pyck-ai/pyck/backend/workflow/ent/gen.Noder
+  # Bind the remote-UI types to the common/workflow domain structs so they exist
+  # once (no parallel generated copy, no hand-copy in the resolver).
+  RemoteUI:
+    model:
+      - github.com/pyck-ai/pyck/backend/common/workflow.UIBundleURLs
+  UIBundle:
+    model:
+      - github.com/pyck-ai/pyck/backend/common/workflow.UIBundle
+  DeploymentVersionUI:
+    model:
+      - github.com/pyck-ai/pyck/backend/common/workflow.DeploymentVersionUI

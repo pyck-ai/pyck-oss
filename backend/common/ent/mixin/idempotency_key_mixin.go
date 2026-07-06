@@ -3,6 +3,7 @@ package mixin
 import (
 	"entgo.io/contrib/entgql"
 	"entgo.io/ent"
+	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/field"
@@ -42,12 +43,25 @@ type IdempotencyKeyMixin struct {
 // Compile-time guard that the mixin satisfies ent.Mixin.
 var _ ent.Mixin = (*IdempotencyKeyMixin)(nil)
 
-// Annotations hides the entity from the GraphQL schema. Idempotency rows
-// are infrastructure-only: they are written by the gqltx middleware and
-// read by the janitor, never queried or mutated by clients.
+// Annotations hides the entity from the GraphQL schema and declares the
+// table-level CHECK constraints.
+//
+// Idempotency rows are infrastructure-only: they are written by the gqltx
+// middleware and read by the janitor, never queried or mutated by clients,
+// hence entgql.SkipAll.
+//
+// The CHECK constraints mirror the Go-side validators (the status enum and
+// the 32-byte checksum) at the database level. ent does not emit checks for
+// enum fields or byte-length validators on its own, so they are declared
+// explicitly here to keep the generated schema in lockstep with the
+// committed migrations.
 func (IdempotencyKeyMixin) Annotations() []schema.Annotation {
 	return []schema.Annotation{
 		entgql.Skip(entgql.SkipAll),
+		entsql.Checks(map[string]string{
+			"idempotency_keys_status_check":       "status IN ('in_flight', 'committed')",
+			"idempotency_keys_checksum_len_check": "octet_length(operation_checksum) = 32",
+		}),
 	}
 }
 
@@ -63,8 +77,11 @@ func (IdempotencyKeyMixin) Fields() []ent.Field {
 
 		// Client-supplied idempotency key. Bounded at 255 to match the
 		// HTTP header contract enforced by common/idempotency.FromHeaders.
+		// MaxLen is only a Go-side validator, so the SQL column type is
+		// pinned explicitly to varchar(255) to carry the bound into the DB.
 		field.String("key").
 			MaxLen(255).
+			SchemaType(map[string]string{dialect.Postgres: "varchar(255)"}).
 			Immutable(),
 
 		// Tenant of the originating mutation. Always non-nil: PreCheck
@@ -100,13 +117,18 @@ func (IdempotencyKeyMixin) Fields() []ent.Field {
 			Optional().
 			Nillable(),
 
+		// Default(nowUTC) populates the value Go-side; DefaultExpr pins the
+		// matching SQL column default (now()) so the generated schema agrees
+		// with the committed migrations.
 		field.Time("created_at").
 			Default(nowUTC).
+			Annotations(entsql.DefaultExpr("now()")).
 			Immutable(),
 
 		field.Time("updated_at").
 			Default(nowUTC).
-			UpdateDefault(nowUTC),
+			UpdateDefault(nowUTC).
+			Annotations(entsql.DefaultExpr("now()")),
 	}
 }
 
@@ -121,13 +143,15 @@ func (IdempotencyKeyMixin) Indexes() []ent.Index {
 		// order clusters rows for the same tenant + user contiguously
 		// in the index, which makes a retry burst from one client
 		// touch fewer index pages.
-		index.Fields("tenant_id", "user_id", "key").Unique(),
+		index.Fields("tenant_id", "user_id", "key").Unique().
+			StorageKey("idempotency_keys_tenant_user_key"),
 		// Janitor: DELETE WHERE status='committed' AND created_at < $cutoff.
 		// Partial index on status='committed' so the scan walks only
 		// rows the janitor can actually delete (in_flight rows live
 		// only for the duration of one mutation tx and are gone by
 		// the next scan).
 		index.Fields("created_at").
-			Annotations(entsql.IndexWhere("status = 'committed'")),
+			Annotations(entsql.IndexWhere("status = 'committed'")).
+			StorageKey("idempotency_keys_committed_created"),
 	}
 }

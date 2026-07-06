@@ -18,4 +18,8 @@ var (
 	ErrWorkflowClientNotAvailable  = errors.New("workflow client not available")
 	ErrInvalidWorkflowID           = errors.New("invalid workflow id")
 	ErrInvalidWorkflowExecutionID  = errors.New("invalid workflow execution id")
+	ErrTenantNotFound              = errors.New("tenant not found")
+	ErrTenantUITemplatesNotSet     = errors.New("tenant has no UI bundle URL templates")
+	ErrSingleTenantRequired        = errors.New("a single tenant must be selected for this query")
+	ErrAdminRoleRequired           = errors.New("admin role required")
 )

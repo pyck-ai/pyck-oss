@@ -9,47 +9,6 @@ import (
 )
 
 var (
-	// PoliciesColumns holds the columns for the "policies" table.
-	PoliciesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUUID, Unique: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "created_by", Type: field.TypeUUID},
-		{Name: "updated_at", Type: field.TypeTime, Nullable: true},
-		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
-		{Name: "deleted_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "tenant_id", Type: field.TypeUUID},
-		{Name: "resource", Type: field.TypeString},
-		{Name: "action", Type: field.TypeString},
-		{Name: "effect", Type: field.TypeString, Default: "allow"},
-		{Name: "role_policies", Type: field.TypeUUID},
-	}
-	// PoliciesTable holds the schema information for the "policies" table.
-	PoliciesTable = &schema.Table{
-		Name:       "policies",
-		Columns:    PoliciesColumns,
-		PrimaryKey: []*schema.Column{PoliciesColumns[0]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "policies_roles_policies",
-				Columns:    []*schema.Column{PoliciesColumns[11]},
-				RefColumns: []*schema.Column{RolesColumns[0]},
-				OnDelete:   schema.NoAction,
-			},
-		},
-		Indexes: []*schema.Index{
-			{
-				Name:    "accesspolicy_resource_action_tenant_id_deleted_at",
-				Unique:  false,
-				Columns: []*schema.Column{PoliciesColumns[8], PoliciesColumns[9], PoliciesColumns[7], PoliciesColumns[5]},
-			},
-			{
-				Name:    "accesspolicy_tenant_id_deleted_at",
-				Unique:  false,
-				Columns: []*schema.Column{PoliciesColumns[7], PoliciesColumns[5]},
-			},
-		},
-	}
 	// DatatypesColumns holds the columns for the "datatypes" table.
 	DatatypesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
@@ -272,47 +231,18 @@ var (
 		Columns:    EventsColumns,
 		PrimaryKey: []*schema.Column{EventsColumns[0]},
 	}
-	// GroupsColumns holds the columns for the "groups" table.
-	GroupsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUUID, Unique: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "created_by", Type: field.TypeUUID},
-		{Name: "updated_at", Type: field.TypeTime, Nullable: true},
-		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
-		{Name: "deleted_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "tenant_id", Type: field.TypeUUID},
-		{Name: "name", Type: field.TypeString},
-		{Name: "description", Type: field.TypeString, Nullable: true},
-	}
-	// GroupsTable holds the schema information for the "groups" table.
-	GroupsTable = &schema.Table{
-		Name:       "groups",
-		Columns:    GroupsColumns,
-		PrimaryKey: []*schema.Column{GroupsColumns[0]},
-		Indexes: []*schema.Index{
-			{
-				Name:    "group_name_tenant_id",
-				Unique:  true,
-				Columns: []*schema.Column{GroupsColumns[8], GroupsColumns[7]},
-				Annotation: &entsql.IndexAnnotation{
-					Where: "deleted_at IS NULL",
-				},
-			},
-		},
-	}
 	// IdempotencyKeysColumns holds the columns for the "idempotency_keys" table.
 	IdempotencyKeysColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
-		{Name: "key", Type: field.TypeString, Size: 255},
+		{Name: "key", Type: field.TypeString, Size: 255, SchemaType: map[string]string{"postgres": "varchar(255)"}},
 		{Name: "tenant_id", Type: field.TypeUUID},
 		{Name: "user_id", Type: field.TypeUUID},
 		{Name: "operation_name", Type: field.TypeString},
 		{Name: "operation_checksum", Type: field.TypeBytes, Size: 32},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"in_flight", "committed"}, Default: "in_flight"},
 		{Name: "response", Type: field.TypeBytes, Nullable: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "created_at", Type: field.TypeTime, Default: schema.Expr("now()")},
+		{Name: "updated_at", Type: field.TypeTime, Default: schema.Expr("now()")},
 	}
 	// IdempotencyKeysTable holds the schema information for the "idempotency_keys" table.
 	IdempotencyKeysTable = &schema.Table{
@@ -321,12 +251,12 @@ var (
 		PrimaryKey: []*schema.Column{IdempotencyKeysColumns[0]},
 		Indexes: []*schema.Index{
 			{
-				Name:    "idempotencykey_tenant_id_user_id_key",
+				Name:    "idempotency_keys_tenant_user_key",
 				Unique:  true,
 				Columns: []*schema.Column{IdempotencyKeysColumns[2], IdempotencyKeysColumns[3], IdempotencyKeysColumns[1]},
 			},
 			{
-				Name:    "idempotencykey_created_at",
+				Name:    "idempotency_keys_committed_created",
 				Unique:  false,
 				Columns: []*schema.Column{IdempotencyKeysColumns[8]},
 				Annotation: &entsql.IndexAnnotation{
@@ -398,35 +328,6 @@ var (
 			},
 		},
 	}
-	// RolesColumns holds the columns for the "roles" table.
-	RolesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUUID, Unique: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "created_by", Type: field.TypeUUID},
-		{Name: "updated_at", Type: field.TypeTime, Nullable: true},
-		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
-		{Name: "deleted_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "tenant_id", Type: field.TypeUUID},
-		{Name: "name", Type: field.TypeString},
-		{Name: "description", Type: field.TypeString, Nullable: true},
-	}
-	// RolesTable holds the schema information for the "roles" table.
-	RolesTable = &schema.Table{
-		Name:       "roles",
-		Columns:    RolesColumns,
-		PrimaryKey: []*schema.Column{RolesColumns[0]},
-		Indexes: []*schema.Index{
-			{
-				Name:    "role_name_tenant_id",
-				Unique:  true,
-				Columns: []*schema.Column{RolesColumns[8], RolesColumns[7]},
-				Annotation: &entsql.IndexAnnotation{
-					Where: "deleted_at IS NULL",
-				},
-			},
-		},
-	}
 	// TenantsColumns holds the columns for the "tenants" table.
 	TenantsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
@@ -482,7 +383,6 @@ var (
 		{Name: "first_name", Type: field.TypeString},
 		{Name: "last_name", Type: field.TypeString},
 		{Name: "is_admin", Type: field.TypeBool, Default: false},
-		{Name: "roles", Type: field.TypeJSON},
 		{Name: "tenant_id", Type: field.TypeUUID},
 	}
 	// UsersTable holds the schema information for the "users" table.
@@ -493,7 +393,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "users_tenants_tenantUsers",
-				Columns:    []*schema.Column{UsersColumns[14]},
+				Columns:    []*schema.Column{UsersColumns[13]},
 				RefColumns: []*schema.Column{TenantsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -502,7 +402,7 @@ var (
 			{
 				Name:    "user_username_email_tenant_id",
 				Unique:  true,
-				Columns: []*schema.Column{UsersColumns[8], UsersColumns[9], UsersColumns[14]},
+				Columns: []*schema.Column{UsersColumns[8], UsersColumns[9], UsersColumns[13]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
 				},
@@ -510,115 +410,30 @@ var (
 			{
 				Name:    "user_idp_id_tenant_id",
 				Unique:  true,
-				Columns: []*schema.Column{UsersColumns[7], UsersColumns[14]},
+				Columns: []*schema.Column{UsersColumns[7], UsersColumns[13]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
 				},
 			},
 		},
 	}
-	// GroupUsersColumns holds the columns for the "group_users" table.
-	GroupUsersColumns = []*schema.Column{
-		{Name: "group_id", Type: field.TypeUUID},
-		{Name: "user_id", Type: field.TypeUUID},
-	}
-	// GroupUsersTable holds the schema information for the "group_users" table.
-	GroupUsersTable = &schema.Table{
-		Name:       "group_users",
-		Columns:    GroupUsersColumns,
-		PrimaryKey: []*schema.Column{GroupUsersColumns[0], GroupUsersColumns[1]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "group_users_group_id",
-				Columns:    []*schema.Column{GroupUsersColumns[0]},
-				RefColumns: []*schema.Column{GroupsColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-			{
-				Symbol:     "group_users_user_id",
-				Columns:    []*schema.Column{GroupUsersColumns[1]},
-				RefColumns: []*schema.Column{UsersColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-		},
-	}
-	// GroupRolesColumns holds the columns for the "group_roles" table.
-	GroupRolesColumns = []*schema.Column{
-		{Name: "group_id", Type: field.TypeUUID},
-		{Name: "role_id", Type: field.TypeUUID},
-	}
-	// GroupRolesTable holds the schema information for the "group_roles" table.
-	GroupRolesTable = &schema.Table{
-		Name:       "group_roles",
-		Columns:    GroupRolesColumns,
-		PrimaryKey: []*schema.Column{GroupRolesColumns[0], GroupRolesColumns[1]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "group_roles_group_id",
-				Columns:    []*schema.Column{GroupRolesColumns[0]},
-				RefColumns: []*schema.Column{GroupsColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-			{
-				Symbol:     "group_roles_role_id",
-				Columns:    []*schema.Column{GroupRolesColumns[1]},
-				RefColumns: []*schema.Column{RolesColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-		},
-	}
-	// UserRolesColumns holds the columns for the "user_roles" table.
-	UserRolesColumns = []*schema.Column{
-		{Name: "user_id", Type: field.TypeUUID},
-		{Name: "role_id", Type: field.TypeUUID},
-	}
-	// UserRolesTable holds the schema information for the "user_roles" table.
-	UserRolesTable = &schema.Table{
-		Name:       "user_roles",
-		Columns:    UserRolesColumns,
-		PrimaryKey: []*schema.Column{UserRolesColumns[0], UserRolesColumns[1]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "user_roles_user_id",
-				Columns:    []*schema.Column{UserRolesColumns[0]},
-				RefColumns: []*schema.Column{UsersColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-			{
-				Symbol:     "user_roles_role_id",
-				Columns:    []*schema.Column{UserRolesColumns[1]},
-				RefColumns: []*schema.Column{RolesColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-		},
-	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
-		PoliciesTable,
 		DatatypesTable,
 		DevicesTable,
 		DeviceLocationsTable,
 		DeviceUsersTable,
 		EventOutboxTable,
 		EventsTable,
-		GroupsTable,
 		IdempotencyKeysTable,
 		KeyvaluesTable,
 		LocationsTable,
-		RolesTable,
 		TenantsTable,
 		UsersTable,
-		GroupUsersTable,
-		GroupRolesTable,
-		UserRolesTable,
 	}
 )
 
 func init() {
-	PoliciesTable.ForeignKeys[0].RefTable = RolesTable
-	PoliciesTable.Annotation = &entsql.Annotation{
-		Table: "policies",
-	}
 	DatatypesTable.Annotation = &entsql.Annotation{
 		Table: "datatypes",
 	}
@@ -641,20 +456,18 @@ func init() {
 	EventsTable.Annotation = &entsql.Annotation{
 		Table: "events",
 	}
-	GroupsTable.Annotation = &entsql.Annotation{
-		Table: "groups",
-	}
 	IdempotencyKeysTable.Annotation = &entsql.Annotation{
 		Table: "idempotency_keys",
+	}
+	IdempotencyKeysTable.Annotation.Checks = map[string]string{
+		"idempotency_keys_checksum_len_check": "octet_length(operation_checksum) = 32",
+		"idempotency_keys_status_check":       "status IN ('in_flight', 'committed')",
 	}
 	KeyvaluesTable.Annotation = &entsql.Annotation{
 		Table: "keyvalues",
 	}
 	LocationsTable.Annotation = &entsql.Annotation{
 		Table: "locations",
-	}
-	RolesTable.Annotation = &entsql.Annotation{
-		Table: "roles",
 	}
 	TenantsTable.Annotation = &entsql.Annotation{
 		Table: "tenants",
@@ -663,10 +476,4 @@ func init() {
 	UsersTable.Annotation = &entsql.Annotation{
 		Table: "users",
 	}
-	GroupUsersTable.ForeignKeys[0].RefTable = GroupsTable
-	GroupUsersTable.ForeignKeys[1].RefTable = UsersTable
-	GroupRolesTable.ForeignKeys[0].RefTable = GroupsTable
-	GroupRolesTable.ForeignKeys[1].RefTable = RolesTable
-	UserRolesTable.ForeignKeys[0].RefTable = UsersTable
-	UserRolesTable.ForeignKeys[1].RefTable = RolesTable
 }

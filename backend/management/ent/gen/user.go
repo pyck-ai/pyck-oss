@@ -3,7 +3,6 @@
 package gen
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -46,8 +45,6 @@ type User struct {
 	LastName string `json:"last_name,omitempty"`
 	// IsAdmin holds the value of the "is_admin" field.
 	IsAdmin bool `json:"is_admin,omitempty"`
-	// DEPRECATED: Legacy JSONB column for backward compatibility. Use role relations instead.
-	LegacyRoles []string `json:"legacy_roles,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UserQuery when eager-loading is set.
 	Edges        UserEdges `json:"edges"`
@@ -58,20 +55,14 @@ type User struct {
 type UserEdges struct {
 	// Tenant holds the value of the tenant edge.
 	Tenant *Tenant `json:"tenant,omitempty"`
-	// Roles holds the value of the roles edge.
-	Roles []*Role `json:"roles,omitempty"`
-	// Groups holds the value of the groups edge.
-	Groups []*Group `json:"groups,omitempty"`
 	// DeviceUsersUsers holds the value of the deviceUsersUsers edge.
 	DeviceUsersUsers []*DeviceUser `json:"deviceUsersUsers,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [2]bool
 	// totalCount holds the count of the edges above.
-	totalCount [4]map[string]int
+	totalCount [2]map[string]int
 
-	namedRoles            map[string][]*Role
-	namedGroups           map[string][]*Group
 	namedDeviceUsersUsers map[string][]*DeviceUser
 }
 
@@ -86,28 +77,10 @@ func (e UserEdges) TenantOrErr() (*Tenant, error) {
 	return nil, &NotLoadedError{edge: "tenant"}
 }
 
-// RolesOrErr returns the Roles value or an error if the edge
-// was not loaded in eager-loading.
-func (e UserEdges) RolesOrErr() ([]*Role, error) {
-	if e.loadedTypes[1] {
-		return e.Roles, nil
-	}
-	return nil, &NotLoadedError{edge: "roles"}
-}
-
-// GroupsOrErr returns the Groups value or an error if the edge
-// was not loaded in eager-loading.
-func (e UserEdges) GroupsOrErr() ([]*Group, error) {
-	if e.loadedTypes[2] {
-		return e.Groups, nil
-	}
-	return nil, &NotLoadedError{edge: "groups"}
-}
-
 // DeviceUsersUsersOrErr returns the DeviceUsersUsers value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) DeviceUsersUsersOrErr() ([]*DeviceUser, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[1] {
 		return e.DeviceUsersUsers, nil
 	}
 	return nil, &NotLoadedError{edge: "deviceUsersUsers"}
@@ -118,8 +91,6 @@ func (*User) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case user.FieldLegacyRoles:
-			values[i] = new([]byte)
 		case user.FieldIsAdmin:
 			values[i] = new(sql.NullBool)
 		case user.FieldIdpID, user.FieldUsername, user.FieldEmail, user.FieldFirstName, user.FieldLastName:
@@ -227,14 +198,6 @@ func (_m *User) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.IsAdmin = value.Bool
 			}
-		case user.FieldLegacyRoles:
-			if value, ok := values[i].(*[]byte); !ok {
-				return fmt.Errorf("unexpected type %T for field legacy_roles", values[i])
-			} else if value != nil && len(*value) > 0 {
-				if err := json.Unmarshal(*value, &_m.LegacyRoles); err != nil {
-					return fmt.Errorf("unmarshal field legacy_roles: %w", err)
-				}
-			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -251,16 +214,6 @@ func (_m *User) Value(name string) (ent.Value, error) {
 // QueryTenant queries the "tenant" edge of the User entity.
 func (_m *User) QueryTenant() *TenantQuery {
 	return NewUserClient(_m.config).QueryTenant(_m)
-}
-
-// QueryRoles queries the "roles" edge of the User entity.
-func (_m *User) QueryRoles() *RoleQuery {
-	return NewUserClient(_m.config).QueryRoles(_m)
-}
-
-// QueryGroups queries the "groups" edge of the User entity.
-func (_m *User) QueryGroups() *GroupQuery {
-	return NewUserClient(_m.config).QueryGroups(_m)
 }
 
 // QueryDeviceUsersUsers queries the "deviceUsersUsers" edge of the User entity.
@@ -329,59 +282,8 @@ func (_m *User) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("is_admin=")
 	builder.WriteString(fmt.Sprintf("%v", _m.IsAdmin))
-	builder.WriteString(", ")
-	builder.WriteString("legacy_roles=")
-	builder.WriteString(fmt.Sprintf("%v", _m.LegacyRoles))
 	builder.WriteByte(')')
 	return builder.String()
-}
-
-// NamedRoles returns the Roles named value or an error if the edge was not
-// loaded in eager-loading with this name.
-func (_m *User) NamedRoles(name string) ([]*Role, error) {
-	if _m.Edges.namedRoles == nil {
-		return nil, &NotLoadedError{edge: name}
-	}
-	nodes, ok := _m.Edges.namedRoles[name]
-	if !ok {
-		return nil, &NotLoadedError{edge: name}
-	}
-	return nodes, nil
-}
-
-func (_m *User) appendNamedRoles(name string, edges ...*Role) {
-	if _m.Edges.namedRoles == nil {
-		_m.Edges.namedRoles = make(map[string][]*Role)
-	}
-	if len(edges) == 0 {
-		_m.Edges.namedRoles[name] = []*Role{}
-	} else {
-		_m.Edges.namedRoles[name] = append(_m.Edges.namedRoles[name], edges...)
-	}
-}
-
-// NamedGroups returns the Groups named value or an error if the edge was not
-// loaded in eager-loading with this name.
-func (_m *User) NamedGroups(name string) ([]*Group, error) {
-	if _m.Edges.namedGroups == nil {
-		return nil, &NotLoadedError{edge: name}
-	}
-	nodes, ok := _m.Edges.namedGroups[name]
-	if !ok {
-		return nil, &NotLoadedError{edge: name}
-	}
-	return nodes, nil
-}
-
-func (_m *User) appendNamedGroups(name string, edges ...*Group) {
-	if _m.Edges.namedGroups == nil {
-		_m.Edges.namedGroups = make(map[string][]*Group)
-	}
-	if len(edges) == 0 {
-		_m.Edges.namedGroups[name] = []*Group{}
-	} else {
-		_m.Edges.namedGroups[name] = append(_m.Edges.namedGroups[name], edges...)
-	}
 }
 
 // NamedDeviceUsersUsers returns the DeviceUsersUsers named value or an error if the edge was not

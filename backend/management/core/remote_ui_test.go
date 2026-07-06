@@ -51,91 +51,8 @@ func TestIsBooleanField(t *testing.T) {
 	assert.True(t, core.IsBooleanField("isPyckGo"))
 	assert.True(t, core.IsBooleanField("isSetupPending"))
 	assert.False(t, core.IsBooleanField("flavour"))
-	assert.False(t, core.IsBooleanField("remoteMobileUI"))
+	assert.False(t, core.IsBooleanField("remoteMobileUITemplate"))
 	assert.False(t, core.IsBooleanField(""))
-}
-
-func TestEnrichRemoteUIURLs(t *testing.T) {
-	t.Parallel()
-
-	const base = "https://frontend.example.com"
-	const tenantID = "550e8400-e29b-41d4-a716-446655440000"
-
-	t.Run("flavour tenant gets both URLs", func(t *testing.T) {
-		t.Parallel()
-		data := map[string]any{"isPyckGo": true}
-		result := core.EnrichRemoteUIURLs(data, tenantID, base, "dev")
-		assert.Equal(t, "https://frontend.example.com/flavours/pyck-go/dev/web/mf-manifest.json", result["remoteWebUI"])
-		assert.Equal(t, "https://frontend.example.com/flavours/pyck-go/dev/mobile/widgets.rfw", result["remoteMobileUI"])
-	})
-
-	t.Run("normal tenant gets both URLs with tenant ID", func(t *testing.T) {
-		t.Parallel()
-		data := map[string]any{"someKey": "val"}
-		result := core.EnrichRemoteUIURLs(data, tenantID, base, "dev")
-		assert.Equal(t, "https://frontend.example.com/"+tenantID+"/web/mf-manifest.json", result["remoteWebUI"])
-		assert.Equal(t, "https://frontend.example.com/"+tenantID+"/mobile/widgets.rfw", result["remoteMobileUI"])
-	})
-
-	t.Run("nil data with baseURL returns new map with both URLs", func(t *testing.T) {
-		t.Parallel()
-		result := core.EnrichRemoteUIURLs(nil, tenantID, base, "dev")
-		assert.NotNil(t, result)
-		assert.Equal(t, "https://frontend.example.com/"+tenantID+"/web/mf-manifest.json", result["remoteWebUI"])
-		assert.Equal(t, "https://frontend.example.com/"+tenantID+"/mobile/widgets.rfw", result["remoteMobileUI"])
-	})
-
-	t.Run("nil data without baseURL returns nil", func(t *testing.T) {
-		t.Parallel()
-		result := core.EnrichRemoteUIURLs(nil, tenantID, "", "dev")
-		assert.Nil(t, result)
-	})
-
-	t.Run("does not overwrite non-empty remoteMobileUI", func(t *testing.T) {
-		t.Parallel()
-		data := map[string]any{"remoteMobileUI": "https://custom.example.com/widgets.rfw"}
-		result := core.EnrichRemoteUIURLs(data, tenantID, base, "dev")
-		assert.Equal(t, "https://custom.example.com/widgets.rfw", result["remoteMobileUI"])
-		assert.Equal(t, "https://frontend.example.com/"+tenantID+"/web/mf-manifest.json", result["remoteWebUI"])
-	})
-
-	t.Run("does not overwrite non-empty remoteWebUI", func(t *testing.T) {
-		t.Parallel()
-		data := map[string]any{"isPyckGo": true, "remoteWebUI": "https://custom.example.com/mf.json"}
-		result := core.EnrichRemoteUIURLs(data, tenantID, base, "dev")
-		assert.Equal(t, "https://custom.example.com/mf.json", result["remoteWebUI"])
-		// Mobile should still be populated since it's not set
-		assert.Equal(t, "https://frontend.example.com/flavours/pyck-go/dev/mobile/widgets.rfw", result["remoteMobileUI"])
-	})
-
-	t.Run("overwrites empty string values", func(t *testing.T) {
-		t.Parallel()
-		data := map[string]any{"remoteMobileUI": ""}
-		result := core.EnrichRemoteUIURLs(data, tenantID, base, "dev")
-		assert.Equal(t, "https://frontend.example.com/"+tenantID+"/mobile/widgets.rfw", result["remoteMobileUI"])
-	})
-
-	t.Run("trims trailing slash from base URL", func(t *testing.T) {
-		t.Parallel()
-		data := map[string]any{"isPyckGo": true}
-		result := core.EnrichRemoteUIURLs(data, tenantID, base+"/", "dev")
-		assert.Equal(t, "https://frontend.example.com/flavours/pyck-go/dev/web/mf-manifest.json", result["remoteWebUI"])
-	})
-
-	t.Run("lowercases environment name", func(t *testing.T) {
-		t.Parallel()
-		data := map[string]any{"isPyckGo": true}
-		result := core.EnrichRemoteUIURLs(data, tenantID, base, "DEV")
-		assert.Equal(t, "https://frontend.example.com/flavours/pyck-go/dev/web/mf-manifest.json", result["remoteWebUI"])
-	})
-
-	t.Run("custom flavour via flavour field", func(t *testing.T) {
-		t.Parallel()
-		data := map[string]any{"flavour": "custom-wms"}
-		result := core.EnrichRemoteUIURLs(data, tenantID, base, "prod")
-		assert.Equal(t, "https://frontend.example.com/flavours/custom-wms/prod/web/mf-manifest.json", result["remoteWebUI"])
-		assert.Equal(t, "https://frontend.example.com/flavours/custom-wms/prod/mobile/widgets.rfw", result["remoteMobileUI"])
-	})
 }
 
 func TestMergeData(t *testing.T) {
@@ -146,63 +63,56 @@ func TestMergeData(t *testing.T) {
 		assert.Nil(t, core.MergeData(nil, nil))
 	})
 
-	t.Run("only existing", func(t *testing.T) {
+	t.Run("only existing is preserved verbatim", func(t *testing.T) {
 		t.Parallel()
 		existing := map[string]any{"a": "1"}
 		result := core.MergeData(existing, nil)
 		assert.Equal(t, map[string]any{"a": "1"}, result)
 	})
 
-	t.Run("only incoming", func(t *testing.T) {
+	t.Run("non-flag incoming keys are dropped", func(t *testing.T) {
 		t.Parallel()
 		incoming := map[string]any{"b": "2"}
 		result := core.MergeData(nil, incoming)
-		assert.Equal(t, map[string]any{"b": "2"}, result)
+		assert.Equal(t, map[string]any{}, result)
 	})
 
-	t.Run("overlap incoming wins", func(t *testing.T) {
+	t.Run("stored data wins for non-flag keys", func(t *testing.T) {
 		t.Parallel()
 		existing := map[string]any{"a": "old", "b": "keep"}
-		incoming := map[string]any{"a": "new"}
+		incoming := map[string]any{"a": "new"} // "a" is not a synced flag
 		result := core.MergeData(existing, incoming)
-		assert.Equal(t, "new", result["a"])
+		assert.Equal(t, "old", result["a"])
 		assert.Equal(t, "keep", result["b"])
 	})
 
-	t.Run("non-overlapping keys preserved", func(t *testing.T) {
+	t.Run("flag keys from incoming overlay stored data", func(t *testing.T) {
 		t.Parallel()
-		existing := map[string]any{"a": "1"}
-		incoming := map[string]any{"b": "2"}
+		existing := map[string]any{"isPyckGo": false, "other": "x"}
+		incoming := map[string]any{"isPyckGo": true, "isSetupPending": true, "flavour": "pyck-go"}
 		result := core.MergeData(existing, incoming)
-		assert.Equal(t, map[string]any{"a": "1", "b": "2"}, result)
-	})
-
-	t.Run("computed keys from incoming are skipped", func(t *testing.T) {
-		t.Parallel()
-		existing := map[string]any{"remoteMobileUI": "custom-url", "remoteWebUI": "custom-react"}
-		incoming := map[string]any{"remoteMobileUI": "stale", "remoteWebUI": "stale", "isPyckGo": "true"}
-		result := core.MergeData(existing, incoming)
-		assert.Equal(t, "custom-url", result["remoteMobileUI"])
-		assert.Equal(t, "custom-react", result["remoteWebUI"])
-		assert.Equal(t, "true", result["isPyckGo"])
-	})
-
-	t.Run("computed keys from incoming skipped even when not in existing", func(t *testing.T) {
-		t.Parallel()
-		incoming := map[string]any{"remoteMobileUI": "from-zitadel", "flavour": "pyck-go"}
-		result := core.MergeData(nil, incoming)
-		assert.NotContains(t, result, "remoteMobileUI")
+		assert.Equal(t, true, result["isPyckGo"])
+		assert.Equal(t, true, result["isSetupPending"])
 		assert.Equal(t, "pyck-go", result["flavour"])
+		assert.Equal(t, "x", result["other"])
+	})
+
+	t.Run("template keys from incoming are ignored", func(t *testing.T) {
+		t.Parallel()
+		existing := map[string]any{core.RemoteWebUITemplateKey: "stored"}
+		incoming := map[string]any{core.RemoteWebUITemplateKey: "from-zitadel", "isPyckGo": true}
+		result := core.MergeData(existing, incoming)
+		assert.Equal(t, "stored", result[core.RemoteWebUITemplateKey])
+		assert.Equal(t, true, result["isPyckGo"])
 	})
 
 	t.Run("originals not mutated", func(t *testing.T) {
 		t.Parallel()
 		existing := map[string]any{"a": "1"}
-		incoming := map[string]any{"a": "2", "b": "3"}
+		incoming := map[string]any{"isPyckGo": true}
 		core.MergeData(existing, incoming)
 		assert.Equal(t, "1", existing["a"])
-		assert.NotContains(t, existing, "b")
-		assert.Equal(t, "2", incoming["a"])
+		assert.NotContains(t, existing, "isPyckGo")
 	})
 }
 
@@ -234,61 +144,50 @@ func TestMapsEqual(t *testing.T) {
 	}
 }
 
-func TestReconcileTenantData(t *testing.T) {
+// TestMergeDataClearStaysCleared guards the clear-vs-sync fix (#1317): a cleared
+// UI template override must NOT be resurrected by the next Zitadel sync. Sync is
+// MergeData only — it no longer re-derives templates — so an absent key stays
+// absent across a sync.
+func TestMergeDataClearStaysCleared(t *testing.T) {
+	t.Parallel()
+	const (
+		webKey    = core.RemoteWebUITemplateKey
+		mobileKey = core.RemoteMobileUITemplateKey
+	)
+
+	// Tenant cleared its web override (key absent); a manual mobile override and a
+	// flavour flag remain. Zitadel sync brings the flag plus a stale template key.
+	existing := map[string]any{mobileKey: "custom-mobile", "isPyckGo": true}
+	zitadel := map[string]any{webKey: "stale-from-zitadel", "isPyckGo": true}
+
+	result := core.MergeData(existing, zitadel)
+
+	_, webPresent := result[webKey]
+	assert.False(t, webPresent, "cleared web override must stay cleared after sync")
+	assert.Equal(t, "custom-mobile", result[mobileKey], "manual override preserved")
+	assert.Equal(t, true, result["isPyckGo"], "flag synced from Zitadel")
+}
+
+func TestValidateRemoteUITemplate(t *testing.T) {
 	t.Parallel()
 
-	const base = "https://frontend.example.com"
-	const tenantID = "550e8400-e29b-41d4-a716-446655440000"
-
-	t.Run("manual URLs preserved when Zitadel has same keys", func(t *testing.T) {
+	t.Run("accepts a well-formed absolute template", func(t *testing.T) {
 		t.Parallel()
-		existing := map[string]any{"remoteMobileUI": "custom-url", "remoteWebUI": "custom-react"}
-		zitadel := map[string]any{"remoteMobileUI": "stale", "remoteWebUI": "stale"}
-		result := core.ReconcileTenantData(existing, zitadel, tenantID, base, "dev")
-		assert.Equal(t, "custom-url", result["remoteMobileUI"])
-		assert.Equal(t, "custom-react", result["remoteWebUI"])
+		assert.NoError(t, core.ValidateRemoteUITemplate(
+			"https://cdn.example.com/web/{{.Slug}}/{{.Version}}/mf-manifest.json"))
 	})
 
-	t.Run("nil data + nil metadata + baseURL creates both URLs", func(t *testing.T) {
+	t.Run("rejects invalid templates", func(t *testing.T) {
 		t.Parallel()
-		result := core.ReconcileTenantData(nil, nil, tenantID, base, "dev")
-		assert.NotNil(t, result)
-		assert.Equal(t, "https://frontend.example.com/"+tenantID+"/web/mf-manifest.json", result["remoteWebUI"])
-		assert.Equal(t, "https://frontend.example.com/"+tenantID+"/mobile/widgets.rfw", result["remoteMobileUI"])
-	})
-
-	t.Run("nil data + nil metadata + no baseURL stays nil", func(t *testing.T) {
-		t.Parallel()
-		result := core.ReconcileTenantData(nil, nil, tenantID, "", "dev")
-		assert.Nil(t, result)
-	})
-
-	t.Run("isPyckGo bool from Zitadel (pre-converted) enriched with URLs", func(t *testing.T) {
-		t.Parallel()
-		// Zitadel metadata arrives already converted to native bool at ingestion
-		zitadel := map[string]any{"isPyckGo": true}
-		result := core.ReconcileTenantData(nil, zitadel, tenantID, base, "dev")
-		assert.Equal(t, true, result["isPyckGo"])
-		assert.Equal(t, "https://frontend.example.com/flavours/pyck-go/dev/web/mf-manifest.json", result["remoteWebUI"])
-		assert.Equal(t, "https://frontend.example.com/flavours/pyck-go/dev/mobile/widgets.rfw", result["remoteMobileUI"])
-	})
-
-	t.Run("manual Mobile URL + isPyckGo metadata keeps manual, adds Web", func(t *testing.T) {
-		t.Parallel()
-		existing := map[string]any{"remoteMobileUI": "custom"}
-		// Zitadel metadata arrives already converted to native bool at ingestion
-		zitadel := map[string]any{"isPyckGo": true}
-		result := core.ReconcileTenantData(existing, zitadel, tenantID, base, "dev")
-		assert.Equal(t, "custom", result["remoteMobileUI"])
-		assert.Equal(t, true, result["isPyckGo"])
-		assert.Equal(t, "https://frontend.example.com/flavours/pyck-go/dev/web/mf-manifest.json", result["remoteWebUI"])
-	})
-
-	t.Run("existing URLs + no metadata stays unchanged", func(t *testing.T) {
-		t.Parallel()
-		existing := map[string]any{"remoteMobileUI": "set", "remoteWebUI": "set"}
-		result := core.ReconcileTenantData(existing, nil, tenantID, base, "dev")
-		assert.Equal(t, "set", result["remoteMobileUI"])
-		assert.Equal(t, "set", result["remoteWebUI"])
+		bad := []string{
+			"", // empty
+			"https://cdn.example.com/web/{{.Slug}}/x.json", // missing {{.Version}}
+			"https://cdn.example.com/{{.Version}}/x.json",  // missing {{.Slug}}
+			"/web/{{.Slug}}/{{.Version}}/x.json",           // not absolute
+			"ftp://cdn.example.com/{{.Slug}}/{{.Version}}", // wrong scheme
+		}
+		for _, tmpl := range bad {
+			assert.ErrorIs(t, core.ValidateRemoteUITemplate(tmpl), core.ErrInvalidUITemplate, tmpl)
+		}
 	})
 }

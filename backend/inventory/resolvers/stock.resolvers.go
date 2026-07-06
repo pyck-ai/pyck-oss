@@ -18,7 +18,6 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen"
-	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/predicate"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/stock"
 	"github.com/pyck-ai/pyck/backend/inventory/model"
@@ -41,20 +40,23 @@ func (r *queryResolver) GetStockTree(ctx context.Context, after *entgql.Cursor[u
 		where.TenantIDIn = req.TenantIDs()
 	}
 
-	// Find the latest stock ID per (repository_id, item_id) matching the filters.
+	// Keep only the latest stock row per (repository_id, item_id) as of the
+	// cutoff, deduplicated inline via a correlated NOT EXISTS predicate that is
+	// evaluated together with the query's own filters and explicit pagination.
+	//
+	// Previously the latest-row ids were pre-computed in a separate, tenant-wide
+	// query whose result was then re-queried by IDIn. That query carried no
+	// explicit limit, so the LimitMixin interceptor silently capped it at the
+	// default limit with no ORDER BY; on tenants with more (item, repository)
+	// pairs than the cap the wanted rows fell outside the arbitrary capped set
+	// and the tree came back wrong (often empty).
 	stockPreds := BuildPredicates(where)
-	ids, err := latestStockIDs(ctx, r.client.Stock.Query(), stockPreds...)
-	if err != nil {
-		return nil, err
-	}
+	stockPreds = append(stockPreds, latestStockPredicate(*where.CreatedAtLT, req.TenantIDs()))
 
-	var stocks []*gen.Stock
-	if len(ids) > 0 {
-		stocks, err = r.client.Stock.Query().
-			Where(stock.IDIn(ids...)).
-			Order(gen.Desc(stock.FieldCreatedAt)).
-			AllPages(ctx, mixin.Limit)
-	}
+	stocks, err := r.client.Stock.Query().
+		Where(stockPreds...).
+		Order(gen.Desc(stock.FieldCreatedAt)).
+		AllPages(ctx, mixin.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -234,20 +236,18 @@ func (r *stockWhereInputResolver) Time(ctx context.Context, obj *gen.StockWhereI
 		return nil
 	}
 
-	// For the regular stocks query (which doesn't do its own dedup),
-	// pre-compute the latest stock IDs per (repository_id, item_id) before
-	// the cutoff time and add as a predicate.
-	timePreds := []predicate.Stock{stock.CreatedAtLT(*data), stock.TenantIDIn(tenantIDs...)}
-	ids, err := latestStockIDs(ctx, r.client.Stock.Query(), timePreds...)
-	if err != nil {
-		return err
-	}
-
-	if len(ids) == 0 {
-		obj.AddPredicates(stock.IDEQ(uuid.Nil))
-	} else {
-		obj.AddPredicates(stock.IDIn(ids...))
-	}
+	// Deduplicate to the latest stock row per (repository_id, item_id) before the
+	// cutoff via a correlated NOT EXISTS predicate. It is evaluated together with
+	// the stocks query's own filters (e.g. itemID) and its explicit pagination
+	// limit, so it stays scoped and bounded.
+	//
+	// Previously the latest-row ids were pre-computed in a separate, tenant-wide
+	// query and added as an IDIn predicate. That query carried no explicit limit,
+	// so the LimitMixin interceptor silently capped it at the default limit with
+	// no ORDER BY; on tenants with more (item, repository) pairs than the cap the
+	// requested rows fell outside the arbitrary capped set and the query returned
+	// 0 rows.
+	obj.AddPredicates(latestStockPredicate(*data, tenantIDs))
 
 	return nil
 }

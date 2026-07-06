@@ -166,7 +166,7 @@ func TestLimitMixinDefaultLimit(t *testing.T) {
 		assert.Len(t, entities, mixin.Limit, "All() should respect default limit")
 
 		// Test with IDs()
-		ids, err := client.EntityWithLimitMixin.Query().IDs(ctx)
+		ids, err := client.EntityWithLimitMixin.Query().IDs(ctx) //limitlint:allow exercising the silent cap is the point of this test
 		require.NoError(t, err)
 		assert.Len(t, ids, mixin.Limit, "IDs() should respect default limit")
 	})

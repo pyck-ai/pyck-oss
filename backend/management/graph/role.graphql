@@ -1,4 +1,0 @@
-extend type Query {
-  """Fetch a specific role by ID"""
-  role(id: ID!): Role
-}

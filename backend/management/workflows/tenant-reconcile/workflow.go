@@ -13,13 +13,12 @@ package tenantreconcile
 
 import (
 	"context"
-	"errors"
 	"time"
 
-	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
+
+	commonwf "github.com/pyck-ai/pyck/backend/common/workflow"
 )
 
 // Schedule constants. Exported so main.go can reference them if needed.
@@ -35,15 +34,12 @@ const (
 func TenantReconcileWorkflow(ctx workflow.Context, _ TenantReconcileWorkflowInput) (TenantReconcileWorkflowOutput, error) {
 	logger := workflow.GetLogger(ctx)
 
+	driftRP := commonwf.DefaultRetryPolicy()
+	driftRP.MaximumInterval = 30 * time.Second
 	driftAO := workflow.ActivityOptions{
 		StartToCloseTimeout:    1 * time.Minute,
 		ScheduleToCloseTimeout: 2 * time.Minute,
-		RetryPolicy: &temporal.RetryPolicy{
-			InitialInterval:    1 * time.Second,
-			BackoffCoefficient: 2.0,
-			MaximumInterval:    30 * time.Second,
-			MaximumAttempts:    3,
-		},
+		RetryPolicy:            driftRP,
 	}
 	driftCtx := workflow.WithActivityOptions(ctx, driftAO)
 
@@ -63,15 +59,12 @@ func TenantReconcileWorkflow(ctx workflow.Context, _ TenantReconcileWorkflowInpu
 		return out, nil
 	}
 
+	dispatchRP := commonwf.DefaultRetryPolicy()
+	dispatchRP.MaximumInterval = 15 * time.Second
 	dispatchAO := workflow.ActivityOptions{
 		StartToCloseTimeout:    30 * time.Second,
 		ScheduleToCloseTimeout: 1 * time.Minute,
-		RetryPolicy: &temporal.RetryPolicy{
-			InitialInterval:    1 * time.Second,
-			BackoffCoefficient: 2.0,
-			MaximumInterval:    15 * time.Second,
-			MaximumAttempts:    3,
-		},
+		RetryPolicy:            dispatchRP,
 	}
 	dispatchCtx := workflow.WithActivityOptions(ctx, dispatchAO)
 
@@ -112,52 +105,16 @@ func TenantReconcileWorkflow(ctx workflow.Context, _ TenantReconcileWorkflowInpu
 	return out, nil
 }
 
-// EnsureSchedule creates or updates the Temporal schedule that drives the
-// reconcile workflow. Mirrors the pattern in
-// workflows/zitadel-sync/workflow.go:EnsureOrchestratorSchedule.
-//
-// The caller must pass an `every` duration that exceeds the NATS
-// redelivery window in events/tenants/config.go (sum of
-// redeliverBackoff ≈ 112s). 5 minutes is the sensible default.
+// EnsureSchedule installs the periodic schedule that drives the
+// reconcile workflow. `every` must exceed the NATS redelivery window
+// (~112s) so dispatched workflows finish before the next sweep.
 func EnsureSchedule(ctx context.Context, temporalClient client.Client, taskQueue string, every time.Duration) error {
-	sc := temporalClient.ScheduleClient()
-
-	spec := client.ScheduleSpec{
-		Intervals: []client.ScheduleIntervalSpec{{Every: every}},
-	}
-
-	action := &client.ScheduleWorkflowAction{
-		ID:        WorkflowID,
-		TaskQueue: taskQueue,
-		Workflow:  TenantReconcileWorkflow,
-		Args:      []any{TenantReconcileWorkflowInput{}},
-	}
-
-	h := sc.GetHandle(ctx, ScheduleID)
-	if _, err := h.Describe(ctx); err != nil {
-		var notFound *serviceerror.NotFound
-		if errors.As(err, &notFound) {
-			_, createErr := sc.Create(ctx, client.ScheduleOptions{
-				ID:            ScheduleID,
-				Spec:          spec,
-				Action:        action,
-				CatchupWindow: every,
-			})
-			return createErr
-		}
-		return err
-	}
-
-	return h.Update(ctx, client.ScheduleUpdateOptions{
-		DoUpdate: func(inU client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
-			s := inU.Description.Schedule
-			s.Spec = &spec
-			s.Action = action
-			if s.Policy == nil {
-				s.Policy = &client.SchedulePolicies{}
-			}
-			s.Policy.CatchupWindow = every
-			return &client.ScheduleUpdate{Schedule: &s}, nil
-		},
+	return commonwf.EnsureSchedule(ctx, temporalClient, commonwf.EnsureScheduleOptions{
+		ScheduleID: ScheduleID,
+		WorkflowID: WorkflowID,
+		TaskQueue:  taskQueue,
+		Workflow:   TenantReconcileWorkflow,
+		Args:       []any{TenantReconcileWorkflowInput{}},
+		Every:      every,
 	})
 }

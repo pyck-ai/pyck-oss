@@ -84,8 +84,6 @@ type config struct {
 	BootstrapEnabled bool `env:"PYCK_BOOTSTRAP_ENABLED" envDefault:"true"`
 	BootstrapOnly    bool `env:"PYCK_BOOTSTRAP_ONLY" envDefault:"true"`
 
-	FrontendBaseURL string `env:"PYCK_FRONTEND_BASE_URL"`
-
 	// Flavour Go worker image (used separately as the container image)
 	FlavourGoWorkerImage    string `env:"PYCK_FLAVOUR_GO_WORKER_IMAGE"`
 	FlavourGoWorkerReplicas int32  `env:"PYCK_FLAVOUR_GO_WORKER_REPLICAS" envDefault:"2"`

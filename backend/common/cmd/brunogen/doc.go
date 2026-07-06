@@ -120,6 +120,12 @@ Operation names in test scenarios MUST be fully qualified as "service.OperationN
 (e.g. "inventory.createInventoryItem") because tests are cross-service and brunogen
 looks up the GraphQL operation from each service's apigen_gen.graphql file.
 
+In addition to apigen_gen.graphql, brunogen reads each service's optional
+api/operations_gen.graphql (apigen's hand-written operations). These cover
+federated cross-service relations that apigen cannot auto-generate — e.g. a query
+selecting PickingOrder.customer, resolved by main-data — and run through the
+gateway like any other operation.
+
 # Variable substitution
 
 ## $fake – random data

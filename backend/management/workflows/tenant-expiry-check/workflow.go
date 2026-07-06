@@ -2,13 +2,12 @@ package tenantexpirycheck
 
 import (
 	"context"
-	"errors"
 	"time"
 
-	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
+
+	commonwf "github.com/pyck-ai/pyck/backend/common/workflow"
 )
 
 // Schedule constants. Exported so main.go can reference them.
@@ -28,15 +27,12 @@ const (
 func TenantExpiryCheckWorkflow(ctx workflow.Context, _ TenantExpiryCheckWorkflowInput) (TenantExpiryCheckWorkflowOutput, error) {
 	logger := workflow.GetLogger(ctx)
 
+	findRP := commonwf.DefaultRetryPolicy()
+	findRP.MaximumInterval = 30 * time.Second
 	findAO := workflow.ActivityOptions{
 		StartToCloseTimeout:    1 * time.Minute,
 		ScheduleToCloseTimeout: 2 * time.Minute,
-		RetryPolicy: &temporal.RetryPolicy{
-			InitialInterval:    1 * time.Second,
-			BackoffCoefficient: 2.0,
-			MaximumInterval:    30 * time.Second,
-			MaximumAttempts:    3,
-		},
+		RetryPolicy:            findRP,
 	}
 	findCtx := workflow.WithActivityOptions(ctx, findAO)
 
@@ -53,15 +49,12 @@ func TenantExpiryCheckWorkflow(ctx workflow.Context, _ TenantExpiryCheckWorkflow
 		return out, nil
 	}
 
+	deleteRP := commonwf.DefaultRetryPolicy()
+	deleteRP.MaximumInterval = 15 * time.Second
 	deleteAO := workflow.ActivityOptions{
 		StartToCloseTimeout:    30 * time.Second,
 		ScheduleToCloseTimeout: 1 * time.Minute,
-		RetryPolicy: &temporal.RetryPolicy{
-			InitialInterval:    1 * time.Second,
-			BackoffCoefficient: 2.0,
-			MaximumInterval:    15 * time.Second,
-			MaximumAttempts:    3,
-		},
+		RetryPolicy:            deleteRP,
 	}
 	deleteCtx := workflow.WithActivityOptions(ctx, deleteAO)
 
@@ -85,54 +78,17 @@ func TenantExpiryCheckWorkflow(ctx workflow.Context, _ TenantExpiryCheckWorkflow
 	return out, nil
 }
 
-// EnsureSchedule creates or updates the Temporal schedule that drives
-// the expiry-check workflow. Mirrors the pattern in
-// tenant-reconcile/workflow.go:EnsureSchedule.
-//
-// OverlapPolicy is left at the Temporal default
-// (SCHEDULE_OVERLAP_POLICY_SKIP): if a previous tick is still
-// running when the next fires, the new tick is dropped instead of
-// queued. Right semantics for a sweeper — a hung sweep should
-// surface as a missed interval rather than as a backlog.
+// EnsureSchedule installs the periodic schedule that drives the
+// expiry-check workflow. The default overlap policy (SKIP) is correct
+// here: a hung sweep surfaces as a missed interval, not as a backlog
+// of concurrent sweepers.
 func EnsureSchedule(ctx context.Context, temporalClient client.Client, taskQueue string, every time.Duration) error {
-	sc := temporalClient.ScheduleClient()
-
-	spec := client.ScheduleSpec{
-		Intervals: []client.ScheduleIntervalSpec{{Every: every}},
-	}
-
-	action := &client.ScheduleWorkflowAction{
-		ID:        WorkflowID,
-		TaskQueue: taskQueue,
-		Workflow:  TenantExpiryCheckWorkflow,
-		Args:      []any{TenantExpiryCheckWorkflowInput{}},
-	}
-
-	h := sc.GetHandle(ctx, ScheduleID)
-	if _, err := h.Describe(ctx); err != nil {
-		var notFound *serviceerror.NotFound
-		if errors.As(err, &notFound) {
-			_, createErr := sc.Create(ctx, client.ScheduleOptions{
-				ID:            ScheduleID,
-				Spec:          spec,
-				Action:        action,
-				CatchupWindow: every,
-			})
-			return createErr
-		}
-		return err
-	}
-
-	return h.Update(ctx, client.ScheduleUpdateOptions{
-		DoUpdate: func(inU client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
-			s := inU.Description.Schedule
-			s.Spec = &spec
-			s.Action = action
-			if s.Policy == nil {
-				s.Policy = &client.SchedulePolicies{}
-			}
-			s.Policy.CatchupWindow = every
-			return &client.ScheduleUpdate{Schedule: &s}, nil
-		},
+	return commonwf.EnsureSchedule(ctx, temporalClient, commonwf.EnsureScheduleOptions{
+		ScheduleID: ScheduleID,
+		WorkflowID: WorkflowID,
+		TaskQueue:  taskQueue,
+		Workflow:   TenantExpiryCheckWorkflow,
+		Args:       []any{TenantExpiryCheckWorkflowInput{}},
+		Every:      every,
 	})
 }

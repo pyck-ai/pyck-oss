@@ -477,3 +477,39 @@ func TestUser_Username(t *testing.T) {
 
 	assert.Equal(t, "testuser@example.com", user.Username, "Username should be accessible")
 }
+
+func TestUser_HasServiceRole(t *testing.T) {
+	t.Parallel()
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	user := authn.User{
+		ID:       uuid.New(),
+		TenantID: tenantA,
+		ServiceRoles: map[uuid.UUID]map[string]struct{}{
+			tenantA: {"inventory_service": struct{}{}},
+		},
+	}
+
+	testCases := []struct {
+		name     string
+		user     authn.User
+		key      string
+		tenantID uuid.UUID
+		expected bool
+	}{
+		{"held in tenant", user, "inventory_service", tenantA, true},
+		{"not held in tenant", user, "picking_service", tenantA, false},
+		{"no roles in other tenant", user, "inventory_service", tenantB, false},
+		{"system user holds every service role", *authn.SystemUser(), "inventory_service", tenantA, true},
+		{"nil service roles", authn.User{ID: uuid.New(), TenantID: tenantA}, "inventory_service", tenantA, false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.expected, tc.user.HasServiceRole(tc.key, tc.tenantID))
+		})
+	}
+}

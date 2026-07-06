@@ -8,6 +8,7 @@ import (
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 
+	"github.com/pyck-ai/pyck/backend/common/serviceroles"
 	"github.com/pyck-ai/pyck/backend/common/services/zitadel/sdk"
 
 	"github.com/pyck-ai/pyck/backend/management/core"
@@ -85,7 +86,7 @@ func RegisterTenantWorkflow(context workflow.Context, input RegisterTenantWorkfl
 	projectGrantInput := addProjectGrantsInput{
 		ProjectID:      core.Config.ZitadelProjectId,
 		OrganizationID: organizationOutput.OrganizationID,
-		Roles:          []string{sdk.ProjectRoleReader, sdk.ProjectRoleWriter},
+		Roles:          append([]string{sdk.ProjectRoleReader, sdk.ProjectRoleWriter}, serviceroles.ServiceRoleStrings()...),
 	}
 	var grantOutput Grant
 	err = workflow.ExecuteActivity(ctx, activities.AddProjectGrantActivity, projectGrantInput).Get(ctx, &grantOutput)

@@ -7,18 +7,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/accesspolicy"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/datatype"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/device"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/devicelocation"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/deviceuser"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/entityeventsoutbox"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/event"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/group"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/idempotencykey"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/keyvalue"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/location"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/role"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/user"
 	"github.com/pyck-ai/pyck/backend/management/ent/schema"
@@ -31,42 +28,6 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
-	accesspolicyMixin := schema.AccessPolicy{}.Mixin()
-	accesspolicy.Policy = privacy.NewPolicies(accesspolicyMixin[0], accesspolicyMixin[2], schema.AccessPolicy{})
-	accesspolicy.Hooks[0] = func(next ent.Mutator) ent.Mutator {
-		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-			if err := accesspolicy.Policy.EvalMutation(ctx, m); err != nil {
-				return nil, err
-			}
-			return next.Mutate(ctx, m)
-		})
-	}
-	accesspolicyMixinHooks0 := accesspolicyMixin[0].Hooks()
-	accesspolicyMixinHooks2 := accesspolicyMixin[2].Hooks()
-
-	accesspolicy.Hooks[1] = accesspolicyMixinHooks0[0]
-
-	accesspolicy.Hooks[2] = accesspolicyMixinHooks2[0]
-	accesspolicyMixinInters1 := accesspolicyMixin[1].Interceptors()
-	accesspolicy.Interceptors[0] = accesspolicyMixinInters1[0]
-	accesspolicyFields := schema.AccessPolicy{}.Fields()
-	_ = accesspolicyFields
-	// accesspolicyDescResource is the schema descriptor for resource field.
-	accesspolicyDescResource := accesspolicyFields[1].Descriptor()
-	// accesspolicy.ResourceValidator is a validator for the "resource" field. It is called by the builders before save.
-	accesspolicy.ResourceValidator = accesspolicyDescResource.Validators[0].(func(string) error)
-	// accesspolicyDescAction is the schema descriptor for action field.
-	accesspolicyDescAction := accesspolicyFields[2].Descriptor()
-	// accesspolicy.ActionValidator is a validator for the "action" field. It is called by the builders before save.
-	accesspolicy.ActionValidator = accesspolicyDescAction.Validators[0].(func(string) error)
-	// accesspolicyDescEffect is the schema descriptor for effect field.
-	accesspolicyDescEffect := accesspolicyFields[3].Descriptor()
-	// accesspolicy.DefaultEffect holds the default value on creation for the effect field.
-	accesspolicy.DefaultEffect = accesspolicyDescEffect.Default.(string)
-	// accesspolicyDescID is the schema descriptor for id field.
-	accesspolicyDescID := accesspolicyFields[0].Descriptor()
-	// accesspolicy.DefaultID holds the default value on creation for the id field.
-	accesspolicy.DefaultID = accesspolicyDescID.Default.(func() uuid.UUID)
 	datatypeMixin := schema.DataType{}.Mixin()
 	datatype.Policy = privacy.NewPolicies(datatypeMixin[0], datatypeMixin[1], schema.DataType{})
 	datatype.Hooks[0] = func(next ent.Mutator) ent.Mutator {
@@ -239,34 +200,6 @@ func init() {
 	eventDescID := eventFields[0].Descriptor()
 	// event.DefaultID holds the default value on creation for the id field.
 	event.DefaultID = eventDescID.Default.(func() uuid.UUID)
-	groupMixin := schema.Group{}.Mixin()
-	group.Policy = privacy.NewPolicies(groupMixin[0], groupMixin[2], schema.Group{})
-	group.Hooks[0] = func(next ent.Mutator) ent.Mutator {
-		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-			if err := group.Policy.EvalMutation(ctx, m); err != nil {
-				return nil, err
-			}
-			return next.Mutate(ctx, m)
-		})
-	}
-	groupMixinHooks0 := groupMixin[0].Hooks()
-	groupMixinHooks2 := groupMixin[2].Hooks()
-
-	group.Hooks[1] = groupMixinHooks0[0]
-
-	group.Hooks[2] = groupMixinHooks2[0]
-	groupMixinInters1 := groupMixin[1].Interceptors()
-	group.Interceptors[0] = groupMixinInters1[0]
-	groupFields := schema.Group{}.Fields()
-	_ = groupFields
-	// groupDescName is the schema descriptor for name field.
-	groupDescName := groupFields[1].Descriptor()
-	// group.NameValidator is a validator for the "name" field. It is called by the builders before save.
-	group.NameValidator = groupDescName.Validators[0].(func(string) error)
-	// groupDescID is the schema descriptor for id field.
-	groupDescID := groupFields[0].Descriptor()
-	// group.DefaultID holds the default value on creation for the id field.
-	group.DefaultID = groupDescID.Default.(func() uuid.UUID)
 	idempotencykeyMixin := schema.IdempotencyKey{}.Mixin()
 	idempotencykeyMixinFields0 := idempotencykeyMixin[0].Fields()
 	_ = idempotencykeyMixinFields0
@@ -367,34 +300,6 @@ func init() {
 	locationDescID := locationFields[0].Descriptor()
 	// location.DefaultID holds the default value on creation for the id field.
 	location.DefaultID = locationDescID.Default.(func() uuid.UUID)
-	roleMixin := schema.Role{}.Mixin()
-	role.Policy = privacy.NewPolicies(roleMixin[0], roleMixin[2], schema.Role{})
-	role.Hooks[0] = func(next ent.Mutator) ent.Mutator {
-		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-			if err := role.Policy.EvalMutation(ctx, m); err != nil {
-				return nil, err
-			}
-			return next.Mutate(ctx, m)
-		})
-	}
-	roleMixinHooks0 := roleMixin[0].Hooks()
-	roleMixinHooks2 := roleMixin[2].Hooks()
-
-	role.Hooks[1] = roleMixinHooks0[0]
-
-	role.Hooks[2] = roleMixinHooks2[0]
-	roleMixinInters1 := roleMixin[1].Interceptors()
-	role.Interceptors[0] = roleMixinInters1[0]
-	roleFields := schema.Role{}.Fields()
-	_ = roleFields
-	// roleDescName is the schema descriptor for name field.
-	roleDescName := roleFields[1].Descriptor()
-	// role.NameValidator is a validator for the "name" field. It is called by the builders before save.
-	role.NameValidator = roleDescName.Validators[0].(func(string) error)
-	// roleDescID is the schema descriptor for id field.
-	roleDescID := roleFields[0].Descriptor()
-	// role.DefaultID holds the default value on creation for the id field.
-	role.DefaultID = roleDescID.Default.(func() uuid.UUID)
 	tenantMixin := schema.Tenant{}.Mixin()
 	tenant.Policy = privacy.NewPolicies(tenantMixin[1], schema.Tenant{})
 	tenant.Hooks[0] = func(next ent.Mutator) ent.Mutator {
@@ -448,10 +353,6 @@ func init() {
 	userDescIsAdmin := userFields[6].Descriptor()
 	// user.DefaultIsAdmin holds the default value on creation for the is_admin field.
 	user.DefaultIsAdmin = userDescIsAdmin.Default.(bool)
-	// userDescLegacyRoles is the schema descriptor for legacy_roles field.
-	userDescLegacyRoles := userFields[7].Descriptor()
-	// user.DefaultLegacyRoles holds the default value on creation for the legacy_roles field.
-	user.DefaultLegacyRoles = userDescLegacyRoles.Default.([]string)
 	// userDescID is the schema descriptor for id field.
 	userDescID := userFields[0].Descriptor()
 	// user.DefaultID holds the default value on creation for the id field.

@@ -25,15 +25,6 @@ func (r *queryResolver) Nodes(ctx context.Context, ids []uuid.UUID) ([]gen.Noder
 	return r.client.Noders(ctx, ids, gen.WithFixedNodeType(datatype.Table))
 }
 
-// AccessPolicies is the resolver for the accessPolicies field.
-func (r *queryResolver) AccessPolicies(ctx context.Context, after *entgql.Cursor[uuid.UUID], first *int, before *entgql.Cursor[uuid.UUID], last *int, orderBy *gen.AccessPolicyOrder, where *gen.AccessPolicyWhereInput) (*gen.AccessPolicyConnection, error) {
-	return r.client.AccessPolicy.Query().
-		Paginate(ctx, after, first, before, last,
-			gen.WithAccessPolicyOrder(orderBy),
-			gen.WithAccessPolicyFilter(where.Filter),
-		)
-}
-
 // DataTypes is the resolver for the dataTypes field.
 func (r *queryResolver) DataTypes(ctx context.Context, after *entgql.Cursor[uuid.UUID], first *int, before *entgql.Cursor[uuid.UUID], last *int, orderBy *gen.DataTypeOrder, where *gen.DataTypeWhereInput) (*gen.DataTypeConnection, error) {
 	return r.client.DataType.Query().
@@ -79,15 +70,6 @@ func (r *queryResolver) Events(ctx context.Context, after *entgql.Cursor[uuid.UU
 		)
 }
 
-// Groups is the resolver for the groups field.
-func (r *queryResolver) Groups(ctx context.Context, after *entgql.Cursor[uuid.UUID], first *int, before *entgql.Cursor[uuid.UUID], last *int, orderBy *gen.GroupOrder, where *gen.GroupWhereInput) (*gen.GroupConnection, error) {
-	return r.client.Group.Query().
-		Paginate(ctx, after, first, before, last,
-			gen.WithGroupOrder(orderBy),
-			gen.WithGroupFilter(where.Filter),
-		)
-}
-
 // KeyValues is the resolver for the keyValues field.
 func (r *queryResolver) KeyValues(ctx context.Context, after *entgql.Cursor[uuid.UUID], first *int, before *entgql.Cursor[uuid.UUID], last *int, orderBy *gen.KeyValueOrder, where *gen.KeyValueWhereInput) (*gen.KeyValueConnection, error) {
 	return r.client.KeyValue.Query().
@@ -103,15 +85,6 @@ func (r *queryResolver) Locations(ctx context.Context, after *entgql.Cursor[uuid
 		Paginate(ctx, after, first, before, last,
 			gen.WithLocationOrder(orderBy),
 			gen.WithLocationFilter(where.Filter),
-		)
-}
-
-// Roles is the resolver for the roles field.
-func (r *queryResolver) Roles(ctx context.Context, after *entgql.Cursor[uuid.UUID], first *int, before *entgql.Cursor[uuid.UUID], last *int, orderBy *gen.RoleOrder, where *gen.RoleWhereInput) (*gen.RoleConnection, error) {
-	return r.client.Role.Query().
-		Paginate(ctx, after, first, before, last,
-			gen.WithRoleOrder(orderBy),
-			gen.WithRoleFilter(where.Filter),
 		)
 }
 

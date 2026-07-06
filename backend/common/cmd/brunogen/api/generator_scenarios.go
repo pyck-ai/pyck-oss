@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,6 +25,25 @@ func (c serviceOpsCache) load(backendDir, service string) (*types.Operations, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to load schema for service %q: %w", service, err)
 	}
+
+	// Merge any hand-written operations (apigen's operations_gen.graphql). These
+	// cover federated cross-service relations that apigen cannot auto-generate
+	// and run through the gateway. The file is optional; a missing one — or one
+	// holding no operations — simply contributes nothing.
+	handWrittenPath := filepath.Join(backendDir, service, "api", "operations_gen.graphql")
+	if _, statErr := os.Stat(handWrittenPath); statErr == nil {
+		extra, err := ParseGraphQL(handWrittenPath)
+		switch {
+		case errors.Is(err, types.ErrNoOperations):
+			// Nothing to merge.
+		case err != nil:
+			return nil, fmt.Errorf("failed to load hand-written operations for service %q: %w", service, err)
+		default:
+			ops.Queries = append(ops.Queries, extra.Queries...)
+			ops.Mutations = append(ops.Mutations, extra.Mutations...)
+		}
+	}
+
 	c[service] = ops
 	return ops, nil
 }

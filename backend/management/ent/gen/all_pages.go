@@ -4,29 +4,6 @@ package gen
 
 import "context"
 
-// AllPages paginates through all AccessPolicy records matching the current
-// query predicates in pages of pageSize, collecting every row. This avoids the
-// LimitMixin hard cap that silently truncates results when no explicit Limit is
-// set.
-//
-// An ORDER BY id ASC is appended so pagination is deterministic — without it,
-// Postgres LIMIT/OFFSET returns rows in unspecified order and pages can
-// overlap or skip rows depending on the chosen plan.
-func (_q *AccessPolicyQuery) AllPages(ctx context.Context, pageSize int) ([]*AccessPolicy, error) {
-	var all []*AccessPolicy
-	for offset := 0; ; offset += pageSize {
-		page, err := _q.Clone().Order(Asc("id")).Limit(pageSize).Offset(offset).All(ctx)
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, page...)
-		if len(page) < pageSize {
-			break
-		}
-	}
-	return all, nil
-}
-
 // AllPages paginates through all DataType records matching the current
 // query predicates in pages of pageSize, collecting every row. This avoids the
 // LimitMixin hard cap that silently truncates results when no explicit Limit is
@@ -165,29 +142,6 @@ func (_q *EventQuery) AllPages(ctx context.Context, pageSize int) ([]*Event, err
 	return all, nil
 }
 
-// AllPages paginates through all Group records matching the current
-// query predicates in pages of pageSize, collecting every row. This avoids the
-// LimitMixin hard cap that silently truncates results when no explicit Limit is
-// set.
-//
-// An ORDER BY id ASC is appended so pagination is deterministic — without it,
-// Postgres LIMIT/OFFSET returns rows in unspecified order and pages can
-// overlap or skip rows depending on the chosen plan.
-func (_q *GroupQuery) AllPages(ctx context.Context, pageSize int) ([]*Group, error) {
-	var all []*Group
-	for offset := 0; ; offset += pageSize {
-		page, err := _q.Clone().Order(Asc("id")).Limit(pageSize).Offset(offset).All(ctx)
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, page...)
-		if len(page) < pageSize {
-			break
-		}
-	}
-	return all, nil
-}
-
 // AllPages paginates through all IdempotencyKey records matching the current
 // query predicates in pages of pageSize, collecting every row. This avoids the
 // LimitMixin hard cap that silently truncates results when no explicit Limit is
@@ -244,29 +198,6 @@ func (_q *KeyValueQuery) AllPages(ctx context.Context, pageSize int) ([]*KeyValu
 // overlap or skip rows depending on the chosen plan.
 func (_q *LocationQuery) AllPages(ctx context.Context, pageSize int) ([]*Location, error) {
 	var all []*Location
-	for offset := 0; ; offset += pageSize {
-		page, err := _q.Clone().Order(Asc("id")).Limit(pageSize).Offset(offset).All(ctx)
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, page...)
-		if len(page) < pageSize {
-			break
-		}
-	}
-	return all, nil
-}
-
-// AllPages paginates through all Role records matching the current
-// query predicates in pages of pageSize, collecting every row. This avoids the
-// LimitMixin hard cap that silently truncates results when no explicit Limit is
-// set.
-//
-// An ORDER BY id ASC is appended so pagination is deterministic — without it,
-// Postgres LIMIT/OFFSET returns rows in unspecified order and pages can
-// overlap or skip rows depending on the chosen plan.
-func (_q *RoleQuery) AllPages(ctx context.Context, pageSize int) ([]*Role, error) {
-	var all []*Role
 	for offset := 0; ; offset += pageSize {
 		page, err := _q.Clone().Order(Asc("id")).Limit(pageSize).Offset(offset).All(ctx)
 		if err != nil {

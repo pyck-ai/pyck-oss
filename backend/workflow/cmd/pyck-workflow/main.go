@@ -36,6 +36,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/std"
 	"github.com/pyck-ai/pyck/backend/common/tenant"
 	"github.com/pyck-ai/pyck/backend/common/validator"
+	commonworkflow "github.com/pyck-ai/pyck/backend/common/workflow"
 
 	managementapi "github.com/pyck-ai/pyck/backend/management/api"
 	managementguard "github.com/pyck-ai/pyck/backend/management/guard"
@@ -282,7 +283,20 @@ func main() {
 
 	// Set up GraphQL server
 	dataTypeValidator := validator.NewValidator(dataTypesCache)
-	resolver := resolvers.NewResolver(serviceName, dbClient, dataTypeValidator, workflowRouter)
+	remoteUIDefaults := resolvers.RemoteUIDefaults{
+		Templates: commonworkflow.UIBundleTemplate{
+			Web:    core.Config.DefaultWebUITemplate,
+			Mobile: core.Config.DefaultMobileUITemplate,
+		},
+		Env: core.Config.EnvironmentName,
+	}
+	if core.Config.DefaultBundleSlug != "" && core.Config.DefaultBundleVersion != "" {
+		remoteUIDefaults.Bundle = &commonworkflow.UIBundle{
+			Slug:    core.Config.DefaultBundleSlug,
+			Version: core.Config.DefaultBundleVersion,
+		}
+	}
+	resolver := resolvers.NewResolver(serviceName, dbClient, dataTypeValidator, workflowRouter, mgmtClient, remoteUIDefaults)
 	// Idempotency store (pyck#1123): writes records inside the mutation
 	// transaction via gqltx; janitor goroutine prunes committed rows after
 	// the 24h TTL.

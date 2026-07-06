@@ -39,7 +39,6 @@ graphql:
           idpID
           isAdmin
           lastName
-          legacyRoles
           tenantID
           updatedAt
           updatedBy

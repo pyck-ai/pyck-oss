@@ -1,16 +1,66 @@
 package core
 
 import (
+	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
 	"strings"
+	"text/template"
+
+	commonworkflow "github.com/pyck-ai/pyck/backend/common/workflow"
 )
 
-// computedKeys are system-computed keys that must never be overwritten by
-// external metadata (Zitadel). They are set exclusively by EnrichRemoteUIURLs.
-var computedKeys = map[string]bool{
-	"remoteWebUI":    true,
-	"remoteMobileUI": true,
+// ErrInvalidUITemplate is returned when a UI bundle URL template fails
+// validation at write time.
+var ErrInvalidUITemplate = errors.New("invalid UI bundle URL template")
+
+// ValidateRemoteUITemplate checks that a UI bundle URL template is a parseable
+// text/template, a well-formed absolute http(s) URL, and carries both the
+// {{.Slug}} and {{.Version}} placeholders. The setTenantUITemplate mutation is
+// system-only, but a malformed override is far cheaper to reject here than to
+// discover when the frontend fails to load a manifest.
+func ValidateRemoteUITemplate(tmpl string) error {
+	for _, placeholder := range []string{"{{.Slug}}", "{{.Version}}"} {
+		if !strings.Contains(tmpl, placeholder) {
+			return fmt.Errorf("%w: missing %s placeholder", ErrInvalidUITemplate, placeholder)
+		}
+	}
+	if _, err := template.New("uiBundleURL").Parse(tmpl); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidUITemplate, err)
+	}
+	u, err := url.Parse(tmpl)
+	if err != nil {
+		return fmt.Errorf("%w: %s", ErrInvalidUITemplate, tmpl)
+	}
+	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return fmt.Errorf("%w: must be an absolute http(s) URL", ErrInvalidUITemplate)
+	}
+	return nil
+}
+
+// Tenant-data keys holding the per-workflow UI bundle URL *templates*. Each is a
+// URL with {{.Slug}}/{{.Version}} placeholders that the workflow-service resolver
+// substitutes at query time from the execution's pinned deployment-version
+// metadata (#1317). The hostable origin + path layout stay tenant-controlled
+// (needed for flavours and trusted-origins validation); only the bundle
+// slug/version are filled in downstream.
+//
+// Aliased from common/workflow, the canonical home for this wire contract, so
+// management and the workflow service cannot drift.
+const (
+	RemoteWebUITemplateKey    = commonworkflow.RemoteWebUITemplateKey
+	RemoteMobileUITemplateKey = commonworkflow.RemoteMobileUITemplateKey
+)
+
+// zitadelSyncedKeys are the only tenant-data keys taken from Zitadel metadata
+// during sync. Everything else in tenant.Data is written directly (tenant
+// registration, the system-role UI-template mutation) and is the source of
+// truth. Keep this set in sync with tenant-settings.json.
+var zitadelSyncedKeys = map[string]bool{
+	"isPyckGo":       true,
+	"isSetupPending": true,
+	"flavour":        true,
 }
 
 // booleanFields lists tenant data keys whose canonical type is bool
@@ -28,66 +78,16 @@ func IsBooleanField(key string) bool {
 	return booleanFields[key]
 }
 
-// DetectFlavour returns the flavour name from tenant data, or "" for normal tenants.
-// Precedence: flavour string > isPyckGo bool.
-// Expects boolean fields to already be native Go bools (converted at ingestion).
+// DetectFlavour returns the flavour name from tenant data, or "" for a normal
+// tenant. Aliased from common/workflow (the canonical home) so management and
+// the workflow service share one definition.
 func DetectFlavour(data map[string]any) string {
-	if data == nil {
-		return ""
-	}
-	// flavour string takes precedence (future extensibility)
-	if f, ok := data["flavour"].(string); ok && f != "" {
-		return f
-	}
-	if v, ok := data["isPyckGo"].(bool); ok && v {
-		return "pyck-go"
-	}
-	return ""
+	return commonworkflow.DetectFlavour(data)
 }
 
-// EnrichRemoteUIURLs populates remoteWebUI and remoteMobileUI in data.
-// Returns the (possibly newly created) data map, callers MUST assign back.
-//
-// Guarantees:
-//   - Returns input data unchanged if frontendBaseURL is empty
-//   - Initializes data map if nil and frontendBaseURL is configured
-//   - Skips each URL field independently if already set to a non-empty string
-//   - Both web and mobile URLs are always populated
-//   - Flavour tenants use flavour-based paths, normal tenants use tenant-ID paths
-func EnrichRemoteUIURLs(data map[string]any, tenantID, frontendBaseURL, env string) map[string]any {
-	if frontendBaseURL == "" {
-		return data
-	}
-	if data == nil {
-		data = make(map[string]any)
-	}
-
-	base := strings.TrimRight(frontendBaseURL, "/")
-	env = strings.ToLower(env)
-
-	var webURL, mobileURL string
-	if flavour := DetectFlavour(data); flavour != "" {
-		webURL = fmt.Sprintf("%s/flavours/%s/%s/web/mf-manifest.json", base, flavour, env)
-		mobileURL = fmt.Sprintf("%s/flavours/%s/%s/mobile/widgets.rfw", base, flavour, env)
-	} else {
-		webURL = fmt.Sprintf("%s/%s/web/mf-manifest.json", base, tenantID)
-		mobileURL = fmt.Sprintf("%s/%s/mobile/widgets.rfw", base, tenantID)
-	}
-
-	if v, ok := data["remoteWebUI"].(string); !ok || v == "" {
-		data["remoteWebUI"] = webURL
-	}
-	if v, ok := data["remoteMobileUI"].(string); !ok || v == "" {
-		data["remoteMobileUI"] = mobileURL
-	}
-
-	return data
-}
-
-// MergeData merges existing DB data with incoming Zitadel metadata.
-// Incoming values overwrite existing ones for shared keys, EXCEPT computed keys
-// (remoteWebUI, remoteMobileUI) which are never taken from external sources.
-// Returns nil only when both inputs are nil.
+// MergeData overlays the Zitadel-synced flag keys on top of stored data.
+// Stored data (existing) is the source of truth; from incoming (Zitadel) only
+// zitadelSyncedKeys are taken. Returns nil only when both inputs are nil.
 func MergeData(existing, incoming map[string]any) map[string]any {
 	if existing == nil && incoming == nil {
 		return nil
@@ -97,10 +97,9 @@ func MergeData(existing, incoming map[string]any) map[string]any {
 		result[k] = v
 	}
 	for k, v := range incoming {
-		if computedKeys[k] {
-			continue
+		if zitadelSyncedKeys[k] {
+			result[k] = v
 		}
-		result[k] = v
 	}
 	return result
 }
@@ -114,9 +113,3 @@ func MapsEqual(a, b map[string]any) bool {
 	return reflect.DeepEqual(a, b)
 }
 
-// ReconcileTenantData produces the final merged+enriched data for a single tenant.
-// Flow: merge → enrich. Boolean fields must already be converted at ingestion.
-func ReconcileTenantData(existingData, zitadelMetadata map[string]any, tenantID, frontendBaseURL, env string) map[string]any {
-	merged := MergeData(existingData, zitadelMetadata)
-	return EnrichRemoteUIURLs(merged, tenantID, frontendBaseURL, env)
-}

@@ -17,6 +17,7 @@ import (
 	"go.temporal.io/sdk/temporal"
 
 	"github.com/pyck-ai/pyck/backend/common/log"
+	"github.com/pyck-ai/pyck/backend/common/memkv"
 )
 
 var (
@@ -37,6 +38,11 @@ const (
 type Client struct {
 	temporal  temporalclient.Client
 	namespace string
+	// remoteUICache memoizes Worker Deployment lookups for remoteUI resolution:
+	// per-version metadata (immutable, no TTL) and the deployment-version listing
+	// (short TTL). Lazy expiry only (no cleanup goroutine), so it is safe to
+	// create one per cached client.
+	remoteUICache *memkv.InMemoryKVStore
 }
 
 // StartWorkflowOptions represents options for starting a workflow.
@@ -50,8 +56,9 @@ func NewClient(namespace string, client temporalclient.Client) (*Client, error) 
 	}
 
 	return &Client{
-		temporal:  client,
-		namespace: namespace,
+		temporal:      client,
+		namespace:     namespace,
+		remoteUICache: memkv.NewInMemoryKVStore(0),
 	}, nil
 }
 

@@ -12,23 +12,19 @@ import (
 )
 
 type APIClient interface {
-	GetAccessPolicies(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *AccessPolicyOrder, where *AccessPolicyWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetAccessPolicies, error)
 	GetDataTypes(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *DataTypeOrder, where *DataTypeWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetDataTypes, error)
 	GetDevices(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *DeviceOrder, where *DeviceWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetDevices, error)
 	GetDeviceLocations(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *DeviceLocationOrder, where *DeviceLocationWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetDeviceLocations, error)
 	GetDeviceUsers(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *DeviceUserOrder, where *DeviceUserWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetDeviceUsers, error)
 	GetEvents(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *EventOrder, where *EventWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetEvents, error)
-	GetGroups(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *GroupOrder, where *GroupWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetGroups, error)
 	GetKeyValues(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *KeyValueOrder, where *KeyValueWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetKeyValues, error)
 	GetLocations(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *LocationOrder, where *LocationWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetLocations, error)
-	GetRoles(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *RoleOrder, where *RoleWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetRoles, error)
 	GetTenants(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *TenantOrder, where *TenantWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetTenants, error)
 	GetUsers(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *UserOrder, where *UserWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetUsers, error)
 	GetDataTypeEntities(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetDataTypeEntities, error)
-	GetGroup(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*GetGroup, error)
 	GetOrganization(ctx context.Context, sub string, interceptors ...clientv2.RequestInterceptor) (*GetOrganization, error)
-	GetPolicy(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*GetPolicy, error)
-	GetRole(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*GetRole, error)
+	GetServiceRoles(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetServiceRoles, error)
+	GetUserServiceRoles(ctx context.Context, input model.UserServiceRolesInput, interceptors ...clientv2.RequestInterceptor) (*GetUserServiceRoles, error)
 	GetManagementServiceInfo(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetManagementServiceInfo, error)
 	GetMe(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetMe, error)
 	CreateDataType(ctx context.Context, input CreateDataTypeInput, interceptors ...clientv2.RequestInterceptor) (*CreateDataType, error)
@@ -39,16 +35,8 @@ type APIClient interface {
 	DeleteTenant(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*DeleteTenant, error)
 	RestoreTenant(ctx context.Context, input model.RestoreTenantInput, interceptors ...clientv2.RequestInterceptor) (*RestoreTenant, error)
 	SetTenantExpiry(ctx context.Context, input model.SetTenantExpiryInput, interceptors ...clientv2.RequestInterceptor) (*SetTenantExpiry, error)
+	SetTenantUITemplate(ctx context.Context, input model.SetTenantUITemplateInput, interceptors ...clientv2.RequestInterceptor) (*SetTenantUITemplate, error)
 	GenerateJSONSchema(ctx context.Context, jsonData string, interceptors ...clientv2.RequestInterceptor) (*GenerateJSONSchema, error)
-	CreatePolicy(ctx context.Context, input CreateAccessPolicyInput, interceptors ...clientv2.RequestInterceptor) (*CreatePolicy, error)
-	UpdatePolicy(ctx context.Context, id string, input UpdateAccessPolicyInput, interceptors ...clientv2.RequestInterceptor) (*UpdatePolicy, error)
-	DeletePolicy(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeletePolicy, error)
-	CreateGroup(ctx context.Context, input CreateGroupInput, interceptors ...clientv2.RequestInterceptor) (*CreateGroup, error)
-	UpdateGroup(ctx context.Context, id string, input UpdateGroupInput, interceptors ...clientv2.RequestInterceptor) (*UpdateGroup, error)
-	DeleteGroup(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeleteGroup, error)
-	CreateRole(ctx context.Context, input CreateRoleInput, interceptors ...clientv2.RequestInterceptor) (*CreateRole, error)
-	UpdateRole(ctx context.Context, id string, input UpdateRoleInput, interceptors ...clientv2.RequestInterceptor) (*UpdateRole, error)
-	DeleteRole(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeleteRole, error)
 	CreateUser(ctx context.Context, input CreateUserInput, interceptors ...clientv2.RequestInterceptor) (*CreateUser, error)
 	UpdateUser(ctx context.Context, id string, input UpdateUserInput, interceptors ...clientv2.RequestInterceptor) (*UpdateUser, error)
 	DeleteUser(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeleteUser, error)
@@ -70,6 +58,8 @@ type APIClient interface {
 	PatchLocationData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchLocationData, error)
 	PatchDeviceData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchDeviceData, error)
 	PatchDeviceLocationData(ctx context.Context, id string, patches []*JSONPatchInput, interceptors ...clientv2.RequestInterceptor) (*PatchDeviceLocationData, error)
+	AssignRoles(ctx context.Context, input model.AssignRolesInput, interceptors ...clientv2.RequestInterceptor) (*AssignRoles, error)
+	RemoveRoles(ctx context.Context, input model.RemoveRolesInput, interceptors ...clientv2.RequestInterceptor) (*RemoveRoles, error)
 }
 
 type Client struct {
@@ -78,162 +68,6 @@ type Client struct {
 
 func NewClient(cli clientv2.HttpClient, baseURL string, options *clientv2.Options, interceptors ...clientv2.RequestInterceptor) APIClient {
 	return &Client{Client: clientv2.NewClient(cli, baseURL, options, interceptors...)}
-}
-
-type GetAccessPolicies_AccessPolicies_PageInfo struct {
-	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
-	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
-	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
-	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
-}
-
-func (t *GetAccessPolicies_AccessPolicies_PageInfo) GetEndCursor() *string {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_PageInfo{}
-	}
-	return t.EndCursor
-}
-func (t *GetAccessPolicies_AccessPolicies_PageInfo) GetHasNextPage() bool {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_PageInfo{}
-	}
-	return t.HasNextPage
-}
-func (t *GetAccessPolicies_AccessPolicies_PageInfo) GetHasPreviousPage() bool {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_PageInfo{}
-	}
-	return t.HasPreviousPage
-}
-func (t *GetAccessPolicies_AccessPolicies_PageInfo) GetStartCursor() *string {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_PageInfo{}
-	}
-	return t.StartCursor
-}
-
-type GetAccessPolicies_AccessPolicies_Edges_Node struct {
-	Action    string     "json:\"action\" graphql:\"action\""
-	CreatedAt time.Time  "json:\"createdAt\" graphql:\"createdAt\""
-	CreatedBy uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
-	DeletedAt *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
-	DeletedBy *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
-	Effect    string     "json:\"effect\" graphql:\"effect\""
-	ID        string     "json:\"id\" graphql:\"id\""
-	Resource  string     "json:\"resource\" graphql:\"resource\""
-	TenantID  uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
-	UpdatedAt *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
-	UpdatedBy *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
-}
-
-func (t *GetAccessPolicies_AccessPolicies_Edges_Node) GetAction() string {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_Edges_Node{}
-	}
-	return t.Action
-}
-func (t *GetAccessPolicies_AccessPolicies_Edges_Node) GetCreatedAt() *time.Time {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_Edges_Node{}
-	}
-	return &t.CreatedAt
-}
-func (t *GetAccessPolicies_AccessPolicies_Edges_Node) GetCreatedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_Edges_Node{}
-	}
-	return &t.CreatedBy
-}
-func (t *GetAccessPolicies_AccessPolicies_Edges_Node) GetDeletedAt() *time.Time {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_Edges_Node{}
-	}
-	return t.DeletedAt
-}
-func (t *GetAccessPolicies_AccessPolicies_Edges_Node) GetDeletedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_Edges_Node{}
-	}
-	return t.DeletedBy
-}
-func (t *GetAccessPolicies_AccessPolicies_Edges_Node) GetEffect() string {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_Edges_Node{}
-	}
-	return t.Effect
-}
-func (t *GetAccessPolicies_AccessPolicies_Edges_Node) GetID() string {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_Edges_Node{}
-	}
-	return t.ID
-}
-func (t *GetAccessPolicies_AccessPolicies_Edges_Node) GetResource() string {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_Edges_Node{}
-	}
-	return t.Resource
-}
-func (t *GetAccessPolicies_AccessPolicies_Edges_Node) GetTenantID() *uuid.UUID {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_Edges_Node{}
-	}
-	return &t.TenantID
-}
-func (t *GetAccessPolicies_AccessPolicies_Edges_Node) GetUpdatedAt() *time.Time {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_Edges_Node{}
-	}
-	return t.UpdatedAt
-}
-func (t *GetAccessPolicies_AccessPolicies_Edges_Node) GetUpdatedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_Edges_Node{}
-	}
-	return t.UpdatedBy
-}
-
-type GetAccessPolicies_AccessPolicies_Edges struct {
-	Cursor string                                       "json:\"cursor\" graphql:\"cursor\""
-	Node   *GetAccessPolicies_AccessPolicies_Edges_Node "json:\"node,omitempty\" graphql:\"node\""
-}
-
-func (t *GetAccessPolicies_AccessPolicies_Edges) GetCursor() string {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_Edges{}
-	}
-	return t.Cursor
-}
-func (t *GetAccessPolicies_AccessPolicies_Edges) GetNode() *GetAccessPolicies_AccessPolicies_Edges_Node {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies_Edges{}
-	}
-	return t.Node
-}
-
-type GetAccessPolicies_AccessPolicies struct {
-	Edges      []*GetAccessPolicies_AccessPolicies_Edges "json:\"edges,omitempty\" graphql:\"edges\""
-	PageInfo   GetAccessPolicies_AccessPolicies_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
-	TotalCount int                                       "json:\"totalCount\" graphql:\"totalCount\""
-}
-
-func (t *GetAccessPolicies_AccessPolicies) GetEdges() []*GetAccessPolicies_AccessPolicies_Edges {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies{}
-	}
-	return t.Edges
-}
-func (t *GetAccessPolicies_AccessPolicies) GetPageInfo() *GetAccessPolicies_AccessPolicies_PageInfo {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies{}
-	}
-	return &t.PageInfo
-}
-func (t *GetAccessPolicies_AccessPolicies) GetTotalCount() int {
-	if t == nil {
-		t = &GetAccessPolicies_AccessPolicies{}
-	}
-	return t.TotalCount
 }
 
 type GetDataTypes_DataTypes_PageInfo struct {
@@ -1079,155 +913,6 @@ func (t *GetEvents_Events) GetTotalCount() int {
 	return t.TotalCount
 }
 
-type GetGroups_Groups_PageInfo struct {
-	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
-	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
-	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
-	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
-}
-
-func (t *GetGroups_Groups_PageInfo) GetEndCursor() *string {
-	if t == nil {
-		t = &GetGroups_Groups_PageInfo{}
-	}
-	return t.EndCursor
-}
-func (t *GetGroups_Groups_PageInfo) GetHasNextPage() bool {
-	if t == nil {
-		t = &GetGroups_Groups_PageInfo{}
-	}
-	return t.HasNextPage
-}
-func (t *GetGroups_Groups_PageInfo) GetHasPreviousPage() bool {
-	if t == nil {
-		t = &GetGroups_Groups_PageInfo{}
-	}
-	return t.HasPreviousPage
-}
-func (t *GetGroups_Groups_PageInfo) GetStartCursor() *string {
-	if t == nil {
-		t = &GetGroups_Groups_PageInfo{}
-	}
-	return t.StartCursor
-}
-
-type GetGroups_Groups_Edges_Node struct {
-	CreatedAt   time.Time  "json:\"createdAt\" graphql:\"createdAt\""
-	CreatedBy   uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
-	DeletedAt   *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
-	DeletedBy   *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
-	Description *string    "json:\"description,omitempty\" graphql:\"description\""
-	ID          string     "json:\"id\" graphql:\"id\""
-	Name        string     "json:\"name\" graphql:\"name\""
-	TenantID    uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
-	UpdatedAt   *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
-	UpdatedBy   *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
-}
-
-func (t *GetGroups_Groups_Edges_Node) GetCreatedAt() *time.Time {
-	if t == nil {
-		t = &GetGroups_Groups_Edges_Node{}
-	}
-	return &t.CreatedAt
-}
-func (t *GetGroups_Groups_Edges_Node) GetCreatedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetGroups_Groups_Edges_Node{}
-	}
-	return &t.CreatedBy
-}
-func (t *GetGroups_Groups_Edges_Node) GetDeletedAt() *time.Time {
-	if t == nil {
-		t = &GetGroups_Groups_Edges_Node{}
-	}
-	return t.DeletedAt
-}
-func (t *GetGroups_Groups_Edges_Node) GetDeletedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetGroups_Groups_Edges_Node{}
-	}
-	return t.DeletedBy
-}
-func (t *GetGroups_Groups_Edges_Node) GetDescription() *string {
-	if t == nil {
-		t = &GetGroups_Groups_Edges_Node{}
-	}
-	return t.Description
-}
-func (t *GetGroups_Groups_Edges_Node) GetID() string {
-	if t == nil {
-		t = &GetGroups_Groups_Edges_Node{}
-	}
-	return t.ID
-}
-func (t *GetGroups_Groups_Edges_Node) GetName() string {
-	if t == nil {
-		t = &GetGroups_Groups_Edges_Node{}
-	}
-	return t.Name
-}
-func (t *GetGroups_Groups_Edges_Node) GetTenantID() *uuid.UUID {
-	if t == nil {
-		t = &GetGroups_Groups_Edges_Node{}
-	}
-	return &t.TenantID
-}
-func (t *GetGroups_Groups_Edges_Node) GetUpdatedAt() *time.Time {
-	if t == nil {
-		t = &GetGroups_Groups_Edges_Node{}
-	}
-	return t.UpdatedAt
-}
-func (t *GetGroups_Groups_Edges_Node) GetUpdatedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetGroups_Groups_Edges_Node{}
-	}
-	return t.UpdatedBy
-}
-
-type GetGroups_Groups_Edges struct {
-	Cursor string                       "json:\"cursor\" graphql:\"cursor\""
-	Node   *GetGroups_Groups_Edges_Node "json:\"node,omitempty\" graphql:\"node\""
-}
-
-func (t *GetGroups_Groups_Edges) GetCursor() string {
-	if t == nil {
-		t = &GetGroups_Groups_Edges{}
-	}
-	return t.Cursor
-}
-func (t *GetGroups_Groups_Edges) GetNode() *GetGroups_Groups_Edges_Node {
-	if t == nil {
-		t = &GetGroups_Groups_Edges{}
-	}
-	return t.Node
-}
-
-type GetGroups_Groups struct {
-	Edges      []*GetGroups_Groups_Edges "json:\"edges,omitempty\" graphql:\"edges\""
-	PageInfo   GetGroups_Groups_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
-	TotalCount int                       "json:\"totalCount\" graphql:\"totalCount\""
-}
-
-func (t *GetGroups_Groups) GetEdges() []*GetGroups_Groups_Edges {
-	if t == nil {
-		t = &GetGroups_Groups{}
-	}
-	return t.Edges
-}
-func (t *GetGroups_Groups) GetPageInfo() *GetGroups_Groups_PageInfo {
-	if t == nil {
-		t = &GetGroups_Groups{}
-	}
-	return &t.PageInfo
-}
-func (t *GetGroups_Groups) GetTotalCount() int {
-	if t == nil {
-		t = &GetGroups_Groups{}
-	}
-	return t.TotalCount
-}
-
 type GetKeyValues_KeyValues_PageInfo struct {
 	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
 	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
@@ -1561,155 +1246,6 @@ func (t *GetLocations_Locations) GetTotalCount() int {
 	return t.TotalCount
 }
 
-type GetRoles_Roles_PageInfo struct {
-	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
-	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
-	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
-	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
-}
-
-func (t *GetRoles_Roles_PageInfo) GetEndCursor() *string {
-	if t == nil {
-		t = &GetRoles_Roles_PageInfo{}
-	}
-	return t.EndCursor
-}
-func (t *GetRoles_Roles_PageInfo) GetHasNextPage() bool {
-	if t == nil {
-		t = &GetRoles_Roles_PageInfo{}
-	}
-	return t.HasNextPage
-}
-func (t *GetRoles_Roles_PageInfo) GetHasPreviousPage() bool {
-	if t == nil {
-		t = &GetRoles_Roles_PageInfo{}
-	}
-	return t.HasPreviousPage
-}
-func (t *GetRoles_Roles_PageInfo) GetStartCursor() *string {
-	if t == nil {
-		t = &GetRoles_Roles_PageInfo{}
-	}
-	return t.StartCursor
-}
-
-type GetRoles_Roles_Edges_Node struct {
-	CreatedAt   time.Time  "json:\"createdAt\" graphql:\"createdAt\""
-	CreatedBy   uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
-	DeletedAt   *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
-	DeletedBy   *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
-	Description *string    "json:\"description,omitempty\" graphql:\"description\""
-	ID          string     "json:\"id\" graphql:\"id\""
-	Name        string     "json:\"name\" graphql:\"name\""
-	TenantID    uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
-	UpdatedAt   *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
-	UpdatedBy   *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
-}
-
-func (t *GetRoles_Roles_Edges_Node) GetCreatedAt() *time.Time {
-	if t == nil {
-		t = &GetRoles_Roles_Edges_Node{}
-	}
-	return &t.CreatedAt
-}
-func (t *GetRoles_Roles_Edges_Node) GetCreatedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetRoles_Roles_Edges_Node{}
-	}
-	return &t.CreatedBy
-}
-func (t *GetRoles_Roles_Edges_Node) GetDeletedAt() *time.Time {
-	if t == nil {
-		t = &GetRoles_Roles_Edges_Node{}
-	}
-	return t.DeletedAt
-}
-func (t *GetRoles_Roles_Edges_Node) GetDeletedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetRoles_Roles_Edges_Node{}
-	}
-	return t.DeletedBy
-}
-func (t *GetRoles_Roles_Edges_Node) GetDescription() *string {
-	if t == nil {
-		t = &GetRoles_Roles_Edges_Node{}
-	}
-	return t.Description
-}
-func (t *GetRoles_Roles_Edges_Node) GetID() string {
-	if t == nil {
-		t = &GetRoles_Roles_Edges_Node{}
-	}
-	return t.ID
-}
-func (t *GetRoles_Roles_Edges_Node) GetName() string {
-	if t == nil {
-		t = &GetRoles_Roles_Edges_Node{}
-	}
-	return t.Name
-}
-func (t *GetRoles_Roles_Edges_Node) GetTenantID() *uuid.UUID {
-	if t == nil {
-		t = &GetRoles_Roles_Edges_Node{}
-	}
-	return &t.TenantID
-}
-func (t *GetRoles_Roles_Edges_Node) GetUpdatedAt() *time.Time {
-	if t == nil {
-		t = &GetRoles_Roles_Edges_Node{}
-	}
-	return t.UpdatedAt
-}
-func (t *GetRoles_Roles_Edges_Node) GetUpdatedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetRoles_Roles_Edges_Node{}
-	}
-	return t.UpdatedBy
-}
-
-type GetRoles_Roles_Edges struct {
-	Cursor string                     "json:\"cursor\" graphql:\"cursor\""
-	Node   *GetRoles_Roles_Edges_Node "json:\"node,omitempty\" graphql:\"node\""
-}
-
-func (t *GetRoles_Roles_Edges) GetCursor() string {
-	if t == nil {
-		t = &GetRoles_Roles_Edges{}
-	}
-	return t.Cursor
-}
-func (t *GetRoles_Roles_Edges) GetNode() *GetRoles_Roles_Edges_Node {
-	if t == nil {
-		t = &GetRoles_Roles_Edges{}
-	}
-	return t.Node
-}
-
-type GetRoles_Roles struct {
-	Edges      []*GetRoles_Roles_Edges "json:\"edges,omitempty\" graphql:\"edges\""
-	PageInfo   GetRoles_Roles_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
-	TotalCount int                     "json:\"totalCount\" graphql:\"totalCount\""
-}
-
-func (t *GetRoles_Roles) GetEdges() []*GetRoles_Roles_Edges {
-	if t == nil {
-		t = &GetRoles_Roles{}
-	}
-	return t.Edges
-}
-func (t *GetRoles_Roles) GetPageInfo() *GetRoles_Roles_PageInfo {
-	if t == nil {
-		t = &GetRoles_Roles{}
-	}
-	return &t.PageInfo
-}
-func (t *GetRoles_Roles) GetTotalCount() int {
-	if t == nil {
-		t = &GetRoles_Roles{}
-	}
-	return t.TotalCount
-}
-
 type GetTenants_Tenants_PageInfo struct {
 	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
 	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
@@ -1913,21 +1449,20 @@ func (t *GetUsers_Users_PageInfo) GetStartCursor() *string {
 }
 
 type GetUsers_Users_Edges_Node struct {
-	CreatedAt   time.Time  "json:\"createdAt\" graphql:\"createdAt\""
-	CreatedBy   uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
-	DeletedAt   *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
-	DeletedBy   *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
-	Email       string     "json:\"email\" graphql:\"email\""
-	FirstName   string     "json:\"firstName\" graphql:\"firstName\""
-	ID          string     "json:\"id\" graphql:\"id\""
-	IdpID       string     "json:\"idpID\" graphql:\"idpID\""
-	IsAdmin     bool       "json:\"isAdmin\" graphql:\"isAdmin\""
-	LastName    string     "json:\"lastName\" graphql:\"lastName\""
-	LegacyRoles []string   "json:\"legacyRoles\" graphql:\"legacyRoles\""
-	TenantID    string     "json:\"tenantID\" graphql:\"tenantID\""
-	UpdatedAt   *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
-	UpdatedBy   *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
-	Username    string     "json:\"username\" graphql:\"username\""
+	CreatedAt time.Time  "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
+	DeletedAt *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	Email     string     "json:\"email\" graphql:\"email\""
+	FirstName string     "json:\"firstName\" graphql:\"firstName\""
+	ID        string     "json:\"id\" graphql:\"id\""
+	IdpID     string     "json:\"idpID\" graphql:\"idpID\""
+	IsAdmin   bool       "json:\"isAdmin\" graphql:\"isAdmin\""
+	LastName  string     "json:\"lastName\" graphql:\"lastName\""
+	TenantID  string     "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+	Username  string     "json:\"username\" graphql:\"username\""
 }
 
 func (t *GetUsers_Users_Edges_Node) GetCreatedAt() *time.Time {
@@ -1989,12 +1524,6 @@ func (t *GetUsers_Users_Edges_Node) GetLastName() string {
 		t = &GetUsers_Users_Edges_Node{}
 	}
 	return t.LastName
-}
-func (t *GetUsers_Users_Edges_Node) GetLegacyRoles() []string {
-	if t == nil {
-		t = &GetUsers_Users_Edges_Node{}
-	}
-	return t.LegacyRoles
 }
 func (t *GetUsers_Users_Edges_Node) GetTenantID() string {
 	if t == nil {
@@ -2064,80 +1593,6 @@ func (t *GetUsers_Users) GetTotalCount() int {
 	return t.TotalCount
 }
 
-type GetGroup_Group struct {
-	CreatedAt   time.Time  "json:\"createdAt\" graphql:\"createdAt\""
-	CreatedBy   uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
-	DeletedAt   *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
-	DeletedBy   *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
-	Description *string    "json:\"description,omitempty\" graphql:\"description\""
-	ID          string     "json:\"id\" graphql:\"id\""
-	Name        string     "json:\"name\" graphql:\"name\""
-	TenantID    uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
-	UpdatedAt   *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
-	UpdatedBy   *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
-}
-
-func (t *GetGroup_Group) GetCreatedAt() *time.Time {
-	if t == nil {
-		t = &GetGroup_Group{}
-	}
-	return &t.CreatedAt
-}
-func (t *GetGroup_Group) GetCreatedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetGroup_Group{}
-	}
-	return &t.CreatedBy
-}
-func (t *GetGroup_Group) GetDeletedAt() *time.Time {
-	if t == nil {
-		t = &GetGroup_Group{}
-	}
-	return t.DeletedAt
-}
-func (t *GetGroup_Group) GetDeletedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetGroup_Group{}
-	}
-	return t.DeletedBy
-}
-func (t *GetGroup_Group) GetDescription() *string {
-	if t == nil {
-		t = &GetGroup_Group{}
-	}
-	return t.Description
-}
-func (t *GetGroup_Group) GetID() string {
-	if t == nil {
-		t = &GetGroup_Group{}
-	}
-	return t.ID
-}
-func (t *GetGroup_Group) GetName() string {
-	if t == nil {
-		t = &GetGroup_Group{}
-	}
-	return t.Name
-}
-func (t *GetGroup_Group) GetTenantID() *uuid.UUID {
-	if t == nil {
-		t = &GetGroup_Group{}
-	}
-	return &t.TenantID
-}
-func (t *GetGroup_Group) GetUpdatedAt() *time.Time {
-	if t == nil {
-		t = &GetGroup_Group{}
-	}
-	return t.UpdatedAt
-}
-func (t *GetGroup_Group) GetUpdatedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetGroup_Group{}
-	}
-	return t.UpdatedBy
-}
-
 type GetOrganization_Organization struct {
 	Active bool    "json:\"active\" graphql:\"active\""
 	ID     *string "json:\"id,omitempty\" graphql:\"id\""
@@ -2156,159 +1611,15 @@ func (t *GetOrganization_Organization) GetID() *string {
 	return t.ID
 }
 
-type GetPolicy_Policy struct {
-	Action    string     "json:\"action\" graphql:\"action\""
-	CreatedAt time.Time  "json:\"createdAt\" graphql:\"createdAt\""
-	CreatedBy uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
-	DeletedAt *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
-	DeletedBy *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
-	Effect    string     "json:\"effect\" graphql:\"effect\""
-	ID        string     "json:\"id\" graphql:\"id\""
-	Resource  string     "json:\"resource\" graphql:\"resource\""
-	TenantID  uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
-	UpdatedAt *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
-	UpdatedBy *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+type GetServiceRoles_ServiceRoles struct {
+	Key string "json:\"key\" graphql:\"key\""
 }
 
-func (t *GetPolicy_Policy) GetAction() string {
+func (t *GetServiceRoles_ServiceRoles) GetKey() string {
 	if t == nil {
-		t = &GetPolicy_Policy{}
+		t = &GetServiceRoles_ServiceRoles{}
 	}
-	return t.Action
-}
-func (t *GetPolicy_Policy) GetCreatedAt() *time.Time {
-	if t == nil {
-		t = &GetPolicy_Policy{}
-	}
-	return &t.CreatedAt
-}
-func (t *GetPolicy_Policy) GetCreatedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetPolicy_Policy{}
-	}
-	return &t.CreatedBy
-}
-func (t *GetPolicy_Policy) GetDeletedAt() *time.Time {
-	if t == nil {
-		t = &GetPolicy_Policy{}
-	}
-	return t.DeletedAt
-}
-func (t *GetPolicy_Policy) GetDeletedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetPolicy_Policy{}
-	}
-	return t.DeletedBy
-}
-func (t *GetPolicy_Policy) GetEffect() string {
-	if t == nil {
-		t = &GetPolicy_Policy{}
-	}
-	return t.Effect
-}
-func (t *GetPolicy_Policy) GetID() string {
-	if t == nil {
-		t = &GetPolicy_Policy{}
-	}
-	return t.ID
-}
-func (t *GetPolicy_Policy) GetResource() string {
-	if t == nil {
-		t = &GetPolicy_Policy{}
-	}
-	return t.Resource
-}
-func (t *GetPolicy_Policy) GetTenantID() *uuid.UUID {
-	if t == nil {
-		t = &GetPolicy_Policy{}
-	}
-	return &t.TenantID
-}
-func (t *GetPolicy_Policy) GetUpdatedAt() *time.Time {
-	if t == nil {
-		t = &GetPolicy_Policy{}
-	}
-	return t.UpdatedAt
-}
-func (t *GetPolicy_Policy) GetUpdatedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetPolicy_Policy{}
-	}
-	return t.UpdatedBy
-}
-
-type GetRole_Role struct {
-	CreatedAt   time.Time  "json:\"createdAt\" graphql:\"createdAt\""
-	CreatedBy   uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
-	DeletedAt   *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
-	DeletedBy   *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
-	Description *string    "json:\"description,omitempty\" graphql:\"description\""
-	ID          string     "json:\"id\" graphql:\"id\""
-	Name        string     "json:\"name\" graphql:\"name\""
-	TenantID    uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
-	UpdatedAt   *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
-	UpdatedBy   *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
-}
-
-func (t *GetRole_Role) GetCreatedAt() *time.Time {
-	if t == nil {
-		t = &GetRole_Role{}
-	}
-	return &t.CreatedAt
-}
-func (t *GetRole_Role) GetCreatedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetRole_Role{}
-	}
-	return &t.CreatedBy
-}
-func (t *GetRole_Role) GetDeletedAt() *time.Time {
-	if t == nil {
-		t = &GetRole_Role{}
-	}
-	return t.DeletedAt
-}
-func (t *GetRole_Role) GetDeletedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetRole_Role{}
-	}
-	return t.DeletedBy
-}
-func (t *GetRole_Role) GetDescription() *string {
-	if t == nil {
-		t = &GetRole_Role{}
-	}
-	return t.Description
-}
-func (t *GetRole_Role) GetID() string {
-	if t == nil {
-		t = &GetRole_Role{}
-	}
-	return t.ID
-}
-func (t *GetRole_Role) GetName() string {
-	if t == nil {
-		t = &GetRole_Role{}
-	}
-	return t.Name
-}
-func (t *GetRole_Role) GetTenantID() *uuid.UUID {
-	if t == nil {
-		t = &GetRole_Role{}
-	}
-	return &t.TenantID
-}
-func (t *GetRole_Role) GetUpdatedAt() *time.Time {
-	if t == nil {
-		t = &GetRole_Role{}
-	}
-	return t.UpdatedAt
-}
-func (t *GetRole_Role) GetUpdatedBy() *uuid.UUID {
-	if t == nil {
-		t = &GetRole_Role{}
-	}
-	return t.UpdatedBy
+	return t.Key
 }
 
 type GetManagementServiceInfo_ManagementServiceInfo struct {
@@ -2857,6 +2168,17 @@ func (t *SetTenantExpiry_SetTenantExpiry) GetSuccess() bool {
 	return t.Success
 }
 
+type SetTenantUITemplate_SetTenantUITemplate struct {
+	Success bool "json:\"success\" graphql:\"success\""
+}
+
+func (t *SetTenantUITemplate_SetTenantUITemplate) GetSuccess() bool {
+	if t == nil {
+		t = &SetTenantUITemplate_SetTenantUITemplate{}
+	}
+	return t.Success
+}
+
 type GenerateJsonSchema_GenerateJSONSchema struct {
 	JSONSchema string "json:\"jsonSchema\" graphql:\"jsonSchema\""
 }
@@ -2868,480 +2190,21 @@ func (t *GenerateJsonSchema_GenerateJSONSchema) GetJSONSchema() string {
 	return t.JSONSchema
 }
 
-type CreatePolicy_CreatePolicy struct {
-	Action    string     "json:\"action\" graphql:\"action\""
-	CreatedAt time.Time  "json:\"createdAt\" graphql:\"createdAt\""
-	CreatedBy uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
-	DeletedAt *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
-	DeletedBy *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
-	Effect    string     "json:\"effect\" graphql:\"effect\""
-	ID        string     "json:\"id\" graphql:\"id\""
-	Resource  string     "json:\"resource\" graphql:\"resource\""
-	TenantID  uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
-	UpdatedAt *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
-	UpdatedBy *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
-}
-
-func (t *CreatePolicy_CreatePolicy) GetAction() string {
-	if t == nil {
-		t = &CreatePolicy_CreatePolicy{}
-	}
-	return t.Action
-}
-func (t *CreatePolicy_CreatePolicy) GetCreatedAt() *time.Time {
-	if t == nil {
-		t = &CreatePolicy_CreatePolicy{}
-	}
-	return &t.CreatedAt
-}
-func (t *CreatePolicy_CreatePolicy) GetCreatedBy() *uuid.UUID {
-	if t == nil {
-		t = &CreatePolicy_CreatePolicy{}
-	}
-	return &t.CreatedBy
-}
-func (t *CreatePolicy_CreatePolicy) GetDeletedAt() *time.Time {
-	if t == nil {
-		t = &CreatePolicy_CreatePolicy{}
-	}
-	return t.DeletedAt
-}
-func (t *CreatePolicy_CreatePolicy) GetDeletedBy() *uuid.UUID {
-	if t == nil {
-		t = &CreatePolicy_CreatePolicy{}
-	}
-	return t.DeletedBy
-}
-func (t *CreatePolicy_CreatePolicy) GetEffect() string {
-	if t == nil {
-		t = &CreatePolicy_CreatePolicy{}
-	}
-	return t.Effect
-}
-func (t *CreatePolicy_CreatePolicy) GetID() string {
-	if t == nil {
-		t = &CreatePolicy_CreatePolicy{}
-	}
-	return t.ID
-}
-func (t *CreatePolicy_CreatePolicy) GetResource() string {
-	if t == nil {
-		t = &CreatePolicy_CreatePolicy{}
-	}
-	return t.Resource
-}
-func (t *CreatePolicy_CreatePolicy) GetTenantID() *uuid.UUID {
-	if t == nil {
-		t = &CreatePolicy_CreatePolicy{}
-	}
-	return &t.TenantID
-}
-func (t *CreatePolicy_CreatePolicy) GetUpdatedAt() *time.Time {
-	if t == nil {
-		t = &CreatePolicy_CreatePolicy{}
-	}
-	return t.UpdatedAt
-}
-func (t *CreatePolicy_CreatePolicy) GetUpdatedBy() *uuid.UUID {
-	if t == nil {
-		t = &CreatePolicy_CreatePolicy{}
-	}
-	return t.UpdatedBy
-}
-
-type UpdatePolicy_UpdatePolicy struct {
-	Action    string     "json:\"action\" graphql:\"action\""
-	CreatedAt time.Time  "json:\"createdAt\" graphql:\"createdAt\""
-	CreatedBy uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
-	DeletedAt *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
-	DeletedBy *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
-	Effect    string     "json:\"effect\" graphql:\"effect\""
-	ID        string     "json:\"id\" graphql:\"id\""
-	Resource  string     "json:\"resource\" graphql:\"resource\""
-	TenantID  uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
-	UpdatedAt *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
-	UpdatedBy *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
-}
-
-func (t *UpdatePolicy_UpdatePolicy) GetAction() string {
-	if t == nil {
-		t = &UpdatePolicy_UpdatePolicy{}
-	}
-	return t.Action
-}
-func (t *UpdatePolicy_UpdatePolicy) GetCreatedAt() *time.Time {
-	if t == nil {
-		t = &UpdatePolicy_UpdatePolicy{}
-	}
-	return &t.CreatedAt
-}
-func (t *UpdatePolicy_UpdatePolicy) GetCreatedBy() *uuid.UUID {
-	if t == nil {
-		t = &UpdatePolicy_UpdatePolicy{}
-	}
-	return &t.CreatedBy
-}
-func (t *UpdatePolicy_UpdatePolicy) GetDeletedAt() *time.Time {
-	if t == nil {
-		t = &UpdatePolicy_UpdatePolicy{}
-	}
-	return t.DeletedAt
-}
-func (t *UpdatePolicy_UpdatePolicy) GetDeletedBy() *uuid.UUID {
-	if t == nil {
-		t = &UpdatePolicy_UpdatePolicy{}
-	}
-	return t.DeletedBy
-}
-func (t *UpdatePolicy_UpdatePolicy) GetEffect() string {
-	if t == nil {
-		t = &UpdatePolicy_UpdatePolicy{}
-	}
-	return t.Effect
-}
-func (t *UpdatePolicy_UpdatePolicy) GetID() string {
-	if t == nil {
-		t = &UpdatePolicy_UpdatePolicy{}
-	}
-	return t.ID
-}
-func (t *UpdatePolicy_UpdatePolicy) GetResource() string {
-	if t == nil {
-		t = &UpdatePolicy_UpdatePolicy{}
-	}
-	return t.Resource
-}
-func (t *UpdatePolicy_UpdatePolicy) GetTenantID() *uuid.UUID {
-	if t == nil {
-		t = &UpdatePolicy_UpdatePolicy{}
-	}
-	return &t.TenantID
-}
-func (t *UpdatePolicy_UpdatePolicy) GetUpdatedAt() *time.Time {
-	if t == nil {
-		t = &UpdatePolicy_UpdatePolicy{}
-	}
-	return t.UpdatedAt
-}
-func (t *UpdatePolicy_UpdatePolicy) GetUpdatedBy() *uuid.UUID {
-	if t == nil {
-		t = &UpdatePolicy_UpdatePolicy{}
-	}
-	return t.UpdatedBy
-}
-
-type CreateGroup_CreateGroup struct {
-	CreatedAt   time.Time  "json:\"createdAt\" graphql:\"createdAt\""
-	CreatedBy   uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
-	DeletedAt   *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
-	DeletedBy   *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
-	Description *string    "json:\"description,omitempty\" graphql:\"description\""
-	ID          string     "json:\"id\" graphql:\"id\""
-	Name        string     "json:\"name\" graphql:\"name\""
-	TenantID    uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
-	UpdatedAt   *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
-	UpdatedBy   *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
-}
-
-func (t *CreateGroup_CreateGroup) GetCreatedAt() *time.Time {
-	if t == nil {
-		t = &CreateGroup_CreateGroup{}
-	}
-	return &t.CreatedAt
-}
-func (t *CreateGroup_CreateGroup) GetCreatedBy() *uuid.UUID {
-	if t == nil {
-		t = &CreateGroup_CreateGroup{}
-	}
-	return &t.CreatedBy
-}
-func (t *CreateGroup_CreateGroup) GetDeletedAt() *time.Time {
-	if t == nil {
-		t = &CreateGroup_CreateGroup{}
-	}
-	return t.DeletedAt
-}
-func (t *CreateGroup_CreateGroup) GetDeletedBy() *uuid.UUID {
-	if t == nil {
-		t = &CreateGroup_CreateGroup{}
-	}
-	return t.DeletedBy
-}
-func (t *CreateGroup_CreateGroup) GetDescription() *string {
-	if t == nil {
-		t = &CreateGroup_CreateGroup{}
-	}
-	return t.Description
-}
-func (t *CreateGroup_CreateGroup) GetID() string {
-	if t == nil {
-		t = &CreateGroup_CreateGroup{}
-	}
-	return t.ID
-}
-func (t *CreateGroup_CreateGroup) GetName() string {
-	if t == nil {
-		t = &CreateGroup_CreateGroup{}
-	}
-	return t.Name
-}
-func (t *CreateGroup_CreateGroup) GetTenantID() *uuid.UUID {
-	if t == nil {
-		t = &CreateGroup_CreateGroup{}
-	}
-	return &t.TenantID
-}
-func (t *CreateGroup_CreateGroup) GetUpdatedAt() *time.Time {
-	if t == nil {
-		t = &CreateGroup_CreateGroup{}
-	}
-	return t.UpdatedAt
-}
-func (t *CreateGroup_CreateGroup) GetUpdatedBy() *uuid.UUID {
-	if t == nil {
-		t = &CreateGroup_CreateGroup{}
-	}
-	return t.UpdatedBy
-}
-
-type UpdateGroup_UpdateGroup struct {
-	CreatedAt   time.Time  "json:\"createdAt\" graphql:\"createdAt\""
-	CreatedBy   uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
-	DeletedAt   *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
-	DeletedBy   *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
-	Description *string    "json:\"description,omitempty\" graphql:\"description\""
-	ID          string     "json:\"id\" graphql:\"id\""
-	Name        string     "json:\"name\" graphql:\"name\""
-	TenantID    uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
-	UpdatedAt   *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
-	UpdatedBy   *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
-}
-
-func (t *UpdateGroup_UpdateGroup) GetCreatedAt() *time.Time {
-	if t == nil {
-		t = &UpdateGroup_UpdateGroup{}
-	}
-	return &t.CreatedAt
-}
-func (t *UpdateGroup_UpdateGroup) GetCreatedBy() *uuid.UUID {
-	if t == nil {
-		t = &UpdateGroup_UpdateGroup{}
-	}
-	return &t.CreatedBy
-}
-func (t *UpdateGroup_UpdateGroup) GetDeletedAt() *time.Time {
-	if t == nil {
-		t = &UpdateGroup_UpdateGroup{}
-	}
-	return t.DeletedAt
-}
-func (t *UpdateGroup_UpdateGroup) GetDeletedBy() *uuid.UUID {
-	if t == nil {
-		t = &UpdateGroup_UpdateGroup{}
-	}
-	return t.DeletedBy
-}
-func (t *UpdateGroup_UpdateGroup) GetDescription() *string {
-	if t == nil {
-		t = &UpdateGroup_UpdateGroup{}
-	}
-	return t.Description
-}
-func (t *UpdateGroup_UpdateGroup) GetID() string {
-	if t == nil {
-		t = &UpdateGroup_UpdateGroup{}
-	}
-	return t.ID
-}
-func (t *UpdateGroup_UpdateGroup) GetName() string {
-	if t == nil {
-		t = &UpdateGroup_UpdateGroup{}
-	}
-	return t.Name
-}
-func (t *UpdateGroup_UpdateGroup) GetTenantID() *uuid.UUID {
-	if t == nil {
-		t = &UpdateGroup_UpdateGroup{}
-	}
-	return &t.TenantID
-}
-func (t *UpdateGroup_UpdateGroup) GetUpdatedAt() *time.Time {
-	if t == nil {
-		t = &UpdateGroup_UpdateGroup{}
-	}
-	return t.UpdatedAt
-}
-func (t *UpdateGroup_UpdateGroup) GetUpdatedBy() *uuid.UUID {
-	if t == nil {
-		t = &UpdateGroup_UpdateGroup{}
-	}
-	return t.UpdatedBy
-}
-
-type CreateRole_CreateRole struct {
-	CreatedAt   time.Time  "json:\"createdAt\" graphql:\"createdAt\""
-	CreatedBy   uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
-	DeletedAt   *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
-	DeletedBy   *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
-	Description *string    "json:\"description,omitempty\" graphql:\"description\""
-	ID          string     "json:\"id\" graphql:\"id\""
-	Name        string     "json:\"name\" graphql:\"name\""
-	TenantID    uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
-	UpdatedAt   *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
-	UpdatedBy   *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
-}
-
-func (t *CreateRole_CreateRole) GetCreatedAt() *time.Time {
-	if t == nil {
-		t = &CreateRole_CreateRole{}
-	}
-	return &t.CreatedAt
-}
-func (t *CreateRole_CreateRole) GetCreatedBy() *uuid.UUID {
-	if t == nil {
-		t = &CreateRole_CreateRole{}
-	}
-	return &t.CreatedBy
-}
-func (t *CreateRole_CreateRole) GetDeletedAt() *time.Time {
-	if t == nil {
-		t = &CreateRole_CreateRole{}
-	}
-	return t.DeletedAt
-}
-func (t *CreateRole_CreateRole) GetDeletedBy() *uuid.UUID {
-	if t == nil {
-		t = &CreateRole_CreateRole{}
-	}
-	return t.DeletedBy
-}
-func (t *CreateRole_CreateRole) GetDescription() *string {
-	if t == nil {
-		t = &CreateRole_CreateRole{}
-	}
-	return t.Description
-}
-func (t *CreateRole_CreateRole) GetID() string {
-	if t == nil {
-		t = &CreateRole_CreateRole{}
-	}
-	return t.ID
-}
-func (t *CreateRole_CreateRole) GetName() string {
-	if t == nil {
-		t = &CreateRole_CreateRole{}
-	}
-	return t.Name
-}
-func (t *CreateRole_CreateRole) GetTenantID() *uuid.UUID {
-	if t == nil {
-		t = &CreateRole_CreateRole{}
-	}
-	return &t.TenantID
-}
-func (t *CreateRole_CreateRole) GetUpdatedAt() *time.Time {
-	if t == nil {
-		t = &CreateRole_CreateRole{}
-	}
-	return t.UpdatedAt
-}
-func (t *CreateRole_CreateRole) GetUpdatedBy() *uuid.UUID {
-	if t == nil {
-		t = &CreateRole_CreateRole{}
-	}
-	return t.UpdatedBy
-}
-
-type UpdateRole_UpdateRole struct {
-	CreatedAt   time.Time  "json:\"createdAt\" graphql:\"createdAt\""
-	CreatedBy   uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
-	DeletedAt   *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
-	DeletedBy   *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
-	Description *string    "json:\"description,omitempty\" graphql:\"description\""
-	ID          string     "json:\"id\" graphql:\"id\""
-	Name        string     "json:\"name\" graphql:\"name\""
-	TenantID    uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
-	UpdatedAt   *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
-	UpdatedBy   *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
-}
-
-func (t *UpdateRole_UpdateRole) GetCreatedAt() *time.Time {
-	if t == nil {
-		t = &UpdateRole_UpdateRole{}
-	}
-	return &t.CreatedAt
-}
-func (t *UpdateRole_UpdateRole) GetCreatedBy() *uuid.UUID {
-	if t == nil {
-		t = &UpdateRole_UpdateRole{}
-	}
-	return &t.CreatedBy
-}
-func (t *UpdateRole_UpdateRole) GetDeletedAt() *time.Time {
-	if t == nil {
-		t = &UpdateRole_UpdateRole{}
-	}
-	return t.DeletedAt
-}
-func (t *UpdateRole_UpdateRole) GetDeletedBy() *uuid.UUID {
-	if t == nil {
-		t = &UpdateRole_UpdateRole{}
-	}
-	return t.DeletedBy
-}
-func (t *UpdateRole_UpdateRole) GetDescription() *string {
-	if t == nil {
-		t = &UpdateRole_UpdateRole{}
-	}
-	return t.Description
-}
-func (t *UpdateRole_UpdateRole) GetID() string {
-	if t == nil {
-		t = &UpdateRole_UpdateRole{}
-	}
-	return t.ID
-}
-func (t *UpdateRole_UpdateRole) GetName() string {
-	if t == nil {
-		t = &UpdateRole_UpdateRole{}
-	}
-	return t.Name
-}
-func (t *UpdateRole_UpdateRole) GetTenantID() *uuid.UUID {
-	if t == nil {
-		t = &UpdateRole_UpdateRole{}
-	}
-	return &t.TenantID
-}
-func (t *UpdateRole_UpdateRole) GetUpdatedAt() *time.Time {
-	if t == nil {
-		t = &UpdateRole_UpdateRole{}
-	}
-	return t.UpdatedAt
-}
-func (t *UpdateRole_UpdateRole) GetUpdatedBy() *uuid.UUID {
-	if t == nil {
-		t = &UpdateRole_UpdateRole{}
-	}
-	return t.UpdatedBy
-}
-
 type CreateUser_CreateUser struct {
-	CreatedAt   time.Time  "json:\"createdAt\" graphql:\"createdAt\""
-	CreatedBy   uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
-	DeletedAt   *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
-	DeletedBy   *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
-	Email       string     "json:\"email\" graphql:\"email\""
-	FirstName   string     "json:\"firstName\" graphql:\"firstName\""
-	ID          string     "json:\"id\" graphql:\"id\""
-	IdpID       string     "json:\"idpID\" graphql:\"idpID\""
-	IsAdmin     bool       "json:\"isAdmin\" graphql:\"isAdmin\""
-	LastName    string     "json:\"lastName\" graphql:\"lastName\""
-	LegacyRoles []string   "json:\"legacyRoles\" graphql:\"legacyRoles\""
-	TenantID    string     "json:\"tenantID\" graphql:\"tenantID\""
-	UpdatedAt   *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
-	UpdatedBy   *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
-	Username    string     "json:\"username\" graphql:\"username\""
+	CreatedAt time.Time  "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
+	DeletedAt *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	Email     string     "json:\"email\" graphql:\"email\""
+	FirstName string     "json:\"firstName\" graphql:\"firstName\""
+	ID        string     "json:\"id\" graphql:\"id\""
+	IdpID     string     "json:\"idpID\" graphql:\"idpID\""
+	IsAdmin   bool       "json:\"isAdmin\" graphql:\"isAdmin\""
+	LastName  string     "json:\"lastName\" graphql:\"lastName\""
+	TenantID  string     "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+	Username  string     "json:\"username\" graphql:\"username\""
 }
 
 func (t *CreateUser_CreateUser) GetCreatedAt() *time.Time {
@@ -3404,12 +2267,6 @@ func (t *CreateUser_CreateUser) GetLastName() string {
 	}
 	return t.LastName
 }
-func (t *CreateUser_CreateUser) GetLegacyRoles() []string {
-	if t == nil {
-		t = &CreateUser_CreateUser{}
-	}
-	return t.LegacyRoles
-}
 func (t *CreateUser_CreateUser) GetTenantID() string {
 	if t == nil {
 		t = &CreateUser_CreateUser{}
@@ -3436,21 +2293,20 @@ func (t *CreateUser_CreateUser) GetUsername() string {
 }
 
 type UpdateUser_UpdateUser struct {
-	CreatedAt   time.Time  "json:\"createdAt\" graphql:\"createdAt\""
-	CreatedBy   uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
-	DeletedAt   *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
-	DeletedBy   *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
-	Email       string     "json:\"email\" graphql:\"email\""
-	FirstName   string     "json:\"firstName\" graphql:\"firstName\""
-	ID          string     "json:\"id\" graphql:\"id\""
-	IdpID       string     "json:\"idpID\" graphql:\"idpID\""
-	IsAdmin     bool       "json:\"isAdmin\" graphql:\"isAdmin\""
-	LastName    string     "json:\"lastName\" graphql:\"lastName\""
-	LegacyRoles []string   "json:\"legacyRoles\" graphql:\"legacyRoles\""
-	TenantID    string     "json:\"tenantID\" graphql:\"tenantID\""
-	UpdatedAt   *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
-	UpdatedBy   *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
-	Username    string     "json:\"username\" graphql:\"username\""
+	CreatedAt time.Time  "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
+	DeletedAt *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	Email     string     "json:\"email\" graphql:\"email\""
+	FirstName string     "json:\"firstName\" graphql:\"firstName\""
+	ID        string     "json:\"id\" graphql:\"id\""
+	IdpID     string     "json:\"idpID\" graphql:\"idpID\""
+	IsAdmin   bool       "json:\"isAdmin\" graphql:\"isAdmin\""
+	LastName  string     "json:\"lastName\" graphql:\"lastName\""
+	TenantID  string     "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+	Username  string     "json:\"username\" graphql:\"username\""
 }
 
 func (t *UpdateUser_UpdateUser) GetCreatedAt() *time.Time {
@@ -3512,12 +2368,6 @@ func (t *UpdateUser_UpdateUser) GetLastName() string {
 		t = &UpdateUser_UpdateUser{}
 	}
 	return t.LastName
-}
-func (t *UpdateUser_UpdateUser) GetLegacyRoles() []string {
-	if t == nil {
-		t = &UpdateUser_UpdateUser{}
-	}
-	return t.LegacyRoles
 }
 func (t *UpdateUser_UpdateUser) GetTenantID() string {
 	if t == nil {
@@ -5279,15 +4129,40 @@ func (t *PatchDeviceLocationData_PatchDeviceLocationData) GetWorkflows() []*Patc
 	return t.Workflows
 }
 
-type GetAccessPolicies struct {
-	AccessPolicies GetAccessPolicies_AccessPolicies "json:\"accessPolicies\" graphql:\"accessPolicies\""
+type AssignRoles_AssignRoles struct {
+	Roles  []string  "json:\"roles\" graphql:\"roles\""
+	UserID uuid.UUID "json:\"userId\" graphql:\"userId\""
 }
 
-func (t *GetAccessPolicies) GetAccessPolicies() *GetAccessPolicies_AccessPolicies {
+func (t *AssignRoles_AssignRoles) GetRoles() []string {
 	if t == nil {
-		t = &GetAccessPolicies{}
+		t = &AssignRoles_AssignRoles{}
 	}
-	return &t.AccessPolicies
+	return t.Roles
+}
+func (t *AssignRoles_AssignRoles) GetUserID() *uuid.UUID {
+	if t == nil {
+		t = &AssignRoles_AssignRoles{}
+	}
+	return &t.UserID
+}
+
+type RemoveRoles_RemoveRoles struct {
+	Roles  []string  "json:\"roles\" graphql:\"roles\""
+	UserID uuid.UUID "json:\"userId\" graphql:\"userId\""
+}
+
+func (t *RemoveRoles_RemoveRoles) GetRoles() []string {
+	if t == nil {
+		t = &RemoveRoles_RemoveRoles{}
+	}
+	return t.Roles
+}
+func (t *RemoveRoles_RemoveRoles) GetUserID() *uuid.UUID {
+	if t == nil {
+		t = &RemoveRoles_RemoveRoles{}
+	}
+	return &t.UserID
 }
 
 type GetDataTypes struct {
@@ -5345,17 +4220,6 @@ func (t *GetEvents) GetEvents() *GetEvents_Events {
 	return &t.Events
 }
 
-type GetGroups struct {
-	Groups GetGroups_Groups "json:\"groups\" graphql:\"groups\""
-}
-
-func (t *GetGroups) GetGroups() *GetGroups_Groups {
-	if t == nil {
-		t = &GetGroups{}
-	}
-	return &t.Groups
-}
-
 type GetKeyValues struct {
 	KeyValues GetKeyValues_KeyValues "json:\"keyValues\" graphql:\"keyValues\""
 }
@@ -5376,17 +4240,6 @@ func (t *GetLocations) GetLocations() *GetLocations_Locations {
 		t = &GetLocations{}
 	}
 	return &t.Locations
-}
-
-type GetRoles struct {
-	Roles GetRoles_Roles "json:\"roles\" graphql:\"roles\""
-}
-
-func (t *GetRoles) GetRoles() *GetRoles_Roles {
-	if t == nil {
-		t = &GetRoles{}
-	}
-	return &t.Roles
 }
 
 type GetTenants struct {
@@ -5422,17 +4275,6 @@ func (t *GetDataTypeEntities) GetDataTypeEntities() []string {
 	return t.DataTypeEntities
 }
 
-type GetGroup struct {
-	Group *GetGroup_Group "json:\"group,omitempty\" graphql:\"group\""
-}
-
-func (t *GetGroup) GetGroup() *GetGroup_Group {
-	if t == nil {
-		t = &GetGroup{}
-	}
-	return t.Group
-}
-
 type GetOrganization struct {
 	Organization GetOrganization_Organization "json:\"organization\" graphql:\"organization\""
 }
@@ -5444,26 +4286,26 @@ func (t *GetOrganization) GetOrganization() *GetOrganization_Organization {
 	return &t.Organization
 }
 
-type GetPolicy struct {
-	Policy *GetPolicy_Policy "json:\"policy,omitempty\" graphql:\"policy\""
+type GetServiceRoles struct {
+	ServiceRoles []*GetServiceRoles_ServiceRoles "json:\"serviceRoles\" graphql:\"serviceRoles\""
 }
 
-func (t *GetPolicy) GetPolicy() *GetPolicy_Policy {
+func (t *GetServiceRoles) GetServiceRoles() []*GetServiceRoles_ServiceRoles {
 	if t == nil {
-		t = &GetPolicy{}
+		t = &GetServiceRoles{}
 	}
-	return t.Policy
+	return t.ServiceRoles
 }
 
-type GetRole struct {
-	Role *GetRole_Role "json:\"role,omitempty\" graphql:\"role\""
+type GetUserServiceRoles struct {
+	UserServiceRoles []string "json:\"userServiceRoles\" graphql:\"userServiceRoles\""
 }
 
-func (t *GetRole) GetRole() *GetRole_Role {
+func (t *GetUserServiceRoles) GetUserServiceRoles() []string {
 	if t == nil {
-		t = &GetRole{}
+		t = &GetUserServiceRoles{}
 	}
-	return t.Role
+	return t.UserServiceRoles
 }
 
 type GetManagementServiceInfo struct {
@@ -5576,6 +4418,17 @@ func (t *SetTenantExpiry) GetSetTenantExpiry() *SetTenantExpiry_SetTenantExpiry 
 	return &t.SetTenantExpiry
 }
 
+type SetTenantUITemplate struct {
+	SetTenantUITemplate SetTenantUITemplate_SetTenantUITemplate "json:\"setTenantUITemplate\" graphql:\"setTenantUITemplate\""
+}
+
+func (t *SetTenantUITemplate) GetSetTenantUITemplate() *SetTenantUITemplate_SetTenantUITemplate {
+	if t == nil {
+		t = &SetTenantUITemplate{}
+	}
+	return &t.SetTenantUITemplate
+}
+
 type GenerateJSONSchema struct {
 	GenerateJSONSchema GenerateJsonSchema_GenerateJSONSchema "json:\"generateJsonSchema\" graphql:\"generateJsonSchema\""
 }
@@ -5585,105 +4438,6 @@ func (t *GenerateJSONSchema) GetGenerateJSONSchema() *GenerateJsonSchema_Generat
 		t = &GenerateJSONSchema{}
 	}
 	return &t.GenerateJSONSchema
-}
-
-type CreatePolicy struct {
-	CreatePolicy CreatePolicy_CreatePolicy "json:\"createPolicy\" graphql:\"createPolicy\""
-}
-
-func (t *CreatePolicy) GetCreatePolicy() *CreatePolicy_CreatePolicy {
-	if t == nil {
-		t = &CreatePolicy{}
-	}
-	return &t.CreatePolicy
-}
-
-type UpdatePolicy struct {
-	UpdatePolicy UpdatePolicy_UpdatePolicy "json:\"updatePolicy\" graphql:\"updatePolicy\""
-}
-
-func (t *UpdatePolicy) GetUpdatePolicy() *UpdatePolicy_UpdatePolicy {
-	if t == nil {
-		t = &UpdatePolicy{}
-	}
-	return &t.UpdatePolicy
-}
-
-type DeletePolicy struct {
-	DeletePolicy bool "json:\"deletePolicy\" graphql:\"deletePolicy\""
-}
-
-func (t *DeletePolicy) GetDeletePolicy() bool {
-	if t == nil {
-		t = &DeletePolicy{}
-	}
-	return t.DeletePolicy
-}
-
-type CreateGroup struct {
-	CreateGroup CreateGroup_CreateGroup "json:\"createGroup\" graphql:\"createGroup\""
-}
-
-func (t *CreateGroup) GetCreateGroup() *CreateGroup_CreateGroup {
-	if t == nil {
-		t = &CreateGroup{}
-	}
-	return &t.CreateGroup
-}
-
-type UpdateGroup struct {
-	UpdateGroup UpdateGroup_UpdateGroup "json:\"updateGroup\" graphql:\"updateGroup\""
-}
-
-func (t *UpdateGroup) GetUpdateGroup() *UpdateGroup_UpdateGroup {
-	if t == nil {
-		t = &UpdateGroup{}
-	}
-	return &t.UpdateGroup
-}
-
-type DeleteGroup struct {
-	DeleteGroup bool "json:\"deleteGroup\" graphql:\"deleteGroup\""
-}
-
-func (t *DeleteGroup) GetDeleteGroup() bool {
-	if t == nil {
-		t = &DeleteGroup{}
-	}
-	return t.DeleteGroup
-}
-
-type CreateRole struct {
-	CreateRole CreateRole_CreateRole "json:\"createRole\" graphql:\"createRole\""
-}
-
-func (t *CreateRole) GetCreateRole() *CreateRole_CreateRole {
-	if t == nil {
-		t = &CreateRole{}
-	}
-	return &t.CreateRole
-}
-
-type UpdateRole struct {
-	UpdateRole UpdateRole_UpdateRole "json:\"updateRole\" graphql:\"updateRole\""
-}
-
-func (t *UpdateRole) GetUpdateRole() *UpdateRole_UpdateRole {
-	if t == nil {
-		t = &UpdateRole{}
-	}
-	return &t.UpdateRole
-}
-
-type DeleteRole struct {
-	DeleteRole bool "json:\"deleteRole\" graphql:\"deleteRole\""
-}
-
-func (t *DeleteRole) GetDeleteRole() bool {
-	if t == nil {
-		t = &DeleteRole{}
-	}
-	return t.DeleteRole
 }
 
 type CreateUser struct {
@@ -5917,55 +4671,26 @@ func (t *PatchDeviceLocationData) GetPatchDeviceLocationData() *PatchDeviceLocat
 	return &t.PatchDeviceLocationData
 }
 
-const GetAccessPoliciesDocument = `query GetAccessPolicies ($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderBy: AccessPolicyOrder, $where: AccessPolicyWhereInput) {
-	accessPolicies(after: $after, first: $first, before: $before, last: $last, orderBy: $orderBy, where: $where) {
-		totalCount
-		pageInfo {
-			hasNextPage
-			hasPreviousPage
-			startCursor
-			endCursor
-		}
-		edges {
-			cursor
-			node {
-				action
-				createdAt
-				createdBy
-				deletedAt
-				deletedBy
-				effect
-				id
-				resource
-				tenantID
-				updatedAt
-				updatedBy
-			}
-		}
-	}
+type AssignRoles struct {
+	AssignRoles AssignRoles_AssignRoles "json:\"assignRoles\" graphql:\"assignRoles\""
 }
-`
 
-func (c *Client) GetAccessPolicies(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *AccessPolicyOrder, where *AccessPolicyWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetAccessPolicies, error) {
-	vars := map[string]any{
-		"after":   after,
-		"first":   first,
-		"before":  before,
-		"last":    last,
-		"orderBy": orderBy,
-		"where":   where,
+func (t *AssignRoles) GetAssignRoles() *AssignRoles_AssignRoles {
+	if t == nil {
+		t = &AssignRoles{}
 	}
+	return &t.AssignRoles
+}
 
-	var res GetAccessPolicies
-	if err := c.Client.Post(ctx, "GetAccessPolicies", GetAccessPoliciesDocument, &res, vars, interceptors...); err != nil {
-		if c.Client.ParseDataWhenErrors {
-			return &res, err
-		}
+type RemoveRoles struct {
+	RemoveRoles RemoveRoles_RemoveRoles "json:\"removeRoles\" graphql:\"removeRoles\""
+}
 
-		return nil, err
+func (t *RemoveRoles) GetRemoveRoles() *RemoveRoles_RemoveRoles {
+	if t == nil {
+		t = &RemoveRoles{}
 	}
-
-	return &res, nil
+	return &t.RemoveRoles
 }
 
 const GetDataTypesDocument = `query GetDataTypes ($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderBy: DataTypeOrder, $where: DataTypeWhereInput) {
@@ -6232,56 +4957,6 @@ func (c *Client) GetEvents(ctx context.Context, after *string, first *int, befor
 	return &res, nil
 }
 
-const GetGroupsDocument = `query GetGroups ($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderBy: GroupOrder, $where: GroupWhereInput) {
-	groups(after: $after, first: $first, before: $before, last: $last, orderBy: $orderBy, where: $where) {
-		totalCount
-		pageInfo {
-			hasNextPage
-			hasPreviousPage
-			startCursor
-			endCursor
-		}
-		edges {
-			cursor
-			node {
-				createdAt
-				createdBy
-				deletedAt
-				deletedBy
-				description
-				id
-				name
-				tenantID
-				updatedAt
-				updatedBy
-			}
-		}
-	}
-}
-`
-
-func (c *Client) GetGroups(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *GroupOrder, where *GroupWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetGroups, error) {
-	vars := map[string]any{
-		"after":   after,
-		"first":   first,
-		"before":  before,
-		"last":    last,
-		"orderBy": orderBy,
-		"where":   where,
-	}
-
-	var res GetGroups
-	if err := c.Client.Post(ctx, "GetGroups", GetGroupsDocument, &res, vars, interceptors...); err != nil {
-		if c.Client.ParseDataWhenErrors {
-			return &res, err
-		}
-
-		return nil, err
-	}
-
-	return &res, nil
-}
-
 const GetKeyValuesDocument = `query GetKeyValues ($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderBy: KeyValueOrder, $where: KeyValueWhereInput) {
 	keyValues(after: $after, first: $first, before: $before, last: $last, orderBy: $orderBy, where: $where) {
 		totalCount
@@ -6387,56 +5062,6 @@ func (c *Client) GetLocations(ctx context.Context, after *string, first *int, be
 	return &res, nil
 }
 
-const GetRolesDocument = `query GetRoles ($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderBy: RoleOrder, $where: RoleWhereInput) {
-	roles(after: $after, first: $first, before: $before, last: $last, orderBy: $orderBy, where: $where) {
-		totalCount
-		pageInfo {
-			hasNextPage
-			hasPreviousPage
-			startCursor
-			endCursor
-		}
-		edges {
-			cursor
-			node {
-				createdAt
-				createdBy
-				deletedAt
-				deletedBy
-				description
-				id
-				name
-				tenantID
-				updatedAt
-				updatedBy
-			}
-		}
-	}
-}
-`
-
-func (c *Client) GetRoles(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *RoleOrder, where *RoleWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetRoles, error) {
-	vars := map[string]any{
-		"after":   after,
-		"first":   first,
-		"before":  before,
-		"last":    last,
-		"orderBy": orderBy,
-		"where":   where,
-	}
-
-	var res GetRoles
-	if err := c.Client.Post(ctx, "GetRoles", GetRolesDocument, &res, vars, interceptors...); err != nil {
-		if c.Client.ParseDataWhenErrors {
-			return &res, err
-		}
-
-		return nil, err
-	}
-
-	return &res, nil
-}
-
 const GetTenantsDocument = `query GetTenants ($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderBy: TenantOrder, $where: TenantWhereInput) {
 	tenants(after: $after, first: $first, before: $before, last: $last, orderBy: $orderBy, where: $where) {
 		totalCount
@@ -6512,7 +5137,6 @@ const GetUsersDocument = `query GetUsers ($after: Cursor, $first: Int, $before: 
 				idpID
 				isAdmin
 				lastName
-				legacyRoles
 				tenantID
 				updatedAt
 				updatedBy
@@ -6565,39 +5189,6 @@ func (c *Client) GetDataTypeEntities(ctx context.Context, interceptors ...client
 	return &res, nil
 }
 
-const GetGroupDocument = `query GetGroup ($id: ID!) {
-	group(id: $id) {
-		createdAt
-		createdBy
-		deletedAt
-		deletedBy
-		description
-		id
-		name
-		tenantID
-		updatedAt
-		updatedBy
-	}
-}
-`
-
-func (c *Client) GetGroup(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*GetGroup, error) {
-	vars := map[string]any{
-		"id": id,
-	}
-
-	var res GetGroup
-	if err := c.Client.Post(ctx, "GetGroup", GetGroupDocument, &res, vars, interceptors...); err != nil {
-		if c.Client.ParseDataWhenErrors {
-			return &res, err
-		}
-
-		return nil, err
-	}
-
-	return &res, nil
-}
-
 const GetOrganizationDocument = `query GetOrganization ($sub: String!) {
 	organization(sub: $sub) {
 		active
@@ -6623,30 +5214,18 @@ func (c *Client) GetOrganization(ctx context.Context, sub string, interceptors .
 	return &res, nil
 }
 
-const GetPolicyDocument = `query GetPolicy ($id: ID!) {
-	policy(id: $id) {
-		action
-		createdAt
-		createdBy
-		deletedAt
-		deletedBy
-		effect
-		id
-		resource
-		tenantID
-		updatedAt
-		updatedBy
+const GetServiceRolesDocument = `query GetServiceRoles {
+	serviceRoles {
+		key
 	}
 }
 `
 
-func (c *Client) GetPolicy(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*GetPolicy, error) {
-	vars := map[string]any{
-		"id": id,
-	}
+func (c *Client) GetServiceRoles(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetServiceRoles, error) {
+	vars := map[string]any{}
 
-	var res GetPolicy
-	if err := c.Client.Post(ctx, "GetPolicy", GetPolicyDocument, &res, vars, interceptors...); err != nil {
+	var res GetServiceRoles
+	if err := c.Client.Post(ctx, "GetServiceRoles", GetServiceRolesDocument, &res, vars, interceptors...); err != nil {
 		if c.Client.ParseDataWhenErrors {
 			return &res, err
 		}
@@ -6657,29 +5236,18 @@ func (c *Client) GetPolicy(ctx context.Context, id string, interceptors ...clien
 	return &res, nil
 }
 
-const GetRoleDocument = `query GetRole ($id: ID!) {
-	role(id: $id) {
-		createdAt
-		createdBy
-		deletedAt
-		deletedBy
-		description
-		id
-		name
-		tenantID
-		updatedAt
-		updatedBy
-	}
+const GetUserServiceRolesDocument = `query GetUserServiceRoles ($input: UserServiceRolesInput!) {
+	userServiceRoles(input: $input)
 }
 `
 
-func (c *Client) GetRole(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*GetRole, error) {
+func (c *Client) GetUserServiceRoles(ctx context.Context, input model.UserServiceRolesInput, interceptors ...clientv2.RequestInterceptor) (*GetUserServiceRoles, error) {
 	vars := map[string]any{
-		"id": id,
+		"input": input,
 	}
 
-	var res GetRole
-	if err := c.Client.Post(ctx, "GetRole", GetRoleDocument, &res, vars, interceptors...); err != nil {
+	var res GetUserServiceRoles
+	if err := c.Client.Post(ctx, "GetUserServiceRoles", GetUserServiceRolesDocument, &res, vars, interceptors...); err != nil {
 		if c.Client.ParseDataWhenErrors {
 			return &res, err
 		}
@@ -6989,6 +5557,30 @@ func (c *Client) SetTenantExpiry(ctx context.Context, input model.SetTenantExpir
 	return &res, nil
 }
 
+const SetTenantUITemplateDocument = `mutation SetTenantUITemplate ($input: SetTenantUITemplateInput!) {
+	setTenantUITemplate(input: $input) {
+		success
+	}
+}
+`
+
+func (c *Client) SetTenantUITemplate(ctx context.Context, input model.SetTenantUITemplateInput, interceptors ...clientv2.RequestInterceptor) (*SetTenantUITemplate, error) {
+	vars := map[string]any{
+		"input": input,
+	}
+
+	var res SetTenantUITemplate
+	if err := c.Client.Post(ctx, "SetTenantUITemplate", SetTenantUITemplateDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 const GenerateJSONSchemaDocument = `mutation GenerateJsonSchema ($jsonData: String!) {
 	generateJsonSchema(jsonData: $jsonData) {
 		jsonSchema
@@ -7013,275 +5605,6 @@ func (c *Client) GenerateJSONSchema(ctx context.Context, jsonData string, interc
 	return &res, nil
 }
 
-const CreatePolicyDocument = `mutation CreatePolicy ($input: CreateAccessPolicyInput!) {
-	createPolicy(input: $input) {
-		action
-		createdAt
-		createdBy
-		deletedAt
-		deletedBy
-		effect
-		id
-		resource
-		tenantID
-		updatedAt
-		updatedBy
-	}
-}
-`
-
-func (c *Client) CreatePolicy(ctx context.Context, input CreateAccessPolicyInput, interceptors ...clientv2.RequestInterceptor) (*CreatePolicy, error) {
-	vars := map[string]any{
-		"input": input,
-	}
-
-	var res CreatePolicy
-	if err := c.Client.Post(ctx, "CreatePolicy", CreatePolicyDocument, &res, vars, interceptors...); err != nil {
-		if c.Client.ParseDataWhenErrors {
-			return &res, err
-		}
-
-		return nil, err
-	}
-
-	return &res, nil
-}
-
-const UpdatePolicyDocument = `mutation UpdatePolicy ($id: ID!, $input: UpdateAccessPolicyInput!) {
-	updatePolicy(id: $id, input: $input) {
-		action
-		createdAt
-		createdBy
-		deletedAt
-		deletedBy
-		effect
-		id
-		resource
-		tenantID
-		updatedAt
-		updatedBy
-	}
-}
-`
-
-func (c *Client) UpdatePolicy(ctx context.Context, id string, input UpdateAccessPolicyInput, interceptors ...clientv2.RequestInterceptor) (*UpdatePolicy, error) {
-	vars := map[string]any{
-		"id":    id,
-		"input": input,
-	}
-
-	var res UpdatePolicy
-	if err := c.Client.Post(ctx, "UpdatePolicy", UpdatePolicyDocument, &res, vars, interceptors...); err != nil {
-		if c.Client.ParseDataWhenErrors {
-			return &res, err
-		}
-
-		return nil, err
-	}
-
-	return &res, nil
-}
-
-const DeletePolicyDocument = `mutation DeletePolicy ($id: ID!) {
-	deletePolicy(id: $id)
-}
-`
-
-func (c *Client) DeletePolicy(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeletePolicy, error) {
-	vars := map[string]any{
-		"id": id,
-	}
-
-	var res DeletePolicy
-	if err := c.Client.Post(ctx, "DeletePolicy", DeletePolicyDocument, &res, vars, interceptors...); err != nil {
-		if c.Client.ParseDataWhenErrors {
-			return &res, err
-		}
-
-		return nil, err
-	}
-
-	return &res, nil
-}
-
-const CreateGroupDocument = `mutation CreateGroup ($input: CreateGroupInput!) {
-	createGroup(input: $input) {
-		createdAt
-		createdBy
-		deletedAt
-		deletedBy
-		description
-		id
-		name
-		tenantID
-		updatedAt
-		updatedBy
-	}
-}
-`
-
-func (c *Client) CreateGroup(ctx context.Context, input CreateGroupInput, interceptors ...clientv2.RequestInterceptor) (*CreateGroup, error) {
-	vars := map[string]any{
-		"input": input,
-	}
-
-	var res CreateGroup
-	if err := c.Client.Post(ctx, "CreateGroup", CreateGroupDocument, &res, vars, interceptors...); err != nil {
-		if c.Client.ParseDataWhenErrors {
-			return &res, err
-		}
-
-		return nil, err
-	}
-
-	return &res, nil
-}
-
-const UpdateGroupDocument = `mutation UpdateGroup ($id: ID!, $input: UpdateGroupInput!) {
-	updateGroup(id: $id, input: $input) {
-		createdAt
-		createdBy
-		deletedAt
-		deletedBy
-		description
-		id
-		name
-		tenantID
-		updatedAt
-		updatedBy
-	}
-}
-`
-
-func (c *Client) UpdateGroup(ctx context.Context, id string, input UpdateGroupInput, interceptors ...clientv2.RequestInterceptor) (*UpdateGroup, error) {
-	vars := map[string]any{
-		"id":    id,
-		"input": input,
-	}
-
-	var res UpdateGroup
-	if err := c.Client.Post(ctx, "UpdateGroup", UpdateGroupDocument, &res, vars, interceptors...); err != nil {
-		if c.Client.ParseDataWhenErrors {
-			return &res, err
-		}
-
-		return nil, err
-	}
-
-	return &res, nil
-}
-
-const DeleteGroupDocument = `mutation DeleteGroup ($id: ID!) {
-	deleteGroup(id: $id)
-}
-`
-
-func (c *Client) DeleteGroup(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeleteGroup, error) {
-	vars := map[string]any{
-		"id": id,
-	}
-
-	var res DeleteGroup
-	if err := c.Client.Post(ctx, "DeleteGroup", DeleteGroupDocument, &res, vars, interceptors...); err != nil {
-		if c.Client.ParseDataWhenErrors {
-			return &res, err
-		}
-
-		return nil, err
-	}
-
-	return &res, nil
-}
-
-const CreateRoleDocument = `mutation CreateRole ($input: CreateRoleInput!) {
-	createRole(input: $input) {
-		createdAt
-		createdBy
-		deletedAt
-		deletedBy
-		description
-		id
-		name
-		tenantID
-		updatedAt
-		updatedBy
-	}
-}
-`
-
-func (c *Client) CreateRole(ctx context.Context, input CreateRoleInput, interceptors ...clientv2.RequestInterceptor) (*CreateRole, error) {
-	vars := map[string]any{
-		"input": input,
-	}
-
-	var res CreateRole
-	if err := c.Client.Post(ctx, "CreateRole", CreateRoleDocument, &res, vars, interceptors...); err != nil {
-		if c.Client.ParseDataWhenErrors {
-			return &res, err
-		}
-
-		return nil, err
-	}
-
-	return &res, nil
-}
-
-const UpdateRoleDocument = `mutation UpdateRole ($id: ID!, $input: UpdateRoleInput!) {
-	updateRole(id: $id, input: $input) {
-		createdAt
-		createdBy
-		deletedAt
-		deletedBy
-		description
-		id
-		name
-		tenantID
-		updatedAt
-		updatedBy
-	}
-}
-`
-
-func (c *Client) UpdateRole(ctx context.Context, id string, input UpdateRoleInput, interceptors ...clientv2.RequestInterceptor) (*UpdateRole, error) {
-	vars := map[string]any{
-		"id":    id,
-		"input": input,
-	}
-
-	var res UpdateRole
-	if err := c.Client.Post(ctx, "UpdateRole", UpdateRoleDocument, &res, vars, interceptors...); err != nil {
-		if c.Client.ParseDataWhenErrors {
-			return &res, err
-		}
-
-		return nil, err
-	}
-
-	return &res, nil
-}
-
-const DeleteRoleDocument = `mutation DeleteRole ($id: ID!) {
-	deleteRole(id: $id)
-}
-`
-
-func (c *Client) DeleteRole(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeleteRole, error) {
-	vars := map[string]any{
-		"id": id,
-	}
-
-	var res DeleteRole
-	if err := c.Client.Post(ctx, "DeleteRole", DeleteRoleDocument, &res, vars, interceptors...); err != nil {
-		if c.Client.ParseDataWhenErrors {
-			return &res, err
-		}
-
-		return nil, err
-	}
-
-	return &res, nil
-}
-
 const CreateUserDocument = `mutation CreateUser ($input: CreateUserInput!) {
 	createUser(input: $input) {
 		createdAt
@@ -7294,7 +5617,6 @@ const CreateUserDocument = `mutation CreateUser ($input: CreateUserInput!) {
 		idpID
 		isAdmin
 		lastName
-		legacyRoles
 		tenantID
 		updatedAt
 		updatedBy
@@ -7332,7 +5654,6 @@ const UpdateUserDocument = `mutation UpdateUser ($id: ID!, $input: UpdateUserInp
 		idpID
 		isAdmin
 		lastName
-		legacyRoles
 		tenantID
 		updatedAt
 		updatedBy
@@ -8048,24 +6369,70 @@ func (c *Client) PatchDeviceLocationData(ctx context.Context, id string, patches
 	return &res, nil
 }
 
+const AssignRolesDocument = `mutation AssignRoles ($input: AssignRolesInput!) {
+	assignRoles(input: $input) {
+		roles
+		userId
+	}
+}
+`
+
+func (c *Client) AssignRoles(ctx context.Context, input model.AssignRolesInput, interceptors ...clientv2.RequestInterceptor) (*AssignRoles, error) {
+	vars := map[string]any{
+		"input": input,
+	}
+
+	var res AssignRoles
+	if err := c.Client.Post(ctx, "AssignRoles", AssignRolesDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const RemoveRolesDocument = `mutation RemoveRoles ($input: RemoveRolesInput!) {
+	removeRoles(input: $input) {
+		roles
+		userId
+	}
+}
+`
+
+func (c *Client) RemoveRoles(ctx context.Context, input model.RemoveRolesInput, interceptors ...clientv2.RequestInterceptor) (*RemoveRoles, error) {
+	vars := map[string]any{
+		"input": input,
+	}
+
+	var res RemoveRoles
+	if err := c.Client.Post(ctx, "RemoveRoles", RemoveRolesDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 var DocumentOperationNames = map[string]string{
-	GetAccessPoliciesDocument:        "GetAccessPolicies",
 	GetDataTypesDocument:             "GetDataTypes",
 	GetDevicesDocument:               "GetDevices",
 	GetDeviceLocationsDocument:       "GetDeviceLocations",
 	GetDeviceUsersDocument:           "GetDeviceUsers",
 	GetEventsDocument:                "GetEvents",
-	GetGroupsDocument:                "GetGroups",
 	GetKeyValuesDocument:             "GetKeyValues",
 	GetLocationsDocument:             "GetLocations",
-	GetRolesDocument:                 "GetRoles",
 	GetTenantsDocument:               "GetTenants",
 	GetUsersDocument:                 "GetUsers",
 	GetDataTypeEntitiesDocument:      "GetDataTypeEntities",
-	GetGroupDocument:                 "GetGroup",
 	GetOrganizationDocument:          "GetOrganization",
-	GetPolicyDocument:                "GetPolicy",
-	GetRoleDocument:                  "GetRole",
+	GetServiceRolesDocument:          "GetServiceRoles",
+	GetUserServiceRolesDocument:      "GetUserServiceRoles",
 	GetManagementServiceInfoDocument: "GetManagementServiceInfo",
 	GetMeDocument:                    "GetMe",
 	CreateDataTypeDocument:           "CreateDataType",
@@ -8076,16 +6443,8 @@ var DocumentOperationNames = map[string]string{
 	DeleteTenantDocument:             "DeleteTenant",
 	RestoreTenantDocument:            "RestoreTenant",
 	SetTenantExpiryDocument:          "SetTenantExpiry",
+	SetTenantUITemplateDocument:      "SetTenantUITemplate",
 	GenerateJSONSchemaDocument:       "GenerateJsonSchema",
-	CreatePolicyDocument:             "CreatePolicy",
-	UpdatePolicyDocument:             "UpdatePolicy",
-	DeletePolicyDocument:             "DeletePolicy",
-	CreateGroupDocument:              "CreateGroup",
-	UpdateGroupDocument:              "UpdateGroup",
-	DeleteGroupDocument:              "DeleteGroup",
-	CreateRoleDocument:               "CreateRole",
-	UpdateRoleDocument:               "UpdateRole",
-	DeleteRoleDocument:               "DeleteRole",
 	CreateUserDocument:               "CreateUser",
 	UpdateUserDocument:               "UpdateUser",
 	DeleteUserDocument:               "DeleteUser",
@@ -8107,4 +6466,6 @@ var DocumentOperationNames = map[string]string{
 	PatchLocationDataDocument:        "PatchLocationData",
 	PatchDeviceDataDocument:          "PatchDeviceData",
 	PatchDeviceLocationDataDocument:  "PatchDeviceLocationData",
+	AssignRolesDocument:              "AssignRoles",
+	RemoveRolesDocument:              "RemoveRoles",
 }

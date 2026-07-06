@@ -1579,8 +1579,8 @@ func countStocksAtTime(
 // latest before the cutoff — even when multiple stock records exist before and
 // after the cutoff.
 //
-// This validates that latestStockIDs correctly passes CreatedAtLT into the
-// DistinctOnExists NOT EXISTS subquery: the subquery must only consider rows
+// This validates that the time resolver's latestStockPredicate scopes its
+// NOT EXISTS subquery by the cutoff: the subquery must only consider rows
 // before the cutoff when checking for newer records, so that post-cutoff rows
 // do not invalidate valid "latest before cutoff" candidates.
 //

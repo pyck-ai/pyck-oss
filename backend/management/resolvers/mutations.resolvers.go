@@ -24,16 +24,13 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/validator"
 	"github.com/pyck-ai/pyck/backend/management/core"
 	ent "github.com/pyck-ai/pyck/backend/management/ent/gen"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/accesspolicy"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/datatype"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/device"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/devicelocation"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/deviceuser"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/group"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/keyvalue"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/location"
 	entprivacy "github.com/pyck-ai/pyck/backend/management/ent/gen/privacy"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/role"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/user"
 	"github.com/pyck-ai/pyck/backend/management/exec"
@@ -282,6 +279,21 @@ func (r *mutationResolver) RegisterTenant(ctx context.Context, input model.Regis
 	var workflowOutput registertenantwf.RegisterTenantWorkflowOutput
 	err = r.workflowClient.GetWorkflowResult(systemCtx, workflowID, runID, &workflowOutput)
 	if err != nil {
+		// Best-effort cleanup of a row this registration left ACTIVE.
+		// The RegisterTenantWorkflow owns compensation via its own saga
+		// rollback() — on any post-create failure it soft-deletes the
+		// tenant (by deterministic id) and deletes the Zitadel org. So
+		// by the time we get here the row is already either absent or
+		// soft-deleted, and this systemCtx lookup-by-name correctly
+		// misses it: we fall through to `return nil, err` and surface
+		// the real workflow error, leaving the workflow's tombstone
+		// intact.
+		//
+		// Do NOT widen this lookup with FEATURE_SHOW_DELETED: `name` is
+		// not unique (only idp_org_ref is), so seeing soft-deleted rows
+		// would let `.Only` match an unrelated same-named tenant and
+		// hard-delete it. The active-name pre-flight above guarantees
+		// the only ACTIVE row with this name is one we created.
 		registeredTenant, tenantErr := r.client.Tenant.Query().
 			Where(tenant.Name(input.Name)).
 			Only(systemCtx)
@@ -343,14 +355,9 @@ func (r *mutationResolver) DeleteTenant(ctx context.Context) (*model.DeleteTenan
 	// in the same transaction; the tenant-lifecycle NATS subscriber
 	// consumes the resulting event and starts the workflow.
 
-	req := request.ForContext(ctx)
-	if !req.User().IsAuthenticated() {
-		return nil, fmt.Errorf("%w: authentication required for deleteTenant", authn.ErrUnauthorized)
-	}
-
-	tenantID := req.MutationTenantID()
-	if !req.User().HasRole(authn.ROLE_ADMIN, tenantID) {
-		return nil, fmt.Errorf("%w: admin role required for deleteTenant", authn.ErrUnauthorized)
+	tenantID, err := request.ForContext(ctx).RequireRole(authn.ROLE_ADMIN, "deleteTenant")
+	if err != nil {
+		return nil, err
 	}
 
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
@@ -375,9 +382,15 @@ func (r *mutationResolver) DeleteTenant(ctx context.Context) (*model.DeleteTenan
 		return &model.DeleteTenantResponse{Success: true}, nil
 	}
 
+	// Bypass HistoryMixinMutationFilter via entprivacy.Allow — same
+	// scope restoreTenant uses, so any future tightening of the
+	// filter that ignores FEATURE_SHOW_DELETED doesn't break only
+	// one of the two resolvers.
+	allowCtx := entprivacy.DecisionContext(sysCtx, entprivacy.Allow)
+
 	if err := tx.Tenant.UpdateOneID(tenantID).
 		SetDeletedAt(time.Now().UTC()).
-		Exec(sysCtx); err != nil {
+		Exec(allowCtx); err != nil {
 		return nil, fmt.Errorf("mark tenant deleted: %w", err)
 	}
 
@@ -404,14 +417,9 @@ func (r *mutationResolver) DeleteTenant(ctx context.Context) (*model.DeleteTenan
 // input.ExpiresAt is ignored on that path — use setTenantExpiry to
 // change expiry on an active tenant.
 func (r *mutationResolver) RestoreTenant(ctx context.Context, input model.RestoreTenantInput) (*model.RestoreTenantResponse, error) {
-	req := request.ForContext(ctx)
-	if !req.User().IsAuthenticated() {
-		return nil, fmt.Errorf("%w: authentication required for restoreTenant", authn.ErrUnauthorized)
-	}
-
-	tenantID := req.MutationTenantID()
-	if !req.User().HasRole(authn.ROLE_ADMIN, tenantID) {
-		return nil, fmt.Errorf("%w: admin role required for restoreTenant", authn.ErrUnauthorized)
+	tenantID, err := request.ForContext(ctx).RequireRole(authn.ROLE_ADMIN, "restoreTenant")
+	if err != nil {
+		return nil, err
 	}
 
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
@@ -431,6 +439,12 @@ func (r *mutationResolver) RestoreTenant(ctx context.Context, input model.Restor
 
 	if t.DeletedAt.IsZero() {
 		return &model.RestoreTenantResponse{Success: true}, nil
+	}
+
+	// Past expiresAt would let the expiry sweep re-disable the
+	// tenant immediately after restore. Fail loud instead.
+	if input.ExpiresAt != nil && !input.ExpiresAt.After(time.Now().UTC()) {
+		return nil, fmt.Errorf("restoreTenant: expiresAt must be in the future")
 	}
 
 	// Bypass HistoryMixinMutationFilter — the row is soft-deleted and the
@@ -469,14 +483,9 @@ func (r *mutationResolver) RestoreTenant(ctx context.Context, input model.Restor
 // cases: clears against an already-empty value, and sets that match
 // the current value.
 func (r *mutationResolver) SetTenantExpiry(ctx context.Context, input model.SetTenantExpiryInput) (*model.SetTenantExpiryResponse, error) {
-	req := request.ForContext(ctx)
-	if !req.User().IsAuthenticated() {
-		return nil, fmt.Errorf("%w: authentication required for setTenantExpiry", authn.ErrUnauthorized)
-	}
-
-	tenantID := req.MutationTenantID()
-	if !req.User().HasRole(authn.ROLE_ADMIN, tenantID) {
-		return nil, fmt.Errorf("%w: admin role required for setTenantExpiry", authn.ErrUnauthorized)
+	tenantID, err := request.ForContext(ctx).RequireRole(authn.ROLE_ADMIN, "setTenantExpiry")
+	if err != nil {
+		return nil, err
 	}
 
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
@@ -495,9 +504,11 @@ func (r *mutationResolver) SetTenantExpiry(ctx context.Context, input model.SetT
 		return nil, fmt.Errorf("query tenant: %w", err)
 	}
 
+	// time.Equal already ignores location; comparing raw values lets
+	// sub-second precision survive into the Update + outbox event.
 	neither := input.ExpiresAt == nil && t.ExpiresAt == nil
 	both := input.ExpiresAt != nil && t.ExpiresAt != nil
-	if neither || (both && t.ExpiresAt.Truncate(time.Second).Equal(input.ExpiresAt.UTC().Truncate(time.Second))) {
+	if neither || (both && t.ExpiresAt.Equal(input.ExpiresAt.UTC())) {
 		return &model.SetTenantExpiryResponse{Success: true}, nil
 	}
 
@@ -512,6 +523,93 @@ func (r *mutationResolver) SetTenantExpiry(ctx context.Context, input model.SetT
 		return nil, fmt.Errorf("update tenant expires_at: %w", err)
 	}
 	return &model.SetTenantExpiryResponse{Success: true}, nil
+}
+
+// SetTenantUITemplate is the resolver for the setTenantUITemplate field.
+//
+// System-only: writes the per-workflow UI bundle URL templates
+// (remoteWebUITemplate / remoteMobileUITemplate) into tenant.data. The templates
+// carry {{.Slug}}/{{.Version}} placeholders that the workflow service substitutes per
+// execution from the pinned deployment version. Customers must never set these,
+// so non-system callers are rejected.
+//
+// Per platform the caller may set a (validated) template to override the
+// system-wide default, or clear it to revert to that default; omitting both
+// leaves the stored value unchanged. Setting and clearing the same platform in
+// one call is rejected, and the request must change at least one field.
+// Idempotent when the resulting data equals what is already stored.
+func (r *mutationResolver) SetTenantUITemplate(ctx context.Context, input model.SetTenantUITemplateInput) (*model.SetTenantUITemplateResponse, error) {
+	req := request.ForContext(ctx)
+	if !req.User().IsSystemUser() {
+		return nil, fmt.Errorf("%w: system role required for setTenantUITemplate", authn.ErrUnauthorized)
+	}
+
+	clearWeb := input.ClearWebTemplate != nil && *input.ClearWebTemplate
+	clearMobile := input.ClearMobileTemplate != nil && *input.ClearMobileTemplate
+
+	// Setting and clearing the same platform in one call is contradictory.
+	if (input.WebTemplate != nil && clearWeb) || (input.MobileTemplate != nil && clearMobile) {
+		return nil, ErrConflictingUITemplateChange
+	}
+	// An all-no-op request masks a buggy caller as success; require a real change.
+	if input.WebTemplate == nil && input.MobileTemplate == nil && !clearWeb && !clearMobile {
+		return nil, ErrNoUITemplateChange
+	}
+	if input.WebTemplate != nil {
+		if err := core.ValidateRemoteUITemplate(*input.WebTemplate); err != nil {
+			return nil, err
+		}
+	}
+	if input.MobileTemplate != nil {
+		if err := core.ValidateRemoteUITemplate(*input.MobileTemplate); err != nil {
+			return nil, err
+		}
+	}
+
+	tenantID := req.MutationTenantID()
+
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	sysCtx := request.Context(ctx, authn.SystemUser(), tenantID)
+
+	t, err := tx.Tenant.Query().Where(tenant.IDEQ(tenantID)).Only(sysCtx)
+	if err != nil {
+		return nil, fmt.Errorf("query tenant: %w", err)
+	}
+
+	// Clearing deletes the key (reverts to the system-wide default) rather than
+	// storing "", so MapsEqual stays honest and the read side never sees a stale
+	// empty override.
+	data := make(map[string]any, len(t.Data)+2)
+	for k, v := range t.Data {
+		data[k] = v
+	}
+	if input.WebTemplate != nil {
+		data[core.RemoteWebUITemplateKey] = *input.WebTemplate
+	}
+	if clearWeb {
+		delete(data, core.RemoteWebUITemplateKey)
+	}
+	if input.MobileTemplate != nil {
+		data[core.RemoteMobileUITemplateKey] = *input.MobileTemplate
+	}
+	if clearMobile {
+		delete(data, core.RemoteMobileUITemplateKey)
+	}
+
+	// Idempotent: skip the write (and its outbox event) when nothing changes.
+	if core.MapsEqual(t.Data, data) {
+		return &model.SetTenantUITemplateResponse{Success: true}, nil
+	}
+
+	if err := tx.Tenant.UpdateOneID(tenantID).SetData(data).Exec(sysCtx); err != nil {
+		return nil, fmt.Errorf("update tenant ui templates: %w", err)
+	}
+
+	return &model.SetTenantUITemplateResponse{Success: true}, nil
 }
 
 // GenerateJSONSchema is the resolver for the generateJsonSchema field.
@@ -548,317 +646,6 @@ func (r *mutationResolver) GenerateJSONSchema(ctx context.Context, jsonData stri
 	return &model.GenerateJSONSchemaResponse{JSONSchema: workflowOutput.JsonSchema}, nil
 }
 
-// CreatePolicy is the resolver for the createPolicy field.
-func (r *mutationResolver) CreatePolicy(ctx context.Context, input ent.CreateAccessPolicyInput) (*ent.AccessPolicy, error) {
-	// MutationEventHook captures the mutation automatically.
-	// Check authorization
-	// allowed, err := r.authorizer.Enforce(ctx, "management.policy", "create")
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if !allowed {
-	// 	return nil, fmt.Errorf("access denied: insufficient permissions to create policy")
-	// }
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := tx.Role.Get(ctx, input.RoleID); err != nil {
-		return nil, fmt.Errorf("invalid role: %w", err)
-	}
-
-	policy, err := tx.AccessPolicy.
-		Create().
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return policy, nil
-}
-
-// UpdatePolicy is the resolver for the updatePolicy field.
-func (r *mutationResolver) UpdatePolicy(ctx context.Context, id uuid.UUID, input ent.UpdateAccessPolicyInput) (*ent.AccessPolicy, error) {
-	// MutationEventHook captures the mutation automatically.
-	// Check authorization
-	// allowed, err := r.authorizer.Enforce(ctx, "management.policy", "update")
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if !allowed {
-	// 	return nil, fmt.Errorf("access denied: insufficient permissions to update policy")
-	// }
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
-	if err != nil {
-		return nil, err
-	}
-
-	if input.RoleID != nil {
-		if _, err := tx.Role.Get(ctx, *input.RoleID); err != nil {
-			return nil, fmt.Errorf("invalid role: %w", err)
-		}
-	}
-
-	policy, err := tx.AccessPolicy.UpdateOneID(id).SetInput(input).Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return policy, nil
-}
-
-// DeletePolicy is the resolver for the deletePolicy field.
-func (r *mutationResolver) DeletePolicy(ctx context.Context, id uuid.UUID) (bool, error) {
-	// MutationEventHook captures the mutation automatically.
-	// Check authorization
-	// allowed, err := r.authorizer.Enforce(ctx, "management.policy", "delete")
-	// if err != nil {
-	// 	return false, err
-	// }
-	// if !allowed {
-	// 	return false, fmt.Errorf("access denied: insufficient permissions to delete policy")
-	// }
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
-	if err != nil {
-		return false, err
-	}
-
-	req := request.ForContext(ctx)
-	_, err = tx.AccessPolicy.
-		UpdateOneID(id).
-		SetDeletedAt(time.Now().UTC()).
-		SetDeletedBy(req.User().ID).
-		Save(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
-}
-
-// CreateGroup is the resolver for the createGroup field.
-func (r *mutationResolver) CreateGroup(ctx context.Context, input ent.CreateGroupInput) (*ent.Group, error) {
-	// MutationEventHook captures the mutation automatically.
-	// Check authorization
-	// allowed, err := r.authorizer.Enforce(ctx, "management.group", "create")
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if !allowed {
-	// 	return nil, fmt.Errorf("access denied: insufficient permissions to create group")
-	// }
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(input.UserIDs) > 0 {
-		n, err := tx.User.Query().Where(user.IDIn(input.UserIDs...)).Count(ctx)
-		if err != nil || n != len(input.UserIDs) {
-			return nil, fmt.Errorf("invalid user IDs")
-		}
-	}
-	if len(input.RoleIDs) > 0 {
-		n, err := tx.Role.Query().Where(role.IDIn(input.RoleIDs...)).Count(ctx)
-		if err != nil || n != len(input.RoleIDs) {
-			return nil, fmt.Errorf("invalid role IDs")
-		}
-	}
-
-	group, err := tx.Group.
-		Create().
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return group, nil
-}
-
-// UpdateGroup is the resolver for the updateGroup field.
-func (r *mutationResolver) UpdateGroup(ctx context.Context, id uuid.UUID, input ent.UpdateGroupInput) (*ent.Group, error) {
-	// MutationEventHook captures the mutation automatically.
-	// Check authorization
-	// allowed, err := r.authorizer.Enforce(ctx, "management.group", "update")
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if !allowed {
-	// 	return nil, fmt.Errorf("access denied: insufficient permissions to update group")
-	// }
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(input.AddUserIDs) > 0 {
-		n, err := tx.User.Query().Where(user.IDIn(input.AddUserIDs...)).Count(ctx)
-		if err != nil || n != len(input.AddUserIDs) {
-			return nil, fmt.Errorf("invalid user IDs")
-		}
-	}
-	if len(input.AddRoleIDs) > 0 {
-		n, err := tx.Role.Query().Where(role.IDIn(input.AddRoleIDs...)).Count(ctx)
-		if err != nil || n != len(input.AddRoleIDs) {
-			return nil, fmt.Errorf("invalid role IDs")
-		}
-	}
-
-	group, err := tx.Group.UpdateOneID(id).SetInput(input).Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return group, nil
-}
-
-// DeleteGroup is the resolver for the deleteGroup field.
-func (r *mutationResolver) DeleteGroup(ctx context.Context, id uuid.UUID) (bool, error) {
-	// MutationEventHook captures the mutation automatically.
-	// Check authorization
-	// allowed, err := r.authorizer.Enforce(ctx, "management.group", "delete")
-	// if err != nil {
-	// 	return false, err
-	// }
-	// if !allowed {
-	// 	return false, fmt.Errorf("access denied: insufficient permissions to delete group")
-	// }
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
-	if err != nil {
-		return false, err
-	}
-
-	req := request.ForContext(ctx)
-	_, err = tx.Group.UpdateOneID(id).SetDeletedAt(time.Now().UTC()).SetDeletedBy(req.User().ID).Save(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
-}
-
-// CreateRole is the resolver for the createRole field.
-func (r *mutationResolver) CreateRole(ctx context.Context, input ent.CreateRoleInput) (*ent.Role, error) {
-	// MutationEventHook captures the mutation automatically.
-	// Check authorization
-	// allowed, err := r.authorizer.Enforce(ctx, "management.role", "create")
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if !allowed {
-	// 	return nil, fmt.Errorf("access denied: insufficient permissions to create role")
-	// }
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(input.UserIDs) > 0 {
-		n, err := tx.User.Query().Where(user.IDIn(input.UserIDs...)).Count(ctx)
-		if err != nil || n != len(input.UserIDs) {
-			return nil, fmt.Errorf("invalid user IDs")
-		}
-	}
-	if len(input.GroupIDs) > 0 {
-		n, err := tx.Group.Query().Where(group.IDIn(input.GroupIDs...)).Count(ctx)
-		if err != nil || n != len(input.GroupIDs) {
-			return nil, fmt.Errorf("invalid group IDs")
-		}
-	}
-	if len(input.PolicyIDs) > 0 {
-		n, err := tx.AccessPolicy.Query().Where(accesspolicy.IDIn(input.PolicyIDs...)).Count(ctx)
-		if err != nil || n != len(input.PolicyIDs) {
-			return nil, fmt.Errorf("invalid policy IDs")
-		}
-	}
-
-	role, err := tx.Role.Create().SetInput(input).Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return role, nil
-}
-
-// UpdateRole is the resolver for the updateRole field.
-func (r *mutationResolver) UpdateRole(ctx context.Context, id uuid.UUID, input ent.UpdateRoleInput) (*ent.Role, error) {
-	// MutationEventHook captures the mutation automatically.
-	// Check authorization
-	// allowed, err := r.authorizer.Enforce(ctx, "management.role", "update")
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if !allowed {
-	// 	return nil, fmt.Errorf("access denied: insufficient permissions to update role")
-	// }
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(input.AddUserIDs) > 0 {
-		n, err := tx.User.Query().Where(user.IDIn(input.AddUserIDs...)).Count(ctx)
-		if err != nil || n != len(input.AddUserIDs) {
-			return nil, fmt.Errorf("invalid user IDs")
-		}
-	}
-	if len(input.AddGroupIDs) > 0 {
-		n, err := tx.Group.Query().Where(group.IDIn(input.AddGroupIDs...)).Count(ctx)
-		if err != nil || n != len(input.AddGroupIDs) {
-			return nil, fmt.Errorf("invalid group IDs")
-		}
-	}
-	if len(input.AddPolicyIDs) > 0 {
-		n, err := tx.AccessPolicy.Query().Where(accesspolicy.IDIn(input.AddPolicyIDs...)).Count(ctx)
-		if err != nil || n != len(input.AddPolicyIDs) {
-			return nil, fmt.Errorf("invalid policy IDs")
-		}
-	}
-
-	role, err := tx.Role.UpdateOneID(id).SetInput(input).Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return role, nil
-}
-
-// DeleteRole is the resolver for the deleteRole field.
-func (r *mutationResolver) DeleteRole(ctx context.Context, id uuid.UUID) (bool, error) {
-	// MutationEventHook captures the mutation automatically.
-	// Check authorization
-	// allowed, err := r.authorizer.Enforce(ctx, "management.role", "delete")
-	// if err != nil {
-	// 	return false, err
-	// }
-	// if !allowed {
-	// 	return false, fmt.Errorf("access denied: insufficient permissions to delete role")
-	// }
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
-	if err != nil {
-		return false, err
-	}
-
-	req := request.ForContext(ctx)
-	_, err = tx.Role.UpdateOneID(id).SetDeletedAt(time.Now().UTC()).SetDeletedBy(req.User().ID).Save(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
-}
-
 // CreateUser is the resolver for the createUser field.
 func (r *mutationResolver) CreateUser(ctx context.Context, input ent.CreateUserInput) (*ent.User, error) {
 	// MutationEventHook captures the mutation automatically.
@@ -870,19 +657,6 @@ func (r *mutationResolver) CreateUser(ctx context.Context, input ent.CreateUserI
 	req := request.ForContext(ctx)
 	if !req.User().IsSystemUser() && input.TenantID != req.MutationTenantID() {
 		return nil, fmt.Errorf("%w %q: does not match request tenant", mixin.ErrInvalidTenantID, input.TenantID)
-	}
-
-	if len(input.RoleIDs) > 0 {
-		n, err := tx.Role.Query().Where(role.IDIn(input.RoleIDs...)).Count(ctx)
-		if err != nil || n != len(input.RoleIDs) {
-			return nil, fmt.Errorf("invalid role IDs")
-		}
-	}
-	if len(input.GroupIDs) > 0 {
-		n, err := tx.Group.Query().Where(group.IDIn(input.GroupIDs...)).Count(ctx)
-		if err != nil || n != len(input.GroupIDs) {
-			return nil, fmt.Errorf("invalid group IDs")
-		}
 	}
 
 	user, err := tx.User.
@@ -902,19 +676,6 @@ func (r *mutationResolver) UpdateUser(ctx context.Context, id uuid.UUID, input e
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
-	}
-
-	if len(input.AddRoleIDs) > 0 {
-		n, err := tx.Role.Query().Where(role.IDIn(input.AddRoleIDs...)).Count(ctx)
-		if err != nil || n != len(input.AddRoleIDs) {
-			return nil, fmt.Errorf("invalid role IDs")
-		}
-	}
-	if len(input.AddGroupIDs) > 0 {
-		n, err := tx.Group.Query().Where(group.IDIn(input.AddGroupIDs...)).Count(ctx)
-		if err != nil || n != len(input.AddGroupIDs) {
-			return nil, fmt.Errorf("invalid group IDs")
-		}
 	}
 
 	user, err := tx.User.UpdateOneID(id).SetInput(input).Save(ctx)
@@ -1029,6 +790,40 @@ func (r *mutationResolver) SetKeyValue(ctx context.Context, input model.SetKeyVa
 		return nil, err
 	}
 
+	// setKeyValue upserts on (tenant, user, name). When an entry with this
+	// name already exists it is the row this call rewrites, so exclude it
+	// from the uniqueness check below — otherwise the entry's own unchanged
+	// unique value would be counted as a collision against itself.
+	req := request.ForContext(ctx)
+	var excludeID *uuid.UUID
+	existing, err := tx.KeyValue.Query().
+		Where(
+			keyvalue.TenantID(req.MutationTenantID()),
+			keyvalue.UserID(req.User().ID),
+			keyvalue.Name(input.Name),
+			keyvalue.DeletedAtIsNil(),
+		).
+		Only(ctx)
+	switch {
+	case err == nil:
+		excludeID = &existing.ID
+	case ent.IsNotFound(err):
+		// No existing entry; this upsert inserts a new row.
+	default:
+		return nil, err
+	}
+
+	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+		Input:     input.Data,
+		DataType:  dataType,
+		TableName: keyvalue.Table,
+		FieldName: keyvalue.FieldData,
+		DbDriver:  core.Config.DbDriver,
+		ExcludeID: excludeID,
+	}); err != nil {
+		return nil, err
+	}
+
 	keyValueID, err := tx.KeyValue.
 		Create().
 		SetInput(ent.CreateKeyValueInput{
@@ -1044,16 +839,6 @@ func (r *mutationResolver) SetKeyValue(ctx context.Context, input model.SetKeyVa
 		).
 		ID(ctx)
 	if err != nil {
-		return nil, err
-	}
-
-	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
-		Input:     input.Data,
-		DataType:  dataType,
-		TableName: keyvalue.Table,
-		FieldName: keyvalue.FieldData,
-		DbDriver:  core.Config.DbDriver,
-	}); err != nil {
 		return nil, err
 	}
 

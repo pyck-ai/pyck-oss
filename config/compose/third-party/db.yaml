@@ -18,11 +18,11 @@ services:
     entrypoint: ["/usr/local/bin/pyck-entrypoint.sh"]
     command: >
       postgres
-      -c shared_buffers=32MB
-      -c effective_cache_size=64MB
+      -c shared_buffers=128MB
+      -c effective_cache_size=256MB
       -c maintenance_work_mem=8MB
       -c work_mem=1MB
-      -c max_connections=100
+      -c max_connections=400
       -c random_page_cost=1.1
       -c effective_io_concurrency=200
       -c wal_buffers=1MB
@@ -57,7 +57,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 1G
     tmpfs:
       - /tmp:size=16M
       - /run:size=16M

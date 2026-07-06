@@ -45,20 +45,20 @@ type Mutation {
   ROLE_ADMIN required.
   """
   setTenantExpiry(input: SetTenantExpiryInput!): SetTenantExpiryResponse!
+  """
+  Sets the per-workflow UI bundle URL templates for the tenant
+  (remoteWebUITemplate / remoteMobileUITemplate in tenant.data). The
+  templates carry {{.Slug}}/{{.Version}} placeholders that the workflow service
+  resolves per execution from the pinned deployment version.
+
+  Customers must never set these, so the resolver rejects any non-system
+  caller (ROLE_SYSTEM / IsSystemUser). Target tenant is derived from
+  X-Pyck-Tenant-Id (req.MutationTenantID). Only the provided fields are
+  written; omitted fields are left unchanged. Idempotent when the values
+  already match.
+  """
+  setTenantUITemplate(input: SetTenantUITemplateInput!): SetTenantUITemplateResponse!
   generateJsonSchema(jsonData: String!): GenerateJsonSchemaResponse!
-
-  # Access Management - Policy, Group and Role CRUD
-  createPolicy(input: CreateAccessPolicyInput!): AccessPolicy!
-  updatePolicy(id: ID!, input: UpdateAccessPolicyInput!): AccessPolicy!
-  deletePolicy(id: ID!): Boolean!
-
-  createGroup(input: CreateGroupInput!): Group!
-  updateGroup(id: ID!, input: UpdateGroupInput!): Group!
-  deleteGroup(id: ID!): Boolean!
-
-  createRole(input: CreateRoleInput!): Role!
-  updateRole(id: ID!, input: UpdateRoleInput!): Role!
-  deleteRole(id: ID!): Boolean!
 
   # User CRUD operations
   createUser(input: CreateUserInput!): User!

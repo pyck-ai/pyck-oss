@@ -111,17 +111,18 @@ func (s *service) loadAncestorStocks(
 		repos[r.ID] = *r
 	}
 
-	// Step 3: hydrate the latest Stock row per (repo, item) for the
-	// gathered repo set, optionally narrowed to items. We use the same
-	// NOT EXISTS-on-self subquery shape that loadLatestStockPerRepo
-	// uses — pick the row with no successor at (repo_id, item_id) — so
-	// the read-set stays narrow even on append-only stock tables.
+	// Step 3: hydrate the current Stock row per (repo, item) for the
+	// gathered repo set, optionally narrowed to items. "Current" is the
+	// highest version (UNIQUE and monotonic per tenant/repo/item), not the
+	// latest created_at: created_at is the writing pod's wall clock and not a
+	// total order across workers, so it can return a superseded row. Mirrors
+	// loadLatestStockPerRepo and create_item_movement_proc (ORDER BY version).
 	latestPredicate := func(sel *sql.Selector) {
 		t := sql.Table(entstock.Table).As("s2")
 		sub := sql.SelectExpr(sql.Expr("1")).From(t).Where(sql.And(
 			sql.ColumnsEQ(t.C(entstock.RepositoryColumn), sel.C(entstock.RepositoryColumn)),
 			sql.ColumnsEQ(t.C(entstock.ItemColumn), sel.C(entstock.ItemColumn)),
-			sql.ColumnsGT(t.C(entstock.FieldCreatedAt), sel.C(entstock.FieldCreatedAt)),
+			sql.ColumnsGT(t.C(entstock.FieldVersion), sel.C(entstock.FieldVersion)),
 		))
 		sel.Where(sql.Not(sql.Exists(sub)))
 	}
@@ -154,7 +155,7 @@ func (s *service) loadAncestorStocks(
 // stock row at the given repository for the given tenant. "Currently"
 // matches the same "latest per (repo, item)" semantics loadAncestorStocks
 // uses for its stock hydration: a row qualifies when no row at the
-// same (repo, item) has a strictly greater created_at. Soft-deleted
+// same (repo, item) has a strictly greater version. Soft-deleted
 // rows are excluded.
 //
 // CreateRepositoryMovement uses this to pre-compute the items
@@ -177,17 +178,16 @@ func (s *service) loadItemIDsAtRepo(
 	tenantID uuid.UUID,
 	repoID uuid.UUID,
 ) ([]uuid.UUID, error) {
-	// Same NOT EXISTS-on-self subquery shape as loadAncestorStocks
-	// and loadLatestStockPerRepo: pick the row with no successor at
-	// (repo_id, item_id). Keeping the predicate identical across the
-	// three call sites ensures the item set this returns is exactly
-	// the set loadAncestorStocks would have hydrated at repoID.
+	// Highest-version row per (repo, item), identical to loadAncestorStocks
+	// and loadLatestStockPerRepo. version is UNIQUE and monotonic per
+	// (tenant, repo, item), so the three call sites return exactly the same
+	// current row (created_at is not a total order across workers).
 	latestPredicate := func(sel *sql.Selector) {
 		t := sql.Table(entstock.Table).As("s2")
 		sub := sql.SelectExpr(sql.Expr("1")).From(t).Where(sql.And(
 			sql.ColumnsEQ(t.C(entstock.RepositoryColumn), sel.C(entstock.RepositoryColumn)),
 			sql.ColumnsEQ(t.C(entstock.ItemColumn), sel.C(entstock.ItemColumn)),
-			sql.ColumnsGT(t.C(entstock.FieldCreatedAt), sel.C(entstock.FieldCreatedAt)),
+			sql.ColumnsGT(t.C(entstock.FieldVersion), sel.C(entstock.FieldVersion)),
 		))
 		sel.Where(sql.Not(sql.Exists(sub)))
 	}

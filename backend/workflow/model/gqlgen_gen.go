@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pyck-ai/pyck/backend/common/workflow"
 	"github.com/pyck-ai/pyck/backend/workflow/ent/gen/workflowsignal"
 )
 
@@ -35,6 +36,27 @@ type CurrentUserDataInput struct {
 	Type          *WorkflowUpdateType `json:"type,omitempty"`
 	Data          any                 `json:"data,omitempty"`
 	Errors        []string            `json:"errors,omitempty"`
+}
+
+// A connection to a list of DeploymentVersionUI items.
+type DeploymentVersionUIConnection struct {
+	Edges      []*DeploymentVersionUIEdge   `json:"edges"`
+	PageInfo   *DeploymentVersionUIPageInfo `json:"pageInfo"`
+	TotalCount int                          `json:"totalCount"`
+}
+
+// An edge in a DeploymentVersionUI connection.
+type DeploymentVersionUIEdge struct {
+	Node   *workflow.DeploymentVersionUI `json:"node"`
+	Cursor string                        `json:"cursor"`
+}
+
+// Pagination information for a DeploymentVersionUI connection.
+type DeploymentVersionUIPageInfo struct {
+	HasNextPage     bool    `json:"hasNextPage"`
+	HasPreviousPage bool    `json:"hasPreviousPage"`
+	StartCursor     *string `json:"startCursor,omitempty"`
+	EndCursor       *string `json:"endCursor,omitempty"`
 }
 
 type GetWorkflowActionsInput struct {
@@ -88,6 +110,11 @@ type RegisterWorkflowWithSignalsInput struct {
 	Name         string                         `json:"name"`
 	TaskQueue    string                         `json:"taskQueue"`
 	Signals      []*RegisterWorkflowSignalInput `json:"signals,omitempty"`
+}
+
+type RemoteUIQueryInput struct {
+	WorkflowID          string `json:"workflowID"`
+	WorkflowExecutionID string `json:"workflowExecutionID"`
 }
 
 type ServiceInfo struct {

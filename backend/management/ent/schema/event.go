@@ -12,6 +12,15 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 )
 
+// Event is the legacy event registry entity (table "management.events").
+//
+// Deprecated: the event registry is no longer maintained by this service. The
+// EventRegistryService that populated this table (and loaded it into memory at
+// startup) has been removed; the data is being moved to an external store that
+// siphons events directly from NATS like every other consumer. This schema is
+// retained ONLY so the migration generator does not drop the existing table and
+// its data. Do not add new usages. Scheduled for removal once the external
+// store is in place and the table can be migrated/dropped.
 type Event struct {
 	ent.Schema
 }

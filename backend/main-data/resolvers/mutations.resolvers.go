@@ -39,14 +39,6 @@ func (r *mutationResolver) CreateCustomer(ctx context.Context, input ent.CreateC
 		return nil, err
 	}
 
-	customer, err := tx.Customer.
-		Create().
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
@@ -54,6 +46,14 @@ func (r *mutationResolver) CreateCustomer(ctx context.Context, input ent.CreateC
 		FieldName: entcustomer.FieldData,
 		DbDriver:  core.Config.DbDriver,
 	}); err != nil {
+		return nil, err
+	}
+
+	customer, err := tx.Customer.
+		Create().
+		SetInput(input).
+		Save(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -75,18 +75,19 @@ func (r *mutationResolver) UpdateCustomer(ctx context.Context, id uuid.UUID, inp
 		return nil, err
 	}
 
-	customer, err := tx.Customer.UpdateOneID(id).SetInput(input).Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
 		TableName: entcustomer.Table,
 		FieldName: entcustomer.FieldData,
 		DbDriver:  core.Config.DbDriver,
+		ExcludeID: &id,
 	}); err != nil {
+		return nil, err
+	}
+
+	customer, err := tx.Customer.UpdateOneID(id).SetInput(input).Save(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -129,14 +130,6 @@ func (r *mutationResolver) CreateSupplier(ctx context.Context, input ent.CreateS
 		return nil, err
 	}
 
-	supplier, err := tx.Supplier.
-		Create().
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
@@ -144,6 +137,14 @@ func (r *mutationResolver) CreateSupplier(ctx context.Context, input ent.CreateS
 		FieldName: entsupplier.FieldData,
 		DbDriver:  core.Config.DbDriver,
 	}); err != nil {
+		return nil, err
+	}
+
+	supplier, err := tx.Supplier.
+		Create().
+		SetInput(input).
+		Save(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -165,18 +166,19 @@ func (r *mutationResolver) UpdateSupplier(ctx context.Context, id uuid.UUID, inp
 		return nil, err
 	}
 
-	supplier, err := tx.Supplier.UpdateOneID(id).SetInput(input).Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
 		TableName: entsupplier.Table,
 		FieldName: entsupplier.FieldData,
 		DbDriver:  core.Config.DbDriver,
+		ExcludeID: &id,
 	}); err != nil {
+		return nil, err
+	}
+
+	supplier, err := tx.Supplier.UpdateOneID(id).SetInput(input).Save(ctx)
+	if err != nil {
 		return nil, err
 	}
 

@@ -22,6 +22,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/env/config"
 	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/pyck-ai/pyck/backend/common/feature"
+	"github.com/pyck-ai/pyck/backend/common/gate"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
 	"github.com/pyck-ai/pyck/backend/common/handlers"
 	"github.com/pyck-ai/pyck/backend/common/hooks"
@@ -31,12 +32,12 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/log"
 	logadapter "github.com/pyck-ai/pyck/backend/common/log/adapter"
 	"github.com/pyck-ai/pyck/backend/common/otel"
+	"github.com/pyck-ai/pyck/backend/common/serviceroles"
 	"github.com/pyck-ai/pyck/backend/common/services/temporal"
 	"github.com/pyck-ai/pyck/backend/common/services/zitadel"
 	"github.com/pyck-ai/pyck/backend/common/std"
 	"github.com/pyck-ai/pyck/backend/common/tenant"
 	"github.com/pyck-ai/pyck/backend/common/validator"
-
 	managementapi "github.com/pyck-ai/pyck/backend/management/api"
 	managementguard "github.com/pyck-ai/pyck/backend/management/guard"
 	managementdatatype "github.com/pyck-ai/pyck/backend/management/pkg/datatypes"
@@ -282,6 +283,7 @@ func main() {
 	gqlHandler.Use(
 		authProvider.HTTPMiddleware(),
 		tenant.HTTPMiddleware(),
+		gate.HTTPMiddleware(serviceroles.Receiving),
 		feature.HTTPMiddleware(),
 	)
 	gqlHandler.Mount("/", gqlServer)

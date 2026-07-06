@@ -172,6 +172,25 @@ func (ec *executionContext) resolveEntity(
 
 			return entity, nil
 		}
+	case "PickingOrder":
+		resolverName, err := entityResolverNameForPickingOrder(ctx, rep)
+		if err != nil {
+			return nil, fmt.Errorf(`finding resolver for Entity "PickingOrder": %w`, err)
+		}
+		switch resolverName {
+
+		case "findPickingOrderByCustomerID":
+			id0, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, rep["customerID"])
+			if err != nil {
+				return nil, fmt.Errorf(`unmarshalling param 0 for findPickingOrderByCustomerID(): %w`, err)
+			}
+			entity, err := ec.Resolvers.Entity().FindPickingOrderByCustomerID(ctx, id0)
+			if err != nil {
+				return nil, fmt.Errorf(`resolving Entity "PickingOrder": %w`, err)
+			}
+
+			return entity, nil
+		}
 	case "Supplier":
 		resolverName, err := entityResolverNameForSupplier(ctx, rep)
 		if err != nil {
@@ -249,6 +268,41 @@ func entityResolverNameForCustomer(ctx context.Context, rep EntityRepresentation
 		return "findCustomerByID", nil
 	}
 	return "", fmt.Errorf("%w for Customer due to %v", ErrTypeNotFound,
+		errors.Join(entityResolverErrs...).Error())
+}
+
+func entityResolverNameForPickingOrder(ctx context.Context, rep EntityRepresentation) (string, error) {
+	// we collect errors because a later entity resolver may work fine
+	// when an entity has multiple keys
+	entityResolverErrs := []error{}
+	for {
+		var (
+			m   EntityRepresentation
+			val any
+			ok  bool
+		)
+		_ = val
+		// if all of the KeyFields values for this resolver are null,
+		// we shouldn't use use it
+		allNull := true
+		m = rep
+		val, ok = m["customerID"]
+		if !ok {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to missing Key Field \"customerID\" for PickingOrder", ErrTypeNotFound))
+			break
+		}
+		if allNull {
+			allNull = val == nil
+		}
+		if allNull {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to all null value KeyFields for PickingOrder", ErrTypeNotFound))
+			break
+		}
+		return "findPickingOrderByCustomerID", nil
+	}
+	return "", fmt.Errorf("%w for PickingOrder due to %v", ErrTypeNotFound,
 		errors.Join(entityResolverErrs...).Error())
 }
 

@@ -1,0 +1,170 @@
+---
+name: "Cross - Picking Order Customer Relation"
+description: >
+  Verifies the federated PickingOrder.customer relation (resolved by the
+  main-data subgraph, issue #1202). Creates a customer and a picking order that
+  references it, confirms `customer` resolves to that customer through the
+  gateway, then soft-deletes the customer and confirms `customer` reads as null
+  while the order keeps its customerID pointer. Cleans up the order.
+steps:
+  - id: createDT
+    name: "Create data type for customers"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Customer Relation Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"company":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: createCustomer
+    name: "Create customer"
+    operation: main-data.createCustomer
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          company: "Relation Corp"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Customer created"
+        assertions:
+          - ref: res.body.data.createCustomer.id
+            nil: false
+
+  - id: createOrder
+    name: "Create picking order referencing the customer"
+    operation: picking.createPickingOrder
+    vars:
+      input:
+        customerID: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Order created with customerID"
+        assertions:
+          - ref: res.body.data.createPickingOrder.pickingOrder.id
+            nil: false
+          - ref: res.body.data.createPickingOrder.pickingOrder.customerID
+            equal: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+
+  # =========================================================================
+  # RELATION: live customer → customer relation is populated
+  # =========================================================================
+  - name: "customer relation resolves while the customer is live"
+    operation: picking.getPickingOrderWithCustomer
+    vars:
+      where:
+        id: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "customer relation is populated and matches the referenced customer"
+        assertions:
+          - ref: res.body.data.pickingOrders.edges[].node.customer.id
+            equal: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+          - ref: res.body.data.pickingOrders.edges[].node.customer.data.company
+            equal: "Relation Corp"
+
+  # =========================================================================
+  # RELATION: soft-deleted customer → customer relation is null
+  # =========================================================================
+  - name: "Soft-delete the customer"
+    operation: main-data.deleteCustomer
+    vars:
+      id: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "customer relation is null after soft-delete, customerID is retained"
+    operation: picking.getPickingOrderWithCustomer
+    vars:
+      where:
+        id: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "customerID pointer is retained on the order"
+        assertions:
+          - ref: res.body.data.pickingOrders.edges[].node.customerID
+            equal: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+      - msg: "customer relation reads as null"
+        assertions:
+          - ref: res.body.data.pickingOrders.edges[].node.customer
+            nil: true
+
+  # =========================================================================
+  # CLEANUP
+  # =========================================================================
+  - name: "Delete order"
+    operation: picking.deletePickingOrder
+    vars:
+      id: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

@@ -15,16 +15,3 @@ var redeliverBackoff = []time.Duration{
 	30 * time.Second,
 	60 * time.Second,
 }
-
-// zeroTimeStr is Go's zero time as serialized by Ent's JSON encoder.
-var zeroTimeStr = time.Time{}.Format(time.RFC3339)
-
-// isDeletedAt returns true when the deleted_at value represents an actual
-// deletion timestamp (non-nil and not Go's zero time).
-func isDeletedAt(v any) bool {
-	if v == nil {
-		return false
-	}
-	s, ok := v.(string)
-	return !ok || s != zeroTimeStr
-}

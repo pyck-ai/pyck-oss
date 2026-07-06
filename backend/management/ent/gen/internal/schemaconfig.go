@@ -7,23 +7,17 @@ import "context"
 // SchemaConfig represents alternative schema names for all tables
 // that can be passed at runtime.
 type SchemaConfig struct {
-	AccessPolicy       string // AccessPolicy table.
 	DataType           string // DataType table.
 	Device             string // Device table.
 	DeviceLocation     string // DeviceLocation table.
 	DeviceUser         string // DeviceUser table.
 	EntityEventsOutbox string // EntityEventsOutbox table.
 	Event              string // Event table.
-	Group              string // Group table.
-	GroupUsers         string // Group-users->User table.
-	GroupRoles         string // Group-roles->Role table.
 	IdempotencyKey     string // IdempotencyKey table.
 	KeyValue           string // KeyValue table.
 	Location           string // Location table.
-	Role               string // Role table.
 	Tenant             string // Tenant table.
 	User               string // User table.
-	UserRoles          string // User-roles->Role table.
 }
 
 type schemaCtxKey struct{}

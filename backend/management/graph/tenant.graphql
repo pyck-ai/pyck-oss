@@ -73,3 +73,31 @@ the same error. Idempotent on the already-at-target-state cases
 type SetTenantExpiryResponse {
   success: Boolean!
 }
+
+"""
+Input for setTenantUITemplate. System-only (ROLE_SYSTEM / IsSystemUser).
+Per platform: set a non-empty URL template (carrying {{.Slug}}/{{.Version}}
+placeholders) to override the system-wide default, or clear*: true to drop the
+override and revert to the default. Omit both to leave the stored value
+unchanged. Setting a template and clearing it in the same call is rejected, and
+the request must change at least one field. Target tenant is derived from
+X-Pyck-Tenant-Id (req.MutationTenantID).
+"""
+input SetTenantUITemplateInput {
+  """Web UI bundle URL template (remoteWebUITemplate). Omit to leave unchanged."""
+  webTemplate: String
+  """Drop the per-tenant web template, reverting to the system-wide default."""
+  clearWebTemplate: Boolean
+  """Mobile UI bundle URL template (remoteMobileUITemplate). Omit to leave unchanged."""
+  mobileTemplate: String
+  """Drop the per-tenant mobile template, reverting to the system-wide default."""
+  clearMobileTemplate: Boolean
+}
+
+"""
+Result of setTenantUITemplate. Returns an error when the tenant does not
+exist. Idempotent when the provided values already match what is stored.
+"""
+type SetTenantUITemplateResponse {
+  success: Boolean!
+}

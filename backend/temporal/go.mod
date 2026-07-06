@@ -18,6 +18,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gqlgo/gqlgenc v0.37.0
 	github.com/lib/pq v1.12.3
+	github.com/nats-io/nats.go v1.52.0
 	github.com/pyck-ai/pyck/backend/common v0.0.0-00010101000000-000000000000
 	github.com/pyck-ai/pyck/backend/management v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.11.1
@@ -155,7 +156,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/nats-io/nats.go v1.52.0 // indirect
 	github.com/nats-io/nkeys v0.4.16 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect

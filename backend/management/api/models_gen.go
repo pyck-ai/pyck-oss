@@ -6,15 +6,10 @@ import (
 	internalapi "github.com/pyck-ai/pyck/backend/management/api/internal"
 )
 
-type AccessPolicyOrder = internalapi.AccessPolicyOrder
-type AccessPolicyWhereInput = internalapi.AccessPolicyWhereInput
-type CreateAccessPolicyInput = internalapi.CreateAccessPolicyInput
 type CreateDataTypeInput = internalapi.CreateDataTypeInput
 type CreateDeviceInput = internalapi.CreateDeviceInput
 type CreateDeviceLocationInput = internalapi.CreateDeviceLocationInput
-type CreateGroupInput = internalapi.CreateGroupInput
 type CreateLocationInput = internalapi.CreateLocationInput
-type CreateRoleInput = internalapi.CreateRoleInput
 type CreateUserInput = internalapi.CreateUserInput
 type DataTypeOrder = internalapi.DataTypeOrder
 type DataTypeWhereInput = internalapi.DataTypeWhereInput
@@ -26,45 +21,31 @@ type DeviceUserWhereInput = internalapi.DeviceUserWhereInput
 type DeviceWhereInput = internalapi.DeviceWhereInput
 type EventOrder = internalapi.EventOrder
 type EventWhereInput = internalapi.EventWhereInput
-type GroupOrder = internalapi.GroupOrder
-type GroupWhereInput = internalapi.GroupWhereInput
 type JSONPatchInput = internalapi.JSONPatchInput
 type KeyValueOrder = internalapi.KeyValueOrder
 type KeyValueWhereInput = internalapi.KeyValueWhereInput
 type LocationOrder = internalapi.LocationOrder
 type LocationWhereInput = internalapi.LocationWhereInput
-type RoleOrder = internalapi.RoleOrder
-type RoleWhereInput = internalapi.RoleWhereInput
 type TenantOrder = internalapi.TenantOrder
 type TenantWhereInput = internalapi.TenantWhereInput
-type UpdateAccessPolicyInput = internalapi.UpdateAccessPolicyInput
 type UpdateDataTypeInput = internalapi.UpdateDataTypeInput
 type UpdateDeviceInput = internalapi.UpdateDeviceInput
-type UpdateGroupInput = internalapi.UpdateGroupInput
 type UpdateLocationInput = internalapi.UpdateLocationInput
-type UpdateRoleInput = internalapi.UpdateRoleInput
 type UpdateUserInput = internalapi.UpdateUserInput
 type UserOrder = internalapi.UserOrder
 type UserWhereInput = internalapi.UserWhereInput
-type AccessPolicyOrderField = internalapi.AccessPolicyOrderField
 type DataTypeOrderField = internalapi.DataTypeOrderField
 type DeviceLocationOrderField = internalapi.DeviceLocationOrderField
 type DeviceOrderField = internalapi.DeviceOrderField
 type DeviceUserOrderField = internalapi.DeviceUserOrderField
 type EventOrderField = internalapi.EventOrderField
-type GroupOrderField = internalapi.GroupOrderField
 type JSONPatchOp = internalapi.JSONPatchOp
 type JSONType = internalapi.JSONType
 type KeyValueOrderField = internalapi.KeyValueOrderField
 type LocationOrderField = internalapi.LocationOrderField
 type OrderDirection = internalapi.OrderDirection
-type RoleOrderField = internalapi.RoleOrderField
 type TenantOrderField = internalapi.TenantOrderField
 type UserOrderField = internalapi.UserOrderField
-type GetAccessPolicies_AccessPolicies_PageInfo = internalapi.GetAccessPolicies_AccessPolicies_PageInfo
-type GetAccessPolicies_AccessPolicies_Edges_Node = internalapi.GetAccessPolicies_AccessPolicies_Edges_Node
-type GetAccessPolicies_AccessPolicies_Edges = internalapi.GetAccessPolicies_AccessPolicies_Edges
-type GetAccessPolicies_AccessPolicies = internalapi.GetAccessPolicies_AccessPolicies
 type GetDataTypes_DataTypes_PageInfo = internalapi.GetDataTypes_DataTypes_PageInfo
 type GetDataTypes_DataTypes_Edges_Node = internalapi.GetDataTypes_DataTypes_Edges_Node
 type GetDataTypes_DataTypes_Edges = internalapi.GetDataTypes_DataTypes_Edges
@@ -85,10 +66,6 @@ type GetEvents_Events_PageInfo = internalapi.GetEvents_Events_PageInfo
 type GetEvents_Events_Edges_Node = internalapi.GetEvents_Events_Edges_Node
 type GetEvents_Events_Edges = internalapi.GetEvents_Events_Edges
 type GetEvents_Events = internalapi.GetEvents_Events
-type GetGroups_Groups_PageInfo = internalapi.GetGroups_Groups_PageInfo
-type GetGroups_Groups_Edges_Node = internalapi.GetGroups_Groups_Edges_Node
-type GetGroups_Groups_Edges = internalapi.GetGroups_Groups_Edges
-type GetGroups_Groups = internalapi.GetGroups_Groups
 type GetKeyValues_KeyValues_PageInfo = internalapi.GetKeyValues_KeyValues_PageInfo
 type GetKeyValues_KeyValues_Edges_Node = internalapi.GetKeyValues_KeyValues_Edges_Node
 type GetKeyValues_KeyValues_Edges = internalapi.GetKeyValues_KeyValues_Edges
@@ -97,10 +74,6 @@ type GetLocations_Locations_PageInfo = internalapi.GetLocations_Locations_PageIn
 type GetLocations_Locations_Edges_Node = internalapi.GetLocations_Locations_Edges_Node
 type GetLocations_Locations_Edges = internalapi.GetLocations_Locations_Edges
 type GetLocations_Locations = internalapi.GetLocations_Locations
-type GetRoles_Roles_PageInfo = internalapi.GetRoles_Roles_PageInfo
-type GetRoles_Roles_Edges_Node = internalapi.GetRoles_Roles_Edges_Node
-type GetRoles_Roles_Edges = internalapi.GetRoles_Roles_Edges
-type GetRoles_Roles = internalapi.GetRoles_Roles
 type GetTenants_Tenants_PageInfo = internalapi.GetTenants_Tenants_PageInfo
 type GetTenants_Tenants_Edges_Node = internalapi.GetTenants_Tenants_Edges_Node
 type GetTenants_Tenants_Edges = internalapi.GetTenants_Tenants_Edges
@@ -109,10 +82,8 @@ type GetUsers_Users_PageInfo = internalapi.GetUsers_Users_PageInfo
 type GetUsers_Users_Edges_Node = internalapi.GetUsers_Users_Edges_Node
 type GetUsers_Users_Edges = internalapi.GetUsers_Users_Edges
 type GetUsers_Users = internalapi.GetUsers_Users
-type GetGroup_Group = internalapi.GetGroup_Group
 type GetOrganization_Organization = internalapi.GetOrganization_Organization
-type GetPolicy_Policy = internalapi.GetPolicy_Policy
-type GetRole_Role = internalapi.GetRole_Role
+type GetServiceRoles_ServiceRoles = internalapi.GetServiceRoles_ServiceRoles
 type GetManagementServiceInfo_ManagementServiceInfo = internalapi.GetManagementServiceInfo_ManagementServiceInfo
 type GetMe_Me_AssignedRoles = internalapi.GetMe_Me_AssignedRoles
 type GetMe_Me_Tenants = internalapi.GetMe_Me_Tenants
@@ -127,13 +98,8 @@ type RegisterTenant_RegisterTenant = internalapi.RegisterTenant_RegisterTenant
 type DeleteTenant_DeleteTenant = internalapi.DeleteTenant_DeleteTenant
 type RestoreTenant_RestoreTenant = internalapi.RestoreTenant_RestoreTenant
 type SetTenantExpiry_SetTenantExpiry = internalapi.SetTenantExpiry_SetTenantExpiry
+type SetTenantUITemplate_SetTenantUITemplate = internalapi.SetTenantUITemplate_SetTenantUITemplate
 type GenerateJsonSchema_GenerateJSONSchema = internalapi.GenerateJsonSchema_GenerateJSONSchema
-type CreatePolicy_CreatePolicy = internalapi.CreatePolicy_CreatePolicy
-type UpdatePolicy_UpdatePolicy = internalapi.UpdatePolicy_UpdatePolicy
-type CreateGroup_CreateGroup = internalapi.CreateGroup_CreateGroup
-type UpdateGroup_UpdateGroup = internalapi.UpdateGroup_UpdateGroup
-type CreateRole_CreateRole = internalapi.CreateRole_CreateRole
-type UpdateRole_UpdateRole = internalapi.UpdateRole_UpdateRole
 type CreateUser_CreateUser = internalapi.CreateUser_CreateUser
 type UpdateUser_UpdateUser = internalapi.UpdateUser_UpdateUser
 type CreateEvent_CreateEvent = internalapi.CreateEvent_CreateEvent
@@ -176,23 +142,21 @@ type PatchDeviceData_PatchDeviceData = internalapi.PatchDeviceData_PatchDeviceDa
 type PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation = internalapi.PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation
 type PatchDeviceLocationData_PatchDeviceLocationData_Workflows = internalapi.PatchDeviceLocationData_PatchDeviceLocationData_Workflows
 type PatchDeviceLocationData_PatchDeviceLocationData = internalapi.PatchDeviceLocationData_PatchDeviceLocationData
-type GetAccessPolicies = internalapi.GetAccessPolicies
+type AssignRoles_AssignRoles = internalapi.AssignRoles_AssignRoles
+type RemoveRoles_RemoveRoles = internalapi.RemoveRoles_RemoveRoles
 type GetDataTypes = internalapi.GetDataTypes
 type GetDevices = internalapi.GetDevices
 type GetDeviceLocations = internalapi.GetDeviceLocations
 type GetDeviceUsers = internalapi.GetDeviceUsers
 type GetEvents = internalapi.GetEvents
-type GetGroups = internalapi.GetGroups
 type GetKeyValues = internalapi.GetKeyValues
 type GetLocations = internalapi.GetLocations
-type GetRoles = internalapi.GetRoles
 type GetTenants = internalapi.GetTenants
 type GetUsers = internalapi.GetUsers
 type GetDataTypeEntities = internalapi.GetDataTypeEntities
-type GetGroup = internalapi.GetGroup
 type GetOrganization = internalapi.GetOrganization
-type GetPolicy = internalapi.GetPolicy
-type GetRole = internalapi.GetRole
+type GetServiceRoles = internalapi.GetServiceRoles
+type GetUserServiceRoles = internalapi.GetUserServiceRoles
 type GetManagementServiceInfo = internalapi.GetManagementServiceInfo
 type GetMe = internalapi.GetMe
 type CreateDataType = internalapi.CreateDataType
@@ -203,16 +167,8 @@ type RegisterTenant = internalapi.RegisterTenant
 type DeleteTenant = internalapi.DeleteTenant
 type RestoreTenant = internalapi.RestoreTenant
 type SetTenantExpiry = internalapi.SetTenantExpiry
+type SetTenantUITemplate = internalapi.SetTenantUITemplate
 type GenerateJSONSchema = internalapi.GenerateJSONSchema
-type CreatePolicy = internalapi.CreatePolicy
-type UpdatePolicy = internalapi.UpdatePolicy
-type DeletePolicy = internalapi.DeletePolicy
-type CreateGroup = internalapi.CreateGroup
-type UpdateGroup = internalapi.UpdateGroup
-type DeleteGroup = internalapi.DeleteGroup
-type CreateRole = internalapi.CreateRole
-type UpdateRole = internalapi.UpdateRole
-type DeleteRole = internalapi.DeleteRole
 type CreateUser = internalapi.CreateUser
 type UpdateUser = internalapi.UpdateUser
 type DeleteUser = internalapi.DeleteUser
@@ -234,17 +190,9 @@ type CheckOutUserDevice = internalapi.CheckOutUserDevice
 type PatchLocationData = internalapi.PatchLocationData
 type PatchDeviceData = internalapi.PatchDeviceData
 type PatchDeviceLocationData = internalapi.PatchDeviceLocationData
+type AssignRoles = internalapi.AssignRoles
+type RemoveRoles = internalapi.RemoveRoles
 
-const AccessPolicyOrderFieldCreatedAt = internalapi.AccessPolicyOrderFieldCreatedAt
-const AccessPolicyOrderFieldCreatedBy = internalapi.AccessPolicyOrderFieldCreatedBy
-const AccessPolicyOrderFieldUpdatedAt = internalapi.AccessPolicyOrderFieldUpdatedAt
-const AccessPolicyOrderFieldUpdatedBy = internalapi.AccessPolicyOrderFieldUpdatedBy
-const AccessPolicyOrderFieldDeletedAt = internalapi.AccessPolicyOrderFieldDeletedAt
-const AccessPolicyOrderFieldDeletedBy = internalapi.AccessPolicyOrderFieldDeletedBy
-const AccessPolicyOrderFieldTenantID = internalapi.AccessPolicyOrderFieldTenantID
-const AccessPolicyOrderFieldResource = internalapi.AccessPolicyOrderFieldResource
-const AccessPolicyOrderFieldAction = internalapi.AccessPolicyOrderFieldAction
-const AccessPolicyOrderFieldEffect = internalapi.AccessPolicyOrderFieldEffect
 const DataTypeOrderFieldTenantID = internalapi.DataTypeOrderFieldTenantID
 const DataTypeOrderFieldCreatedAt = internalapi.DataTypeOrderFieldCreatedAt
 const DataTypeOrderFieldCreatedBy = internalapi.DataTypeOrderFieldCreatedBy
@@ -290,15 +238,6 @@ const EventOrderFieldDeletedBy = internalapi.EventOrderFieldDeletedBy
 const EventOrderFieldTopic = internalapi.EventOrderFieldTopic
 const EventOrderFieldName = internalapi.EventOrderFieldName
 const EventOrderFieldDescription = internalapi.EventOrderFieldDescription
-const GroupOrderFieldCreatedAt = internalapi.GroupOrderFieldCreatedAt
-const GroupOrderFieldCreatedBy = internalapi.GroupOrderFieldCreatedBy
-const GroupOrderFieldUpdatedAt = internalapi.GroupOrderFieldUpdatedAt
-const GroupOrderFieldUpdatedBy = internalapi.GroupOrderFieldUpdatedBy
-const GroupOrderFieldDeletedAt = internalapi.GroupOrderFieldDeletedAt
-const GroupOrderFieldDeletedBy = internalapi.GroupOrderFieldDeletedBy
-const GroupOrderFieldTenantID = internalapi.GroupOrderFieldTenantID
-const GroupOrderFieldName = internalapi.GroupOrderFieldName
-const GroupOrderFieldDescription = internalapi.GroupOrderFieldDescription
 const JSONPatchOpAdd = internalapi.JSONPatchOpAdd
 const JSONPatchOpRemove = internalapi.JSONPatchOpRemove
 const JSONPatchOpReplace = internalapi.JSONPatchOpReplace
@@ -327,15 +266,6 @@ const LocationOrderFieldDeletedBy = internalapi.LocationOrderFieldDeletedBy
 const LocationOrderFieldName = internalapi.LocationOrderFieldName
 const OrderDirectionAsc = internalapi.OrderDirectionAsc
 const OrderDirectionDesc = internalapi.OrderDirectionDesc
-const RoleOrderFieldCreatedAt = internalapi.RoleOrderFieldCreatedAt
-const RoleOrderFieldCreatedBy = internalapi.RoleOrderFieldCreatedBy
-const RoleOrderFieldUpdatedAt = internalapi.RoleOrderFieldUpdatedAt
-const RoleOrderFieldUpdatedBy = internalapi.RoleOrderFieldUpdatedBy
-const RoleOrderFieldDeletedAt = internalapi.RoleOrderFieldDeletedAt
-const RoleOrderFieldDeletedBy = internalapi.RoleOrderFieldDeletedBy
-const RoleOrderFieldTenantID = internalapi.RoleOrderFieldTenantID
-const RoleOrderFieldName = internalapi.RoleOrderFieldName
-const RoleOrderFieldDescription = internalapi.RoleOrderFieldDescription
 const TenantOrderFieldCreatedAt = internalapi.TenantOrderFieldCreatedAt
 const TenantOrderFieldCreatedBy = internalapi.TenantOrderFieldCreatedBy
 const TenantOrderFieldUpdatedAt = internalapi.TenantOrderFieldUpdatedAt
@@ -359,9 +289,6 @@ const UserOrderFieldFirstName = internalapi.UserOrderFieldFirstName
 const UserOrderFieldLastName = internalapi.UserOrderFieldLastName
 const UserOrderFieldIsAdmin = internalapi.UserOrderFieldIsAdmin
 
-func AllAccessPolicyOrderField() []AccessPolicyOrderField {
-	return internalapi.AllAccessPolicyOrderField
-}
 func AllDataTypeOrderField() []DataTypeOrderField { return internalapi.AllDataTypeOrderField }
 func AllDeviceLocationOrderField() []DeviceLocationOrderField {
 	return internalapi.AllDeviceLocationOrderField
@@ -369,12 +296,10 @@ func AllDeviceLocationOrderField() []DeviceLocationOrderField {
 func AllDeviceOrderField() []DeviceOrderField         { return internalapi.AllDeviceOrderField }
 func AllDeviceUserOrderField() []DeviceUserOrderField { return internalapi.AllDeviceUserOrderField }
 func AllEventOrderField() []EventOrderField           { return internalapi.AllEventOrderField }
-func AllGroupOrderField() []GroupOrderField           { return internalapi.AllGroupOrderField }
 func AllJSONPatchOp() []JSONPatchOp                   { return internalapi.AllJSONPatchOp }
 func AllJSONType() []JSONType                         { return internalapi.AllJSONType }
 func AllKeyValueOrderField() []KeyValueOrderField     { return internalapi.AllKeyValueOrderField }
 func AllLocationOrderField() []LocationOrderField     { return internalapi.AllLocationOrderField }
 func AllOrderDirection() []OrderDirection             { return internalapi.AllOrderDirection }
-func AllRoleOrderField() []RoleOrderField             { return internalapi.AllRoleOrderField }
 func AllTenantOrderField() []TenantOrderField         { return internalapi.AllTenantOrderField }
 func AllUserOrderField() []UserOrderField             { return internalapi.AllUserOrderField }

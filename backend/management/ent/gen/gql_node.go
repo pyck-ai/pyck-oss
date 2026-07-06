@@ -10,17 +10,14 @@ import (
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/accesspolicy"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/datatype"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/device"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/devicelocation"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/deviceuser"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/entityeventsoutbox"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/event"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/group"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/keyvalue"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/location"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/role"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/user"
 )
@@ -29,11 +26,6 @@ import (
 type Noder interface {
 	IsNode()
 }
-
-var accesspolicyImplementors = []string{"AccessPolicy", "Node"}
-
-// IsNode implements the Node interface check for GQLGen.
-func (*AccessPolicy) IsNode() {}
 
 var datatypeImplementors = []string{"DataType", "Node"}
 
@@ -65,11 +57,6 @@ var eventImplementors = []string{"Event", "Node"}
 // IsNode implements the Node interface check for GQLGen.
 func (*Event) IsNode() {}
 
-var groupImplementors = []string{"Group", "Node"}
-
-// IsNode implements the Node interface check for GQLGen.
-func (*Group) IsNode() {}
-
 var keyvalueImplementors = []string{"KeyValue", "Node"}
 
 // IsNode implements the Node interface check for GQLGen.
@@ -79,11 +66,6 @@ var locationImplementors = []string{"Location", "Node"}
 
 // IsNode implements the Node interface check for GQLGen.
 func (*Location) IsNode() {}
-
-var roleImplementors = []string{"Role", "Node"}
-
-// IsNode implements the Node interface check for GQLGen.
-func (*Role) IsNode() {}
 
 var tenantImplementors = []string{"Tenant", "Node"}
 
@@ -153,15 +135,6 @@ func (c *Client) Noder(ctx context.Context, id uuid.UUID, opts ...NodeOption) (_
 
 func (c *Client) noder(ctx context.Context, table string, id uuid.UUID) (Noder, error) {
 	switch table {
-	case accesspolicy.Table:
-		query := c.AccessPolicy.Query().
-			Where(accesspolicy.ID(id))
-		if fc := graphql.GetFieldContext(ctx); fc != nil {
-			if err := query.collectField(ctx, true, graphql.GetOperationContext(ctx), fc.Field, nil, accesspolicyImplementors...); err != nil {
-				return nil, err
-			}
-		}
-		return query.Only(ctx)
 	case datatype.Table:
 		query := c.DataType.Query().
 			Where(datatype.ID(id))
@@ -216,15 +189,6 @@ func (c *Client) noder(ctx context.Context, table string, id uuid.UUID) (Noder, 
 			}
 		}
 		return query.Only(ctx)
-	case group.Table:
-		query := c.Group.Query().
-			Where(group.ID(id))
-		if fc := graphql.GetFieldContext(ctx); fc != nil {
-			if err := query.collectField(ctx, true, graphql.GetOperationContext(ctx), fc.Field, nil, groupImplementors...); err != nil {
-				return nil, err
-			}
-		}
-		return query.Only(ctx)
 	case keyvalue.Table:
 		query := c.KeyValue.Query().
 			Where(keyvalue.ID(id))
@@ -239,15 +203,6 @@ func (c *Client) noder(ctx context.Context, table string, id uuid.UUID) (Noder, 
 			Where(location.ID(id))
 		if fc := graphql.GetFieldContext(ctx); fc != nil {
 			if err := query.collectField(ctx, true, graphql.GetOperationContext(ctx), fc.Field, nil, locationImplementors...); err != nil {
-				return nil, err
-			}
-		}
-		return query.Only(ctx)
-	case role.Table:
-		query := c.Role.Query().
-			Where(role.ID(id))
-		if fc := graphql.GetFieldContext(ctx); fc != nil {
-			if err := query.collectField(ctx, true, graphql.GetOperationContext(ctx), fc.Field, nil, roleImplementors...); err != nil {
 				return nil, err
 			}
 		}
@@ -343,22 +298,6 @@ func (c *Client) noders(ctx context.Context, table string, ids []uuid.UUID) ([]N
 		idmap[id] = append(idmap[id], &noders[i])
 	}
 	switch table {
-	case accesspolicy.Table:
-		query := c.AccessPolicy.Query().
-			Where(accesspolicy.IDIn(ids...))
-		query, err := query.CollectFields(ctx, accesspolicyImplementors...)
-		if err != nil {
-			return nil, err
-		}
-		nodes, err := query.All(ctx)
-		if err != nil {
-			return nil, err
-		}
-		for _, node := range nodes {
-			for _, noder := range idmap[node.ID] {
-				*noder = node
-			}
-		}
 	case datatype.Table:
 		query := c.DataType.Query().
 			Where(datatype.IDIn(ids...))
@@ -455,22 +394,6 @@ func (c *Client) noders(ctx context.Context, table string, ids []uuid.UUID) ([]N
 				*noder = node
 			}
 		}
-	case group.Table:
-		query := c.Group.Query().
-			Where(group.IDIn(ids...))
-		query, err := query.CollectFields(ctx, groupImplementors...)
-		if err != nil {
-			return nil, err
-		}
-		nodes, err := query.All(ctx)
-		if err != nil {
-			return nil, err
-		}
-		for _, node := range nodes {
-			for _, noder := range idmap[node.ID] {
-				*noder = node
-			}
-		}
 	case keyvalue.Table:
 		query := c.KeyValue.Query().
 			Where(keyvalue.IDIn(ids...))
@@ -491,22 +414,6 @@ func (c *Client) noders(ctx context.Context, table string, ids []uuid.UUID) ([]N
 		query := c.Location.Query().
 			Where(location.IDIn(ids...))
 		query, err := query.CollectFields(ctx, locationImplementors...)
-		if err != nil {
-			return nil, err
-		}
-		nodes, err := query.All(ctx)
-		if err != nil {
-			return nil, err
-		}
-		for _, node := range nodes {
-			for _, noder := range idmap[node.ID] {
-				*noder = node
-			}
-		}
-	case role.Table:
-		query := c.Role.Query().
-			Where(role.IDIn(ids...))
-		query, err := query.CollectFields(ctx, roleImplementors...)
 		if err != nil {
 			return nil, err
 		}

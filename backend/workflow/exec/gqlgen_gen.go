@@ -18,6 +18,7 @@ import (
 	"github.com/99designs/gqlgen/plugin/federation/fedruntime"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/gqlscalar"
+	"github.com/pyck-ai/pyck/backend/common/workflow"
 	"github.com/pyck-ai/pyck/backend/workflow/ent/gen"
 	"github.com/pyck-ai/pyck/backend/workflow/ent/gen/workflowsignal"
 	"github.com/pyck-ai/pyck/backend/workflow/model"
@@ -25,7 +26,7 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-// region    ************************** generated!.gotpl **************************
+// region    ***************************** api!.gotpl *****************************
 
 // NewExecutableSchema creates an ExecutableSchema from the ResolverRoot interface.
 func NewExecutableSchema(cfg Config) graphql.ExecutableSchema {
@@ -61,6 +62,31 @@ type ComplexityRoot struct {
 		Data          func(childComplexity int) int
 		Errors        func(childComplexity int) int
 		Type          func(childComplexity int) int
+	}
+
+	DeploymentVersionUI struct {
+		BuildID        func(childComplexity int) int
+		Bundle         func(childComplexity int) int
+		DeploymentName func(childComplexity int) int
+		DrainageStatus func(childComplexity int) int
+	}
+
+	DeploymentVersionUIConnection struct {
+		Edges      func(childComplexity int) int
+		PageInfo   func(childComplexity int) int
+		TotalCount func(childComplexity int) int
+	}
+
+	DeploymentVersionUIEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
+	}
+
+	DeploymentVersionUIPageInfo struct {
+		EndCursor       func(childComplexity int) int
+		HasNextPage     func(childComplexity int) int
+		HasPreviousPage func(childComplexity int) int
+		StartCursor     func(childComplexity int) int
 	}
 
 	EntityEventsOutbox struct {
@@ -123,6 +149,8 @@ type ComplexityRoot struct {
 		CurrentUserDataInput         func(childComplexity int, input model.UserDataInputQueryInput) int
 		Node                         func(childComplexity int, id uuid.UUID) int
 		Nodes                        func(childComplexity int, ids []uuid.UUID) int
+		RemoteUI                     func(childComplexity int, input model.RemoteUIQueryInput) int
+		WorkerDeploymentUIBundles    func(childComplexity int, first *int, after *string) int
 		WorkflowActions              func(childComplexity int, input model.GetWorkflowActionsInput, where *model.WorkflowActionsWhereInput) int
 		WorkflowAssignee             func(childComplexity int, input model.GetWorkflowAssigneeInput) int
 		WorkflowExecutions           func(childComplexity int, where *model.WorkflowExecutionsWhereInput, first *int, after *string, orderBy *model.WorkflowExecutionOrder) int
@@ -133,6 +161,11 @@ type ComplexityRoot struct {
 		WorkflowTargets              func(childComplexity int, input model.GetWorkflowTargetsInput) int
 		Workflows                    func(childComplexity int, after *entgql.Cursor[uuid.UUID], first *int, before *entgql.Cursor[uuid.UUID], last *int, orderBy *gen.WorkflowOrder, where *gen.WorkflowWhereInput) int
 		__resolve__service           func(childComplexity int) int
+	}
+
+	RemoteUI struct {
+		Mobile func(childComplexity int) int
+		Web    func(childComplexity int) int
 	}
 
 	ServiceInfo struct {
@@ -166,6 +199,11 @@ type ComplexityRoot struct {
 		ID    func(childComplexity int) int
 		RunID func(childComplexity int) int
 		Type  func(childComplexity int) int
+	}
+
+	UIBundle struct {
+		Slug    func(childComplexity int) int
+		Version func(childComplexity int) int
 	}
 
 	Workflow struct {
@@ -316,6 +354,10 @@ type ComplexityRoot struct {
 	}
 }
 
+// endregion ***************************** api!.gotpl *****************************
+
+// region    ************************** generated!.gotpl **************************
+
 type MutationResolver interface {
 	EnsureTemporalNamespace(ctx context.Context) (bool, error)
 	SubmitUserDataInput(ctx context.Context, input model.SubmitUserDataInputInput) (*model.SubmitUserDataInputResponse, error)
@@ -331,6 +373,8 @@ type QueryResolver interface {
 	Nodes(ctx context.Context, ids []uuid.UUID) ([]gen.Noder, error)
 	Workflows(ctx context.Context, after *entgql.Cursor[uuid.UUID], first *int, before *entgql.Cursor[uuid.UUID], last *int, orderBy *gen.WorkflowOrder, where *gen.WorkflowWhereInput) (*gen.WorkflowConnection, error)
 	WorkflowSignals(ctx context.Context, after *entgql.Cursor[uuid.UUID], first *int, before *entgql.Cursor[uuid.UUID], last *int, orderBy *gen.WorkflowSignalOrder, where *gen.WorkflowSignalWhereInput) (*gen.WorkflowSignalConnection, error)
+	RemoteUI(ctx context.Context, input model.RemoteUIQueryInput) (*workflow.UIBundleURLs, error)
+	WorkerDeploymentUIBundles(ctx context.Context, first *int, after *string) (*model.DeploymentVersionUIConnection, error)
 	WorkflowServiceInfo(ctx context.Context) (*model.ServiceInfo, error)
 	CurrentUserDataInput(ctx context.Context, input model.UserDataInputQueryInput) (*model.CurrentUserDataInput, error)
 	WorkflowExecutions(ctx context.Context, where *model.WorkflowExecutionsWhereInput, first *int, after *string, orderBy *model.WorkflowExecutionOrder) (*model.WorkflowExecutionInfoConnection, error)
@@ -348,6 +392,10 @@ type WorkflowWhereInputResolver interface {
 	DataIn(ctx context.Context, obj *gen.WorkflowWhereInput, data []string) error
 	DataContains(ctx context.Context, obj *gen.WorkflowWhereInput, data []string) error
 }
+
+// endregion ************************** generated!.gotpl **************************
+
+// region    ************************** internal!.gotpl ***************************
 
 type executableSchema graphql.ExecutableSchemaState[ResolverRoot, DirectiveRoot, ComplexityRoot]
 
@@ -425,6 +473,88 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CurrentUserDataInput.Type(childComplexity), true
+
+	case "DeploymentVersionUI.buildID":
+		if e.ComplexityRoot.DeploymentVersionUI.BuildID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeploymentVersionUI.BuildID(childComplexity), true
+	case "DeploymentVersionUI.bundle":
+		if e.ComplexityRoot.DeploymentVersionUI.Bundle == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeploymentVersionUI.Bundle(childComplexity), true
+	case "DeploymentVersionUI.deploymentName":
+		if e.ComplexityRoot.DeploymentVersionUI.DeploymentName == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeploymentVersionUI.DeploymentName(childComplexity), true
+	case "DeploymentVersionUI.drainageStatus":
+		if e.ComplexityRoot.DeploymentVersionUI.DrainageStatus == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeploymentVersionUI.DrainageStatus(childComplexity), true
+
+	case "DeploymentVersionUIConnection.edges":
+		if e.ComplexityRoot.DeploymentVersionUIConnection.Edges == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeploymentVersionUIConnection.Edges(childComplexity), true
+	case "DeploymentVersionUIConnection.pageInfo":
+		if e.ComplexityRoot.DeploymentVersionUIConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeploymentVersionUIConnection.PageInfo(childComplexity), true
+	case "DeploymentVersionUIConnection.totalCount":
+		if e.ComplexityRoot.DeploymentVersionUIConnection.TotalCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeploymentVersionUIConnection.TotalCount(childComplexity), true
+
+	case "DeploymentVersionUIEdge.cursor":
+		if e.ComplexityRoot.DeploymentVersionUIEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeploymentVersionUIEdge.Cursor(childComplexity), true
+	case "DeploymentVersionUIEdge.node":
+		if e.ComplexityRoot.DeploymentVersionUIEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeploymentVersionUIEdge.Node(childComplexity), true
+
+	case "DeploymentVersionUIPageInfo.endCursor":
+		if e.ComplexityRoot.DeploymentVersionUIPageInfo.EndCursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeploymentVersionUIPageInfo.EndCursor(childComplexity), true
+	case "DeploymentVersionUIPageInfo.hasNextPage":
+		if e.ComplexityRoot.DeploymentVersionUIPageInfo.HasNextPage == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeploymentVersionUIPageInfo.HasNextPage(childComplexity), true
+	case "DeploymentVersionUIPageInfo.hasPreviousPage":
+		if e.ComplexityRoot.DeploymentVersionUIPageInfo.HasPreviousPage == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeploymentVersionUIPageInfo.HasPreviousPage(childComplexity), true
+	case "DeploymentVersionUIPageInfo.startCursor":
+		if e.ComplexityRoot.DeploymentVersionUIPageInfo.StartCursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeploymentVersionUIPageInfo.StartCursor(childComplexity), true
 
 	case "EntityEventsOutbox.createdAt":
 		if e.ComplexityRoot.EntityEventsOutbox.CreatedAt == nil {
@@ -717,6 +847,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Nodes(childComplexity, args["ids"].([]uuid.UUID)), true
+	case "Query.remoteUI":
+		if e.ComplexityRoot.Query.RemoteUI == nil {
+			break
+		}
+
+		args, err := ec.field_Query_remoteUI_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.RemoteUI(childComplexity, args["input"].(model.RemoteUIQueryInput)), true
+	case "Query.workerDeploymentUIBundles":
+		if e.ComplexityRoot.Query.WorkerDeploymentUIBundles == nil {
+			break
+		}
+
+		args, err := ec.field_Query_workerDeploymentUIBundles_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.WorkerDeploymentUIBundles(childComplexity, args["first"].(*int), args["after"].(*string)), true
 	case "Query.workflowActions":
 		if e.ComplexityRoot.Query.WorkflowActions == nil {
 			break
@@ -818,6 +970,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Query.__resolve__service(childComplexity), true
 
+	case "RemoteUI.mobile":
+		if e.ComplexityRoot.RemoteUI.Mobile == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RemoteUI.Mobile(childComplexity), true
+	case "RemoteUI.web":
+		if e.ComplexityRoot.RemoteUI.Web == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RemoteUI.Web(childComplexity), true
+
 	case "ServiceInfo.date":
 		if e.ComplexityRoot.ServiceInfo.Date == nil {
 			break
@@ -896,6 +1061,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.TemporalWorkflow.Type(childComplexity), true
+
+	case "UIBundle.slug":
+		if e.ComplexityRoot.UIBundle.Slug == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UIBundle.Slug(childComplexity), true
+	case "UIBundle.version":
+		if e.ComplexityRoot.UIBundle.Version == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UIBundle.Version(childComplexity), true
 
 	case "Workflow.createdAt":
 		if e.ComplexityRoot.Workflow.CreatedAt == nil {
@@ -1462,6 +1640,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputGetWorkflowTargetsInput,
 		ec.unmarshalInputRegisterWorkflowSignalInput,
 		ec.unmarshalInputRegisterWorkflowWithSignalsInput,
+		ec.unmarshalInputRemoteUIQueryInput,
 		ec.unmarshalInputSetWorkflowAssigneeInput,
 		ec.unmarshalInputSetWorkflowIsAssignableInput,
 		ec.unmarshalInputSetWorkflowTargetsInput,
@@ -2506,6 +2685,79 @@ input WorkflowWhereInput {
 	{Name: "../graph/namespace.graphql", Input: `type Mutation {
   ensureTemporalNamespace: Boolean!
 }`, BuiltIn: false},
+	{Name: "../graph/remoteui.graphql", Input: `extend type Query {
+  """
+  Resolves the fully rendered web + mobile UI bundle URLs for a specific
+  workflow execution, keyed by workflow ID + run ID.
+
+  The bundle slug/version come from the Worker Deployment Version the
+  execution is pinned to (read from that version's metadata); the origin and
+  path layout come from the tenant's stored URL templates. The two are
+  combined and forwarded as-is — no composition happens in this resolver.
+
+  When the bundle can't be read from a pinned version (none pinned, or not
+  stamped yet) it falls back to the system-wide default bundle if one is
+  configured, otherwise it errors.
+  """
+  remoteUI(input: RemoteUIQueryInput!): RemoteUI
+
+  """
+  Lists every Worker Deployment Version in the tenant's namespace with its
+  drainage status and the UI bundle it ships. Used for drain visibility — which
+  versions still have pinned in-flight executions (draining) versus which are
+  safe to retire (drained). Admin-only.
+  """
+  workerDeploymentUIBundles(first: Int, after: String): DeploymentVersionUIConnection!
+}
+
+input RemoteUIQueryInput {
+  workflowID: String!
+  workflowExecutionID: String!
+}
+
+"""Fully rendered web + mobile UI bundle URLs."""
+type RemoteUI {
+  web: String!
+  mobile: String!
+}
+
+"""The UI bundle (slug + version) a deployment version ships."""
+type UIBundle {
+  slug: String!
+  version: String!
+}
+
+"""A Worker Deployment Version and the UI bundle it ships."""
+type DeploymentVersionUI {
+  deploymentName: String!
+  buildID: String!
+  """One of: unspecified, draining, drained."""
+  drainageStatus: String!
+  """Version-wide UI bundle stamped on the version (empty slug/version if none)."""
+  bundle: UIBundle!
+}
+
+"""A connection to a list of DeploymentVersionUI items."""
+type DeploymentVersionUIConnection {
+  edges: [DeploymentVersionUIEdge!]!
+  pageInfo: DeploymentVersionUIPageInfo!
+  totalCount: Int!
+}
+
+"""An edge in a DeploymentVersionUI connection."""
+type DeploymentVersionUIEdge {
+  node: DeploymentVersionUI!
+  cursor: String!
+}
+
+"""Pagination information for a DeploymentVersionUI connection."""
+type DeploymentVersionUIPageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+`, BuiltIn: false},
 	{Name: "../graph/scalars.graphql", Input: `scalar Any
 scalar UUID
 `, BuiltIn: false},
@@ -3399,6 +3651,56 @@ func (ec *executionContext) childFields_CurrentUserDataInput(ctx context.Context
 	return nil, fmt.Errorf("no field named %q was found under type CurrentUserDataInput", field.Name)
 }
 
+func (ec *executionContext) childFields_DeploymentVersionUI(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "deploymentName":
+		return ec.fieldContext_DeploymentVersionUI_deploymentName(ctx, field)
+	case "buildID":
+		return ec.fieldContext_DeploymentVersionUI_buildID(ctx, field)
+	case "drainageStatus":
+		return ec.fieldContext_DeploymentVersionUI_drainageStatus(ctx, field)
+	case "bundle":
+		return ec.fieldContext_DeploymentVersionUI_bundle(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type DeploymentVersionUI", field.Name)
+}
+
+func (ec *executionContext) childFields_DeploymentVersionUIConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "edges":
+		return ec.fieldContext_DeploymentVersionUIConnection_edges(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_DeploymentVersionUIConnection_pageInfo(ctx, field)
+	case "totalCount":
+		return ec.fieldContext_DeploymentVersionUIConnection_totalCount(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type DeploymentVersionUIConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_DeploymentVersionUIEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "node":
+		return ec.fieldContext_DeploymentVersionUIEdge_node(ctx, field)
+	case "cursor":
+		return ec.fieldContext_DeploymentVersionUIEdge_cursor(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type DeploymentVersionUIEdge", field.Name)
+}
+
+func (ec *executionContext) childFields_DeploymentVersionUIPageInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "hasNextPage":
+		return ec.fieldContext_DeploymentVersionUIPageInfo_hasNextPage(ctx, field)
+	case "hasPreviousPage":
+		return ec.fieldContext_DeploymentVersionUIPageInfo_hasPreviousPage(ctx, field)
+	case "startCursor":
+		return ec.fieldContext_DeploymentVersionUIPageInfo_startCursor(ctx, field)
+	case "endCursor":
+		return ec.fieldContext_DeploymentVersionUIPageInfo_endCursor(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type DeploymentVersionUIPageInfo", field.Name)
+}
+
 func (ec *executionContext) childFields_GetWorkflowActionsResponse(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "queries":
@@ -3445,6 +3747,16 @@ func (ec *executionContext) childFields_PageInfo(ctx context.Context, field grap
 		return ec.fieldContext_PageInfo_endCursor(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+}
+
+func (ec *executionContext) childFields_RemoteUI(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "web":
+		return ec.fieldContext_RemoteUI_web(ctx, field)
+	case "mobile":
+		return ec.fieldContext_RemoteUI_mobile(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type RemoteUI", field.Name)
 }
 
 func (ec *executionContext) childFields_ServiceInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -3511,6 +3823,16 @@ func (ec *executionContext) childFields_TemporalWorkflow(ctx context.Context, fi
 		return ec.fieldContext_TemporalWorkflow_runID(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type TemporalWorkflow", field.Name)
+}
+
+func (ec *executionContext) childFields_UIBundle(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "slug":
+		return ec.fieldContext_UIBundle_slug(ctx, field)
+	case "version":
+		return ec.fieldContext_UIBundle_version(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type UIBundle", field.Name)
 }
 
 func (ec *executionContext) childFields_Workflow(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -3919,7 +4241,7 @@ func (ec *executionContext) childFields___Type(ctx context.Context, field graphq
 	return nil, fmt.Errorf("no field named %q was found under type __Type", field.Name)
 }
 
-// endregion ************************** generated!.gotpl **************************
+// endregion ************************** internal!.gotpl ***************************
 
 // region    ***************************** args.gotpl *****************************
 
@@ -4112,6 +4434,42 @@ func (ec *executionContext) field_Query_nodes_args(ctx context.Context, rawArgs 
 		return nil, err
 	}
 	args["ids"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_remoteUI_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.RemoteUIQueryInput, error) {
+			return ec.unmarshalNRemoteUIQueryInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRemoteUIQueryInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_workerDeploymentUIBundles_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg1
 	return args, nil
 }
 
@@ -4459,10 +4817,6 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 
 // endregion ***************************** args.gotpl *****************************
 
-// region    ************************** directives.gotpl **************************
-
-// endregion ************************** directives.gotpl **************************
-
 // region    **************************** field.gotpl *****************************
 
 func (ec *executionContext) _ActionDefinition_name(ctx context.Context, field graphql.CollectedField, obj *model.ActionDefinition) (ret graphql.Marshaler) {
@@ -4702,6 +5056,341 @@ func (ec *executionContext) _CurrentUserDataInput_errors(ctx context.Context, fi
 }
 func (ec *executionContext) fieldContext_CurrentUserDataInput_errors(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("CurrentUserDataInput", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _DeploymentVersionUI_deploymentName(ctx context.Context, field graphql.CollectedField, obj *workflow.DeploymentVersionUI) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeploymentVersionUI_deploymentName(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DeploymentName, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeploymentVersionUI_deploymentName(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeploymentVersionUI", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _DeploymentVersionUI_buildID(ctx context.Context, field graphql.CollectedField, obj *workflow.DeploymentVersionUI) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeploymentVersionUI_buildID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BuildID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeploymentVersionUI_buildID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeploymentVersionUI", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _DeploymentVersionUI_drainageStatus(ctx context.Context, field graphql.CollectedField, obj *workflow.DeploymentVersionUI) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeploymentVersionUI_drainageStatus(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DrainageStatus, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeploymentVersionUI_drainageStatus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeploymentVersionUI", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _DeploymentVersionUI_bundle(ctx context.Context, field graphql.CollectedField, obj *workflow.DeploymentVersionUI) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeploymentVersionUI_bundle(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Bundle, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v workflow.UIBundle) graphql.Marshaler {
+			return ec.marshalNUIBundle2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋworkflowᚐUIBundle(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeploymentVersionUI_bundle(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "DeploymentVersionUI",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_UIBundle(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _DeploymentVersionUIConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.DeploymentVersionUIConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeploymentVersionUIConnection_edges(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.DeploymentVersionUIEdge) graphql.Marshaler {
+			return ec.marshalNDeploymentVersionUIEdge2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐDeploymentVersionUIEdgeᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeploymentVersionUIConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "DeploymentVersionUIConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_DeploymentVersionUIEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _DeploymentVersionUIConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.DeploymentVersionUIConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeploymentVersionUIConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.DeploymentVersionUIPageInfo) graphql.Marshaler {
+			return ec.marshalNDeploymentVersionUIPageInfo2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐDeploymentVersionUIPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeploymentVersionUIConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "DeploymentVersionUIConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_DeploymentVersionUIPageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _DeploymentVersionUIConnection_totalCount(ctx context.Context, field graphql.CollectedField, obj *model.DeploymentVersionUIConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeploymentVersionUIConnection_totalCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TotalCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeploymentVersionUIConnection_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeploymentVersionUIConnection", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _DeploymentVersionUIEdge_node(ctx context.Context, field graphql.CollectedField, obj *model.DeploymentVersionUIEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeploymentVersionUIEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *workflow.DeploymentVersionUI) graphql.Marshaler {
+			return ec.marshalNDeploymentVersionUI2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋworkflowᚐDeploymentVersionUI(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeploymentVersionUIEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "DeploymentVersionUIEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_DeploymentVersionUI(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _DeploymentVersionUIEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.DeploymentVersionUIEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeploymentVersionUIEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeploymentVersionUIEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeploymentVersionUIEdge", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _DeploymentVersionUIPageInfo_hasNextPage(ctx context.Context, field graphql.CollectedField, obj *model.DeploymentVersionUIPageInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeploymentVersionUIPageInfo_hasNextPage(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HasNextPage, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeploymentVersionUIPageInfo_hasNextPage(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeploymentVersionUIPageInfo", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _DeploymentVersionUIPageInfo_hasPreviousPage(ctx context.Context, field graphql.CollectedField, obj *model.DeploymentVersionUIPageInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeploymentVersionUIPageInfo_hasPreviousPage(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HasPreviousPage, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeploymentVersionUIPageInfo_hasPreviousPage(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeploymentVersionUIPageInfo", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _DeploymentVersionUIPageInfo_startCursor(ctx context.Context, field graphql.CollectedField, obj *model.DeploymentVersionUIPageInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeploymentVersionUIPageInfo_startCursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.StartCursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_DeploymentVersionUIPageInfo_startCursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeploymentVersionUIPageInfo", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _DeploymentVersionUIPageInfo_endCursor(ctx context.Context, field graphql.CollectedField, obj *model.DeploymentVersionUIPageInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeploymentVersionUIPageInfo_endCursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.EndCursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_DeploymentVersionUIPageInfo_endCursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeploymentVersionUIPageInfo", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _EntityEventsOutbox_id(ctx context.Context, field graphql.CollectedField, obj *gen.EntityEventsOutbox) (ret graphql.Marshaler) {
@@ -5827,6 +6516,94 @@ func (ec *executionContext) fieldContext_Query_workflowSignals(ctx context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_remoteUI(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_remoteUI(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().RemoteUI(ctx, fc.Args["input"].(model.RemoteUIQueryInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *workflow.UIBundleURLs) graphql.Marshaler {
+			return ec.marshalORemoteUI2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋworkflowᚐUIBundleURLs(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Query_remoteUI(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_RemoteUI(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_remoteUI_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_workerDeploymentUIBundles(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_workerDeploymentUIBundles(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().WorkerDeploymentUIBundles(ctx, fc.Args["first"].(*int), fc.Args["after"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.DeploymentVersionUIConnection) graphql.Marshaler {
+			return ec.marshalNDeploymentVersionUIConnection2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐDeploymentVersionUIConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_workerDeploymentUIBundles(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_DeploymentVersionUIConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_workerDeploymentUIBundles_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_workflowServiceInfo(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6319,6 +7096,52 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _RemoteUI_web(ctx context.Context, field graphql.CollectedField, obj *workflow.UIBundleURLs) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RemoteUI_web(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Web, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RemoteUI_web(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RemoteUI", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _RemoteUI_mobile(ctx context.Context, field graphql.CollectedField, obj *workflow.UIBundleURLs) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RemoteUI_mobile(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Mobile, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RemoteUI_mobile(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RemoteUI", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _ServiceInfo_version(ctx context.Context, field graphql.CollectedField, obj *model.ServiceInfo) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6602,6 +7425,52 @@ func (ec *executionContext) _TemporalWorkflow_runID(ctx context.Context, field g
 }
 func (ec *executionContext) fieldContext_TemporalWorkflow_runID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("TemporalWorkflow", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _UIBundle_slug(ctx context.Context, field graphql.CollectedField, obj *workflow.UIBundle) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UIBundle_slug(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Slug, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UIBundle_slug(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UIBundle", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _UIBundle_version(ctx context.Context, field graphql.CollectedField, obj *workflow.UIBundle) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UIBundle_version(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Version, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UIBundle_version(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UIBundle", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _Workflow_id(ctx context.Context, field graphql.CollectedField, obj *gen.Workflow) (ret graphql.Marshaler) {
@@ -11488,6 +12357,43 @@ func (ec *executionContext) unmarshalInputRegisterWorkflowWithSignalsInput(ctx c
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputRemoteUIQueryInput(ctx context.Context, obj any) (model.RemoteUIQueryInput, error) {
+	var it model.RemoteUIQueryInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"workflowID", "workflowExecutionID"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "workflowID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workflowID"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.WorkflowID = data
+		case "workflowExecutionID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workflowExecutionID"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.WorkflowExecutionID = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputSetWorkflowAssigneeInput(ctx context.Context, obj any) (model.SetWorkflowAssigneeInput, error) {
 	var it model.SetWorkflowAssigneeInput
 	if obj == nil {
@@ -14883,6 +15789,9 @@ func (ec *executionContext) _ActionDefinition(ctx context.Context, sel ast.Selec
 			}
 		case "description":
 			out.Values[i] = ec._ActionDefinition_description(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "enabled":
 			out.Values[i] = ec._ActionDefinition_enabled(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -14973,12 +15882,225 @@ func (ec *executionContext) _CurrentUserDataInput(ctx context.Context, sel ast.S
 			}
 		case "activityCount":
 			out.Values[i] = ec._CurrentUserDataInput_activityCount(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "type":
 			out.Values[i] = ec._CurrentUserDataInput_type(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "data":
 			out.Values[i] = ec._CurrentUserDataInput_data(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "errors":
 			out.Values[i] = ec._CurrentUserDataInput_errors(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var deploymentVersionUIImplementors = []string{"DeploymentVersionUI"}
+
+func (ec *executionContext) _DeploymentVersionUI(ctx context.Context, sel ast.SelectionSet, obj *workflow.DeploymentVersionUI) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, deploymentVersionUIImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("DeploymentVersionUI")
+		case "deploymentName":
+			out.Values[i] = ec._DeploymentVersionUI_deploymentName(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "buildID":
+			out.Values[i] = ec._DeploymentVersionUI_buildID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "drainageStatus":
+			out.Values[i] = ec._DeploymentVersionUI_drainageStatus(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "bundle":
+			out.Values[i] = ec._DeploymentVersionUI_bundle(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var deploymentVersionUIConnectionImplementors = []string{"DeploymentVersionUIConnection"}
+
+func (ec *executionContext) _DeploymentVersionUIConnection(ctx context.Context, sel ast.SelectionSet, obj *model.DeploymentVersionUIConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, deploymentVersionUIConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("DeploymentVersionUIConnection")
+		case "edges":
+			out.Values[i] = ec._DeploymentVersionUIConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._DeploymentVersionUIConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalCount":
+			out.Values[i] = ec._DeploymentVersionUIConnection_totalCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var deploymentVersionUIEdgeImplementors = []string{"DeploymentVersionUIEdge"}
+
+func (ec *executionContext) _DeploymentVersionUIEdge(ctx context.Context, sel ast.SelectionSet, obj *model.DeploymentVersionUIEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, deploymentVersionUIEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("DeploymentVersionUIEdge")
+		case "node":
+			out.Values[i] = ec._DeploymentVersionUIEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cursor":
+			out.Values[i] = ec._DeploymentVersionUIEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var deploymentVersionUIPageInfoImplementors = []string{"DeploymentVersionUIPageInfo"}
+
+func (ec *executionContext) _DeploymentVersionUIPageInfo(ctx context.Context, sel ast.SelectionSet, obj *model.DeploymentVersionUIPageInfo) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, deploymentVersionUIPageInfoImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("DeploymentVersionUIPageInfo")
+		case "hasNextPage":
+			out.Values[i] = ec._DeploymentVersionUIPageInfo_hasNextPage(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "hasPreviousPage":
+			out.Values[i] = ec._DeploymentVersionUIPageInfo_hasPreviousPage(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "startCursor":
+			out.Values[i] = ec._DeploymentVersionUIPageInfo_startCursor(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "endCursor":
+			out.Values[i] = ec._DeploymentVersionUIPageInfo_endCursor(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -15025,8 +16147,14 @@ func (ec *executionContext) _EntityEventsOutbox(ctx context.Context, sel ast.Sel
 			}
 		case "publishedAt":
 			out.Values[i] = ec._EntityEventsOutbox_publishedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "userID":
 			out.Values[i] = ec._EntityEventsOutbox_userID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "transactionID":
 			out.Values[i] = ec._EntityEventsOutbox_transactionID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -15034,8 +16162,14 @@ func (ec *executionContext) _EntityEventsOutbox(ctx context.Context, sel ast.Sel
 			}
 		case "traceID":
 			out.Values[i] = ec._EntityEventsOutbox_traceID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "requestID":
 			out.Values[i] = ec._EntityEventsOutbox_requestID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "topic":
 			out.Values[i] = ec._EntityEventsOutbox_topic(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -15058,14 +16192,29 @@ func (ec *executionContext) _EntityEventsOutbox(ctx context.Context, sel ast.Sel
 			}
 		case "lastError":
 			out.Values[i] = ec._EntityEventsOutbox_lastError(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "deadAt":
 			out.Values[i] = ec._EntityEventsOutbox_deadAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "nextRetryAt":
 			out.Values[i] = ec._EntityEventsOutbox_nextRetryAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "entityType":
 			out.Values[i] = ec._EntityEventsOutbox_entityType(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "entityID":
 			out.Values[i] = ec._EntityEventsOutbox_entityID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "tenantID":
 			out.Values[i] = ec._EntityEventsOutbox_tenantID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -15292,6 +16441,9 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_registerWorkflow(ctx, field)
 			})
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "deleteWorkflow":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteWorkflow(ctx, field)
@@ -15310,14 +16462,23 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_setWorkflowAssignee(ctx, field)
 			})
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "setWorkflowIsAssignable":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_setWorkflowIsAssignable(ctx, field)
 			})
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "setWorkflowTargets":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_setWorkflowTargets(ctx, field)
 			})
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -15364,8 +16525,14 @@ func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "startCursor":
 			out.Values[i] = ec._PageInfo_startCursor(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "endCursor":
 			out.Values[i] = ec._PageInfo_endCursor(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -15411,13 +16578,16 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 		case "node":
 			field := field
 
-			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
 				res = ec._Query_node(ctx, field)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
 				return res
 			}
 
@@ -15493,6 +16663,50 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "remoteUI":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_remoteUI(ctx, field)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "workerDeploymentUIBundles":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_workerDeploymentUIBundles(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "workflowServiceInfo":
 			field := field
 
@@ -15518,13 +16732,16 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 		case "currentUserDataInput":
 			field := field
 
-			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
 				res = ec._Query_currentUserDataInput(ctx, field)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
 				return res
 			}
 
@@ -15714,10 +16931,60 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
 			})
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "__schema":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___schema(ctx, field)
 			})
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var remoteUIImplementors = []string{"RemoteUI"}
+
+func (ec *executionContext) _RemoteUI(ctx context.Context, sel ast.SelectionSet, obj *workflow.UIBundleURLs) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, remoteUIImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RemoteUI")
+		case "web":
+			out.Values[i] = ec._RemoteUI_web(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "mobile":
+			out.Values[i] = ec._RemoteUI_mobile(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -15759,6 +17026,9 @@ func (ec *executionContext) _ServiceInfo(ctx context.Context, sel ast.SelectionS
 			}
 		case "date":
 			out.Values[i] = ec._ServiceInfo_date(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -15795,6 +17065,9 @@ func (ec *executionContext) _SetWorkflowAssigneeResponse(ctx context.Context, se
 			out.Values[i] = graphql.MarshalString("SetWorkflowAssigneeResponse")
 		case "assignee":
 			out.Values[i] = ec._SetWorkflowAssigneeResponse_assignee(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -15909,8 +17182,14 @@ func (ec *executionContext) _SubmitUserDataInputResponse(ctx context.Context, se
 			out.Values[i] = graphql.MarshalString("SubmitUserDataInputResponse")
 		case "workflow":
 			out.Values[i] = ec._SubmitUserDataInputResponse_workflow(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "result":
 			out.Values[i] = ec._SubmitUserDataInputResponse_result(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -16027,6 +17306,50 @@ func (ec *executionContext) _TemporalWorkflow(ctx context.Context, sel ast.Selec
 	return out
 }
 
+var uIBundleImplementors = []string{"UIBundle"}
+
+func (ec *executionContext) _UIBundle(ctx context.Context, sel ast.SelectionSet, obj *workflow.UIBundle) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, uIBundleImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UIBundle")
+		case "slug":
+			out.Values[i] = ec._UIBundle_slug(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "version":
+			out.Values[i] = ec._UIBundle_version(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferred), math.MaxInt32)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var workflowImplementors = []string{"Workflow", "Node"}
 
 func (ec *executionContext) _Workflow(ctx context.Context, sel ast.SelectionSet, obj *gen.Workflow) graphql.Marshaler {
@@ -16050,10 +17373,19 @@ func (ec *executionContext) _Workflow(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "dataTypeID":
 			out.Values[i] = ec._Workflow_dataTypeID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "dataTypeSlug":
 			out.Values[i] = ec._Workflow_dataTypeSlug(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "data":
 			out.Values[i] = ec._Workflow_data(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "createdAt":
 			out.Values[i] = ec._Workflow_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -16066,12 +17398,24 @@ func (ec *executionContext) _Workflow(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Workflow_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "updatedBy":
 			out.Values[i] = ec._Workflow_updatedBy(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "deletedAt":
 			out.Values[i] = ec._Workflow_deletedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "deletedBy":
 			out.Values[i] = ec._Workflow_deletedBy(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "name":
 			out.Values[i] = ec._Workflow_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -16154,6 +17498,9 @@ func (ec *executionContext) _WorkflowConnection(ctx context.Context, sel ast.Sel
 			out.Values[i] = graphql.MarshalString("WorkflowConnection")
 		case "edges":
 			out.Values[i] = ec._WorkflowConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "pageInfo":
 			out.Values[i] = ec._WorkflowConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -16200,6 +17547,9 @@ func (ec *executionContext) _WorkflowDeletePayload(ctx context.Context, sel ast.
 			out.Values[i] = graphql.MarshalString("WorkflowDeletePayload")
 		case "deletedID":
 			out.Values[i] = ec._WorkflowDeletePayload_deletedID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -16236,6 +17586,9 @@ func (ec *executionContext) _WorkflowEdge(ctx context.Context, sel ast.Selection
 			out.Values[i] = graphql.MarshalString("WorkflowEdge")
 		case "node":
 			out.Values[i] = ec._WorkflowEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "cursor":
 			out.Values[i] = ec._WorkflowEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -16292,6 +17645,9 @@ func (ec *executionContext) _WorkflowEvent(ctx context.Context, sel ast.Selectio
 			}
 		case "extra":
 			out.Values[i] = ec._WorkflowEvent_extra(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -16529,6 +17885,9 @@ func (ec *executionContext) _WorkflowExecutionInfo(ctx context.Context, sel ast.
 			}
 		case "closeTime":
 			out.Values[i] = ec._WorkflowExecutionInfo_closeTime(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "status":
 			out.Values[i] = ec._WorkflowExecutionInfo_status(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -16541,10 +17900,19 @@ func (ec *executionContext) _WorkflowExecutionInfo(ctx context.Context, sel ast.
 			}
 		case "parentNamespaceId":
 			out.Values[i] = ec._WorkflowExecutionInfo_parentNamespaceId(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "parentExecution":
 			out.Values[i] = ec._WorkflowExecutionInfo_parentExecution(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "executionTime":
 			out.Values[i] = ec._WorkflowExecutionInfo_executionTime(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "searchAttributes":
 			out.Values[i] = ec._WorkflowExecutionInfo_searchAttributes(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -16552,6 +17920,9 @@ func (ec *executionContext) _WorkflowExecutionInfo(ctx context.Context, sel ast.
 			}
 		case "autoResetPoints":
 			out.Values[i] = ec._WorkflowExecutionInfo_autoResetPoints(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "taskQueue":
 			out.Values[i] = ec._WorkflowExecutionInfo_taskQueue(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -16569,10 +17940,19 @@ func (ec *executionContext) _WorkflowExecutionInfo(ctx context.Context, sel ast.
 			}
 		case "mostRecentWorkerVersionStamp":
 			out.Values[i] = ec._WorkflowExecutionInfo_mostRecentWorkerVersionStamp(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "executionDuration":
 			out.Values[i] = ec._WorkflowExecutionInfo_executionDuration(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "rootExecution":
 			out.Values[i] = ec._WorkflowExecutionInfo_rootExecution(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -16712,8 +18092,14 @@ func (ec *executionContext) _WorkflowExecutionPageInfo(ctx context.Context, sel 
 			}
 		case "startCursor":
 			out.Values[i] = ec._WorkflowExecutionPageInfo_startCursor(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "endCursor":
 			out.Values[i] = ec._WorkflowExecutionPageInfo_endCursor(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -16760,8 +18146,14 @@ func (ec *executionContext) _WorkflowPageInfo(ctx context.Context, sel ast.Selec
 			}
 		case "startCursor":
 			out.Values[i] = ec._WorkflowPageInfo_startCursor(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "endCursor":
 			out.Values[i] = ec._WorkflowPageInfo_endCursor(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -16818,12 +18210,24 @@ func (ec *executionContext) _WorkflowSignal(ctx context.Context, sel ast.Selecti
 			}
 		case "updatedAt":
 			out.Values[i] = ec._WorkflowSignal_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "updatedBy":
 			out.Values[i] = ec._WorkflowSignal_updatedBy(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "deletedAt":
 			out.Values[i] = ec._WorkflowSignal_deletedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "deletedBy":
 			out.Values[i] = ec._WorkflowSignal_deletedBy(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "workflowID":
 			out.Values[i] = ec._WorkflowSignal_workflowID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -16836,6 +18240,9 @@ func (ec *executionContext) _WorkflowSignal(ctx context.Context, sel ast.Selecti
 			}
 		case "temporalSignal":
 			out.Values[i] = ec._WorkflowSignal_temporalSignal(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "temporalSignalType":
 			out.Values[i] = ec._WorkflowSignal_temporalSignalType(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -16843,6 +18250,9 @@ func (ec *executionContext) _WorkflowSignal(ctx context.Context, sel ast.Selecti
 			}
 		case "filterRule":
 			out.Values[i] = ec._WorkflowSignal_filterRule(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "workflow":
 			field := field
 
@@ -16915,6 +18325,9 @@ func (ec *executionContext) _WorkflowSignalConnection(ctx context.Context, sel a
 			out.Values[i] = graphql.MarshalString("WorkflowSignalConnection")
 		case "edges":
 			out.Values[i] = ec._WorkflowSignalConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "pageInfo":
 			out.Values[i] = ec._WorkflowSignalConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -16961,6 +18374,9 @@ func (ec *executionContext) _WorkflowSignalEdge(ctx context.Context, sel ast.Sel
 			out.Values[i] = graphql.MarshalString("WorkflowSignalEdge")
 		case "node":
 			out.Values[i] = ec._WorkflowSignalEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "cursor":
 			out.Values[i] = ec._WorkflowSignalEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -17046,6 +18462,9 @@ func (ec *executionContext) _WorkflowUpdateType(ctx context.Context, sel ast.Sel
 			}
 		case "schema":
 			out.Values[i] = ec._WorkflowUpdateType_schema(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -17082,6 +18501,9 @@ func (ec *executionContext) __Service(ctx context.Context, sel ast.SelectionSet,
 			out.Values[i] = graphql.MarshalString("_Service")
 		case "sdl":
 			out.Values[i] = ec.__Service_sdl(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -17123,6 +18545,9 @@ func (ec *executionContext) ___Directive(ctx context.Context, sel ast.SelectionS
 			}
 		case "description":
 			out.Values[i] = ec.___Directive_description(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "isRepeatable":
 			out.Values[i] = ec.___Directive_isRepeatable(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -17179,6 +18604,9 @@ func (ec *executionContext) ___EnumValue(ctx context.Context, sel ast.SelectionS
 			}
 		case "description":
 			out.Values[i] = ec.___EnumValue_description(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "isDeprecated":
 			out.Values[i] = ec.___EnumValue_isDeprecated(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -17186,6 +18614,9 @@ func (ec *executionContext) ___EnumValue(ctx context.Context, sel ast.SelectionS
 			}
 		case "deprecationReason":
 			out.Values[i] = ec.___EnumValue_deprecationReason(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -17227,6 +18658,9 @@ func (ec *executionContext) ___Field(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "description":
 			out.Values[i] = ec.___Field_description(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "args":
 			out.Values[i] = ec.___Field_args(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -17244,6 +18678,9 @@ func (ec *executionContext) ___Field(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "deprecationReason":
 			out.Values[i] = ec.___Field_deprecationReason(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -17285,6 +18722,9 @@ func (ec *executionContext) ___InputValue(ctx context.Context, sel ast.Selection
 			}
 		case "description":
 			out.Values[i] = ec.___InputValue_description(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "type":
 			out.Values[i] = ec.___InputValue_type(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -17292,6 +18732,9 @@ func (ec *executionContext) ___InputValue(ctx context.Context, sel ast.Selection
 			}
 		case "defaultValue":
 			out.Values[i] = ec.___InputValue_defaultValue(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "isDeprecated":
 			out.Values[i] = ec.___InputValue_isDeprecated(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -17299,6 +18742,9 @@ func (ec *executionContext) ___InputValue(ctx context.Context, sel ast.Selection
 			}
 		case "deprecationReason":
 			out.Values[i] = ec.___InputValue_deprecationReason(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -17335,6 +18781,9 @@ func (ec *executionContext) ___Schema(ctx context.Context, sel ast.SelectionSet,
 			out.Values[i] = graphql.MarshalString("__Schema")
 		case "description":
 			out.Values[i] = ec.___Schema_description(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "types":
 			out.Values[i] = ec.___Schema_types(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -17347,8 +18796,14 @@ func (ec *executionContext) ___Schema(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "mutationType":
 			out.Values[i] = ec.___Schema_mutationType(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "subscriptionType":
 			out.Values[i] = ec.___Schema_subscriptionType(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "directives":
 			out.Values[i] = ec.___Schema_directives(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -17395,24 +18850,54 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "name":
 			out.Values[i] = ec.___Type_name(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "description":
 			out.Values[i] = ec.___Type_description(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "specifiedByURL":
 			out.Values[i] = ec.___Type_specifiedByURL(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "fields":
 			out.Values[i] = ec.___Type_fields(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "interfaces":
 			out.Values[i] = ec.___Type_interfaces(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "possibleTypes":
 			out.Values[i] = ec.___Type_possibleTypes(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "enumValues":
 			out.Values[i] = ec.___Type_enumValues(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "inputFields":
 			out.Values[i] = ec.___Type_inputFields(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "ofType":
 			out.Values[i] = ec.___Type_ofType(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "isOneOf":
 			out.Values[i] = ec.___Type_isOneOf(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -17531,6 +19016,66 @@ func (ec *executionContext) unmarshalNCursor2entgoᚗioᚋcontribᚋentgqlᚐCur
 
 func (ec *executionContext) marshalNCursor2entgoᚗioᚋcontribᚋentgqlᚐCursor(ctx context.Context, sel ast.SelectionSet, v entgql.Cursor[uuid.UUID]) graphql.Marshaler {
 	return v
+}
+
+func (ec *executionContext) marshalNDeploymentVersionUI2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋworkflowᚐDeploymentVersionUI(ctx context.Context, sel ast.SelectionSet, v *workflow.DeploymentVersionUI) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._DeploymentVersionUI(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNDeploymentVersionUIConnection2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐDeploymentVersionUIConnection(ctx context.Context, sel ast.SelectionSet, v model.DeploymentVersionUIConnection) graphql.Marshaler {
+	return ec._DeploymentVersionUIConnection(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNDeploymentVersionUIConnection2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐDeploymentVersionUIConnection(ctx context.Context, sel ast.SelectionSet, v *model.DeploymentVersionUIConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._DeploymentVersionUIConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNDeploymentVersionUIEdge2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐDeploymentVersionUIEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.DeploymentVersionUIEdge) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNDeploymentVersionUIEdge2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐDeploymentVersionUIEdge(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNDeploymentVersionUIEdge2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐDeploymentVersionUIEdge(ctx context.Context, sel ast.SelectionSet, v *model.DeploymentVersionUIEdge) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._DeploymentVersionUIEdge(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNDeploymentVersionUIPageInfo2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐDeploymentVersionUIPageInfo(ctx context.Context, sel ast.SelectionSet, v *model.DeploymentVersionUIPageInfo) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._DeploymentVersionUIPageInfo(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNEntityEventsOutboxWhereInput2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋentᚋgenᚐEntityEventsOutboxWhereInput(ctx context.Context, v any) (*gen.EntityEventsOutboxWhereInput, error) {
@@ -17748,6 +19293,11 @@ func (ec *executionContext) unmarshalNRegisterWorkflowWithSignalsInput2githubᚗ
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNRemoteUIQueryInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRemoteUIQueryInput(ctx context.Context, v any) (model.RemoteUIQueryInput, error) {
+	res, err := ec.unmarshalInputRemoteUIQueryInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) marshalNServiceInfo2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐServiceInfo(ctx context.Context, sel ast.SelectionSet, v model.ServiceInfo) graphql.Marshaler {
 	return ec._ServiceInfo(ctx, sel, &v)
 }
@@ -17852,6 +19402,10 @@ func (ec *executionContext) marshalNTime2timeᚐTime(ctx context.Context, sel as
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNUIBundle2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋworkflowᚐUIBundle(ctx context.Context, sel ast.SelectionSet, v workflow.UIBundle) graphql.Marshaler {
+	return ec._UIBundle(ctx, sel, &v)
 }
 
 func (ec *executionContext) unmarshalNUInt642uint64(ctx context.Context, v any) (uint64, error) {
@@ -18759,6 +20313,13 @@ func (ec *executionContext) unmarshalORegisterWorkflowSignalInput2ᚕᚖgithub�
 		}
 	}
 	return res, nil
+}
+
+func (ec *executionContext) marshalORemoteUI2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋworkflowᚐUIBundleURLs(ctx context.Context, sel ast.SelectionSet, v *workflow.UIBundleURLs) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._RemoteUI(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOSetWorkflowAssigneeResponse2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐSetWorkflowAssigneeResponse(ctx context.Context, sel ast.SelectionSet, v *model.SetWorkflowAssigneeResponse) graphql.Marshaler {

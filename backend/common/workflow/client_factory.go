@@ -79,6 +79,7 @@ func NewDefaultClientFactory(temporalURL string, cache *ClientCache) *DefaultCli
 		clientCache: cache,
 	}
 }
+
 func (f *DefaultClientFactory) GetClient(ctx context.Context, namespace string) (*Client, error) {
 	if namespace == "" {
 		namespace = temporalclient.DefaultNamespace

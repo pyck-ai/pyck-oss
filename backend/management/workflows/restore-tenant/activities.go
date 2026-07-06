@@ -7,9 +7,17 @@ import (
 	zitadelsdk "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel"
 	org_pb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/org/v2"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/temporal"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+// ErrZitadelOrgNotFound is the application-error type returned when a
+// tenant's Zitadel org cannot be found during restore. It is registered
+// as non-retryable so Temporal fails the workflow cleanly instead of
+// retrying an activation that can never succeed — the org is gone and
+// only the SSOT-aligning reconcile/sync can resolve the divergence.
+const ErrZitadelOrgNotFound = "ZitadelOrgNotFound"
 
 // Activities groups the side-effect activities for the restore workflow.
 type Activities struct {
@@ -45,6 +53,18 @@ func (a *Activities) ActivateZitadelOrgActivity(ctx context.Context, input Activ
 				"idp_org_ref", input.IdpOrgRef,
 			)
 			return nil
+		}
+		if status.Code(err) == codes.NotFound {
+			// The org no longer exists in Zitadel, so there is nothing to reactivate.
+			logger.Error("ActivateZitadelOrgActivity: org no longer exists, cannot restore",
+				"tenant_id", input.TenantID,
+				"idp_org_ref", input.IdpOrgRef,
+			)
+			return temporal.NewNonRetryableApplicationError(
+				fmt.Sprintf("activate zitadel org %s: org no longer exists", input.IdpOrgRef),
+				ErrZitadelOrgNotFound,
+				err,
+			)
 		}
 		return fmt.Errorf("activate zitadel org %s: %w", input.IdpOrgRef, err)
 	}

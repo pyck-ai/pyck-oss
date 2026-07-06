@@ -173,10 +173,15 @@ func TestResolveOrganization_GetUserByID_TransportError_IsError(t *testing.T) {
 // resource_owner edge case
 // ============================================================================
 
-// Defensive branch: if a Zitadel user somehow has no resource_owner,
-// log Warn and return inactive. This shouldn't happen in practice but
-// the existing behaviour predates M5 and stays as-is.
-func TestResolveOrganization_NoResourceOwner_LogsWarn_ReturnsInactive(t *testing.T) {
+// Defensive branch: a Zitadel user with no resource_owner must surface
+// as an error — NOT as (Active=false, nil). The chained nil-safe
+// getters silently coalesce on any intermediate nil (Details nil, etc),
+// so collapsing this into a routine revocation would turn an SDK
+// regression, a malformed user row, or an anonymized sub into a silent
+// fleet-wide revocation that 401s every healthy tenant. Matches the
+// codes.PermissionDenied precedent above which deliberately returns an
+// error so authn keeps the cached decision.
+func TestResolveOrganization_NoResourceOwner_ReturnsError(t *testing.T) {
 	t.Parallel()
 
 	user := &stubUserClient{resp: userResp("" /* empty resource_owner */)}
@@ -184,10 +189,12 @@ func TestResolveOrganization_NoResourceOwner_LogsWarn_ReturnsInactive(t *testing
 
 	res, err := resolveOrganization(context.Background(), user, org, "user-without-org")
 
-	require.NoError(t, err)
-	require.NotNil(t, res)
-	assert.False(t, res.Active)
-	assert.Empty(t, res.OrganizationID)
+	assert.Nil(t, res, "must NOT return a result — caller would treat (false, nil) as definitive revoke")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrResolveOrganizationNoResourceOwner,
+		"must use the typed error so callers can errors.Is")
+	assert.Contains(t, err.Error(), "user-without-org",
+		"error must name the sub so operators can diagnose")
 	assert.Equal(t, 0, org.called, "no org lookup when resource_owner is empty")
 }
 

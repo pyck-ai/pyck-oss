@@ -46,6 +46,19 @@ func (a *Activities) DeactivateZitadelOrgActivity(ctx context.Context, input Dea
 			)
 			return nil
 		}
+		if status.Code(err) == codes.NotFound {
+			// The org no longer exists in Zitadel (e.g. removed by the
+			// cleanup job or a dev reset). The intent of disabling is already satisfied, so treat this as
+			// success. The tenant row is already soft-deleted by the resolver.
+			// Info, not Warn: this is an expected no-op during org cleanup /
+			// dev reset and we treat it as success, matching how the
+			// tenant-reconcile path logs the same condition.
+			logger.Info("DeactivateZitadelOrgActivity: org no longer exists, treating disable as complete",
+				"tenant_id", input.TenantID,
+				"idp_org_ref", input.IdpOrgRef,
+			)
+			return nil
+		}
 		return fmt.Errorf("deactivate zitadel org %s: %w", input.IdpOrgRef, err)
 	}
 

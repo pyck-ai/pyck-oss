@@ -12,6 +12,7 @@ Every `.env` file has a `DEPLOY_ON` key that maps a trigger to an environment:
 | `pre_release`   | Pre-release     | GitHub pre-release published  |
 | `release`       | Full release    | GitHub release published      |
 | `feature_branch`| Feature branch  | Any push to a non-main branch |
+| `manual`        | Manual only     | Never auto-deploys; dispatch the deployment workflow by hand |
 
 ## Feature Branches
 
@@ -33,4 +34,5 @@ No workflow changes needed — the resolve job picks it up automatically.
 |---------------|-------------------|------------|
 | `dev.env`     | `push_main`       | dev        |
 | `test.env`    | `pre_release`     | test       |
+| `eu-prod.env` | `manual`          | eu-prod    |
 | `feature.env` | `feature_branch`  | ephemeral  |

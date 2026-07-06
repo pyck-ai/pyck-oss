@@ -63,6 +63,39 @@ query GetWorkflowSignals($after: Cursor, $first: Int, $before: Cursor, $last: In
 }
 
 
+query GetRemoteUI($input: RemoteUIQueryInput!) {
+  remoteUI(input: $input) {
+    mobile
+    web
+  }
+}
+
+
+query GetWorkerDeploymentUIBundles($first: Int, $after: String) {
+  workerDeploymentUIBundles(first: $first, after: $after) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    edges {
+      cursor
+      node {
+        buildID
+        bundle {
+          slug
+          version
+        }
+        deploymentName
+        drainageStatus
+      }
+    }
+  }
+}
+
+
 query GetWorkflowServiceInfo {
   workflowServiceInfo {
     date

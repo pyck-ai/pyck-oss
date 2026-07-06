@@ -200,8 +200,18 @@ func collectionVarName(varNS, refStr string) string {
 
 func resolveVars(m map[string]any, varNS string) map[string]any {
 	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = resolveVarValue(v, varNS)
+	// Visit keys in sorted order so the nonce sequence counter (see
+	// nextScenarioSeq) assigns the same suffix to the same field on every
+	// run. Ranging over the map directly uses Go's randomized iteration
+	// order, which shuffles the -1/-2/-3 suffixes and makes the generated
+	// fixtures non-reproducible.
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		out[k] = resolveVarValue(m[k], varNS)
 	}
 	return out
 }

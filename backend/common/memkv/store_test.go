@@ -2,6 +2,7 @@ package memkv_test
 
 import (
 	"fmt"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -78,6 +79,33 @@ func TestTTLZeroIsForever(t *testing.T) {
 	}
 }
 
+// TestNegativeTTLNotStored guards against the eternal-allowlist bug
+// (#1169): a negative TTL is already-expired and must be dropped, not
+// stored as a never-expiring entry (which is what ttl == 0 means).
+func TestNegativeTTLNotStored(t *testing.T) {
+	t.Parallel()
+	kv := memkv.NewInMemoryKVStore(0)
+
+	kv.Set("k", "v", -1*time.Second)
+	if v, ok := kv.Get("k"); ok || v != nil {
+		t.Fatalf("Get on negative-TTL entry returned (%v, %v); want (nil, false)", v, ok)
+	}
+}
+
+// TestNegativeTTLDoesNotOverwrite ensures a negative-TTL Set is a no-op
+// even when a valid entry already exists for the key — it must neither
+// replace nor evict the live value.
+func TestNegativeTTLDoesNotOverwrite(t *testing.T) {
+	t.Parallel()
+	kv := memkv.NewInMemoryKVStore(0)
+
+	kv.Set("k", "live", 0)
+	kv.Set("k", "stale", -1*time.Second)
+	if v, ok := kv.Get("k"); !ok || v.(string) != "live" {
+		t.Fatalf("Get returned (%v, %v); want (live, true)", v, ok)
+	}
+}
+
 func TestCleanupTickerRemovesExpired(t *testing.T) {
 	t.Parallel()
 	// 10ms cleanup tick; entry expires at ~5ms.
@@ -92,6 +120,155 @@ func TestCleanupTickerRemovesExpired(t *testing.T) {
 	kv.ForEach(func(_ string, _ any) { count++ })
 	if count != 0 {
 		t.Fatalf("ForEach after cleanup saw %d entries; want 0", count)
+	}
+}
+
+// Close must stop the cleanup ticker and its goroutine — without it,
+// every NewInMemoryKVStore call with a non-zero cleanupInterval leaks
+// a goroutine and a ticker for the process lifetime. Detect the leak
+// by counting goroutines around a fresh New+Close pair and asserting
+// we land back on the baseline.
+//
+// Deliberately NOT t.Parallel(): the assertion counts process-global
+// goroutines, so any parallel sibling (the concurrency tests spawn
+// dozens) pollutes the delta and flakes under CI scheduling.
+// Sequential tests run with no parallel siblings active.
+//
+//nolint:paralleltest // counts process-global goroutines; parallel siblings pollute the delta
+func TestCloseStopsCleanupGoroutine(t *testing.T) {
+	baseline := runtime.NumGoroutine()
+	kv := memkv.NewInMemoryKVStore(10 * time.Millisecond)
+	if delta := runtime.NumGoroutine() - baseline; delta < 1 {
+		t.Fatalf("expected cleanup goroutine to start; delta=%d", delta)
+	}
+
+	kv.Close()
+	// The goroutine exits asynchronously after the stop channel closes;
+	// poll instead of a fixed sleep so a slow scheduler doesn't flake.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if runtime.NumGoroutine()-baseline <= 0 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("Close did not stop the cleanup goroutine; leaked %d goroutines", runtime.NumGoroutine()-baseline)
+}
+
+// Close must be safe to call on a store constructed without a ticker
+// (cleanupInterval == 0 starts no goroutine). Must not panic on nil
+// ticker.
+func TestCloseSafeWithoutTicker(t *testing.T) {
+	t.Parallel()
+	kv := memkv.NewInMemoryKVStore(0)
+	kv.Close() // must not panic
+}
+
+// Close must be idempotent — defer kv.Close() in production paired with
+// an explicit kv.Close() in a sync.Once cleanup is a real pattern.
+func TestCloseIdempotent(t *testing.T) {
+	t.Parallel()
+	kv := memkv.NewInMemoryKVStore(10 * time.Millisecond)
+	kv.Close()
+	kv.Close() // second call must not panic on already-stopped ticker
+}
+
+// DeleteBySecondaryKey evicts every entry indexed under the secondary
+// key. The auth provider uses this to evict all cached tokens for a
+// tenant in O(k) where k is the disabled tenant's tokens — instead of
+// O(N) where N is every cached token, as DeleteWhere is.
+//
+// Pre-fix OnTenantDisabled held the write lock during an O(N) scan,
+// blocking every concurrent Get. The secondary-index path is O(k)
+// inside the lock — even a 50k-entry cache evicts a 3-token tenant in
+// microseconds.
+func TestSetWithSecondaryKey_DeleteBySecondaryKey_RemovesIndexedEntries(t *testing.T) {
+	t.Parallel()
+
+	kv := memkv.NewInMemoryKVStore(0)
+
+	// Two tenants, three tokens for tenant A, one for tenant B,
+	// one unindexed entry.
+	kv.SetWithSecondaryKey("tokA1", "userA1", 0, "tenantA")
+	kv.SetWithSecondaryKey("tokA2", "userA2", 0, "tenantA")
+	kv.SetWithSecondaryKey("tokA3", "userA3", 0, "tenantA")
+	kv.SetWithSecondaryKey("tokB1", "userB1", 0, "tenantB")
+	kv.Set("plainTok", "plainValue", 0)
+
+	n := kv.DeleteBySecondaryKey("tenantA")
+	if n != 3 {
+		t.Fatalf("DeleteBySecondaryKey returned %d; want 3", n)
+	}
+
+	// Tenant A's tokens are gone.
+	for _, key := range []string{"tokA1", "tokA2", "tokA3"} {
+		if _, ok := kv.Get(key); ok {
+			t.Fatalf("%q should have been deleted", key)
+		}
+	}
+	// Tenant B's token + the unindexed entry stay.
+	if _, ok := kv.Get("tokB1"); !ok {
+		t.Fatal("tokB1 must NOT have been deleted (different tenant)")
+	}
+	if _, ok := kv.Get("plainTok"); !ok {
+		t.Fatal("plainTok must NOT have been deleted (no secondary index)")
+	}
+}
+
+// DeleteBySecondaryKey on an unknown key is a no-op returning 0, not a
+// panic on a nil map.
+func TestDeleteBySecondaryKey_UnknownKey(t *testing.T) {
+	t.Parallel()
+
+	kv := memkv.NewInMemoryKVStore(0)
+	kv.SetWithSecondaryKey("k", "v", 0, "known")
+
+	n := kv.DeleteBySecondaryKey("never-set")
+	if n != 0 {
+		t.Fatalf("DeleteBySecondaryKey on unknown key returned %d; want 0", n)
+	}
+	if _, ok := kv.Get("k"); !ok {
+		t.Fatal("k should still exist after unrelated DeleteBySecondaryKey")
+	}
+}
+
+// Overwriting an indexed entry must move the index — the new
+// secondary key takes ownership; the old key no longer points at it.
+func TestSetWithSecondaryKey_OverwriteRebindsIndex(t *testing.T) {
+	t.Parallel()
+
+	kv := memkv.NewInMemoryKVStore(0)
+	kv.SetWithSecondaryKey("k", "v1", 0, "tenantA")
+	kv.SetWithSecondaryKey("k", "v2", 0, "tenantB") // rebind
+
+	// Deleting by the OLD secondary key must not touch k.
+	if n := kv.DeleteBySecondaryKey("tenantA"); n != 0 {
+		t.Fatalf("stale index: DeleteBySecondaryKey(tenantA) returned %d; want 0", n)
+	}
+	if _, ok := kv.Get("k"); !ok {
+		t.Fatal("k should still exist; old secondary key bound to nothing")
+	}
+	// Deleting by the NEW secondary key removes k.
+	if n := kv.DeleteBySecondaryKey("tenantB"); n != 1 {
+		t.Fatalf("new index: DeleteBySecondaryKey(tenantB) returned %d; want 1", n)
+	}
+	if _, ok := kv.Get("k"); ok {
+		t.Fatal("k should have been deleted via the new secondary key")
+	}
+}
+
+// Delete on a primary key must also remove the entry from the
+// secondary index — otherwise DeleteBySecondaryKey would later report
+// a phantom hit on an already-deleted key.
+func TestDelete_RemovesFromSecondaryIndex(t *testing.T) {
+	t.Parallel()
+
+	kv := memkv.NewInMemoryKVStore(0)
+	kv.SetWithSecondaryKey("k", "v", 0, "tenantA")
+	kv.Delete("k")
+
+	if n := kv.DeleteBySecondaryKey("tenantA"); n != 0 {
+		t.Fatalf("after Delete, DeleteBySecondaryKey returned %d; want 0", n)
 	}
 }
 

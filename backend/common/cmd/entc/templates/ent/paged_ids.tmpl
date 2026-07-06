@@ -1,0 +1,39 @@
+{{/* gotype: entgo.io/ent/entc/gen.Graph */}}
+
+{{ define "paged_ids" }}
+{{ template "header" $ }}
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+)
+
+{{ range $node := $.Nodes }}
+// PagedIDs paginates through the ids of all {{ $node.Name }} records matching
+// the current query predicates in pages of pageSize, collecting every id. It is
+// the .IDs(ctx) counterpart of AllPages: use it instead of a bare .IDs(ctx),
+// which the LimitMixin hard cap silently truncates when no explicit Limit is
+// set. Unlike .Select(FieldID).AllPages(), it scans ids directly without
+// allocating a {{ $node.Name }} struct per row.
+//
+// An ORDER BY id ASC is appended so pagination is deterministic — without it,
+// Postgres LIMIT/OFFSET returns rows in unspecified order and pages can
+// overlap or skip rows depending on the chosen plan.
+func ({{ $node.QueryReceiver }} *{{ $node.QueryName }}) PagedIDs(ctx context.Context, pageSize int) ([]{{ $node.ID.Type }}, error) {
+	var all []{{ $node.ID.Type }}
+	for offset := 0; ; offset += pageSize {
+		page, err := {{ $node.QueryReceiver }}.Clone().Order(Asc("id")).Limit(pageSize).Offset(offset).IDs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if len(page) < pageSize {
+			break
+		}
+	}
+	return all, nil
+}
+{{ end }}
+
+{{ end }}

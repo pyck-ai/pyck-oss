@@ -1,0 +1,11 @@
+info:
+  name: Cross - Workflow Data Unique Field Update
+  type: folder
+  seq: 1
+
+docs: |-
+  Regression test for #1142. When a workflow's DataType schema marks a field "unique": true, registerWorkflow must run the uniqueness check before persisting and exclude the workflow's own row on update. registerWorkflow upserts on (tenant, taskQueue, name), so re-registering the same name/queue is an update. Verifies that creating a workflow with a unique field succeeds, re-registering with the same unique value or a new genuinely-unique value succeeds, while registering a different workflow with a value already owned by another workflow is still rejected.
+
+
+request:
+  auth: inherit

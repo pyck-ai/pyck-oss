@@ -6,18 +6,6 @@ seed:
     - name: alpha
     - name: beta
 
-  roles:
-    - name: role-alpha
-      tenant: alpha
-    - name: role-beta
-      tenant: beta
-
-  groups:
-    - name: group-alpha
-      tenant: alpha
-    - name: group-beta
-      tenant: beta
-
   users:
     - name: user-alpha
       tenant: alpha
@@ -62,16 +50,3 @@ checks:
     tenant: beta
     description: "beta still has 1 user after failed cross-delete"
     expectCount: 1
-
-  # CreateUser now validates tenantID matches caller + validates roleIDs/groupIDs.
-  # (Cannot easily test tenantID mismatch via YAML — needs direct GraphQL with wrong tenantID.)
-
-  # UpdateUser now validates addRoleIDs/addGroupIDs tenant ownership.
-  - type: cross-update-with-args
-    entity: user
-    tenant: alpha
-    target: alpha/user-alpha
-    description: "alpha cannot add beta's role to own user"
-    args:
-      addRoleID: beta/role-beta
-    expectError: "invalid role IDs"

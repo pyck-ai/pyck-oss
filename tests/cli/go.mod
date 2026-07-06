@@ -18,10 +18,7 @@ require (
 	github.com/gqlgo/gqlgenc v0.37.0
 	github.com/pyck-ai/pyck/backend/common v0.0.0-00010101000000-000000000000
 	github.com/pyck-ai/pyck/backend/inventory v0.0.0-00010101000000-000000000000
-	github.com/pyck-ai/pyck/backend/main-data v0.0.0-00010101000000-000000000000
 	github.com/pyck-ai/pyck/backend/management v0.0.0-00010101000000-000000000000
-	github.com/pyck-ai/pyck/backend/picking v0.0.0-00010101000000-000000000000
-	github.com/pyck-ai/pyck/backend/receiving v0.0.0-00010101000000-000000000000
 )
 
 require (

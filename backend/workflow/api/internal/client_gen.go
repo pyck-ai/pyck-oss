@@ -15,6 +15,8 @@ import (
 type APIClient interface {
 	GetWorkflows(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *WorkflowOrder, where *WorkflowWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetWorkflows, error)
 	GetWorkflowSignals(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *WorkflowSignalOrder, where *WorkflowSignalWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetWorkflowSignals, error)
+	GetRemoteUI(ctx context.Context, input model.RemoteUIQueryInput, interceptors ...clientv2.RequestInterceptor) (*GetRemoteUI, error)
+	GetWorkerDeploymentUIBundles(ctx context.Context, first *int, after *string, interceptors ...clientv2.RequestInterceptor) (*GetWorkerDeploymentUIBundles, error)
 	GetWorkflowServiceInfo(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetWorkflowServiceInfo, error)
 	GetCurrentUserDataInput(ctx context.Context, input model.UserDataInputQueryInput, interceptors ...clientv2.RequestInterceptor) (*GetCurrentUserDataInput, error)
 	GetWorkflowExecutions(ctx context.Context, where *model.WorkflowExecutionsWhereInput, first *int, after *string, orderBy *model.WorkflowExecutionOrder, interceptors ...clientv2.RequestInterceptor) (*GetWorkflowExecutions, error)
@@ -378,6 +380,149 @@ func (t *GetWorkflowSignals_WorkflowSignals) GetPageInfo() *GetWorkflowSignals_W
 func (t *GetWorkflowSignals_WorkflowSignals) GetTotalCount() int {
 	if t == nil {
 		t = &GetWorkflowSignals_WorkflowSignals{}
+	}
+	return t.TotalCount
+}
+
+type GetRemoteUI_RemoteUI struct {
+	Mobile string "json:\"mobile\" graphql:\"mobile\""
+	Web    string "json:\"web\" graphql:\"web\""
+}
+
+func (t *GetRemoteUI_RemoteUI) GetMobile() string {
+	if t == nil {
+		t = &GetRemoteUI_RemoteUI{}
+	}
+	return t.Mobile
+}
+func (t *GetRemoteUI_RemoteUI) GetWeb() string {
+	if t == nil {
+		t = &GetRemoteUI_RemoteUI{}
+	}
+	return t.Web
+}
+
+type GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node_Bundle struct {
+	Slug    string "json:\"slug\" graphql:\"slug\""
+	Version string "json:\"version\" graphql:\"version\""
+}
+
+func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node_Bundle) GetSlug() string {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node_Bundle{}
+	}
+	return t.Slug
+}
+func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node_Bundle) GetVersion() string {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node_Bundle{}
+	}
+	return t.Version
+}
+
+type GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node struct {
+	BuildID        string                                                                   "json:\"buildID\" graphql:\"buildID\""
+	Bundle         GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node_Bundle "json:\"bundle\" graphql:\"bundle\""
+	DeploymentName string                                                                   "json:\"deploymentName\" graphql:\"deploymentName\""
+	DrainageStatus string                                                                   "json:\"drainageStatus\" graphql:\"drainageStatus\""
+}
+
+func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node) GetBuildID() string {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node{}
+	}
+	return t.BuildID
+}
+func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node) GetBundle() *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node_Bundle {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node{}
+	}
+	return &t.Bundle
+}
+func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node) GetDeploymentName() string {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node{}
+	}
+	return t.DeploymentName
+}
+func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node) GetDrainageStatus() string {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node{}
+	}
+	return t.DrainageStatus
+}
+
+type GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges struct {
+	Cursor string                                                            "json:\"cursor\" graphql:\"cursor\""
+	Node   GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node "json:\"node\" graphql:\"node\""
+}
+
+func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges) GetCursor() string {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges{}
+	}
+	return t.Cursor
+}
+func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges) GetNode() *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges_Node {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges{}
+	}
+	return &t.Node
+}
+
+type GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles struct {
+	Edges      []*GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges "json:\"edges\" graphql:\"edges\""
+	PageInfo   GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                                             "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles) GetEdges() []*GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_Edges {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles{}
+	}
+	return t.Edges
+}
+func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles) GetPageInfo() *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_PageInfo {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles{}
+	}
+	return &t.PageInfo
+}
+func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles) GetTotalCount() int {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles{}
 	}
 	return t.TotalCount
 }
@@ -1492,6 +1637,28 @@ func (t *GetWorkflowSignals) GetWorkflowSignals() *GetWorkflowSignals_WorkflowSi
 	return &t.WorkflowSignals
 }
 
+type GetRemoteUI struct {
+	RemoteUI *GetRemoteUI_RemoteUI "json:\"remoteUI,omitempty\" graphql:\"remoteUI\""
+}
+
+func (t *GetRemoteUI) GetRemoteUI() *GetRemoteUI_RemoteUI {
+	if t == nil {
+		t = &GetRemoteUI{}
+	}
+	return t.RemoteUI
+}
+
+type GetWorkerDeploymentUIBundles struct {
+	WorkerDeploymentUIBundles GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles "json:\"workerDeploymentUIBundles\" graphql:\"workerDeploymentUIBundles\""
+}
+
+func (t *GetWorkerDeploymentUIBundles) GetWorkerDeploymentUIBundles() *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles {
+	if t == nil {
+		t = &GetWorkerDeploymentUIBundles{}
+	}
+	return &t.WorkerDeploymentUIBundles
+}
+
 type GetWorkflowServiceInfo struct {
 	WorkflowServiceInfo GetWorkflowServiceInfo_WorkflowServiceInfo "json:\"workflowServiceInfo\" graphql:\"workflowServiceInfo\""
 }
@@ -1775,6 +1942,74 @@ func (c *Client) GetWorkflowSignals(ctx context.Context, after *string, first *i
 
 	var res GetWorkflowSignals
 	if err := c.Client.Post(ctx, "GetWorkflowSignals", GetWorkflowSignalsDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const GetRemoteUIDocument = `query GetRemoteUI ($input: RemoteUIQueryInput!) {
+	remoteUI(input: $input) {
+		mobile
+		web
+	}
+}
+`
+
+func (c *Client) GetRemoteUI(ctx context.Context, input model.RemoteUIQueryInput, interceptors ...clientv2.RequestInterceptor) (*GetRemoteUI, error) {
+	vars := map[string]any{
+		"input": input,
+	}
+
+	var res GetRemoteUI
+	if err := c.Client.Post(ctx, "GetRemoteUI", GetRemoteUIDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const GetWorkerDeploymentUIBundlesDocument = `query GetWorkerDeploymentUIBundles ($first: Int, $after: String) {
+	workerDeploymentUIBundles(first: $first, after: $after) {
+		totalCount
+		pageInfo {
+			hasNextPage
+			hasPreviousPage
+			startCursor
+			endCursor
+		}
+		edges {
+			cursor
+			node {
+				buildID
+				bundle {
+					slug
+					version
+				}
+				deploymentName
+				drainageStatus
+			}
+		}
+	}
+}
+`
+
+func (c *Client) GetWorkerDeploymentUIBundles(ctx context.Context, first *int, after *string, interceptors ...clientv2.RequestInterceptor) (*GetWorkerDeploymentUIBundles, error) {
+	vars := map[string]any{
+		"first": first,
+		"after": after,
+	}
+
+	var res GetWorkerDeploymentUIBundles
+	if err := c.Client.Post(ctx, "GetWorkerDeploymentUIBundles", GetWorkerDeploymentUIBundlesDocument, &res, vars, interceptors...); err != nil {
 		if c.Client.ParseDataWhenErrors {
 			return &res, err
 		}
@@ -2339,6 +2574,8 @@ func (c *Client) SetWorkflowTargets(ctx context.Context, input model.SetWorkflow
 var DocumentOperationNames = map[string]string{
 	GetWorkflowsDocument:                    "GetWorkflows",
 	GetWorkflowSignalsDocument:              "GetWorkflowSignals",
+	GetRemoteUIDocument:                     "GetRemoteUI",
+	GetWorkerDeploymentUIBundlesDocument:    "GetWorkerDeploymentUIBundles",
 	GetWorkflowServiceInfoDocument:          "GetWorkflowServiceInfo",
 	GetCurrentUserDataInputDocument:         "GetCurrentUserDataInput",
 	GetWorkflowExecutionsDocument:           "GetWorkflowExecutions",

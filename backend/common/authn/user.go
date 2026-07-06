@@ -1,6 +1,8 @@
 package authn
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+)
 
 func SystemUser() *User {
 	return &User{
@@ -25,6 +27,11 @@ type User struct {
 	Username string
 	// Roles is a map of roles the user has in each tenant.
 	Roles map[uuid.UUID]Role
+	// ServiceRoles holds the per-service gate role keys (e.g.
+	// "inventory_service", see package serviceroles) the user has in each
+	// tenant. Tracked separately from the privilege ladder; the gate enforces
+	// them per service.
+	ServiceRoles map[uuid.UUID]map[string]struct{}
 	// Token is the authentication token of the user.
 	Token string
 }
@@ -62,6 +69,22 @@ func (u User) Role(tenantIDs ...uuid.UUID) Role {
 	}
 
 	return role
+}
+
+// HasServiceRole reports whether the user holds the given per-service gate
+// role key in the tenant. System users implicitly hold every service role.
+func (u User) HasServiceRole(key string, tenantID uuid.UUID) bool {
+	if u.IsSystemUser() {
+		return true
+	}
+
+	roles, ok := u.ServiceRoles[tenantID]
+	if !ok {
+		return false
+	}
+
+	_, ok = roles[key]
+	return ok
 }
 
 // HasRole checks if the user has a specific role in a given tenant.

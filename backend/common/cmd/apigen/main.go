@@ -9,11 +9,10 @@ import (
 )
 
 const (
-	logPrefix        = "apigen: "
-	defaultSchemaDir = "./graph"
-	defaultOutputDir = "./api/graph"
-	generatedPrefix  = "Generated: "
-	dryRunPrefix     = "[DRY-RUN] Would write: "
+	logPrefix            = "apigen: "
+	defaultSchemaDir     = "./graph"
+	defaultOutputDir     = "./api/graph"
+	defaultOperationsDir = "./api/operations"
 )
 
 var (
@@ -42,6 +41,12 @@ func main() {
 				Usage:   "Output directory for generated client query files",
 				Value:   defaultOutputDir,
 			},
+			&cli.StringFlag{
+				Name:    "operations",
+				Aliases: []string{"p"},
+				Usage:   "Directory of hand-written operation files appended to the generated output (optional)",
+				Value:   defaultOperationsDir,
+			},
 			&cli.BoolFlag{
 				Name:    "verbose",
 				Aliases: []string{"v"},
@@ -68,10 +73,12 @@ func run(c *cli.Context) error {
 
 	schemaDir := c.String("schema")
 	outputDir := c.String("output")
+	operationsDir := c.String("operations")
 
 	if verbose {
 		log.Printf("Schema directory: %s", schemaDir)
 		log.Printf("Output directory: %s", outputDir)
+		log.Printf("Operations directory: %s", operationsDir)
 		if dryRun {
 			log.Printf("Dry-run mode enabled - no files will be written")
 		}
@@ -99,7 +106,7 @@ func run(c *cli.Context) error {
 	}
 
 	// Generate client queries and mutations
-	if err := generateClientQueries(schema, outputDir); err != nil {
+	if err := generateClientQueries(schema, outputDir, operationsDir); err != nil {
 		return fmt.Errorf("failed to generate client queries: %w", err)
 	}
 

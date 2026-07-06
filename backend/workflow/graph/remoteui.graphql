@@ -1,0 +1,72 @@
+extend type Query {
+  """
+  Resolves the fully rendered web + mobile UI bundle URLs for a specific
+  workflow execution, keyed by workflow ID + run ID.
+
+  The bundle slug/version come from the Worker Deployment Version the
+  execution is pinned to (read from that version's metadata); the origin and
+  path layout come from the tenant's stored URL templates. The two are
+  combined and forwarded as-is — no composition happens in this resolver.
+
+  When the bundle can't be read from a pinned version (none pinned, or not
+  stamped yet) it falls back to the system-wide default bundle if one is
+  configured, otherwise it errors.
+  """
+  remoteUI(input: RemoteUIQueryInput!): RemoteUI
+
+  """
+  Lists every Worker Deployment Version in the tenant's namespace with its
+  drainage status and the UI bundle it ships. Used for drain visibility — which
+  versions still have pinned in-flight executions (draining) versus which are
+  safe to retire (drained). Admin-only.
+  """
+  workerDeploymentUIBundles(first: Int, after: String): DeploymentVersionUIConnection!
+}
+
+input RemoteUIQueryInput {
+  workflowID: String!
+  workflowExecutionID: String!
+}
+
+"""Fully rendered web + mobile UI bundle URLs."""
+type RemoteUI {
+  web: String!
+  mobile: String!
+}
+
+"""The UI bundle (slug + version) a deployment version ships."""
+type UIBundle {
+  slug: String!
+  version: String!
+}
+
+"""A Worker Deployment Version and the UI bundle it ships."""
+type DeploymentVersionUI {
+  deploymentName: String!
+  buildID: String!
+  """One of: unspecified, draining, drained."""
+  drainageStatus: String!
+  """Version-wide UI bundle stamped on the version (empty slug/version if none)."""
+  bundle: UIBundle!
+}
+
+"""A connection to a list of DeploymentVersionUI items."""
+type DeploymentVersionUIConnection {
+  edges: [DeploymentVersionUIEdge!]!
+  pageInfo: DeploymentVersionUIPageInfo!
+  totalCount: Int!
+}
+
+"""An edge in a DeploymentVersionUI connection."""
+type DeploymentVersionUIEdge {
+  node: DeploymentVersionUI!
+  cursor: String!
+}
+
+"""Pagination information for a DeploymentVersionUI connection."""
+type DeploymentVersionUIPageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}

@@ -1,0 +1,11 @@
+info:
+  name: Cross - Inventory Repository Unique Field Update
+  type: folder
+  seq: 1
+
+docs: |-
+  Regression test for #1142. When a repository's DataType schema marks a field "unique": true, updateInventoryRepository must exclude the entity's own row from the uniqueness check and run the check before persisting. Verifies that updating with the same unique value, or to a new genuinely-unique value, succeeds — while updating to a value already owned by a different repository is still rejected.
+
+
+request:
+  auth: inherit

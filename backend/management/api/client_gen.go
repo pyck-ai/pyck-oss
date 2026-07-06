@@ -44,23 +44,19 @@ func DefaultClient(ctx context.Context, interceptors ...clientv2.RequestIntercep
 }
 
 type Client interface {
-	GetAccessPolicies(ctx context.Context, input GetAccessPoliciesArgs) (*GetAccessPolicies, error)
 	GetDataTypes(ctx context.Context, input GetDataTypesArgs) (*GetDataTypes, error)
 	GetDevices(ctx context.Context, input GetDevicesArgs) (*GetDevices, error)
 	GetDeviceLocations(ctx context.Context, input GetDeviceLocationsArgs) (*GetDeviceLocations, error)
 	GetDeviceUsers(ctx context.Context, input GetDeviceUsersArgs) (*GetDeviceUsers, error)
 	GetEvents(ctx context.Context, input GetEventsArgs) (*GetEvents, error)
-	GetGroups(ctx context.Context, input GetGroupsArgs) (*GetGroups, error)
 	GetKeyValues(ctx context.Context, input GetKeyValuesArgs) (*GetKeyValues, error)
 	GetLocations(ctx context.Context, input GetLocationsArgs) (*GetLocations, error)
-	GetRoles(ctx context.Context, input GetRolesArgs) (*GetRoles, error)
 	GetTenants(ctx context.Context, input GetTenantsArgs) (*GetTenants, error)
 	GetUsers(ctx context.Context, input GetUsersArgs) (*GetUsers, error)
 	GetDataTypeEntities(ctx context.Context) (*GetDataTypeEntities, error)
-	GetGroup(ctx context.Context, input GetGroupArgs) (*GetGroup, error)
 	GetOrganization(ctx context.Context, input GetOrganizationArgs) (*GetOrganization, error)
-	GetPolicy(ctx context.Context, input GetPolicyArgs) (*GetPolicy, error)
-	GetRole(ctx context.Context, input GetRoleArgs) (*GetRole, error)
+	GetServiceRoles(ctx context.Context) (*GetServiceRoles, error)
+	GetUserServiceRoles(ctx context.Context, input GetUserServiceRolesArgs) (*GetUserServiceRoles, error)
 	GetManagementServiceInfo(ctx context.Context) (*GetManagementServiceInfo, error)
 	GetMe(ctx context.Context) (*GetMe, error)
 	CreateDataType(ctx context.Context, input CreateDataTypeArgs) (*CreateDataType, error)
@@ -71,16 +67,8 @@ type Client interface {
 	DeleteTenant(ctx context.Context) (*DeleteTenant, error)
 	RestoreTenant(ctx context.Context, input RestoreTenantArgs) (*RestoreTenant, error)
 	SetTenantExpiry(ctx context.Context, input SetTenantExpiryArgs) (*SetTenantExpiry, error)
+	SetTenantUITemplate(ctx context.Context, input SetTenantUITemplateArgs) (*SetTenantUITemplate, error)
 	GenerateJSONSchema(ctx context.Context, input GenerateJSONSchemaArgs) (*GenerateJSONSchema, error)
-	CreatePolicy(ctx context.Context, input CreatePolicyArgs) (*CreatePolicy, error)
-	UpdatePolicy(ctx context.Context, input UpdatePolicyArgs) (*UpdatePolicy, error)
-	DeletePolicy(ctx context.Context, input DeletePolicyArgs) (*DeletePolicy, error)
-	CreateGroup(ctx context.Context, input CreateGroupArgs) (*CreateGroup, error)
-	UpdateGroup(ctx context.Context, input UpdateGroupArgs) (*UpdateGroup, error)
-	DeleteGroup(ctx context.Context, input DeleteGroupArgs) (*DeleteGroup, error)
-	CreateRole(ctx context.Context, input CreateRoleArgs) (*CreateRole, error)
-	UpdateRole(ctx context.Context, input UpdateRoleArgs) (*UpdateRole, error)
-	DeleteRole(ctx context.Context, input DeleteRoleArgs) (*DeleteRole, error)
 	CreateUser(ctx context.Context, input CreateUserArgs) (*CreateUser, error)
 	UpdateUser(ctx context.Context, input UpdateUserArgs) (*UpdateUser, error)
 	DeleteUser(ctx context.Context, input DeleteUserArgs) (*DeleteUser, error)
@@ -102,6 +90,8 @@ type Client interface {
 	PatchLocationData(ctx context.Context, input PatchLocationDataArgs) (*PatchLocationData, error)
 	PatchDeviceData(ctx context.Context, input PatchDeviceDataArgs) (*PatchDeviceData, error)
 	PatchDeviceLocationData(ctx context.Context, input PatchDeviceLocationDataArgs) (*PatchDeviceLocationData, error)
+	AssignRoles(ctx context.Context, input AssignRolesArgs) (*AssignRoles, error)
+	RemoveRoles(ctx context.Context, input RemoveRolesArgs) (*RemoveRoles, error)
 }
 
 type client struct {
@@ -115,20 +105,6 @@ func NewClient(c clientv2.HttpClient, baseURL string, options *clientv2.Options,
 	return &client{
 		api: api,
 	}
-}
-
-// GetAccessPoliciesArgs is a sparse struct for GetAccessPolicies parameters
-type GetAccessPoliciesArgs struct {
-	After   *string
-	First   *int
-	Before  *string
-	Last    *int
-	OrderBy *AccessPolicyOrder
-	Where   *AccessPolicyWhereInput
-}
-
-func (c *client) GetAccessPolicies(ctx context.Context, input GetAccessPoliciesArgs) (*GetAccessPolicies, error) {
-	return c.api.GetAccessPolicies(ctx, input.After, input.First, input.Before, input.Last, input.OrderBy, input.Where)
 }
 
 // GetDataTypesArgs is a sparse struct for GetDataTypes parameters
@@ -201,20 +177,6 @@ func (c *client) GetEvents(ctx context.Context, input GetEventsArgs) (*GetEvents
 	return c.api.GetEvents(ctx, input.After, input.First, input.Before, input.Last, input.OrderBy, input.Where)
 }
 
-// GetGroupsArgs is a sparse struct for GetGroups parameters
-type GetGroupsArgs struct {
-	After   *string
-	First   *int
-	Before  *string
-	Last    *int
-	OrderBy *GroupOrder
-	Where   *GroupWhereInput
-}
-
-func (c *client) GetGroups(ctx context.Context, input GetGroupsArgs) (*GetGroups, error) {
-	return c.api.GetGroups(ctx, input.After, input.First, input.Before, input.Last, input.OrderBy, input.Where)
-}
-
 // GetKeyValuesArgs is a sparse struct for GetKeyValues parameters
 type GetKeyValuesArgs struct {
 	After   *string
@@ -241,20 +203,6 @@ type GetLocationsArgs struct {
 
 func (c *client) GetLocations(ctx context.Context, input GetLocationsArgs) (*GetLocations, error) {
 	return c.api.GetLocations(ctx, input.After, input.First, input.Before, input.Last, input.OrderBy, input.Where)
-}
-
-// GetRolesArgs is a sparse struct for GetRoles parameters
-type GetRolesArgs struct {
-	After   *string
-	First   *int
-	Before  *string
-	Last    *int
-	OrderBy *RoleOrder
-	Where   *RoleWhereInput
-}
-
-func (c *client) GetRoles(ctx context.Context, input GetRolesArgs) (*GetRoles, error) {
-	return c.api.GetRoles(ctx, input.After, input.First, input.Before, input.Last, input.OrderBy, input.Where)
 }
 
 // GetTenantsArgs is a sparse struct for GetTenants parameters
@@ -289,15 +237,6 @@ func (c *client) GetDataTypeEntities(ctx context.Context) (*GetDataTypeEntities,
 	return c.api.GetDataTypeEntities(ctx)
 }
 
-// GetGroupArgs is a sparse struct for GetGroup parameters
-type GetGroupArgs struct {
-	Id string
-}
-
-func (c *client) GetGroup(ctx context.Context, input GetGroupArgs) (*GetGroup, error) {
-	return c.api.GetGroup(ctx, input.Id)
-}
-
 // GetOrganizationArgs is a sparse struct for GetOrganization parameters
 type GetOrganizationArgs struct {
 	Sub string
@@ -307,22 +246,17 @@ func (c *client) GetOrganization(ctx context.Context, input GetOrganizationArgs)
 	return c.api.GetOrganization(ctx, input.Sub)
 }
 
-// GetPolicyArgs is a sparse struct for GetPolicy parameters
-type GetPolicyArgs struct {
-	Id string
+func (c *client) GetServiceRoles(ctx context.Context) (*GetServiceRoles, error) {
+	return c.api.GetServiceRoles(ctx)
 }
 
-func (c *client) GetPolicy(ctx context.Context, input GetPolicyArgs) (*GetPolicy, error) {
-	return c.api.GetPolicy(ctx, input.Id)
+// GetUserServiceRolesArgs is a sparse struct for GetUserServiceRoles parameters
+type GetUserServiceRolesArgs struct {
+	Input model.UserServiceRolesInput
 }
 
-// GetRoleArgs is a sparse struct for GetRole parameters
-type GetRoleArgs struct {
-	Id string
-}
-
-func (c *client) GetRole(ctx context.Context, input GetRoleArgs) (*GetRole, error) {
-	return c.api.GetRole(ctx, input.Id)
+func (c *client) GetUserServiceRoles(ctx context.Context, input GetUserServiceRolesArgs) (*GetUserServiceRoles, error) {
+	return c.api.GetUserServiceRoles(ctx, input.Input)
 }
 
 func (c *client) GetManagementServiceInfo(ctx context.Context) (*GetManagementServiceInfo, error) {
@@ -401,6 +335,15 @@ func (c *client) SetTenantExpiry(ctx context.Context, input SetTenantExpiryArgs)
 	return c.api.SetTenantExpiry(ctx, input.Input)
 }
 
+// SetTenantUITemplateArgs is a sparse struct for SetTenantUITemplate parameters
+type SetTenantUITemplateArgs struct {
+	Input model.SetTenantUITemplateInput
+}
+
+func (c *client) SetTenantUITemplate(ctx context.Context, input SetTenantUITemplateArgs) (*SetTenantUITemplate, error) {
+	return c.api.SetTenantUITemplate(ctx, input.Input)
+}
+
 // GenerateJSONSchemaArgs is a sparse struct for GenerateJSONSchema parameters
 type GenerateJSONSchemaArgs struct {
 	JsonData string
@@ -408,90 +351,6 @@ type GenerateJSONSchemaArgs struct {
 
 func (c *client) GenerateJSONSchema(ctx context.Context, input GenerateJSONSchemaArgs) (*GenerateJSONSchema, error) {
 	return c.api.GenerateJSONSchema(ctx, input.JsonData)
-}
-
-// CreatePolicyArgs is a sparse struct for CreatePolicy parameters
-type CreatePolicyArgs struct {
-	Input CreateAccessPolicyInput
-}
-
-func (c *client) CreatePolicy(ctx context.Context, input CreatePolicyArgs) (*CreatePolicy, error) {
-	return c.api.CreatePolicy(ctx, input.Input)
-}
-
-// UpdatePolicyArgs is a sparse struct for UpdatePolicy parameters
-type UpdatePolicyArgs struct {
-	Id    string
-	Input UpdateAccessPolicyInput
-}
-
-func (c *client) UpdatePolicy(ctx context.Context, input UpdatePolicyArgs) (*UpdatePolicy, error) {
-	return c.api.UpdatePolicy(ctx, input.Id, input.Input)
-}
-
-// DeletePolicyArgs is a sparse struct for DeletePolicy parameters
-type DeletePolicyArgs struct {
-	Id string
-}
-
-func (c *client) DeletePolicy(ctx context.Context, input DeletePolicyArgs) (*DeletePolicy, error) {
-	return c.api.DeletePolicy(ctx, input.Id)
-}
-
-// CreateGroupArgs is a sparse struct for CreateGroup parameters
-type CreateGroupArgs struct {
-	Input CreateGroupInput
-}
-
-func (c *client) CreateGroup(ctx context.Context, input CreateGroupArgs) (*CreateGroup, error) {
-	return c.api.CreateGroup(ctx, input.Input)
-}
-
-// UpdateGroupArgs is a sparse struct for UpdateGroup parameters
-type UpdateGroupArgs struct {
-	Id    string
-	Input UpdateGroupInput
-}
-
-func (c *client) UpdateGroup(ctx context.Context, input UpdateGroupArgs) (*UpdateGroup, error) {
-	return c.api.UpdateGroup(ctx, input.Id, input.Input)
-}
-
-// DeleteGroupArgs is a sparse struct for DeleteGroup parameters
-type DeleteGroupArgs struct {
-	Id string
-}
-
-func (c *client) DeleteGroup(ctx context.Context, input DeleteGroupArgs) (*DeleteGroup, error) {
-	return c.api.DeleteGroup(ctx, input.Id)
-}
-
-// CreateRoleArgs is a sparse struct for CreateRole parameters
-type CreateRoleArgs struct {
-	Input CreateRoleInput
-}
-
-func (c *client) CreateRole(ctx context.Context, input CreateRoleArgs) (*CreateRole, error) {
-	return c.api.CreateRole(ctx, input.Input)
-}
-
-// UpdateRoleArgs is a sparse struct for UpdateRole parameters
-type UpdateRoleArgs struct {
-	Id    string
-	Input UpdateRoleInput
-}
-
-func (c *client) UpdateRole(ctx context.Context, input UpdateRoleArgs) (*UpdateRole, error) {
-	return c.api.UpdateRole(ctx, input.Id, input.Input)
-}
-
-// DeleteRoleArgs is a sparse struct for DeleteRole parameters
-type DeleteRoleArgs struct {
-	Id string
-}
-
-func (c *client) DeleteRole(ctx context.Context, input DeleteRoleArgs) (*DeleteRole, error) {
-	return c.api.DeleteRole(ctx, input.Id)
 }
 
 // CreateUserArgs is a sparse struct for CreateUser parameters
@@ -688,4 +547,22 @@ type PatchDeviceLocationDataArgs struct {
 
 func (c *client) PatchDeviceLocationData(ctx context.Context, input PatchDeviceLocationDataArgs) (*PatchDeviceLocationData, error) {
 	return c.api.PatchDeviceLocationData(ctx, input.Id, input.Patches)
+}
+
+// AssignRolesArgs is a sparse struct for AssignRoles parameters
+type AssignRolesArgs struct {
+	Input model.AssignRolesInput
+}
+
+func (c *client) AssignRoles(ctx context.Context, input AssignRolesArgs) (*AssignRoles, error) {
+	return c.api.AssignRoles(ctx, input.Input)
+}
+
+// RemoveRolesArgs is a sparse struct for RemoveRoles parameters
+type RemoveRolesArgs struct {
+	Input model.RemoveRolesInput
+}
+
+func (c *client) RemoveRoles(ctx context.Context, input RemoveRolesArgs) (*RemoveRoles, error) {
+	return c.api.RemoveRoles(ctx, input.Input)
 }

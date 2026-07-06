@@ -69,6 +69,24 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 	}
 	mixin.PatchDataTypeIdSlugInput(&input, wfDT)
 
+	// Validate Data uniqueness before the write. On update we exclude the row
+	// being changed so its own current value is not counted as a collision;
+	// validating after the write would always count the freshly written row.
+	var excludeID *uuid.UUID
+	if wf != nil {
+		excludeID = &wf.ID
+	}
+	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+		Input:     input.Data,
+		DataType:  wfDT,
+		TableName: entworkflow.Table,
+		FieldName: entworkflow.FieldData,
+		DbDriver:  core.Config.DbDriver,
+		ExcludeID: excludeID,
+	}); err != nil {
+		return nil, err
+	}
+
 	// Create / Update workflow
 	// MutationEventHook captures the mutation automatically.
 	if wf == nil {
@@ -91,17 +109,6 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	// Optional uniqueness for workflow.Data
-	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
-		Input:     input.Data,
-		DataType:  wfDT,
-		TableName: entworkflow.Table,
-		FieldName: entworkflow.FieldData,
-		DbDriver:  core.Config.DbDriver,
-	}); err != nil {
-		return nil, err
 	}
 
 	// Map existing active signals by uniqueness key:

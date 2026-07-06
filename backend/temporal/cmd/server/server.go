@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/gqlgo/gqlgenc/clientv2"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/urfave/cli/v2"
 	"go.temporal.io/server/common/authorization"
 	"go.temporal.io/server/common/build"
@@ -122,9 +123,14 @@ func runServer(c *cli.Context) error {
 	serverCtx, shutdown := signal.NotifyContext(serverCtx, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer shutdown()
 
-	server := NewTemporalServer(eventHandler, logger, temporalCfg)
+	server := NewTemporalServer(eventHandler, logger, temporalCfg, jetstreamClient, config.Config.NatsStreamName, serviceName)
 
 	if err := server.Start(ctx); err != nil {
+		// Start may have allocated the revocation subscriber and the
+		// auth-provider cache goroutine before failing; release them.
+		if stopErr := server.Stop(); stopErr != nil {
+			log.ForContext(ctx).Error().Err(stopErr).Msg("cleanup after failed start")
+		}
 		return fmt.Errorf("failed starting temporal server: %w", err)
 	}
 
@@ -145,19 +151,33 @@ func runServer(c *cli.Context) error {
 }
 
 type temporalServer struct {
-	mu           sync.Mutex
-	eventHandler *temporalevent.Handler
-	logger       log.Logger
-	cfg          *temporalconfig.Config
-	server       temporal.Server
-	pgAdapter    *adapter.PostgresAdapter
+	mu              sync.Mutex
+	eventHandler    *temporalevent.Handler
+	logger          log.Logger
+	cfg             *temporalconfig.Config
+	server          temporal.Server
+	pgAdapter       *adapter.PostgresAdapter
+	jetstreamClient jetstream.JetStream
+	streamName      string
+	serviceName     string
+	revocationCC    jetstream.ConsumeContext
+	authProvider    *authn.ZitadelAuthProvider
 }
 
-func NewTemporalServer(eventHandler *temporalevent.Handler, logger log.Logger, cfg *temporalconfig.Config) *temporalServer {
+func NewTemporalServer(
+	eventHandler *temporalevent.Handler,
+	logger log.Logger,
+	cfg *temporalconfig.Config,
+	jetstreamClient jetstream.JetStream,
+	streamName, serviceName string,
+) *temporalServer {
 	return &temporalServer{
-		eventHandler: eventHandler,
-		logger:       logger,
-		cfg:          cfg,
+		eventHandler:    eventHandler,
+		logger:          logger,
+		cfg:             cfg,
+		jetstreamClient: jetstreamClient,
+		streamName:      streamName,
+		serviceName:     serviceName,
 	}
 }
 
@@ -264,6 +284,21 @@ func (s *temporalServer) Start(ctx context.Context) error {
 		},
 	)
 	authProvider := authn.NewZitadelAuthProvider(zitadelClient, config.Config.ZitadelConfig, managementapi.NewOrganizationValidator(mgmtClient))
+	// Stored so Stop() can Close() it — the provider owns a memkv
+	// cleanup goroutine + ticker that leak otherwise. Any error path
+	// below this point relies on runServer calling Stop() to release it.
+	s.authProvider = authProvider
+
+	// Evict cached PATs on tenant-disable. Without the subscriber,
+	// the validator slow path still rejects but every cache-hit
+	// request between the disable and the natural TTL falls onto it,
+	// amplifying load on management.
+	revocationCC, err := authn.SubscribeRevocations(ctx, s.jetstreamClient, s.streamName, s.serviceName, authProvider.OnTenantDisabled)
+	if err != nil {
+		return fmt.Errorf("subscribe revocations: %w", err)
+	}
+	s.revocationCC = revocationCC
+
 	claimMapper := authz.NewClaimMapper(ctx, authProvider)
 
 	audienceMapper, err := authorization.GetAudienceMapperFromConfig(&cfg.Global.Authorization)
@@ -368,6 +403,17 @@ func (s *temporalServer) Start(ctx context.Context) error {
 func (s *temporalServer) Stop() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if s.revocationCC != nil {
+		s.revocationCC.Stop()
+		s.revocationCC = nil
+	}
+
+	if s.authProvider != nil {
+		// Stops the provider's memkv cleanup goroutine + ticker.
+		s.authProvider.Close()
+		s.authProvider = nil
+	}
 
 	if s.pgAdapter != nil {
 		s.logger.Info().

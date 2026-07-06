@@ -106,7 +106,7 @@ func setup(t *testing.T) *testEnv {
 	})
 
 	v := validator.NewValidator(te.DataTypeProvider)
-	r := resolvers.NewResolver("workflow", client, v, workflowRouter)
+	r := resolvers.NewResolver("workflow", client, v, workflowRouter, nil, resolvers.RemoteUIDefaults{})
 	schema := resolvers.NewSchema(r)
 
 	te.Init(client, schema, func(s *handler.Server) {
@@ -153,7 +153,7 @@ func setupWithMockWorkflow(t *testing.T) *testEnv {
 	})
 
 	v := validator.NewValidator(te.DataTypeProvider)
-	r := resolvers.NewResolver("workflow", client, v, workflowRouter)
+	r := resolvers.NewResolver("workflow", client, v, workflowRouter, nil, resolvers.RemoteUIDefaults{})
 	schema := resolvers.NewSchema(r)
 
 	te.Init(client, schema, func(s *handler.Server) {

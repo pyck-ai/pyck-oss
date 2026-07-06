@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pyck-ai/pyck/backend/common/workflow"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/pyck-ai/pyck/backend/common/workflow"
 )
 
 // TestClientCache_NewClientCache verifies cache initialization

@@ -1,0 +1,11 @@
+info:
+  name: User service role assignment and removal
+  type: folder
+  seq: 1
+
+docs: |-
+  Resolves the caller via `me`, lists the assignable service-role catalog, assigns a per-service role to that user, verifies it via userServiceRoles, confirms ladder role keys are rejected, then removes the role and restores it (so the caller keeps the access other suites rely on). Tenant-admin only.
+
+
+request:
+  auth: inherit

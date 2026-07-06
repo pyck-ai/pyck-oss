@@ -1,4 +1,4 @@
-h1:thX7RPwj2QLG7/fIBwAAPZ4/Lb8/w7lIyPxbALxlAyE=
+h1:/W3WXbcy+6MA8UIhTrfNA5/WcIURjmkVRyj2jgMZZNI=
 20250526120900_default_state.up.sql h1:wfAc2FMiHjfEhzyLCx63+2U8x2pZL0UuJ0oz3thlNq4=
 20250619222848_consistent_nulls.up.sql h1:i01oh6RM6LBXr3V5c/n3EJf7fqzt63VE7OmT6ndvVZA=
 20250716121615_rbac.up.sql h1:rPKy0351zwGED8BK4IdvE7qO7AD422L/tFaPyEaWnNA=
@@ -19,3 +19,5 @@ h1:thX7RPwj2QLG7/fIBwAAPZ4/Lb8/w7lIyPxbALxlAyE=
 20260608155457_outbox_dead_letter_index.up.sql h1:LTuakLEeQv7K2a5mcQn9mIh1y6nAb5sWV+3moSOOe5c=
 20260609120000_add_tenant_expires_at.up.sql h1:ojV4hVqNio5kIg9HXko3L1ufiD2rWaKvgqlon6vF7YA=
 20260616120000_add_idempotency_keys.up.sql h1:fF2t/yUozj+0gMs/a6vVKzHB312f43bnkNLhVYlLo8g=
+20260622134058_reconcile_idempotency_schema_drift.up.sql h1:o6yhl/WzuWaxaaoDmNEYSEPACg7kf6OEHX7muHe1kEw=
+20260701120000_remove_rbac.up.sql h1:3YwSl94sNcS/r9zXJpMMRRGF4i5Ay3xh5nJNVXK+G/4=

@@ -1,0 +1,13 @@
+# PickingOrder is owned by the picking service (keyed by id). main-data
+# contributes the `customer` relation: a picking order stores a customerID,
+# and main-data owns the Customer entity, so it resolves the relation here.
+#
+# The relation is keyed on customerID — the field picking already exposes — so
+# the gateway hands main-data just the customerID and we resolve the Customer
+# from our own data. A soft-deleted customer is filtered out by the history
+# mixin's query policy, so the relation resolves to null. This mirrors how the
+# inventory service contributes `item` to PickingOrderItem.
+type PickingOrder @key(fields: "customerID") {
+  customerID: UUID!
+  customer: Customer
+}

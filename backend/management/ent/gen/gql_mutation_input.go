@@ -6,66 +6,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// CreateAccessPolicyInput represents a mutation input for creating accesspolicies.
-type CreateAccessPolicyInput struct {
-	Resource string
-	Action   string
-	Effect   *string
-	RoleID   uuid.UUID
-}
-
-// Mutate applies the CreateAccessPolicyInput on the AccessPolicyMutation builder.
-func (i *CreateAccessPolicyInput) Mutate(m *AccessPolicyMutation) {
-	m.SetResource(i.Resource)
-	m.SetAction(i.Action)
-	if v := i.Effect; v != nil {
-		m.SetEffect(*v)
-	}
-	m.SetRoleID(i.RoleID)
-}
-
-// SetInput applies the change-set in the CreateAccessPolicyInput on the AccessPolicyCreate builder.
-func (c *AccessPolicyCreate) SetInput(i CreateAccessPolicyInput) *AccessPolicyCreate {
-	i.Mutate(c.Mutation())
-	return c
-}
-
-// UpdateAccessPolicyInput represents a mutation input for updating accesspolicies.
-type UpdateAccessPolicyInput struct {
-	Resource *string
-	Action   *string
-	Effect   *string
-	RoleID   *uuid.UUID
-}
-
-// Mutate applies the UpdateAccessPolicyInput on the AccessPolicyMutation builder.
-func (i *UpdateAccessPolicyInput) Mutate(m *AccessPolicyMutation) {
-	if v := i.Resource; v != nil {
-		m.SetResource(*v)
-	}
-	if v := i.Action; v != nil {
-		m.SetAction(*v)
-	}
-	if v := i.Effect; v != nil {
-		m.SetEffect(*v)
-	}
-	if v := i.RoleID; v != nil {
-		m.SetRoleID(*v)
-	}
-}
-
-// SetInput applies the change-set in the UpdateAccessPolicyInput on the AccessPolicyUpdate builder.
-func (c *AccessPolicyUpdate) SetInput(i UpdateAccessPolicyInput) *AccessPolicyUpdate {
-	i.Mutate(c.Mutation())
-	return c
-}
-
-// SetInput applies the change-set in the UpdateAccessPolicyInput on the AccessPolicyUpdateOne builder.
-func (c *AccessPolicyUpdateOne) SetInput(i UpdateAccessPolicyInput) *AccessPolicyUpdateOne {
-	i.Mutate(c.Mutation())
-	return c
-}
-
 // CreateDataTypeInput represents a mutation input for creating datatypes.
 type CreateDataTypeInput struct {
 	Name           *string
@@ -428,90 +368,6 @@ func (c *DeviceUserUpdateOne) SetInput(i UpdateDeviceUserInput) *DeviceUserUpdat
 	return c
 }
 
-// CreateGroupInput represents a mutation input for creating groups.
-type CreateGroupInput struct {
-	Name        string
-	Description *string
-	UserIDs     []uuid.UUID
-	RoleIDs     []uuid.UUID
-}
-
-// Mutate applies the CreateGroupInput on the GroupMutation builder.
-func (i *CreateGroupInput) Mutate(m *GroupMutation) {
-	m.SetName(i.Name)
-	if v := i.Description; v != nil {
-		m.SetDescription(*v)
-	}
-	if v := i.UserIDs; len(v) > 0 {
-		m.AddUserIDs(v...)
-	}
-	if v := i.RoleIDs; len(v) > 0 {
-		m.AddRoleIDs(v...)
-	}
-}
-
-// SetInput applies the change-set in the CreateGroupInput on the GroupCreate builder.
-func (c *GroupCreate) SetInput(i CreateGroupInput) *GroupCreate {
-	i.Mutate(c.Mutation())
-	return c
-}
-
-// UpdateGroupInput represents a mutation input for updating groups.
-type UpdateGroupInput struct {
-	Name             *string
-	ClearDescription bool
-	Description      *string
-	ClearUsers       bool
-	AddUserIDs       []uuid.UUID
-	RemoveUserIDs    []uuid.UUID
-	ClearRoles       bool
-	AddRoleIDs       []uuid.UUID
-	RemoveRoleIDs    []uuid.UUID
-}
-
-// Mutate applies the UpdateGroupInput on the GroupMutation builder.
-func (i *UpdateGroupInput) Mutate(m *GroupMutation) {
-	if v := i.Name; v != nil {
-		m.SetName(*v)
-	}
-	if i.ClearDescription {
-		m.ClearDescription()
-	}
-	if v := i.Description; v != nil {
-		m.SetDescription(*v)
-	}
-	if i.ClearUsers {
-		m.ClearUsers()
-	}
-	if v := i.AddUserIDs; len(v) > 0 {
-		m.AddUserIDs(v...)
-	}
-	if v := i.RemoveUserIDs; len(v) > 0 {
-		m.RemoveUserIDs(v...)
-	}
-	if i.ClearRoles {
-		m.ClearRoles()
-	}
-	if v := i.AddRoleIDs; len(v) > 0 {
-		m.AddRoleIDs(v...)
-	}
-	if v := i.RemoveRoleIDs; len(v) > 0 {
-		m.RemoveRoleIDs(v...)
-	}
-}
-
-// SetInput applies the change-set in the UpdateGroupInput on the GroupUpdate builder.
-func (c *GroupUpdate) SetInput(i UpdateGroupInput) *GroupUpdate {
-	i.Mutate(c.Mutation())
-	return c
-}
-
-// SetInput applies the change-set in the UpdateGroupInput on the GroupUpdateOne builder.
-func (c *GroupUpdateOne) SetInput(i UpdateGroupInput) *GroupUpdateOne {
-	i.Mutate(c.Mutation())
-	return c
-}
-
 // CreateKeyValueInput represents a mutation input for creating keyvalues.
 type CreateKeyValueInput struct {
 	DataTypeID   *uuid.UUID
@@ -682,106 +538,6 @@ func (c *LocationUpdateOne) SetInput(i UpdateLocationInput) *LocationUpdateOne {
 	return c
 }
 
-// CreateRoleInput represents a mutation input for creating roles.
-type CreateRoleInput struct {
-	Name        string
-	Description *string
-	UserIDs     []uuid.UUID
-	GroupIDs    []uuid.UUID
-	PolicyIDs   []uuid.UUID
-}
-
-// Mutate applies the CreateRoleInput on the RoleMutation builder.
-func (i *CreateRoleInput) Mutate(m *RoleMutation) {
-	m.SetName(i.Name)
-	if v := i.Description; v != nil {
-		m.SetDescription(*v)
-	}
-	if v := i.UserIDs; len(v) > 0 {
-		m.AddUserIDs(v...)
-	}
-	if v := i.GroupIDs; len(v) > 0 {
-		m.AddGroupIDs(v...)
-	}
-	if v := i.PolicyIDs; len(v) > 0 {
-		m.AddPolicyIDs(v...)
-	}
-}
-
-// SetInput applies the change-set in the CreateRoleInput on the RoleCreate builder.
-func (c *RoleCreate) SetInput(i CreateRoleInput) *RoleCreate {
-	i.Mutate(c.Mutation())
-	return c
-}
-
-// UpdateRoleInput represents a mutation input for updating roles.
-type UpdateRoleInput struct {
-	Name             *string
-	ClearDescription bool
-	Description      *string
-	ClearUsers       bool
-	AddUserIDs       []uuid.UUID
-	RemoveUserIDs    []uuid.UUID
-	ClearGroups      bool
-	AddGroupIDs      []uuid.UUID
-	RemoveGroupIDs   []uuid.UUID
-	ClearPolicies    bool
-	AddPolicyIDs     []uuid.UUID
-	RemovePolicyIDs  []uuid.UUID
-}
-
-// Mutate applies the UpdateRoleInput on the RoleMutation builder.
-func (i *UpdateRoleInput) Mutate(m *RoleMutation) {
-	if v := i.Name; v != nil {
-		m.SetName(*v)
-	}
-	if i.ClearDescription {
-		m.ClearDescription()
-	}
-	if v := i.Description; v != nil {
-		m.SetDescription(*v)
-	}
-	if i.ClearUsers {
-		m.ClearUsers()
-	}
-	if v := i.AddUserIDs; len(v) > 0 {
-		m.AddUserIDs(v...)
-	}
-	if v := i.RemoveUserIDs; len(v) > 0 {
-		m.RemoveUserIDs(v...)
-	}
-	if i.ClearGroups {
-		m.ClearGroups()
-	}
-	if v := i.AddGroupIDs; len(v) > 0 {
-		m.AddGroupIDs(v...)
-	}
-	if v := i.RemoveGroupIDs; len(v) > 0 {
-		m.RemoveGroupIDs(v...)
-	}
-	if i.ClearPolicies {
-		m.ClearPolicies()
-	}
-	if v := i.AddPolicyIDs; len(v) > 0 {
-		m.AddPolicyIDs(v...)
-	}
-	if v := i.RemovePolicyIDs; len(v) > 0 {
-		m.RemovePolicyIDs(v...)
-	}
-}
-
-// SetInput applies the change-set in the UpdateRoleInput on the RoleUpdate builder.
-func (c *RoleUpdate) SetInput(i UpdateRoleInput) *RoleUpdate {
-	i.Mutate(c.Mutation())
-	return c
-}
-
-// SetInput applies the change-set in the UpdateRoleInput on the RoleUpdateOne builder.
-func (c *RoleUpdateOne) SetInput(i UpdateRoleInput) *RoleUpdateOne {
-	i.Mutate(c.Mutation())
-	return c
-}
-
 // CreateUserInput represents a mutation input for creating users.
 type CreateUserInput struct {
 	IdpID              string
@@ -791,8 +547,6 @@ type CreateUserInput struct {
 	LastName           string
 	IsAdmin            *bool
 	TenantID           uuid.UUID
-	RoleIDs            []uuid.UUID
-	GroupIDs           []uuid.UUID
 	DeviceUsersUserIDs []uuid.UUID
 }
 
@@ -807,12 +561,6 @@ func (i *CreateUserInput) Mutate(m *UserMutation) {
 		m.SetIsAdmin(*v)
 	}
 	m.SetTenantID(i.TenantID)
-	if v := i.RoleIDs; len(v) > 0 {
-		m.AddRoleIDs(v...)
-	}
-	if v := i.GroupIDs; len(v) > 0 {
-		m.AddGroupIDs(v...)
-	}
 	if v := i.DeviceUsersUserIDs; len(v) > 0 {
 		m.AddDeviceUsersUserIDs(v...)
 	}
@@ -831,12 +579,6 @@ type UpdateUserInput struct {
 	FirstName                *string
 	LastName                 *string
 	IsAdmin                  *bool
-	ClearRoles               bool
-	AddRoleIDs               []uuid.UUID
-	RemoveRoleIDs            []uuid.UUID
-	ClearGroups              bool
-	AddGroupIDs              []uuid.UUID
-	RemoveGroupIDs           []uuid.UUID
 	ClearDeviceUsersUsers    bool
 	AddDeviceUsersUserIDs    []uuid.UUID
 	RemoveDeviceUsersUserIDs []uuid.UUID
@@ -858,24 +600,6 @@ func (i *UpdateUserInput) Mutate(m *UserMutation) {
 	}
 	if v := i.IsAdmin; v != nil {
 		m.SetIsAdmin(*v)
-	}
-	if i.ClearRoles {
-		m.ClearRoles()
-	}
-	if v := i.AddRoleIDs; len(v) > 0 {
-		m.AddRoleIDs(v...)
-	}
-	if v := i.RemoveRoleIDs; len(v) > 0 {
-		m.RemoveRoleIDs(v...)
-	}
-	if i.ClearGroups {
-		m.ClearGroups()
-	}
-	if v := i.AddGroupIDs; len(v) > 0 {
-		m.AddGroupIDs(v...)
-	}
-	if v := i.RemoveGroupIDs; len(v) > 0 {
-		m.RemoveGroupIDs(v...)
 	}
 	if i.ClearDeviceUsersUsers {
 		m.ClearDeviceUsersUsers()
