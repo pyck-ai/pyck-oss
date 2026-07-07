@@ -362,11 +362,14 @@ func (s *service) simulateRepositoryStockMapWalk(itemID, repositoryID, sourceRep
 func (s *service) GetCurrentRepositoriesStock(ctx context.Context, tx *ent.Tx, repositoryIDs []uuid.UUID) (map[uuid.UUID]map[uuid.UUID]ent.Stock, error) {
 	repoPred := entstock.RepositoryIDIn(repositoryIDs...)
 
+	// Current row = highest version per (repo, item); created_at is not a
+	// total order across pods and can surface a superseded row. Load-bearing:
+	// RebuildStockTable replays movements through this baseline.
 	records, err := tx.Stock.Query().
 		Where(repoPred).
 		DistinctOnExists(
 			[]string{entstock.FieldRepositoryID, entstock.FieldItemID},
-			entstock.FieldCreatedAt,
+			entstock.FieldVersion,
 			repoPred,
 		).
 		AllPages(ctx, mixin.Limit)
@@ -523,10 +526,12 @@ func (s *service) createItemMovementViaGo(ctx context.Context, tx *ent.Tx, dto C
 			sel.Where(sql.EQ(entstock.RepositoryColumn, input.FromID))
 			sel.Where(sql.EQ(entstock.ItemColumn, input.ItemID))
 		})
+		// Current row = highest version; created_at is not a total order
+		// across pods, and this row gates the insufficient-stock rejection.
 		stockRecord, qerr := tx.Stock.Query().
 			Where(where).
 			Where(entstock.TenantID(dto.TenantID)).
-			Order(ent.Desc(entstock.FieldCreatedAt)).
+			Order(ent.Desc(entstock.FieldVersion)).
 			First(ctx)
 		// "stock not found" err means that stock for item-repository combination is 0
 		if qerr != nil && !ent.IsNotFound(qerr) {

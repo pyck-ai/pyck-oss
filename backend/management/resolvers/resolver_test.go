@@ -462,7 +462,6 @@ type tenantBuilder struct {
 	name      string
 	expiresAt *time.Time
 	deleted   bool
-	data      map[string]any
 }
 
 func (te *testEnv) newTenant(ctx context.Context, tenantID uuid.UUID) *tenantBuilder {
@@ -490,11 +489,6 @@ func (b *tenantBuilder) Deleted() *tenantBuilder {
 	return b
 }
 
-func (b *tenantBuilder) Data(data map[string]any) *tenantBuilder {
-	b.data = data
-	return b
-}
-
 func (b *tenantBuilder) Create() *gen.Tenant {
 	b.te.t.Helper()
 	var tenant *gen.Tenant
@@ -509,9 +503,6 @@ func (b *tenantBuilder) Create() *gen.Tenant {
 		}
 		if b.deleted {
 			builder = builder.SetDeletedAt(time.Now().UTC()).SetDeletedBy(uuid.Max)
-		}
-		if b.data != nil {
-			builder = builder.SetData(b.data)
 		}
 
 		var err error

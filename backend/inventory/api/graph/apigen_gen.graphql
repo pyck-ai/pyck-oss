@@ -296,6 +296,7 @@ query GetStocks($after: Cursor, $first: Int, $before: Cursor, $last: Int, $order
         tenantID
         updatedAt
         updatedBy
+        version
       }
     }
   }
@@ -378,6 +379,7 @@ query GetStockTree($after: Cursor, $first: Int, $before: Cursor, $last: Int, $wh
               tenantID
               updatedAt
               updatedBy
+              version
             }
           }
         }
@@ -402,6 +404,7 @@ query GetStockTree($after: Cursor, $first: Int, $before: Cursor, $last: Int, $wh
           tenantID
           updatedAt
           updatedBy
+          version
         }
       }
     }

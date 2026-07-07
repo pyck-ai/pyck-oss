@@ -29,7 +29,7 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-// region    ***************************** api!.gotpl *****************************
+// region    ************************** generated!.gotpl **************************
 
 // NewExecutableSchema creates an ExecutableSchema from the ResolverRoot interface.
 func NewExecutableSchema(cfg Config) graphql.ExecutableSchema {
@@ -557,6 +557,7 @@ type ComplexityRoot struct {
 		TenantID         func(childComplexity int) int
 		UpdatedAt        func(childComplexity int) int
 		UpdatedBy        func(childComplexity int) int
+		Version          func(childComplexity int) int
 	}
 
 	StockConnection struct {
@@ -618,10 +619,6 @@ type ComplexityRoot struct {
 		SDL func(childComplexity int) int
 	}
 }
-
-// endregion ***************************** api!.gotpl *****************************
-
-// region    ************************** generated!.gotpl **************************
 
 type EntityResolver interface {
 	FindInventoryItemBySku(ctx context.Context, sku string) (*gen.Item, error)
@@ -737,10 +734,6 @@ type StockWhereInputResolver interface {
 	Time(ctx context.Context, obj *gen.StockWhereInput, data *time.Time) error
 	NetStockGte(ctx context.Context, obj *gen.StockWhereInput, data *int) error
 }
-
-// endregion ************************** generated!.gotpl **************************
-
-// region    ************************** internal!.gotpl ***************************
 
 type executableSchema graphql.ExecutableSchemaState[ResolverRoot, DirectiveRoot, ComplexityRoot]
 
@@ -3131,6 +3124,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Stock.UpdatedBy(childComplexity), true
+	case "Stock.version":
+		if e.ComplexityRoot.Stock.Version == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Stock.Version(childComplexity), true
 
 	case "StockConnection.edges":
 		if e.ComplexityRoot.StockConnection.Edges == nil {
@@ -6688,6 +6687,7 @@ type Stock implements Node {
   ownQuantity: Int!
   ownIncomingStock: Int!
   ownOutgoingStock: Int!
+  version: Int!
   item: InventoryItem!
   repository: Repository!
 }
@@ -6762,6 +6762,7 @@ enum StockOrderField {
   OWN_QUANTITY
   OWN_INCOMING_STOCK
   OWN_OUTGOING_STOCK
+  VERSION
 }
 """
 StockWhereInput is used for filtering Stock objects.
@@ -6934,6 +6935,17 @@ input StockWhereInput {
   ownOutgoingStockGTE: Int
   ownOutgoingStockLT: Int
   ownOutgoingStockLTE: Int
+  """
+  version field predicates
+  """
+  version: Int
+  versionNEQ: Int
+  versionIn: [Int!]
+  versionNotIn: [Int!]
+  versionGT: Int
+  versionGTE: Int
+  versionLT: Int
+  versionLTE: Int
   """
   item edge predicates
   """
@@ -8558,6 +8570,8 @@ func (ec *executionContext) childFields_Stock(ctx context.Context, field graphql
 		return ec.fieldContext_Stock_ownIncomingStock(ctx, field)
 	case "ownOutgoingStock":
 		return ec.fieldContext_Stock_ownOutgoingStock(ctx, field)
+	case "version":
+		return ec.fieldContext_Stock_version(ctx, field)
 	case "item":
 		return ec.fieldContext_Stock_item(ctx, field)
 	case "repository":
@@ -8786,7 +8800,7 @@ func (ec *executionContext) childFields___Type(ctx context.Context, field graphq
 	return nil, fmt.Errorf("no field named %q was found under type __Type", field.Name)
 }
 
-// endregion ************************** internal!.gotpl ***************************
+// endregion ************************** generated!.gotpl **************************
 
 // region    ***************************** args.gotpl *****************************
 
@@ -10703,6 +10717,10 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 }
 
 // endregion ***************************** args.gotpl *****************************
+
+// region    ************************** directives.gotpl **************************
+
+// endregion ************************** directives.gotpl **************************
 
 // region    **************************** field.gotpl *****************************
 
@@ -20359,6 +20377,29 @@ func (ec *executionContext) _Stock_ownOutgoingStock(ctx context.Context, field g
 	)
 }
 func (ec *executionContext) fieldContext_Stock_ownOutgoingStock(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Stock", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _Stock_version(ctx context.Context, field graphql.CollectedField, obj *gen.Stock) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Stock_version(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Version, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int64) graphql.Marshaler {
+			return ec.marshalNInt2int64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Stock_version(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Stock", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
@@ -32246,7 +32287,7 @@ func (ec *executionContext) unmarshalInputStockWhereInput(ctx context.Context, o
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"not", "and", "or", "id", "idNEQ", "idIn", "idNotIn", "idGT", "idGTE", "idLT", "idLTE", "tenantID", "tenantIDNEQ", "tenantIDIn", "tenantIDNotIn", "tenantIDGT", "tenantIDGTE", "tenantIDLT", "tenantIDLTE", "createdAt", "createdAtNEQ", "createdAtIn", "createdAtNotIn", "createdAtGT", "createdAtGTE", "createdAtLT", "createdAtLTE", "createdBy", "createdByNEQ", "createdByIn", "createdByNotIn", "createdByGT", "createdByGTE", "createdByLT", "createdByLTE", "updatedAt", "updatedAtNEQ", "updatedAtIn", "updatedAtNotIn", "updatedAtGT", "updatedAtGTE", "updatedAtLT", "updatedAtLTE", "updatedAtIsNil", "updatedAtNotNil", "updatedBy", "updatedByNEQ", "updatedByIn", "updatedByNotIn", "updatedByGT", "updatedByGTE", "updatedByLT", "updatedByLTE", "updatedByIsNil", "updatedByNotNil", "itemID", "itemIDNEQ", "itemIDIn", "itemIDNotIn", "repositoryID", "repositoryIDNEQ", "repositoryIDIn", "repositoryIDNotIn", "quantity", "quantityNEQ", "quantityIn", "quantityNotIn", "quantityGT", "quantityGTE", "quantityLT", "quantityLTE", "movementID", "movementIDNEQ", "movementIDIn", "movementIDNotIn", "movementIDGT", "movementIDGTE", "movementIDLT", "movementIDLTE", "movementIDIsNil", "movementIDNotNil", "incomingStock", "incomingStockNEQ", "incomingStockIn", "incomingStockNotIn", "incomingStockGT", "incomingStockGTE", "incomingStockLT", "incomingStockLTE", "outgoingStock", "outgoingStockNEQ", "outgoingStockIn", "outgoingStockNotIn", "outgoingStockGT", "outgoingStockGTE", "outgoingStockLT", "outgoingStockLTE", "ownQuantity", "ownQuantityNEQ", "ownQuantityIn", "ownQuantityNotIn", "ownQuantityGT", "ownQuantityGTE", "ownQuantityLT", "ownQuantityLTE", "ownIncomingStock", "ownIncomingStockNEQ", "ownIncomingStockIn", "ownIncomingStockNotIn", "ownIncomingStockGT", "ownIncomingStockGTE", "ownIncomingStockLT", "ownIncomingStockLTE", "ownOutgoingStock", "ownOutgoingStockNEQ", "ownOutgoingStockIn", "ownOutgoingStockNotIn", "ownOutgoingStockGT", "ownOutgoingStockGTE", "ownOutgoingStockLT", "ownOutgoingStockLTE", "hasItem", "hasItemWith", "hasRepository", "hasRepositoryWith", "time", "netStockGTE"}
+	fieldsInOrder := [...]string{"not", "and", "or", "id", "idNEQ", "idIn", "idNotIn", "idGT", "idGTE", "idLT", "idLTE", "tenantID", "tenantIDNEQ", "tenantIDIn", "tenantIDNotIn", "tenantIDGT", "tenantIDGTE", "tenantIDLT", "tenantIDLTE", "createdAt", "createdAtNEQ", "createdAtIn", "createdAtNotIn", "createdAtGT", "createdAtGTE", "createdAtLT", "createdAtLTE", "createdBy", "createdByNEQ", "createdByIn", "createdByNotIn", "createdByGT", "createdByGTE", "createdByLT", "createdByLTE", "updatedAt", "updatedAtNEQ", "updatedAtIn", "updatedAtNotIn", "updatedAtGT", "updatedAtGTE", "updatedAtLT", "updatedAtLTE", "updatedAtIsNil", "updatedAtNotNil", "updatedBy", "updatedByNEQ", "updatedByIn", "updatedByNotIn", "updatedByGT", "updatedByGTE", "updatedByLT", "updatedByLTE", "updatedByIsNil", "updatedByNotNil", "itemID", "itemIDNEQ", "itemIDIn", "itemIDNotIn", "repositoryID", "repositoryIDNEQ", "repositoryIDIn", "repositoryIDNotIn", "quantity", "quantityNEQ", "quantityIn", "quantityNotIn", "quantityGT", "quantityGTE", "quantityLT", "quantityLTE", "movementID", "movementIDNEQ", "movementIDIn", "movementIDNotIn", "movementIDGT", "movementIDGTE", "movementIDLT", "movementIDLTE", "movementIDIsNil", "movementIDNotNil", "incomingStock", "incomingStockNEQ", "incomingStockIn", "incomingStockNotIn", "incomingStockGT", "incomingStockGTE", "incomingStockLT", "incomingStockLTE", "outgoingStock", "outgoingStockNEQ", "outgoingStockIn", "outgoingStockNotIn", "outgoingStockGT", "outgoingStockGTE", "outgoingStockLT", "outgoingStockLTE", "ownQuantity", "ownQuantityNEQ", "ownQuantityIn", "ownQuantityNotIn", "ownQuantityGT", "ownQuantityGTE", "ownQuantityLT", "ownQuantityLTE", "ownIncomingStock", "ownIncomingStockNEQ", "ownIncomingStockIn", "ownIncomingStockNotIn", "ownIncomingStockGT", "ownIncomingStockGTE", "ownIncomingStockLT", "ownIncomingStockLTE", "ownOutgoingStock", "ownOutgoingStockNEQ", "ownOutgoingStockIn", "ownOutgoingStockNotIn", "ownOutgoingStockGT", "ownOutgoingStockGTE", "ownOutgoingStockLT", "ownOutgoingStockLTE", "version", "versionNEQ", "versionIn", "versionNotIn", "versionGT", "versionGTE", "versionLT", "versionLTE", "hasItem", "hasItemWith", "hasRepository", "hasRepositoryWith", "time", "netStockGTE"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -33100,6 +33141,62 @@ func (ec *executionContext) unmarshalInputStockWhereInput(ctx context.Context, o
 				return it, err
 			}
 			it.OwnOutgoingStockLTE = data
+		case "version":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("version"))
+			data, err := ec.unmarshalOInt2ᚖint64(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Version = data
+		case "versionNEQ":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("versionNEQ"))
+			data, err := ec.unmarshalOInt2ᚖint64(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.VersionNEQ = data
+		case "versionIn":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("versionIn"))
+			data, err := ec.unmarshalOInt2ᚕint64ᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.VersionIn = data
+		case "versionNotIn":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("versionNotIn"))
+			data, err := ec.unmarshalOInt2ᚕint64ᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.VersionNotIn = data
+		case "versionGT":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("versionGT"))
+			data, err := ec.unmarshalOInt2ᚖint64(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.VersionGT = data
+		case "versionGTE":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("versionGTE"))
+			data, err := ec.unmarshalOInt2ᚖint64(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.VersionGTE = data
+		case "versionLT":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("versionLT"))
+			data, err := ec.unmarshalOInt2ᚖint64(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.VersionLT = data
+		case "versionLTE":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("versionLTE"))
+			data, err := ec.unmarshalOInt2ᚖint64(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.VersionLTE = data
 		case "hasItem":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("hasItem"))
 			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
@@ -34929,14 +35026,8 @@ func (ec *executionContext) _CreateCollectionMovementOutput(ctx context.Context,
 			}
 		case "movements":
 			out.Values[i] = ec._CreateCollectionMovementOutput_movements(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._CreateCollectionMovementOutput_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -35113,14 +35204,8 @@ func (ec *executionContext) _EntityEventsOutbox(ctx context.Context, sel ast.Sel
 			}
 		case "publishedAt":
 			out.Values[i] = ec._EntityEventsOutbox_publishedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "userID":
 			out.Values[i] = ec._EntityEventsOutbox_userID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "transactionID":
 			out.Values[i] = ec._EntityEventsOutbox_transactionID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -35128,14 +35213,8 @@ func (ec *executionContext) _EntityEventsOutbox(ctx context.Context, sel ast.Sel
 			}
 		case "traceID":
 			out.Values[i] = ec._EntityEventsOutbox_traceID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "requestID":
 			out.Values[i] = ec._EntityEventsOutbox_requestID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "topic":
 			out.Values[i] = ec._EntityEventsOutbox_topic(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -35158,29 +35237,14 @@ func (ec *executionContext) _EntityEventsOutbox(ctx context.Context, sel ast.Sel
 			}
 		case "lastError":
 			out.Values[i] = ec._EntityEventsOutbox_lastError(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "deadAt":
 			out.Values[i] = ec._EntityEventsOutbox_deadAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "nextRetryAt":
 			out.Values[i] = ec._EntityEventsOutbox_nextRetryAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "entityType":
 			out.Values[i] = ec._EntityEventsOutbox_entityType(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "entityID":
 			out.Values[i] = ec._EntityEventsOutbox_entityID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "tenantID":
 			out.Values[i] = ec._EntityEventsOutbox_tenantID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -35232,19 +35296,10 @@ func (ec *executionContext) _InventoryCollection(ctx context.Context, sel ast.Se
 			}
 		case "dataTypeID":
 			out.Values[i] = ec._InventoryCollection_dataTypeID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "dataTypeSlug":
 			out.Values[i] = ec._InventoryCollection_dataTypeSlug(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "data":
 			out.Values[i] = ec._InventoryCollection_data(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "createdAt":
 			out.Values[i] = ec._InventoryCollection_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -35257,29 +35312,14 @@ func (ec *executionContext) _InventoryCollection(ctx context.Context, sel ast.Se
 			}
 		case "updatedAt":
 			out.Values[i] = ec._InventoryCollection_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "updatedBy":
 			out.Values[i] = ec._InventoryCollection_updatedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "deletedAt":
 			out.Values[i] = ec._InventoryCollection_deletedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "deletedBy":
 			out.Values[i] = ec._InventoryCollection_deletedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "handler":
 			out.Values[i] = ec._InventoryCollection_handler(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -35316,9 +35356,6 @@ func (ec *executionContext) _InventoryCollectionConnection(ctx context.Context, 
 			out.Values[i] = graphql.MarshalString("InventoryCollectionConnection")
 		case "edges":
 			out.Values[i] = ec._InventoryCollectionConnection_edges(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "pageInfo":
 			out.Values[i] = ec._InventoryCollectionConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -35365,14 +35402,8 @@ func (ec *executionContext) _InventoryCollectionDeletePayload(ctx context.Contex
 			out.Values[i] = graphql.MarshalString("InventoryCollectionDeletePayload")
 		case "deletedID":
 			out.Values[i] = ec._InventoryCollectionDeletePayload_deletedID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._InventoryCollectionDeletePayload_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -35409,9 +35440,6 @@ func (ec *executionContext) _InventoryCollectionEdge(ctx context.Context, sel as
 			out.Values[i] = graphql.MarshalString("InventoryCollectionEdge")
 		case "node":
 			out.Values[i] = ec._InventoryCollectionEdge_node(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "cursor":
 			out.Values[i] = ec._InventoryCollectionEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -35463,19 +35491,10 @@ func (ec *executionContext) _InventoryItem(ctx context.Context, sel ast.Selectio
 			}
 		case "dataTypeID":
 			out.Values[i] = ec._InventoryItem_dataTypeID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "dataTypeSlug":
 			out.Values[i] = ec._InventoryItem_dataTypeSlug(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "data":
 			out.Values[i] = ec._InventoryItem_data(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "createdAt":
 			out.Values[i] = ec._InventoryItem_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -35488,24 +35507,12 @@ func (ec *executionContext) _InventoryItem(ctx context.Context, sel ast.Selectio
 			}
 		case "updatedAt":
 			out.Values[i] = ec._InventoryItem_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "updatedBy":
 			out.Values[i] = ec._InventoryItem_updatedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedAt":
 			out.Values[i] = ec._InventoryItem_deletedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedBy":
 			out.Values[i] = ec._InventoryItem_deletedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "sku":
 			out.Values[i] = ec._InventoryItem_sku(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -35514,16 +35521,13 @@ func (ec *executionContext) _InventoryItem(ctx context.Context, sel ast.Selectio
 		case "itemmovementitems":
 			field := field
 
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
 				res = ec._InventoryItem_itemmovementitems(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
 				return res
 			}
 
@@ -35550,16 +35554,13 @@ func (ec *executionContext) _InventoryItem(ctx context.Context, sel ast.Selectio
 		case "itemtransactions":
 			field := field
 
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
 				res = ec._InventoryItem_itemtransactions(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
 				return res
 			}
 
@@ -35586,16 +35587,13 @@ func (ec *executionContext) _InventoryItem(ctx context.Context, sel ast.Selectio
 		case "itemstocks":
 			field := field
 
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
 				res = ec._InventoryItem_itemstocks(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
 				return res
 			}
 
@@ -35622,16 +35620,13 @@ func (ec *executionContext) _InventoryItem(ctx context.Context, sel ast.Selectio
 		case "itemset":
 			field := field
 
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
 				res = ec._InventoryItem_itemset(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
 				return res
 			}
 
@@ -35691,9 +35686,6 @@ func (ec *executionContext) _InventoryItemConnection(ctx context.Context, sel as
 			out.Values[i] = graphql.MarshalString("InventoryItemConnection")
 		case "edges":
 			out.Values[i] = ec._InventoryItemConnection_edges(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "pageInfo":
 			out.Values[i] = ec._InventoryItemConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -35740,14 +35732,8 @@ func (ec *executionContext) _InventoryItemDeletePayload(ctx context.Context, sel
 			out.Values[i] = graphql.MarshalString("InventoryItemDeletePayload")
 		case "deletedID":
 			out.Values[i] = ec._InventoryItemDeletePayload_deletedID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._InventoryItemDeletePayload_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -35784,9 +35770,6 @@ func (ec *executionContext) _InventoryItemEdge(ctx context.Context, sel ast.Sele
 			out.Values[i] = graphql.MarshalString("InventoryItemEdge")
 		case "node":
 			out.Values[i] = ec._InventoryItemEdge_node(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "cursor":
 			out.Values[i] = ec._InventoryItemEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -35828,14 +35811,8 @@ func (ec *executionContext) _InventoryItemMovementDeletePayload(ctx context.Cont
 			out.Values[i] = graphql.MarshalString("InventoryItemMovementDeletePayload")
 		case "deletedID":
 			out.Values[i] = ec._InventoryItemMovementDeletePayload_deletedID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._InventoryItemMovementDeletePayload_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -35872,14 +35849,8 @@ func (ec *executionContext) _InventoryItemMovementOutput(ctx context.Context, se
 			out.Values[i] = graphql.MarshalString("InventoryItemMovementOutput")
 		case "inventoryItemMovement":
 			out.Values[i] = ec._InventoryItemMovementOutput_inventoryItemMovement(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._InventoryItemMovementOutput_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -35916,14 +35887,8 @@ func (ec *executionContext) _InventoryItemOutput(ctx context.Context, sel ast.Se
 			out.Values[i] = graphql.MarshalString("InventoryItemOutput")
 		case "inventoryItem":
 			out.Values[i] = ec._InventoryItemOutput_inventoryItem(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._InventoryItemOutput_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -35970,19 +35935,10 @@ func (ec *executionContext) _InventoryItemSet(ctx context.Context, sel ast.Selec
 			}
 		case "dataTypeID":
 			out.Values[i] = ec._InventoryItemSet_dataTypeID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "dataTypeSlug":
 			out.Values[i] = ec._InventoryItemSet_dataTypeSlug(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "data":
 			out.Values[i] = ec._InventoryItemSet_data(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "createdAt":
 			out.Values[i] = ec._InventoryItemSet_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -35995,24 +35951,12 @@ func (ec *executionContext) _InventoryItemSet(ctx context.Context, sel ast.Selec
 			}
 		case "updatedAt":
 			out.Values[i] = ec._InventoryItemSet_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "updatedBy":
 			out.Values[i] = ec._InventoryItemSet_updatedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedAt":
 			out.Values[i] = ec._InventoryItemSet_deletedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedBy":
 			out.Values[i] = ec._InventoryItemSet_deletedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "sku":
 			out.Values[i] = ec._InventoryItemSet_sku(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -36090,9 +36034,6 @@ func (ec *executionContext) _InventoryItemSetConnection(ctx context.Context, sel
 			out.Values[i] = graphql.MarshalString("InventoryItemSetConnection")
 		case "edges":
 			out.Values[i] = ec._InventoryItemSetConnection_edges(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "pageInfo":
 			out.Values[i] = ec._InventoryItemSetConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -36139,14 +36080,8 @@ func (ec *executionContext) _InventoryItemSetDeletePayload(ctx context.Context, 
 			out.Values[i] = graphql.MarshalString("InventoryItemSetDeletePayload")
 		case "deletedID":
 			out.Values[i] = ec._InventoryItemSetDeletePayload_deletedID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._InventoryItemSetDeletePayload_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -36183,9 +36118,6 @@ func (ec *executionContext) _InventoryItemSetEdge(ctx context.Context, sel ast.S
 			out.Values[i] = graphql.MarshalString("InventoryItemSetEdge")
 		case "node":
 			out.Values[i] = ec._InventoryItemSetEdge_node(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "cursor":
 			out.Values[i] = ec._InventoryItemSetEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -36227,14 +36159,8 @@ func (ec *executionContext) _InventoryItemSetOutput(ctx context.Context, sel ast
 			out.Values[i] = graphql.MarshalString("InventoryItemSetOutput")
 		case "inventoryItemSet":
 			out.Values[i] = ec._InventoryItemSetOutput_inventoryItemSet(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._InventoryItemSetOutput_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -36271,14 +36197,8 @@ func (ec *executionContext) _InventoryRepositoryDeletePayload(ctx context.Contex
 			out.Values[i] = graphql.MarshalString("InventoryRepositoryDeletePayload")
 		case "deletedID":
 			out.Values[i] = ec._InventoryRepositoryDeletePayload_deletedID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._InventoryRepositoryDeletePayload_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -36315,14 +36235,8 @@ func (ec *executionContext) _InventoryRepositoryMovementDeletePayload(ctx contex
 			out.Values[i] = graphql.MarshalString("InventoryRepositoryMovementDeletePayload")
 		case "deletedID":
 			out.Values[i] = ec._InventoryRepositoryMovementDeletePayload_deletedID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._InventoryRepositoryMovementDeletePayload_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -36359,14 +36273,8 @@ func (ec *executionContext) _InventoryRepositoryMovementOutput(ctx context.Conte
 			out.Values[i] = graphql.MarshalString("InventoryRepositoryMovementOutput")
 		case "inventoryRepositoryMovement":
 			out.Values[i] = ec._InventoryRepositoryMovementOutput_inventoryRepositoryMovement(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._InventoryRepositoryMovementOutput_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -36403,14 +36311,8 @@ func (ec *executionContext) _InventoryRepositoryOutput(ctx context.Context, sel 
 			out.Values[i] = graphql.MarshalString("InventoryRepositoryOutput")
 		case "inventoryRepository":
 			out.Values[i] = ec._InventoryRepositoryOutput_inventoryRepository(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._InventoryRepositoryOutput_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -36457,19 +36359,10 @@ func (ec *executionContext) _ItemMovement(ctx context.Context, sel ast.Selection
 			}
 		case "dataTypeID":
 			out.Values[i] = ec._ItemMovement_dataTypeID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "dataTypeSlug":
 			out.Values[i] = ec._ItemMovement_dataTypeSlug(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "data":
 			out.Values[i] = ec._ItemMovement_data(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "createdAt":
 			out.Values[i] = ec._ItemMovement_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -36482,24 +36375,12 @@ func (ec *executionContext) _ItemMovement(ctx context.Context, sel ast.Selection
 			}
 		case "updatedAt":
 			out.Values[i] = ec._ItemMovement_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "updatedBy":
 			out.Values[i] = ec._ItemMovement_updatedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedAt":
 			out.Values[i] = ec._ItemMovement_deletedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedBy":
 			out.Values[i] = ec._ItemMovement_deletedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "itemID":
 			out.Values[i] = ec._ItemMovement_itemID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -36527,9 +36408,6 @@ func (ec *executionContext) _ItemMovement(ctx context.Context, sel ast.Selection
 			}
 		case "executedAt":
 			out.Values[i] = ec._ItemMovement_executedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "handler":
 			out.Values[i] = ec._ItemMovement_handler(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -36537,19 +36415,10 @@ func (ec *executionContext) _ItemMovement(ctx context.Context, sel ast.Selection
 			}
 		case "blockedBy":
 			out.Values[i] = ec._ItemMovement_blockedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "collectionID":
 			out.Values[i] = ec._ItemMovement_collectionID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "orderID":
 			out.Values[i] = ec._ItemMovement_orderID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "position":
 			out.Values[i] = ec._ItemMovement_position(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -36699,9 +36568,6 @@ func (ec *executionContext) _ItemMovementConnection(ctx context.Context, sel ast
 			out.Values[i] = graphql.MarshalString("ItemMovementConnection")
 		case "edges":
 			out.Values[i] = ec._ItemMovementConnection_edges(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "pageInfo":
 			out.Values[i] = ec._ItemMovementConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -36748,9 +36614,6 @@ func (ec *executionContext) _ItemMovementDeletePayload(ctx context.Context, sel 
 			out.Values[i] = graphql.MarshalString("ItemMovementDeletePayload")
 		case "deletedID":
 			out.Values[i] = ec._ItemMovementDeletePayload_deletedID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -36787,9 +36650,6 @@ func (ec *executionContext) _ItemMovementEdge(ctx context.Context, sel ast.Selec
 			out.Values[i] = graphql.MarshalString("ItemMovementEdge")
 		case "node":
 			out.Values[i] = ec._ItemMovementEdge_node(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "cursor":
 			out.Values[i] = ec._ItemMovementEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -36841,16 +36701,10 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createInventoryItem(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "updateInventoryItem":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updateInventoryItem(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "deleteInventoryItem":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteInventoryItem(ctx, field)
@@ -36862,16 +36716,10 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createInventoryRepository(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "updateInventoryRepository":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updateInventoryRepository(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "deleteInventoryRepository":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteInventoryRepository(ctx, field)
@@ -36883,23 +36731,14 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createInventoryItemMovement(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "updateInventoryItemMovement":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updateInventoryItemMovement(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "executeInventoryItemMovement":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_executeInventoryItemMovement(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "deleteInventoryItemMovement":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteInventoryItemMovement(ctx, field)
@@ -36911,23 +36750,14 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createInventoryRepositoryMovement(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "updateInventoryRepositoryMovement":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updateInventoryRepositoryMovement(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "executeInventoryRepositoryMovement":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_executeInventoryRepositoryMovement(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "deleteInventoryRepositoryMovement":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteInventoryRepositoryMovement(ctx, field)
@@ -36939,16 +36769,10 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createInventoryCollectionMovement(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "updateInventoryCollectionMovement":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updateInventoryCollectionMovement(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "deleteInventoryCollection":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteInventoryCollection(ctx, field)
@@ -36960,30 +36784,18 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteInventoryStock(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "rebuildInventoryStock":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_rebuildInventoryStock(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "createInventoryItemSet":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createInventoryItemSet(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "updateInventoryItemSet":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updateInventoryItemSet(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "deleteInventoryItemSet":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteInventoryItemSet(ctx, field)
@@ -36995,16 +36807,10 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createReplenishmentOrder(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "updateReplenishmentOrder":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updateReplenishmentOrder(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "deleteReplenishmentOrder":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteReplenishmentOrder(ctx, field)
@@ -37016,16 +36822,10 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createReplenishmentOrderItem(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "updateReplenishmentOrderItem":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updateReplenishmentOrderItem(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "deleteReplenishmentOrderItem":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteReplenishmentOrderItem(ctx, field)
@@ -37037,58 +36837,34 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_patchInventoryItemData(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "patchInventoryRepositoryData":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_patchInventoryRepositoryData(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "patchInventoryItemMovementData":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_patchInventoryItemMovementData(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "patchInventoryRepositoryMovementData":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_patchInventoryRepositoryMovementData(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "patchInventoryCollectionMovementData":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_patchInventoryCollectionMovementData(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "patchInventoryItemSetData":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_patchInventoryItemSetData(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "patchReplenishmentOrderData":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_patchReplenishmentOrderData(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "patchReplenishmentOrderItemData":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_patchReplenishmentOrderItemData(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -37135,14 +36911,8 @@ func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "startCursor":
 			out.Values[i] = ec._PageInfo_startCursor(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "endCursor":
 			out.Values[i] = ec._PageInfo_endCursor(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -37184,19 +36954,10 @@ func (ec *executionContext) _PickingOrderItem(ctx context.Context, sel ast.Selec
 			}
 		case "item":
 			out.Values[i] = ec._PickingOrderItem_item(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "availableStock":
 			out.Values[i] = ec._PickingOrderItem_availableStock(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "reservedStock":
 			out.Values[i] = ec._PickingOrderItem_reservedStock(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -37242,16 +37003,13 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 		case "node":
 			field := field
 
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
 				res = ec._Query_node(ctx, field)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
 				return res
 			}
 
@@ -37595,16 +37353,10 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "__schema":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___schema(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -37690,19 +37442,10 @@ func (ec *executionContext) _ReplenishmentOrder(ctx context.Context, sel ast.Sel
 			}
 		case "dataTypeID":
 			out.Values[i] = ec._ReplenishmentOrder_dataTypeID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "dataTypeSlug":
 			out.Values[i] = ec._ReplenishmentOrder_dataTypeSlug(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "data":
 			out.Values[i] = ec._ReplenishmentOrder_data(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "createdAt":
 			out.Values[i] = ec._ReplenishmentOrder_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -37715,29 +37458,14 @@ func (ec *executionContext) _ReplenishmentOrder(ctx context.Context, sel ast.Sel
 			}
 		case "updatedAt":
 			out.Values[i] = ec._ReplenishmentOrder_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "updatedBy":
 			out.Values[i] = ec._ReplenishmentOrder_updatedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedAt":
 			out.Values[i] = ec._ReplenishmentOrder_deletedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedBy":
 			out.Values[i] = ec._ReplenishmentOrder_deletedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "supplierID":
 			out.Values[i] = ec._ReplenishmentOrder_supplierID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "replenishmentOrderItems":
 			field := field
 
@@ -37810,9 +37538,6 @@ func (ec *executionContext) _ReplenishmentOrderConnection(ctx context.Context, s
 			out.Values[i] = graphql.MarshalString("ReplenishmentOrderConnection")
 		case "edges":
 			out.Values[i] = ec._ReplenishmentOrderConnection_edges(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "pageInfo":
 			out.Values[i] = ec._ReplenishmentOrderConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -37859,14 +37584,8 @@ func (ec *executionContext) _ReplenishmentOrderDeletePayload(ctx context.Context
 			out.Values[i] = graphql.MarshalString("ReplenishmentOrderDeletePayload")
 		case "deletedID":
 			out.Values[i] = ec._ReplenishmentOrderDeletePayload_deletedID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._ReplenishmentOrderDeletePayload_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -37903,9 +37622,6 @@ func (ec *executionContext) _ReplenishmentOrderEdge(ctx context.Context, sel ast
 			out.Values[i] = graphql.MarshalString("ReplenishmentOrderEdge")
 		case "node":
 			out.Values[i] = ec._ReplenishmentOrderEdge_node(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "cursor":
 			out.Values[i] = ec._ReplenishmentOrderEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -37957,19 +37673,10 @@ func (ec *executionContext) _ReplenishmentOrderItem(ctx context.Context, sel ast
 			}
 		case "dataTypeID":
 			out.Values[i] = ec._ReplenishmentOrderItem_dataTypeID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "dataTypeSlug":
 			out.Values[i] = ec._ReplenishmentOrderItem_dataTypeSlug(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "data":
 			out.Values[i] = ec._ReplenishmentOrderItem_data(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "createdAt":
 			out.Values[i] = ec._ReplenishmentOrderItem_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -37982,24 +37689,12 @@ func (ec *executionContext) _ReplenishmentOrderItem(ctx context.Context, sel ast
 			}
 		case "updatedAt":
 			out.Values[i] = ec._ReplenishmentOrderItem_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "updatedBy":
 			out.Values[i] = ec._ReplenishmentOrderItem_updatedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedAt":
 			out.Values[i] = ec._ReplenishmentOrderItem_deletedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedBy":
 			out.Values[i] = ec._ReplenishmentOrderItem_deletedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "sku":
 			out.Values[i] = ec._ReplenishmentOrderItem_sku(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -38087,9 +37782,6 @@ func (ec *executionContext) _ReplenishmentOrderItemConnection(ctx context.Contex
 			out.Values[i] = graphql.MarshalString("ReplenishmentOrderItemConnection")
 		case "edges":
 			out.Values[i] = ec._ReplenishmentOrderItemConnection_edges(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "pageInfo":
 			out.Values[i] = ec._ReplenishmentOrderItemConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -38136,14 +37828,8 @@ func (ec *executionContext) _ReplenishmentOrderItemDeletePayload(ctx context.Con
 			out.Values[i] = graphql.MarshalString("ReplenishmentOrderItemDeletePayload")
 		case "deletedID":
 			out.Values[i] = ec._ReplenishmentOrderItemDeletePayload_deletedID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._ReplenishmentOrderItemDeletePayload_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -38180,9 +37866,6 @@ func (ec *executionContext) _ReplenishmentOrderItemEdge(ctx context.Context, sel
 			out.Values[i] = graphql.MarshalString("ReplenishmentOrderItemEdge")
 		case "node":
 			out.Values[i] = ec._ReplenishmentOrderItemEdge_node(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "cursor":
 			out.Values[i] = ec._ReplenishmentOrderItemEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -38224,14 +37907,8 @@ func (ec *executionContext) _ReplenishmentOrderItemOutput(ctx context.Context, s
 			out.Values[i] = graphql.MarshalString("ReplenishmentOrderItemOutput")
 		case "replenishmentOrderItem":
 			out.Values[i] = ec._ReplenishmentOrderItemOutput_replenishmentOrderItem(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._ReplenishmentOrderItemOutput_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -38268,14 +37945,8 @@ func (ec *executionContext) _ReplenishmentOrderOutput(ctx context.Context, sel a
 			out.Values[i] = graphql.MarshalString("ReplenishmentOrderOutput")
 		case "replenishmentOrder":
 			out.Values[i] = ec._ReplenishmentOrderOutput_replenishmentOrder(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "workflows":
 			out.Values[i] = ec._ReplenishmentOrderOutput_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -38322,19 +37993,10 @@ func (ec *executionContext) _Repository(ctx context.Context, sel ast.SelectionSe
 			}
 		case "dataTypeID":
 			out.Values[i] = ec._Repository_dataTypeID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "dataTypeSlug":
 			out.Values[i] = ec._Repository_dataTypeSlug(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "data":
 			out.Values[i] = ec._Repository_data(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "createdAt":
 			out.Values[i] = ec._Repository_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -38347,34 +38009,16 @@ func (ec *executionContext) _Repository(ctx context.Context, sel ast.SelectionSe
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Repository_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "updatedBy":
 			out.Values[i] = ec._Repository_updatedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedAt":
 			out.Values[i] = ec._Repository_deletedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedBy":
 			out.Values[i] = ec._Repository_deletedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "parentID":
 			out.Values[i] = ec._Repository_parentID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "locationID":
 			out.Values[i] = ec._Repository_locationID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "name":
 			out.Values[i] = ec._Repository_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -38382,9 +38026,6 @@ func (ec *executionContext) _Repository(ctx context.Context, sel ast.SelectionSe
 			}
 		case "layout":
 			out.Values[i] = ec._Repository_layout(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "type":
 			out.Values[i] = ec._Repository_type(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -38650,16 +38291,13 @@ func (ec *executionContext) _Repository(ctx context.Context, sel ast.SelectionSe
 		case "parent":
 			field := field
 
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
 				res = ec._Repository_parent(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
 				return res
 			}
 
@@ -38755,9 +38393,6 @@ func (ec *executionContext) _RepositoryConnection(ctx context.Context, sel ast.S
 			out.Values[i] = graphql.MarshalString("RepositoryConnection")
 		case "edges":
 			out.Values[i] = ec._RepositoryConnection_edges(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "pageInfo":
 			out.Values[i] = ec._RepositoryConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -38804,9 +38439,6 @@ func (ec *executionContext) _RepositoryDeletePayload(ctx context.Context, sel as
 			out.Values[i] = graphql.MarshalString("RepositoryDeletePayload")
 		case "deletedID":
 			out.Values[i] = ec._RepositoryDeletePayload_deletedID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -38843,9 +38475,6 @@ func (ec *executionContext) _RepositoryEdge(ctx context.Context, sel ast.Selecti
 			out.Values[i] = graphql.MarshalString("RepositoryEdge")
 		case "node":
 			out.Values[i] = ec._RepositoryEdge_node(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "cursor":
 			out.Values[i] = ec._RepositoryEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -38897,19 +38526,10 @@ func (ec *executionContext) _RepositoryMovement(ctx context.Context, sel ast.Sel
 			}
 		case "dataTypeID":
 			out.Values[i] = ec._RepositoryMovement_dataTypeID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "dataTypeSlug":
 			out.Values[i] = ec._RepositoryMovement_dataTypeSlug(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "data":
 			out.Values[i] = ec._RepositoryMovement_data(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "createdAt":
 			out.Values[i] = ec._RepositoryMovement_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -38922,24 +38542,12 @@ func (ec *executionContext) _RepositoryMovement(ctx context.Context, sel ast.Sel
 			}
 		case "updatedAt":
 			out.Values[i] = ec._RepositoryMovement_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "updatedBy":
 			out.Values[i] = ec._RepositoryMovement_updatedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedAt":
 			out.Values[i] = ec._RepositoryMovement_deletedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedBy":
 			out.Values[i] = ec._RepositoryMovement_deletedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "repositoryID":
 			out.Values[i] = ec._RepositoryMovement_repositoryID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -38947,9 +38555,6 @@ func (ec *executionContext) _RepositoryMovement(ctx context.Context, sel ast.Sel
 			}
 		case "fromID":
 			out.Values[i] = ec._RepositoryMovement_fromID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "toID":
 			out.Values[i] = ec._RepositoryMovement_toID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -38962,9 +38567,6 @@ func (ec *executionContext) _RepositoryMovement(ctx context.Context, sel ast.Sel
 			}
 		case "executedAt":
 			out.Values[i] = ec._RepositoryMovement_executedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "handler":
 			out.Values[i] = ec._RepositoryMovement_handler(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -38972,19 +38574,10 @@ func (ec *executionContext) _RepositoryMovement(ctx context.Context, sel ast.Sel
 			}
 		case "blockedBy":
 			out.Values[i] = ec._RepositoryMovement_blockedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "collectionID":
 			out.Values[i] = ec._RepositoryMovement_collectionID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "orderID":
 			out.Values[i] = ec._RepositoryMovement_orderID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "position":
 			out.Values[i] = ec._RepositoryMovement_position(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -38993,16 +38586,13 @@ func (ec *executionContext) _RepositoryMovement(ctx context.Context, sel ast.Sel
 		case "from":
 			field := field
 
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
 				res = ec._RepositoryMovement_from(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
 				return res
 			}
 
@@ -39134,9 +38724,6 @@ func (ec *executionContext) _RepositoryMovementConnection(ctx context.Context, s
 			out.Values[i] = graphql.MarshalString("RepositoryMovementConnection")
 		case "edges":
 			out.Values[i] = ec._RepositoryMovementConnection_edges(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "pageInfo":
 			out.Values[i] = ec._RepositoryMovementConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -39183,9 +38770,6 @@ func (ec *executionContext) _RepositoryMovementDeletePayload(ctx context.Context
 			out.Values[i] = graphql.MarshalString("RepositoryMovementDeletePayload")
 		case "deletedID":
 			out.Values[i] = ec._RepositoryMovementDeletePayload_deletedID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -39222,9 +38806,6 @@ func (ec *executionContext) _RepositoryMovementEdge(ctx context.Context, sel ast
 			out.Values[i] = graphql.MarshalString("RepositoryMovementEdge")
 		case "node":
 			out.Values[i] = ec._RepositoryMovementEdge_node(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "cursor":
 			out.Values[i] = ec._RepositoryMovementEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -39271,9 +38852,6 @@ func (ec *executionContext) _RepositoryTree(ctx context.Context, sel ast.Selecti
 			}
 		case "parentID":
 			out.Values[i] = ec._RepositoryTree_parentID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "stocks":
 			out.Values[i] = ec._RepositoryTree_stocks(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -39418,9 +38996,6 @@ func (ec *executionContext) _ServiceInfo(ctx context.Context, sel ast.SelectionS
 			}
 		case "date":
 			out.Values[i] = ec._ServiceInfo_date(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -39477,24 +39052,12 @@ func (ec *executionContext) _Stock(ctx context.Context, sel ast.SelectionSet, ob
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Stock_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "updatedBy":
 			out.Values[i] = ec._Stock_updatedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedAt":
 			out.Values[i] = ec._Stock_deletedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedBy":
 			out.Values[i] = ec._Stock_deletedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "itemID":
 			out.Values[i] = ec._Stock_itemID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -39512,9 +39075,6 @@ func (ec *executionContext) _Stock(ctx context.Context, sel ast.SelectionSet, ob
 			}
 		case "movementID":
 			out.Values[i] = ec._Stock_movementID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "incomingStock":
 			out.Values[i] = ec._Stock_incomingStock(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -39537,6 +39097,11 @@ func (ec *executionContext) _Stock(ctx context.Context, sel ast.SelectionSet, ob
 			}
 		case "ownOutgoingStock":
 			out.Values[i] = ec._Stock_ownOutgoingStock(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "version":
+			out.Values[i] = ec._Stock_version(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
@@ -39648,9 +39213,6 @@ func (ec *executionContext) _StockConnection(ctx context.Context, sel ast.Select
 			out.Values[i] = graphql.MarshalString("StockConnection")
 		case "edges":
 			out.Values[i] = ec._StockConnection_edges(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "pageInfo":
 			out.Values[i] = ec._StockConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -39697,9 +39259,6 @@ func (ec *executionContext) _StockEdge(ctx context.Context, sel ast.SelectionSet
 			out.Values[i] = graphql.MarshalString("StockEdge")
 		case "node":
 			out.Values[i] = ec._StockEdge_node(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "cursor":
 			out.Values[i] = ec._StockEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -39854,24 +39413,12 @@ func (ec *executionContext) _Transaction(ctx context.Context, sel ast.SelectionS
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Transaction_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "updatedBy":
 			out.Values[i] = ec._Transaction_updatedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedAt":
 			out.Values[i] = ec._Transaction_deletedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedBy":
 			out.Values[i] = ec._Transaction_deletedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "itemID":
 			out.Values[i] = ec._Transaction_itemID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -40000,9 +39547,6 @@ func (ec *executionContext) _TransactionConnection(ctx context.Context, sel ast.
 			out.Values[i] = graphql.MarshalString("TransactionConnection")
 		case "edges":
 			out.Values[i] = ec._TransactionConnection_edges(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "pageInfo":
 			out.Values[i] = ec._TransactionConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -40049,9 +39593,6 @@ func (ec *executionContext) _TransactionEdge(ctx context.Context, sel ast.Select
 			out.Values[i] = graphql.MarshalString("TransactionEdge")
 		case "node":
 			out.Values[i] = ec._TransactionEdge_node(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "cursor":
 			out.Values[i] = ec._TransactionEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -40098,9 +39639,6 @@ func (ec *executionContext) _UpdateCollectionMovementOutput(ctx context.Context,
 			}
 		case "workflows":
 			out.Values[i] = ec._UpdateCollectionMovementOutput_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -40137,9 +39675,6 @@ func (ec *executionContext) __Service(ctx context.Context, sel ast.SelectionSet,
 			out.Values[i] = graphql.MarshalString("_Service")
 		case "sdl":
 			out.Values[i] = ec.__Service_sdl(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -40181,9 +39716,6 @@ func (ec *executionContext) ___Directive(ctx context.Context, sel ast.SelectionS
 			}
 		case "description":
 			out.Values[i] = ec.___Directive_description(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "isRepeatable":
 			out.Values[i] = ec.___Directive_isRepeatable(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -40240,9 +39772,6 @@ func (ec *executionContext) ___EnumValue(ctx context.Context, sel ast.SelectionS
 			}
 		case "description":
 			out.Values[i] = ec.___EnumValue_description(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "isDeprecated":
 			out.Values[i] = ec.___EnumValue_isDeprecated(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -40250,9 +39779,6 @@ func (ec *executionContext) ___EnumValue(ctx context.Context, sel ast.SelectionS
 			}
 		case "deprecationReason":
 			out.Values[i] = ec.___EnumValue_deprecationReason(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -40294,9 +39820,6 @@ func (ec *executionContext) ___Field(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "description":
 			out.Values[i] = ec.___Field_description(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "args":
 			out.Values[i] = ec.___Field_args(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -40314,9 +39837,6 @@ func (ec *executionContext) ___Field(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "deprecationReason":
 			out.Values[i] = ec.___Field_deprecationReason(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -40358,9 +39878,6 @@ func (ec *executionContext) ___InputValue(ctx context.Context, sel ast.Selection
 			}
 		case "description":
 			out.Values[i] = ec.___InputValue_description(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "type":
 			out.Values[i] = ec.___InputValue_type(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -40368,9 +39885,6 @@ func (ec *executionContext) ___InputValue(ctx context.Context, sel ast.Selection
 			}
 		case "defaultValue":
 			out.Values[i] = ec.___InputValue_defaultValue(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "isDeprecated":
 			out.Values[i] = ec.___InputValue_isDeprecated(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -40378,9 +39892,6 @@ func (ec *executionContext) ___InputValue(ctx context.Context, sel ast.Selection
 			}
 		case "deprecationReason":
 			out.Values[i] = ec.___InputValue_deprecationReason(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -40417,9 +39928,6 @@ func (ec *executionContext) ___Schema(ctx context.Context, sel ast.SelectionSet,
 			out.Values[i] = graphql.MarshalString("__Schema")
 		case "description":
 			out.Values[i] = ec.___Schema_description(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "types":
 			out.Values[i] = ec.___Schema_types(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -40432,14 +39940,8 @@ func (ec *executionContext) ___Schema(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "mutationType":
 			out.Values[i] = ec.___Schema_mutationType(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "subscriptionType":
 			out.Values[i] = ec.___Schema_subscriptionType(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "directives":
 			out.Values[i] = ec.___Schema_directives(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -40486,54 +39988,24 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "name":
 			out.Values[i] = ec.___Type_name(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "description":
 			out.Values[i] = ec.___Type_description(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "specifiedByURL":
 			out.Values[i] = ec.___Type_specifiedByURL(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "fields":
 			out.Values[i] = ec.___Type_fields(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "interfaces":
 			out.Values[i] = ec.___Type_interfaces(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "possibleTypes":
 			out.Values[i] = ec.___Type_possibleTypes(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "enumValues":
 			out.Values[i] = ec.___Type_enumValues(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "inputFields":
 			out.Values[i] = ec.___Type_inputFields(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "ofType":
 			out.Values[i] = ec.___Type_ofType(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "isOneOf":
 			out.Values[i] = ec.___Type_isOneOf(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

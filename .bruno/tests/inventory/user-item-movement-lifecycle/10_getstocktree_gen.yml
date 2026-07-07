@@ -54,6 +54,7 @@ graphql:
                     tenantID
                     updatedAt
                     updatedBy
+                    version
                   }
                 }
               }
@@ -78,6 +79,7 @@ graphql:
                 tenantID
                 updatedAt
                 updatedBy
+                version
               }
             }
           }

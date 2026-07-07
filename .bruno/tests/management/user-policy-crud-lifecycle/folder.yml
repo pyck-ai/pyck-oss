@@ -1,0 +1,11 @@
+info:
+  name: User - Policy CRUD Lifecycle
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates an access policy, verifies it in list and single-item queries, updates it, and deletes it. Skipped when the token lacks admin role.
+
+
+request:
+  auth: inherit

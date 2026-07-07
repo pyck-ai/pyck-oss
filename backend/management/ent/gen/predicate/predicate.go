@@ -6,6 +6,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// AccessPolicy is the predicate function for accesspolicy builders.
+type AccessPolicy func(*sql.Selector)
+
 // DataType is the predicate function for datatype builders.
 type DataType func(*sql.Selector)
 
@@ -24,6 +27,9 @@ type EntityEventsOutbox func(*sql.Selector)
 // Event is the predicate function for event builders.
 type Event func(*sql.Selector)
 
+// Group is the predicate function for group builders.
+type Group func(*sql.Selector)
+
 // IdempotencyKey is the predicate function for idempotencykey builders.
 type IdempotencyKey func(*sql.Selector)
 
@@ -32,6 +38,9 @@ type KeyValue func(*sql.Selector)
 
 // Location is the predicate function for location builders.
 type Location func(*sql.Selector)
+
+// Role is the predicate function for role builders.
+type Role func(*sql.Selector)
 
 // Tenant is the predicate function for tenant builders.
 type Tenant func(*sql.Selector)

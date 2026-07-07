@@ -85,10 +85,14 @@ func (Stock) Fields() []ent.Field {
 				entgql.OrderField("OWN_OUTGOING_STOCK"),
 			),
 
+		// Unique and monotonic per (tenant, repository, item) — the only
+		// total order for "current row"; created_at is per-pod wall clock.
+		// Read-only in the API so clients can dedup by version.
 		field.Int64("version").
 			Default(0).
 			Annotations(
-				entgql.Skip(entgql.SkipAll),
+				entgql.OrderField("VERSION"),
+				entgql.Skip(entgql.SkipMutationCreateInput|entgql.SkipMutationUpdateInput),
 			),
 	}
 }

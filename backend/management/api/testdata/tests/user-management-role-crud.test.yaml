@@ -1,0 +1,140 @@
+---
+name: "User - Role CRUD Lifecycle"
+description: >
+  Creates a role, verifies it appears in list and single-item queries,
+  updates it, and deletes it. Skipped when the token lacks admin role.
+steps:
+  - id: checkRole
+    name: "Check role"
+    operation: management.getMe
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+
+  - id: create
+    name: "Create role"
+    operation: management.createRole
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      input:
+        name: "InventoryViewer"
+        description: "Read-only access to inventory"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Role created"
+        assertions:
+          - ref: res.body.data.createRole.id
+            nil: false
+      - msg: "Name persisted"
+        assertions:
+          - ref: res.body.data.createRole.name
+            equal: "InventoryViewer"
+
+  - name: "Query role by ID (list)"
+    operation: management.getRoles
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      where:
+        id: {$ref: "res[create].body.data.createRole.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Exactly one role"
+        assertions:
+          - ref: res.body.data.roles.totalCount
+            equal: 1
+
+  - name: "Get role by ID (single)"
+    operation: management.getRole
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      id: {$ref: "res[create].body.data.createRole.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Role returned"
+        assertions:
+          - ref: res.body.data.role.id
+            equal: {$ref: "res[create].body.data.createRole.id"}
+
+  - name: "Update role"
+    operation: management.updateRole
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      id: {$ref: "res[create].body.data.createRole.id"}
+      input:
+        name: "InventoryEditor"
+        description: "Read-write access to inventory"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Name updated"
+        assertions:
+          - ref: res.body.data.updateRole.name
+            equal: "InventoryEditor"
+
+  - name: "Delete role"
+    operation: management.deleteRole
+    skip:
+      - msg: "Skip if not admin"
+        assertions:
+          - ref: res[checkRole].body.data.me.Tenants[0].Role
+            notEqual: "admin"
+    vars:
+      id: {$ref: "res[create].body.data.createRole.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID returned"
+        assertions:
+          - ref: res.body.data.deleteRole
+            equal: {$ref: "res[create].body.data.createRole.id"}

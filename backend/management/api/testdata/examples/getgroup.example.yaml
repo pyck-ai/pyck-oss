@@ -1,0 +1,20 @@
+---
+operation: GetGroup
+name: "Get Group"
+description: >
+  Retrieves a single group by ID including its roles and users.
+vars:
+  id: { $placeholder: "group ID" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Group returned"
+    assertions:
+      - ref: res.body.data.group.id
+        nil: false

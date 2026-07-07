@@ -339,9 +339,7 @@ func (a *Activities) CreateTenantInDbActivity(ctx context.Context, input CreateT
 	}()
 	serviceUserCtx = ent.NewTxContext(serviceUserCtx, tx)
 
-	// UI bundle URL templates are no longer seeded into tenant.Data: the workflow
-	// service renders a tenant-aware default at query time (#1317), and tenant.Data
-	// holds only explicit overrides set via setTenantUITemplate.
+	input.Data = core.EnrichRemoteUIURLs(input.Data, tenantID.String(), core.Config.FrontendBaseURL, core.Config.EnvironmentName)
 
 	createOp := tx.Tenant.Create().
 		SetID(tenantID).
@@ -356,40 +354,17 @@ func (a *Activities) CreateTenantInDbActivity(ctx context.Context, input CreateT
 		createOp = createOp.SetExpiresAt(input.ExpiresAt.UTC())
 	}
 
-	// On conflict, land the caller's input wholesale ("land my intent",
-	// not "merge"). The id is deterministic (ComputeUUID over the org),
-	// so a re-register collides with the tenant's prior row — including
-	// a soft-deleted one. Clearing deleted_at/deleted_by resurrects it:
-	// re-register yields an ACTIVE tenant, never a ghost that reports
-	// success while staying soft-deleted and disabled. ExpiresAt and
-	// Data are both written unconditionally (Set or Clear) so the
-	// caller's intent fully replaces the prior value. Name + idp_org_ref
-	// are immutable post-create.
-	upsert := createOp.
+	err = createOp.
 		OnConflictColumns("id").
-		Update(func(u *ent.TenantUpsert) {
-			u.ClearDeletedAt()
-			u.ClearDeletedBy()
-			if input.ExpiresAt != nil {
-				u.SetExpiresAt(input.ExpiresAt.UTC())
-			} else {
-				u.ClearExpiresAt()
-			}
-			if len(input.Data) > 0 {
-				u.SetData(input.Data)
-			} else {
-				u.ClearData()
-			}
-		})
-	if err := upsert.Exec(serviceUserCtx); err != nil {
-		// Some drivers return sql.ErrNoRows on the upsert no-RETURNING
-		// case even when the Update applied; not an error here.
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil
-		}
-		return err
+		DoNothing().
+		Exec(serviceUserCtx)
+	// DoNothing() returns sql.ErrNoRows when a conflict is detected because
+	// no RETURNING clause is generated. This is the expected idempotent case.
+	if errors.Is(err, sql.ErrNoRows) {
+		err = nil
+		return nil
 	}
-	return nil
+	return err
 }
 
 // DeleteTenantFromDbActivity carries the same direct-DB workaround as

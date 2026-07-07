@@ -366,6 +366,7 @@ const StockOrderFieldOutgoingStock = internalapi.StockOrderFieldOutgoingStock
 const StockOrderFieldOwnQuantity = internalapi.StockOrderFieldOwnQuantity
 const StockOrderFieldOwnIncomingStock = internalapi.StockOrderFieldOwnIncomingStock
 const StockOrderFieldOwnOutgoingStock = internalapi.StockOrderFieldOwnOutgoingStock
+const StockOrderFieldVersion = internalapi.StockOrderFieldVersion
 const TransactionOrderFieldTenantID = internalapi.TransactionOrderFieldTenantID
 const TransactionOrderFieldCreatedAt = internalapi.TransactionOrderFieldCreatedAt
 const TransactionOrderFieldCreatedBy = internalapi.TransactionOrderFieldCreatedBy

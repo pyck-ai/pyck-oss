@@ -1,0 +1,4 @@
+FROM temporalio/ui:latest
+
+ENV TEMPORAL_AUTH_ENABLED=false
+ENV TEMPORAL_CLOUD_UI=false

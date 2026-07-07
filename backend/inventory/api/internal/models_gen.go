@@ -1545,6 +1545,15 @@ type StockWhereInput struct {
 	OwnOutgoingStockGte   *int  `json:"ownOutgoingStockGTE,omitempty"`
 	OwnOutgoingStockLt    *int  `json:"ownOutgoingStockLT,omitempty"`
 	OwnOutgoingStockLte   *int  `json:"ownOutgoingStockLTE,omitempty"`
+	// version field predicates
+	Version      *int  `json:"version,omitempty"`
+	VersionNeq   *int  `json:"versionNEQ,omitempty"`
+	VersionIn    []int `json:"versionIn,omitempty"`
+	VersionNotIn []int `json:"versionNotIn,omitempty"`
+	VersionGt    *int  `json:"versionGT,omitempty"`
+	VersionGte   *int  `json:"versionGTE,omitempty"`
+	VersionLt    *int  `json:"versionLT,omitempty"`
+	VersionLte   *int  `json:"versionLTE,omitempty"`
 	// item edge predicates
 	HasItem     *bool                      `json:"hasItem,omitempty"`
 	HasItemWith []*InventoryItemWhereInput `json:"hasItemWith,omitempty"`
@@ -2621,6 +2630,7 @@ const (
 	StockOrderFieldOwnQuantity      StockOrderField = "OWN_QUANTITY"
 	StockOrderFieldOwnIncomingStock StockOrderField = "OWN_INCOMING_STOCK"
 	StockOrderFieldOwnOutgoingStock StockOrderField = "OWN_OUTGOING_STOCK"
+	StockOrderFieldVersion          StockOrderField = "VERSION"
 )
 
 var AllStockOrderField = []StockOrderField{
@@ -2640,11 +2650,12 @@ var AllStockOrderField = []StockOrderField{
 	StockOrderFieldOwnQuantity,
 	StockOrderFieldOwnIncomingStock,
 	StockOrderFieldOwnOutgoingStock,
+	StockOrderFieldVersion,
 }
 
 func (e StockOrderField) IsValid() bool {
 	switch e {
-	case StockOrderFieldTenantID, StockOrderFieldCreatedAt, StockOrderFieldCreatedBy, StockOrderFieldUpdatedAt, StockOrderFieldUpdatedBy, StockOrderFieldDeletedAt, StockOrderFieldDeletedBy, StockOrderFieldItemID, StockOrderFieldRepositoryID, StockOrderFieldQuantity, StockOrderFieldMovementID, StockOrderFieldIncomingStock, StockOrderFieldOutgoingStock, StockOrderFieldOwnQuantity, StockOrderFieldOwnIncomingStock, StockOrderFieldOwnOutgoingStock:
+	case StockOrderFieldTenantID, StockOrderFieldCreatedAt, StockOrderFieldCreatedBy, StockOrderFieldUpdatedAt, StockOrderFieldUpdatedBy, StockOrderFieldDeletedAt, StockOrderFieldDeletedBy, StockOrderFieldItemID, StockOrderFieldRepositoryID, StockOrderFieldQuantity, StockOrderFieldMovementID, StockOrderFieldIncomingStock, StockOrderFieldOutgoingStock, StockOrderFieldOwnQuantity, StockOrderFieldOwnIncomingStock, StockOrderFieldOwnOutgoingStock, StockOrderFieldVersion:
 		return true
 	}
 	return false

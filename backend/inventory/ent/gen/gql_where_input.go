@@ -5935,6 +5935,16 @@ type StockWhereInput struct {
 	OwnOutgoingStockLT    *int64  `json:"ownOutgoingStockLT,omitempty"`
 	OwnOutgoingStockLTE   *int64  `json:"ownOutgoingStockLTE,omitempty"`
 
+	// "version" field predicates.
+	Version      *int64  `json:"version,omitempty"`
+	VersionNEQ   *int64  `json:"versionNEQ,omitempty"`
+	VersionIn    []int64 `json:"versionIn,omitempty"`
+	VersionNotIn []int64 `json:"versionNotIn,omitempty"`
+	VersionGT    *int64  `json:"versionGT,omitempty"`
+	VersionGTE   *int64  `json:"versionGTE,omitempty"`
+	VersionLT    *int64  `json:"versionLT,omitempty"`
+	VersionLTE   *int64  `json:"versionLTE,omitempty"`
+
 	// "item" edge predicates.
 	HasItem     *bool                      `json:"hasItem,omitempty"`
 	HasItemWith []*InventoryItemWhereInput `json:"hasItemWith,omitempty"`
@@ -6368,6 +6378,30 @@ func (i *StockWhereInput) P() (predicate.Stock, error) {
 	}
 	if i.OwnOutgoingStockLTE != nil {
 		predicates = append(predicates, stock.OwnOutgoingStockLTE(*i.OwnOutgoingStockLTE))
+	}
+	if i.Version != nil {
+		predicates = append(predicates, stock.VersionEQ(*i.Version))
+	}
+	if i.VersionNEQ != nil {
+		predicates = append(predicates, stock.VersionNEQ(*i.VersionNEQ))
+	}
+	if len(i.VersionIn) > 0 {
+		predicates = append(predicates, stock.VersionIn(i.VersionIn...))
+	}
+	if len(i.VersionNotIn) > 0 {
+		predicates = append(predicates, stock.VersionNotIn(i.VersionNotIn...))
+	}
+	if i.VersionGT != nil {
+		predicates = append(predicates, stock.VersionGT(*i.VersionGT))
+	}
+	if i.VersionGTE != nil {
+		predicates = append(predicates, stock.VersionGTE(*i.VersionGTE))
+	}
+	if i.VersionLT != nil {
+		predicates = append(predicates, stock.VersionLT(*i.VersionLT))
+	}
+	if i.VersionLTE != nil {
+		predicates = append(predicates, stock.VersionLTE(*i.VersionLTE))
 	}
 
 	if i.HasItem != nil {

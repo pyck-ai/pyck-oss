@@ -15,6 +15,11 @@ type UserProfile struct {
 	LastName  string
 }
 
+type UserRoles struct {
+	ID    string
+	Roles []string
+}
+
 type Project struct {
 	ID string
 }

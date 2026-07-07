@@ -1,0 +1,25 @@
+---
+operation: UpdateGroup
+name: "Update Group"
+description: >
+  Updates the name or description of an existing group.
+vars:
+  id: { $placeholder: "group ID" }
+  input:
+    name: "Warehouse Operators Updated"
+    description: "Updated group description"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated group returned"
+    assertions:
+      - ref: res.body.data.updateGroup.id
+        nil: false
+      - ref: res.body.data.updateGroup.name
+        equal: "Warehouse Operators Updated"

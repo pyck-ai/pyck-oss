@@ -3175,6 +3175,7 @@ type Stock implements Node {
   ownQuantity: Int!
   ownIncomingStock: Int!
   ownOutgoingStock: Int!
+  version: Int!
   item: InventoryItem!
   repository: Repository!
 }
@@ -3249,6 +3250,7 @@ enum StockOrderField {
   OWN_QUANTITY
   OWN_INCOMING_STOCK
   OWN_OUTGOING_STOCK
+  VERSION
 }
 """
 StockWhereInput is used for filtering Stock objects.
@@ -3421,6 +3423,17 @@ input StockWhereInput {
   ownOutgoingStockGTE: Int
   ownOutgoingStockLT: Int
   ownOutgoingStockLTE: Int
+  """
+  version field predicates
+  """
+  version: Int
+  versionNEQ: Int
+  versionIn: [Int!]
+  versionNotIn: [Int!]
+  versionGT: Int
+  versionGTE: Int
+  versionLT: Int
+  versionLTE: Int
   """
   item edge predicates
   """

@@ -58,6 +58,7 @@ type User struct {
 	FirstName string
 	LastName  string
 	TenantID  string
+	Roles     []string
 	IsOwner   bool
 }
 

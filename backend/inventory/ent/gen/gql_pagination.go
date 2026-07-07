@@ -4680,6 +4680,20 @@ var (
 			}
 		},
 	}
+	// StockOrderFieldVersion orders Stock by version.
+	StockOrderFieldVersion = &StockOrderField{
+		Value: func(_m *Stock) (ent.Value, error) {
+			return _m.Version, nil
+		},
+		column: stock.FieldVersion,
+		toTerm: stock.ByVersion,
+		toCursor: func(_m *Stock) Cursor {
+			return Cursor{
+				ID:    _m.ID,
+				Value: _m.Version,
+			}
+		},
+	}
 )
 
 // String implement fmt.Stringer interface.
@@ -4718,6 +4732,8 @@ func (f StockOrderField) String() string {
 		str = "OWN_INCOMING_STOCK"
 	case StockOrderFieldOwnOutgoingStock.column:
 		str = "OWN_OUTGOING_STOCK"
+	case StockOrderFieldVersion.column:
+		str = "VERSION"
 	}
 	return str
 }
@@ -4766,6 +4782,8 @@ func (f *StockOrderField) UnmarshalGQL(v interface{}) error {
 		*f = *StockOrderFieldOwnIncomingStock
 	case "OWN_OUTGOING_STOCK":
 		*f = *StockOrderFieldOwnOutgoingStock
+	case "VERSION":
+		*f = *StockOrderFieldVersion
 	default:
 		return fmt.Errorf("%s is not a valid StockOrderField", str)
 	}

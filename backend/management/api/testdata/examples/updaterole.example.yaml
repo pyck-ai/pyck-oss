@@ -1,0 +1,25 @@
+---
+operation: UpdateRole
+name: "Update Role"
+description: >
+  Updates the name or description of an existing role.
+vars:
+  id: { $placeholder: "role ID" }
+  input:
+    name: "InventoryEditor"
+    description: "Read-write access to inventory data"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Updated role returned"
+    assertions:
+      - ref: res.body.data.updateRole.id
+        nil: false
+      - ref: res.body.data.updateRole.name
+        equal: "InventoryEditor"

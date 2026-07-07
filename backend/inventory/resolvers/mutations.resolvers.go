@@ -57,6 +57,14 @@ func (r *mutationResolver) CreateInventoryItem(ctx context.Context, input ent.Cr
 
 	var resp model.InventoryItemOutput
 
+	item, err := tx.Item.
+		Create().
+		SetInput(input).
+		Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
@@ -64,14 +72,6 @@ func (r *mutationResolver) CreateInventoryItem(ctx context.Context, input ent.Cr
 		FieldName: entitem.FieldData,
 		DbDriver:  core.Config.DbDriver,
 	}); err != nil {
-		return nil, err
-	}
-
-	item, err := tx.Item.
-		Create().
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
 		return nil, err
 	}
 
@@ -98,22 +98,21 @@ func (r *mutationResolver) UpdateInventoryItem(ctx context.Context, id uuid.UUID
 
 	var resp model.InventoryItemOutput
 
+	item, err := tx.Item.
+		UpdateOneID(id).
+		SetInput(input).
+		Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
 		TableName: entitem.Table,
 		FieldName: entitem.FieldData,
 		DbDriver:  core.Config.DbDriver,
-		ExcludeID: &id,
 	}); err != nil {
-		return nil, err
-	}
-
-	item, err := tx.Item.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
 		return nil, err
 	}
 
@@ -219,6 +218,13 @@ func (r *mutationResolver) CreateInventoryRepository(ctx context.Context, input 
 		}
 	}
 
+	repo, err := tx.Repository.Create().
+		SetInput(input).
+		Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
@@ -226,13 +232,6 @@ func (r *mutationResolver) CreateInventoryRepository(ctx context.Context, input 
 		FieldName: repository.FieldData,
 		DbDriver:  core.Config.DbDriver,
 	}); err != nil {
-		return nil, err
-	}
-
-	repo, err := tx.Repository.Create().
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
 		return nil, err
 	}
 
@@ -266,22 +265,21 @@ func (r *mutationResolver) UpdateInventoryRepository(ctx context.Context, id uui
 		}
 	}
 
+	repo, err := tx.Repository.
+		UpdateOneID(id).
+		SetInput(input).
+		Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
 		TableName: repository.Table,
 		FieldName: repository.FieldData,
 		DbDriver:  core.Config.DbDriver,
-		ExcludeID: &id,
 	}); err != nil {
-		return nil, err
-	}
-
-	repo, err := tx.Repository.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
 		return nil, err
 	}
 
@@ -399,19 +397,18 @@ func (r *mutationResolver) UpdateInventoryItemMovement(ctx context.Context, id u
 		return nil, fmt.Errorf("itemMovement not found")
 	}
 
+	movement, err := tx.ItemMovement.UpdateOneID(id).SetInput(input).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
 		TableName: itemmovement.Table,
 		FieldName: itemmovement.FieldData,
 		DbDriver:  core.Config.DbDriver,
-		ExcludeID: &id,
 	}); err != nil {
-		return nil, err
-	}
-
-	movement, err := tx.ItemMovement.UpdateOneID(id).SetInput(input).Save(ctx)
-	if err != nil {
 		return nil, err
 	}
 
@@ -505,19 +502,18 @@ func (r *mutationResolver) UpdateInventoryRepositoryMovement(ctx context.Context
 		return nil, err
 	}
 
+	movement, err := tx.RepositoryMovement.UpdateOneID(id).SetInput(input).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
 		TableName: repositorymovement.Table,
 		FieldName: repositorymovement.FieldData,
 		DbDriver:  core.Config.DbDriver,
-		ExcludeID: &id,
 	}); err != nil {
-		return nil, err
-	}
-
-	movement, err := tx.RepositoryMovement.UpdateOneID(id).SetInput(input).Save(ctx)
-	if err != nil {
 		return nil, err
 	}
 
@@ -642,22 +638,21 @@ func (r *mutationResolver) UpdateInventoryCollectionMovement(ctx context.Context
 		input.Handler = nil
 	}
 
+	collectionMovement, err := tx.Collection_Movement.
+		UpdateOneID(id).
+		SetInput(input).
+		Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
 		TableName: collection_movement.Table,
 		FieldName: collection_movement.FieldData,
 		DbDriver:  core.Config.DbDriver,
-		ExcludeID: &id,
 	}); err != nil {
-		return nil, err
-	}
-
-	collectionMovement, err := tx.Collection_Movement.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
 		return nil, err
 	}
 
@@ -910,6 +905,14 @@ func (r *mutationResolver) CreateInventoryItemSet(ctx context.Context, input ent
 		}
 	}
 
+	itemSet, err := tx.ItemSet.
+		Create().
+		SetInput(input).
+		Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
@@ -917,14 +920,6 @@ func (r *mutationResolver) CreateInventoryItemSet(ctx context.Context, input ent
 		FieldName: itemset.FieldData,
 		DbDriver:  core.Config.DbDriver,
 	}); err != nil {
-		return nil, err
-	}
-
-	itemSet, err := tx.ItemSet.
-		Create().
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
 		return nil, err
 	}
 
@@ -983,19 +978,18 @@ func (r *mutationResolver) UpdateInventoryItemSet(ctx context.Context, id uuid.U
 		}
 	}
 
+	itemSet, err := tx.ItemSet.UpdateOneID(id).SetInput(input).Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
 		TableName: itemset.Table,
 		FieldName: itemset.FieldData,
 		DbDriver:  core.Config.DbDriver,
-		ExcludeID: &id,
 	}); err != nil {
-		return nil, err
-	}
-
-	itemSet, err := tx.ItemSet.UpdateOneID(id).SetInput(input).Save(ctx)
-	if err != nil {
 		return nil, err
 	}
 
@@ -1133,24 +1127,23 @@ func (r *mutationResolver) UpdateReplenishmentOrder(ctx context.Context, id uuid
 
 	var resp model.ReplenishmentOrderOutput
 
-	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
-		Input:     input.Data,
-		DataType:  dataType,
-		TableName: replenishmentorder.Table,
-		FieldName: replenishmentorder.FieldData,
-		DbDriver:  core.Config.DbDriver,
-		ExcludeID: &id,
-	}); err != nil {
-		log.ForContext(ctx).Err(err).Msg("Failed data uniqueness validation in UpdateReplenishmentOrder")
-		return nil, err
-	}
-
 	order, err := tx.ReplenishmentOrder.
 		UpdateOneID(id).
 		SetInput(input).
 		Save(ctx)
 	if err != nil {
 		log.ForContext(ctx).Err(err).Msg("Failed to update replenishment order in database")
+		return nil, err
+	}
+
+	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+		Input:     input.Data,
+		DataType:  dataType,
+		TableName: "replenishment_orders",
+		FieldName: "data",
+		DbDriver:  core.Config.DbDriver,
+	}); err != nil {
+		log.ForContext(ctx).Err(err).Msg("Failed data uniqueness validation in UpdateReplenishmentOrder")
 		return nil, err
 	}
 
@@ -1263,23 +1256,22 @@ func (r *mutationResolver) UpdateReplenishmentOrderItem(ctx context.Context, id 
 
 	var resp model.ReplenishmentOrderItemOutput
 
-	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
-		Input:     input.Data,
-		DataType:  dataType,
-		TableName: replenishmentorderitem.Table,
-		FieldName: replenishmentorderitem.FieldData,
-		DbDriver:  core.Config.DbDriver,
-		ExcludeID: &id,
-	}); err != nil {
-		log.ForContext(ctx).Err(err).Msg("Failed data uniqueness validation in UpdateReplenishmentOrderItem")
-		return nil, err
-	}
-
 	orderItem, err := tx.ReplenishmentOrderItem.
 		UpdateOneID(id).
 		SetInput(input).
 		Save(ctx)
 	if err != nil {
+		return nil, err
+	}
+
+	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+		Input:     input.Data,
+		DataType:  dataType,
+		TableName: "replenishment_order_items",
+		FieldName: "data",
+		DbDriver:  core.Config.DbDriver,
+	}); err != nil {
+		log.ForContext(ctx).Err(err).Msg("Failed data uniqueness validation in UpdateReplenishmentOrderItem")
 		return nil, err
 	}
 

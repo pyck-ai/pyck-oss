@@ -229,7 +229,20 @@ presets = [
   "legacy",
   "std-error-handling"
 ]
-paths = [ "third_party$", "builtin$", "examples$" ]
+paths = [
+  "third_party$",
+  "builtin$",
+  "examples$",
+  # v0.23.1 hotfix branch only: main has since deleted these management
+  # files (RBAC rework, event-registry removal), so the diff-gated
+  # reporter (new-from-rev = "origin/main") no longer suppresses their
+  # pre-existing findings, and every newer golangci-lint in the CI
+  # baseimage surfaces a fresh batch. Exclude them entirely rather than
+  # chasing findings in code that no longer exists upstream.
+  "backend/management/service/event_registry(_test)?\\.go$",
+  "backend/management/utils/(tenant_onboarding|role)\\.go$",
+  "backend/management/ent/schema/(accesspolicy|group|role)_policy\\.go$",
+]
 
   [[linters.exclusions.rules]]
   path = "(.+)_test\\.go$"
@@ -274,3 +287,4 @@ paths = [ "third_party$", "builtin$", "examples$" ]
   [[linters.exclusions.rules]]
   path = "backend/(.+)/api/client\\.go"
   linters = [ "contextcheck", "ireturn", "errname" ]
+

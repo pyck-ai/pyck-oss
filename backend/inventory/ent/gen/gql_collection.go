@@ -2605,6 +2605,11 @@ func (_q *StockQuery) collectField(ctx context.Context, oneNode bool, opCtx *gra
 				selectedFields = append(selectedFields, stock.FieldOwnOutgoingStock)
 				fieldSeen[stock.FieldOwnOutgoingStock] = struct{}{}
 			}
+		case "version":
+			if _, ok := fieldSeen[stock.FieldVersion]; !ok {
+				selectedFields = append(selectedFields, stock.FieldVersion)
+				fieldSeen[stock.FieldVersion] = struct{}{}
+			}
 		case "id":
 		case "__typename":
 		default:

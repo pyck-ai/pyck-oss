@@ -1610,6 +1610,7 @@ type GetStocks_Stocks_Edges_Node struct {
 	TenantID         uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
 	UpdatedAt        *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
 	UpdatedBy        *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+	Version          int        "json:\"version\" graphql:\"version\""
 }
 
 func (t *GetStocks_Stocks_Edges_Node) GetCreatedAt() *time.Time {
@@ -1713,6 +1714,12 @@ func (t *GetStocks_Stocks_Edges_Node) GetUpdatedBy() *uuid.UUID {
 		t = &GetStocks_Stocks_Edges_Node{}
 	}
 	return t.UpdatedBy
+}
+func (t *GetStocks_Stocks_Edges_Node) GetVersion() int {
+	if t == nil {
+		t = &GetStocks_Stocks_Edges_Node{}
+	}
+	return t.Version
 }
 
 type GetStocks_Stocks_Edges struct {
@@ -2000,6 +2007,7 @@ type GetStockTree_GetStockTree_Edges_Node_Children_Node_Stocks struct {
 	TenantID         uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
 	UpdatedAt        *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
 	UpdatedBy        *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+	Version          int        "json:\"version\" graphql:\"version\""
 }
 
 func (t *GetStockTree_GetStockTree_Edges_Node_Children_Node_Stocks) GetCreatedAt() *time.Time {
@@ -2104,6 +2112,12 @@ func (t *GetStockTree_GetStockTree_Edges_Node_Children_Node_Stocks) GetUpdatedBy
 	}
 	return t.UpdatedBy
 }
+func (t *GetStockTree_GetStockTree_Edges_Node_Children_Node_Stocks) GetVersion() int {
+	if t == nil {
+		t = &GetStockTree_GetStockTree_Edges_Node_Children_Node_Stocks{}
+	}
+	return t.Version
+}
 
 type GetStockTree_GetStockTree_Edges_Node_Children_Node struct {
 	Children     []*GetStockTree_GetStockTree_Edges_Node_Children_Node_Children "json:\"children\" graphql:\"children\""
@@ -2180,6 +2194,7 @@ type GetStockTree_GetStockTree_Edges_Node_Stocks struct {
 	TenantID         uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
 	UpdatedAt        *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
 	UpdatedBy        *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+	Version          int        "json:\"version\" graphql:\"version\""
 }
 
 func (t *GetStockTree_GetStockTree_Edges_Node_Stocks) GetCreatedAt() *time.Time {
@@ -2283,6 +2298,12 @@ func (t *GetStockTree_GetStockTree_Edges_Node_Stocks) GetUpdatedBy() *uuid.UUID 
 		t = &GetStockTree_GetStockTree_Edges_Node_Stocks{}
 	}
 	return t.UpdatedBy
+}
+func (t *GetStockTree_GetStockTree_Edges_Node_Stocks) GetVersion() int {
+	if t == nil {
+		t = &GetStockTree_GetStockTree_Edges_Node_Stocks{}
+	}
+	return t.Version
 }
 
 type GetStockTree_GetStockTree_Edges_Node struct {
@@ -7747,6 +7768,7 @@ const GetStocksDocument = `query GetStocks ($after: Cursor, $first: Int, $before
 				tenantID
 				updatedAt
 				updatedBy
+				version
 			}
 		}
 	}
@@ -7888,6 +7910,7 @@ const GetStockTreeDocument = `query GetStockTree ($after: Cursor, $first: Int, $
 							tenantID
 							updatedAt
 							updatedBy
+							version
 						}
 					}
 				}
@@ -7912,6 +7935,7 @@ const GetStockTreeDocument = `query GetStockTree ($after: Cursor, $first: Int, $
 					tenantID
 					updatedAt
 					updatedBy
+					version
 				}
 			}
 		}

@@ -30,10 +30,13 @@ import (
 )
 
 const (
-	ProjectRoleSystem = "system"
-	ProjectRoleAdmin  = "admin"
-	ProjectRoleWriter = "writer"
-	ProjectRoleReader = "reader"
+	ProjectRoleSystem         = "system"
+	ProjectRoleAdmin          = "admin"
+	ProjectRoleWriter         = "writer"
+	ProjectRoleReader         = "reader"
+	ProjectRoleTemporalReader = "temporal_reader"
+	ProjectRoleTemporalWriter = "temporal_writer"
+	ProjectRoleTemporalAdmin  = "temporal_admin"
 
 	AppTypeOIDC  = "oidc"
 	AppTypeAPI   = "api"
@@ -732,6 +735,47 @@ func (client *ZitadelSdkClient) GetAllOrganizationUsers(ctx context.Context) ([]
 	}
 
 	return users, nil
+}
+
+func (client *ZitadelSdkClient) GetOrganizationUsersRoles(ctx context.Context, projectID string, skip uint64, limit uint32) ([]*UserRoles, error) {
+	paginationQuery := &object_pb.ListQuery{Limit: limit, Offset: skip}
+	projectIdQuery := &user_pb.UserGrantQuery_ProjectIdQuery{
+		ProjectIdQuery: &user_pb.UserGrantProjectIDQuery{ProjectId: projectID},
+	}
+	request := &pb.ListUserGrantRequest{
+		Query:   paginationQuery,
+		Queries: []*user_pb.UserGrantQuery{{Query: projectIdQuery}},
+	}
+	grants, err := client.managementAPI.ListUserGrants(ctx, request) //nolint:staticcheck // The v2 replacement lands with the RBAC rework on main; out of scope for this v0.23.1 hotfix branch.
+	if err != nil {
+		return nil, err
+	}
+
+	userRoles := []*UserRoles{}
+	for _, grant := range grants.GetResult() {
+		userRoles = append(userRoles, &UserRoles{ID: grant.GetUserId(), Roles: grant.GetRoleKeys()})
+	}
+
+	return userRoles, nil
+}
+
+func (client *ZitadelSdkClient) GetAllOrganizationUsersRoles(ctx context.Context, projectID string) ([]*UserRoles, error) {
+	userRoles := []*UserRoles{}
+	var skip uint64
+	var limit uint32 = defaultLimit
+	for {
+		currentUserRoles, err := client.GetOrganizationUsersRoles(ctx, projectID, skip, limit)
+		if err != nil {
+			return nil, err
+		}
+		userRoles = append(userRoles, currentUserRoles...)
+		if len(currentUserRoles) < int(limit) {
+			break
+		}
+		skip += uint64(limit)
+	}
+
+	return userRoles, nil
 }
 
 func (client *ZitadelSdkClient) GetOrganizationOwners(ctx context.Context, skip uint64, limit uint32) ([]string, error) {

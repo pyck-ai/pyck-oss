@@ -26,7 +26,7 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-// region    ***************************** api!.gotpl *****************************
+// region    ************************** generated!.gotpl **************************
 
 // NewExecutableSchema creates an ExecutableSchema from the ResolverRoot interface.
 func NewExecutableSchema(cfg Config) graphql.ExecutableSchema {
@@ -188,10 +188,6 @@ type ComplexityRoot struct {
 	}
 }
 
-// endregion ***************************** api!.gotpl *****************************
-
-// region    ************************** generated!.gotpl **************************
-
 type EntityResolver interface {
 	FindCustomerByID(ctx context.Context, id uuid.UUID) (*model.Customer, error)
 	FindFileByID(ctx context.Context, id uuid.UUID) (*gen.File, error)
@@ -225,10 +221,6 @@ type FileWhereInputResolver interface {
 	DataIn(ctx context.Context, obj *gen.FileWhereInput, data []string) error
 	DataContains(ctx context.Context, obj *gen.FileWhereInput, data []string) error
 }
-
-// endregion ************************** generated!.gotpl **************************
-
-// region    ************************** internal!.gotpl ***************************
 
 type executableSchema graphql.ExecutableSchemaState[ResolverRoot, DirectiveRoot, ComplexityRoot]
 
@@ -2172,7 +2164,7 @@ func (ec *executionContext) childFields___Type(ctx context.Context, field graphq
 	return nil, fmt.Errorf("no field named %q was found under type __Type", field.Name)
 }
 
-// endregion ************************** internal!.gotpl ***************************
+// endregion ************************** generated!.gotpl **************************
 
 // region    ***************************** args.gotpl *****************************
 
@@ -2527,6 +2519,10 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 }
 
 // endregion ***************************** args.gotpl *****************************
+
+// region    ************************** directives.gotpl **************************
+
+// endregion ************************** directives.gotpl **************************
 
 // region    **************************** field.gotpl *****************************
 
@@ -8783,14 +8779,8 @@ func (ec *executionContext) _CreateFileResult(ctx context.Context, sel ast.Selec
 			}
 		case "preSignedUploadUrl":
 			out.Values[i] = ec._CreateFileResult_preSignedUploadUrl(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "file":
 			out.Values[i] = ec._CreateFileResult_file(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -8832,9 +8822,6 @@ func (ec *executionContext) _Customer(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "file":
 			out.Values[i] = ec._Customer_file(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9055,14 +9042,8 @@ func (ec *executionContext) _EntityEventsOutbox(ctx context.Context, sel ast.Sel
 			}
 		case "publishedAt":
 			out.Values[i] = ec._EntityEventsOutbox_publishedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "userID":
 			out.Values[i] = ec._EntityEventsOutbox_userID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "transactionID":
 			out.Values[i] = ec._EntityEventsOutbox_transactionID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -9070,14 +9051,8 @@ func (ec *executionContext) _EntityEventsOutbox(ctx context.Context, sel ast.Sel
 			}
 		case "traceID":
 			out.Values[i] = ec._EntityEventsOutbox_traceID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "requestID":
 			out.Values[i] = ec._EntityEventsOutbox_requestID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "topic":
 			out.Values[i] = ec._EntityEventsOutbox_topic(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -9100,29 +9075,14 @@ func (ec *executionContext) _EntityEventsOutbox(ctx context.Context, sel ast.Sel
 			}
 		case "lastError":
 			out.Values[i] = ec._EntityEventsOutbox_lastError(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "deadAt":
 			out.Values[i] = ec._EntityEventsOutbox_deadAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "nextRetryAt":
 			out.Values[i] = ec._EntityEventsOutbox_nextRetryAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "entityType":
 			out.Values[i] = ec._EntityEventsOutbox_entityType(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "entityID":
 			out.Values[i] = ec._EntityEventsOutbox_entityID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "tenantID":
 			out.Values[i] = ec._EntityEventsOutbox_tenantID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -9174,19 +9134,10 @@ func (ec *executionContext) _File(ctx context.Context, sel ast.SelectionSet, obj
 			}
 		case "dataTypeID":
 			out.Values[i] = ec._File_dataTypeID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "dataTypeSlug":
 			out.Values[i] = ec._File_dataTypeSlug(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "data":
 			out.Values[i] = ec._File_data(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "createdAt":
 			out.Values[i] = ec._File_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -9199,24 +9150,12 @@ func (ec *executionContext) _File(ctx context.Context, sel ast.SelectionSet, obj
 			}
 		case "updatedAt":
 			out.Values[i] = ec._File_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "updatedBy":
 			out.Values[i] = ec._File_updatedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedAt":
 			out.Values[i] = ec._File_deletedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "deletedBy":
 			out.Values[i] = ec._File_deletedBy(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "refid":
 			out.Values[i] = ec._File_refid(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -9229,9 +9168,6 @@ func (ec *executionContext) _File(ctx context.Context, sel ast.SelectionSet, obj
 			}
 		case "description":
 			out.Values[i] = ec._File_description(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "name":
 			out.Values[i] = ec._File_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -9239,9 +9175,6 @@ func (ec *executionContext) _File(ctx context.Context, sel ast.SelectionSet, obj
 			}
 		case "size":
 			out.Values[i] = ec._File_size(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "contentType":
 			out.Values[i] = ec._File_contentType(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -9249,22 +9182,16 @@ func (ec *executionContext) _File(ctx context.Context, sel ast.SelectionSet, obj
 			}
 		case "publicAlias":
 			out.Values[i] = ec._File_publicAlias(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "url":
 			field := field
 
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
 				res = ec._File_url(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
 				return res
 			}
 
@@ -9291,16 +9218,13 @@ func (ec *executionContext) _File(ctx context.Context, sel ast.SelectionSet, obj
 		case "publicURL":
 			field := field
 
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
 				res = ec._File_publicURL(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
 				return res
 			}
 
@@ -9360,9 +9284,6 @@ func (ec *executionContext) _FileConnection(ctx context.Context, sel ast.Selecti
 			out.Values[i] = graphql.MarshalString("FileConnection")
 		case "edges":
 			out.Values[i] = ec._FileConnection_edges(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "pageInfo":
 			out.Values[i] = ec._FileConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -9409,9 +9330,6 @@ func (ec *executionContext) _FileDeletePayload(ctx context.Context, sel ast.Sele
 			out.Values[i] = graphql.MarshalString("FileDeletePayload")
 		case "deletedID":
 			out.Values[i] = ec._FileDeletePayload_deletedID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9448,9 +9366,6 @@ func (ec *executionContext) _FileEdge(ctx context.Context, sel ast.SelectionSet,
 			out.Values[i] = graphql.MarshalString("FileEdge")
 		case "node":
 			out.Values[i] = ec._FileEdge_node(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "cursor":
 			out.Values[i] = ec._FileEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -9492,9 +9407,6 @@ func (ec *executionContext) _GetPreSignedUploadUrlPayload(ctx context.Context, s
 			out.Values[i] = graphql.MarshalString("GetPreSignedUploadUrlPayload")
 		case "url":
 			out.Values[i] = ec._GetPreSignedUploadUrlPayload_url(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9575,9 +9487,6 @@ func (ec *executionContext) _InventoryItem(ctx context.Context, sel ast.Selectio
 			}
 		case "file":
 			out.Values[i] = ec._InventoryItem_file(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9624,16 +9533,10 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createFile(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "updateFile":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updateFile(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "deleteFile":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteFile(ctx, field)
@@ -9659,9 +9562,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_patchFileData(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9708,14 +9608,8 @@ func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "startCursor":
 			out.Values[i] = ec._PageInfo_startCursor(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "endCursor":
 			out.Values[i] = ec._PageInfo_endCursor(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9757,9 +9651,6 @@ func (ec *executionContext) _PickingOrder(ctx context.Context, sel ast.Selection
 			}
 		case "file":
 			out.Values[i] = ec._PickingOrder_file(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9805,16 +9696,13 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 		case "node":
 			field := field
 
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
 				defer func() {
 					if r := recover(); r != nil {
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
 				res = ec._Query_node(ctx, field)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
 				return res
 			}
 
@@ -9938,16 +9826,10 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "__schema":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___schema(ctx, field)
 			})
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9989,9 +9871,6 @@ func (ec *executionContext) _Repository(ctx context.Context, sel ast.SelectionSe
 			}
 		case "file":
 			out.Values[i] = ec._Repository_file(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10033,9 +9912,6 @@ func (ec *executionContext) _ServiceInfo(ctx context.Context, sel ast.SelectionS
 			}
 		case "date":
 			out.Values[i] = ec._ServiceInfo_date(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10077,9 +9953,6 @@ func (ec *executionContext) _Supplier(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "file":
 			out.Values[i] = ec._Supplier_file(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10116,9 +9989,6 @@ func (ec *executionContext) __Service(ctx context.Context, sel ast.SelectionSet,
 			out.Values[i] = graphql.MarshalString("_Service")
 		case "sdl":
 			out.Values[i] = ec.__Service_sdl(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10160,9 +10030,6 @@ func (ec *executionContext) ___Directive(ctx context.Context, sel ast.SelectionS
 			}
 		case "description":
 			out.Values[i] = ec.___Directive_description(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "isRepeatable":
 			out.Values[i] = ec.___Directive_isRepeatable(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -10219,9 +10086,6 @@ func (ec *executionContext) ___EnumValue(ctx context.Context, sel ast.SelectionS
 			}
 		case "description":
 			out.Values[i] = ec.___EnumValue_description(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "isDeprecated":
 			out.Values[i] = ec.___EnumValue_isDeprecated(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -10229,9 +10093,6 @@ func (ec *executionContext) ___EnumValue(ctx context.Context, sel ast.SelectionS
 			}
 		case "deprecationReason":
 			out.Values[i] = ec.___EnumValue_deprecationReason(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10273,9 +10134,6 @@ func (ec *executionContext) ___Field(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "description":
 			out.Values[i] = ec.___Field_description(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "args":
 			out.Values[i] = ec.___Field_args(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -10293,9 +10151,6 @@ func (ec *executionContext) ___Field(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "deprecationReason":
 			out.Values[i] = ec.___Field_deprecationReason(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10337,9 +10192,6 @@ func (ec *executionContext) ___InputValue(ctx context.Context, sel ast.Selection
 			}
 		case "description":
 			out.Values[i] = ec.___InputValue_description(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "type":
 			out.Values[i] = ec.___InputValue_type(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -10347,9 +10199,6 @@ func (ec *executionContext) ___InputValue(ctx context.Context, sel ast.Selection
 			}
 		case "defaultValue":
 			out.Values[i] = ec.___InputValue_defaultValue(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "isDeprecated":
 			out.Values[i] = ec.___InputValue_isDeprecated(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -10357,9 +10206,6 @@ func (ec *executionContext) ___InputValue(ctx context.Context, sel ast.Selection
 			}
 		case "deprecationReason":
 			out.Values[i] = ec.___InputValue_deprecationReason(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10396,9 +10242,6 @@ func (ec *executionContext) ___Schema(ctx context.Context, sel ast.SelectionSet,
 			out.Values[i] = graphql.MarshalString("__Schema")
 		case "description":
 			out.Values[i] = ec.___Schema_description(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "types":
 			out.Values[i] = ec.___Schema_types(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -10411,14 +10254,8 @@ func (ec *executionContext) ___Schema(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "mutationType":
 			out.Values[i] = ec.___Schema_mutationType(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "subscriptionType":
 			out.Values[i] = ec.___Schema_subscriptionType(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "directives":
 			out.Values[i] = ec.___Schema_directives(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -10465,54 +10302,24 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "name":
 			out.Values[i] = ec.___Type_name(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "description":
 			out.Values[i] = ec.___Type_description(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "specifiedByURL":
 			out.Values[i] = ec.___Type_specifiedByURL(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "fields":
 			out.Values[i] = ec.___Type_fields(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "interfaces":
 			out.Values[i] = ec.___Type_interfaces(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "possibleTypes":
 			out.Values[i] = ec.___Type_possibleTypes(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "enumValues":
 			out.Values[i] = ec.___Type_enumValues(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "inputFields":
 			out.Values[i] = ec.___Type_inputFields(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "ofType":
 			out.Values[i] = ec.___Type_ofType(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		case "isOneOf":
 			out.Values[i] = ec.___Type_isOneOf(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

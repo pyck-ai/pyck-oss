@@ -17,11 +17,13 @@
       "flavour": {
         "type": "string"
       },
-      "remoteMobileUITemplate": {
-        "type": "string"
+      "remoteMobileUI": {
+        "type": "string",
+        "format": "uri"
       },
-      "remoteWebUITemplate": {
-        "type": "string"
+      "remoteWebUI": {
+        "type": "string",
+        "format": "uri"
       }
     },
     "additionalProperties": false

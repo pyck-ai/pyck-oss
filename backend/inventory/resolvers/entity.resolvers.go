@@ -52,9 +52,11 @@ func (r *entityResolver) FindPickingOrderItemBySku(ctx context.Context, sku stri
 		s.Where(sql.EQ(stock.RepositoryColumn, warehouseRepo.ID))
 		s.Where(sql.EQ(stock.ItemColumn, inventoryItem.ID))
 	})
+	// Current row = highest version per (repo, item); created_at is not a
+	// total order across pods and can surface a superseded row.
 	stockRecord, err := r.client.Stock.Query().
 		Where(where).
-		Order(gen.Desc(stock.FieldCreatedAt)).
+		Order(gen.Desc(stock.FieldVersion)).
 		First(ctx)
 	// "stock not found" err means that stock for item-repository combination is 0
 	if err != nil && !strings.EqualFold(err.Error(), "gen: stock not found") {

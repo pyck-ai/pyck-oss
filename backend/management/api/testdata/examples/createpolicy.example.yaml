@@ -1,0 +1,29 @@
+---
+operation: CreatePolicy
+name: "Create Policy"
+description: >
+  Creates an access policy granting or denying access to a resource.
+vars:
+  input:
+    action: "read"
+    effect: "allow"
+    resource: "inventory:*"
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Policy created"
+    assertions:
+      - ref: res.body.data.createPolicy.id
+        nil: false
+      - ref: res.body.data.createPolicy.action
+        equal: "read"
+      - ref: res.body.data.createPolicy.effect
+        equal: "allow"
+      - ref: res.body.data.createPolicy.resource
+        equal: "inventory:*"
