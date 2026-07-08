@@ -1,0 +1,37 @@
+version: "3.45"
+
+set: [errexit, nounset, pipefail]
+
+# This module is not listed in the root go.work; GOWORK=off ensures all go
+# commands operate against this module's own go.mod rather than the workspace.
+env:
+  GOWORK: off
+
+tasks:
+  build:
+    desc: Build stockfix binary
+    env:
+      CGO_ENABLED: 0
+    cmds:
+      - go build -mod=readonly -trimpath -o bin/stockfix .
+
+  test:
+    desc: Run unit tests (no database required)
+    cmds:
+      - go test -v -count=1 ./...
+
+  run:
+    desc: Run stockfix — pass subcommand and flags via CLI_ARGS
+    deps: [build]
+    cmds:
+      - ./bin/stockfix {{.CLI_ARGS}}
+
+  lint:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  tidy:
+    desc: Tidy go module dependencies
+    cmds:
+      - go mod tidy

@@ -1,0 +1,6 @@
+# Compiled binaries (built via `task build` → bin/stockfix, or a loose `go build`)
+/bin/
+/stockfix
+
+# Runtime state written by `stockfix workers stop` (resumable worker replica/machine state)
+.stockfix-workers.json

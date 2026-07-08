@@ -1055,21 +1055,19 @@ func (s *service) CreateRepositoryMovement(ctx context.Context, tx *ent.Tx, dto 
 		return nil, err
 	}
 
-	versions := newStockVersionTracker(ancestorStocks)
-
-	// ancestorStocks was captured by loadAncestorStocks (which filters
-	// DeletedAtIsNil) before the movement INSERT above. The
-	// stock_tenant_id_repository_id_item_id_version unique index is not
-	// partial, so it also covers soft-deleted rows and any row a concurrent
-	// transaction committed since that read. Re-seed the version floor from
-	// the freshest max(version) per (repo, item) across that full universe so
-	// nextFor cannot reuse a version another row already holds (which would
-	// otherwise surface as an unrecoverable OCC duplicate-key conflict).
-	maxVersions, err := s.loadMaxStockVersionsIncludingDeleted(ctx, tx, dto.TenantID, stockMap)
+	// Fan-out bases and the version floor come from ONE fresh snapshot.
+	// Concurrent rows committed before this read are absorbed into the
+	// base values; rows committed after it occupy the version we assign,
+	// so the insert trips the unique index → 23505 → errOCCConflict →
+	// gqltx retry ("correct-or-collide", same shape as
+	// create_item_movement_proc). The floor spans soft-deleted rows so
+	// the assigned version clears the full unique-index universe and
+	// avoids version-reuse livelock.
+	rebaseFloor, rebaseLive, err := s.loadStockRebaseSnapshot(ctx, tx, dto.TenantID, stockMap)
 	if err != nil {
 		return nil, err
 	}
-	versions.seedFromNested(maxVersions)
+	versions := newStockVersionTrackerFromFloors(rebaseFloor)
 
 	// Only items physically present on the moving repository can have
 	// their rolled-up stock change as a result of this movement; the
@@ -1099,17 +1097,19 @@ func (s *service) CreateRepositoryMovement(ctx context.Context, tx *ent.Tx, dto 
 			if _, ok := movingItemIDs[itemID]; !ok {
 				continue
 			}
+			k := stockKey{RepositoryID: repoID, ItemID: itemID}
+			v := rebasedStock(rebaseLive[k], stockMap[repoID][itemID], ancestorStocks[k])
 			newStock := tx.Stock.
 				Create().
 				SetItemID(itemID).
 				SetTenantID(dto.TenantID).
 				SetRepositoryID(repoID).
-				SetQuantity(stockMap[repoID][itemID].Quantity).
-				SetIncomingStock(stockMap[repoID][itemID].IncomingStock).
-				SetOutgoingStock(stockMap[repoID][itemID].OutgoingStock).
-				SetOwnQuantity(stockMap[repoID][itemID].OwnQuantity).
-				SetOwnIncomingStock(stockMap[repoID][itemID].OwnIncomingStock).
-				SetOwnOutgoingStock(stockMap[repoID][itemID].OwnOutgoingStock).
+				SetQuantity(v.Quantity).
+				SetIncomingStock(v.IncomingStock).
+				SetOutgoingStock(v.OutgoingStock).
+				SetOwnQuantity(v.OwnQuantity).
+				SetOwnIncomingStock(v.OwnIncomingStock).
+				SetOwnOutgoingStock(v.OwnOutgoingStock).
 				SetMovementID(movement.ID).
 				SetVersion(versions.nextFor(repoID, itemID))
 			stocksToCreate = append(stocksToCreate, newStock)
@@ -1341,34 +1341,36 @@ func (s *service) DeleteRepositoryMovement(ctx context.Context, tx *ent.Tx, dto 
 		}
 	}
 
-	// Insert new stock records
-	versions := newStockVersionTracker(ancestorStocks)
-
-	// Same correction as CreateRepositoryMovement: ancestorStocks excludes
-	// soft-deleted rows and predates the inserts, but the
-	// stock_tenant_id_repository_id_item_id_version unique index covers the
-	// full universe. Re-seed the version floor from the freshest max(version)
-	// per (repo, item) so re-projecting after a delete cannot collide.
-	maxVersions, err := s.loadMaxStockVersionsIncludingDeleted(ctx, tx, dto.TenantID, stockMap)
+	// Fan-out bases and the version floor come from ONE fresh snapshot.
+	// Concurrent rows committed before this read are absorbed into the
+	// base values; rows committed after it occupy the version we assign,
+	// so the insert trips the unique index → 23505 → errOCCConflict →
+	// gqltx retry ("correct-or-collide", same shape as
+	// create_item_movement_proc). The floor spans soft-deleted rows so
+	// the assigned version clears the full unique-index universe and
+	// avoids version-reuse livelock.
+	rebaseFloor, rebaseLive, err := s.loadStockRebaseSnapshot(ctx, tx, dto.TenantID, stockMap)
 	if err != nil {
 		return nil, err
 	}
-	versions.seedFromNested(maxVersions)
+	versions := newStockVersionTrackerFromFloors(rebaseFloor)
 
 	stocksToCreate := []*ent.StockCreate{}
 	for repo, stockRecord := range stockMap {
 		for itemID := range stockRecord {
+			k := stockKey{RepositoryID: repo, ItemID: itemID}
+			v := rebasedStock(rebaseLive[k], stockMap[repo][itemID], ancestorStocks[k])
 			newStock := tx.Stock.
 				Create().
 				SetItemID(itemID).
 				SetTenantID(dto.TenantID).
 				SetRepositoryID(repo).
-				SetQuantity(stockMap[repo][itemID].Quantity).
-				SetIncomingStock(stockMap[repo][itemID].IncomingStock).
-				SetOutgoingStock(stockMap[repo][itemID].OutgoingStock).
-				SetOwnQuantity(stockMap[repo][itemID].OwnQuantity).
-				SetOwnIncomingStock(stockMap[repo][itemID].OwnIncomingStock).
-				SetOwnOutgoingStock(stockMap[repo][itemID].OwnOutgoingStock).
+				SetQuantity(v.Quantity).
+				SetIncomingStock(v.IncomingStock).
+				SetOutgoingStock(v.OutgoingStock).
+				SetOwnQuantity(v.OwnQuantity).
+				SetOwnIncomingStock(v.OwnIncomingStock).
+				SetOwnOutgoingStock(v.OwnOutgoingStock).
 				SetMovementID(id).
 				SetVersion(versions.nextFor(repo, itemID))
 			stocksToCreate = append(stocksToCreate, newStock)
@@ -1860,6 +1862,19 @@ func newStockVersionTracker(latest map[stockKey]ent.Stock) *stockVersionTracker 
 	return &stockVersionTracker{next: next}
 }
 
+// newStockVersionTrackerFromFloors seeds a tracker from a per-(repo, item)
+// version floor map. nextFor returns floor[key]+1 on the first call for
+// that key (or 0 when the key is absent), then increments monotonically.
+// Used by loadStockRebaseSnapshot callers that fold the floor and live
+// snapshot into a single read.
+func newStockVersionTrackerFromFloors(floor map[stockKey]int64) *stockVersionTracker {
+	next := make(map[stockKey]int64, len(floor))
+	for k, v := range floor {
+		next[k] = v + 1
+	}
+	return &stockVersionTracker{next: next}
+}
+
 // nextFor returns the version to assign to a new stock row for the given
 // (repository, item) pair and increments the internal counter so a
 // subsequent insert for the same group within the same transaction
@@ -1990,16 +2005,29 @@ func (s *service) loadLatestStockPerRepo(ctx context.Context, tx *ent.Tx, tenant
 	return out, nil
 }
 
-// loadMaxStockVersionsIncludingDeleted returns, per (repo, item) appearing in
-// stockMap, a pseudo ent.Stock carrying the highest version currently on the
-// stocks ledger INCLUDING soft-deleted rows. seedFromNested consumes these as
-// a per-group version floor. Unlike loadAncestorStocks / loadLatestStockPerRepo
-// it deliberately omits the DeletedAtIsNil filter: the
-// stock_tenant_id_repository_id_item_id_version unique index is not partial, so
-// the next version must clear soft-deleted rows too. Reading it here — right
-// before the fan-out INSERT — also narrows the window in which a concurrently
-// committed row could be missed.
-func (s *service) loadMaxStockVersionsIncludingDeleted(ctx context.Context, tx *ent.Tx, tenantID uuid.UUID, stockMap map[uuid.UUID]map[uuid.UUID]ent.Stock) (map[uuid.UUID]map[uuid.UUID]ent.Stock, error) {
+// loadStockRebaseSnapshot returns, in a single query over all rows for the
+// (repo, item) pairs in stockMap (including soft-deleted rows):
+//
+//   - floor: per (repo, item) max(version) across the full unique-index
+//     universe. The caller seeds a stockVersionTracker from this so the
+//     assigned version clears every existing row — including soft-deleted
+//     ones — and avoids version-reuse livelock.
+//
+//   - live: per (repo, item) the full ent.Stock of the highest-version row
+//     with deleted_at IS NULL. Absent when no live row exists. The caller
+//     uses live[key].Field as the base for the delta formula:
+//     written = live[key].Field + (walked[key].Field - old[key].Field).
+//
+// Coupling both to one read means any row a concurrent transaction commits
+// between the caller's loadAncestorStocks and this insert will be visible
+// here; if its version equals the one we assign, the unique index fires a
+// 23505 → errOCCConflict → gqltx retry (correct-or-collide).
+func (s *service) loadStockRebaseSnapshot(
+	ctx context.Context,
+	tx *ent.Tx,
+	tenantID uuid.UUID,
+	stockMap map[uuid.UUID]map[uuid.UUID]ent.Stock,
+) (floor map[stockKey]int64, live map[stockKey]ent.Stock, err error) {
 	repoSet := make(map[uuid.UUID]struct{}, len(stockMap))
 	itemSet := make(map[uuid.UUID]struct{})
 	for repoID, perItem := range stockMap {
@@ -2009,7 +2037,7 @@ func (s *service) loadMaxStockVersionsIncludingDeleted(ctx context.Context, tx *
 		}
 	}
 	if len(repoSet) == 0 || len(itemSet) == 0 {
-		return make(map[uuid.UUID]map[uuid.UUID]ent.Stock), nil
+		return make(map[stockKey]int64), make(map[stockKey]ent.Stock), nil
 	}
 
 	repoIDs := make([]uuid.UUID, 0, len(repoSet))
@@ -2029,21 +2057,50 @@ func (s *service) loadMaxStockVersionsIncludingDeleted(ctx context.Context, tx *
 		).
 		AllPages(ctx, mixin.Limit)
 	if err != nil {
-		return nil, fmt.Errorf("failed reading max stock version baseline: %w", err)
+		return nil, nil, fmt.Errorf("failed reading rebase snapshot: %w", err)
 	}
 
-	out := make(map[uuid.UUID]map[uuid.UUID]ent.Stock)
+	floor = make(map[stockKey]int64)
+	live = make(map[stockKey]ent.Stock)
 	for _, r := range rows {
-		perItem := out[r.RepositoryID]
-		if perItem == nil {
-			perItem = make(map[uuid.UUID]ent.Stock)
-			out[r.RepositoryID] = perItem
+		k := stockKey{RepositoryID: r.RepositoryID, ItemID: r.ItemID}
+		if cur, ok := floor[k]; !ok || r.Version > cur {
+			floor[k] = r.Version
 		}
-		if cur, ok := perItem[r.ItemID]; !ok || r.Version > cur.Version {
-			perItem[r.ItemID] = *r
+		if r.DeletedAt.IsZero() {
+			if cur, ok := live[k]; !ok || r.Version > cur.Version {
+				live[k] = *r
+			}
 		}
 	}
-	return out, nil
+	return floor, live, nil
+}
+
+// rebasedStock computes the field values for one fan-out row by rebasing the
+// walked delta onto the fresh live base:
+//
+//	written = base.Field + (walked.Field - old.Field)
+//
+// old is the row the simulate walk started from (read early in the request,
+// possibly stale); base is the highest-version live row from
+// loadStockRebaseSnapshot (fresh). A concurrent transaction that shrank the
+// live reservation between those two reads makes base < old, so the
+// subtract-mode walk (DeleteRepositoryMovement) can drive a raw result
+// negative even though every input is non-negative. The four reservation
+// fields are clamped to 0: their schema validators enforce Min(0), and a
+// validation failure is not a 23505 version collision, so gqltx would fail
+// the request instead of retrying it. Quantity and OwnQuantity keep the raw
+// delta: the pending-movement walks never mutate them (delta 0), so a
+// negative value there is a real bug that must stay loud.
+func rebasedStock(base, walked, old ent.Stock) ent.Stock {
+	return ent.Stock{
+		Quantity:         base.Quantity + (walked.Quantity - old.Quantity),
+		IncomingStock:    std.Max(base.IncomingStock+(walked.IncomingStock-old.IncomingStock), 0),
+		OutgoingStock:    std.Max(base.OutgoingStock+(walked.OutgoingStock-old.OutgoingStock), 0),
+		OwnQuantity:      base.OwnQuantity + (walked.OwnQuantity - old.OwnQuantity),
+		OwnIncomingStock: std.Max(base.OwnIncomingStock+(walked.OwnIncomingStock-old.OwnIncomingStock), 0),
+		OwnOutgoingStock: std.Max(base.OwnOutgoingStock+(walked.OwnOutgoingStock-old.OwnOutgoingStock), 0),
+	}
 }
 
 // ── Rebuild stock table ───────────────────────────────────────────────────────

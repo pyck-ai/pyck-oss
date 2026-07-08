@@ -45,6 +45,7 @@ pyck/
 │   ├── setup/            # Local environment setup scripts
 │   └── temporal/         # Temporal workflow configuration
 ├── docs/                 # Project documentation
+├── hack/                 # Standalone operator tooling (e.g. stock-ledger repair)
 ├── scripts/              # Utility scripts
 ├── task/                 # Taskfile definitions
 └── tests/                # Test files
