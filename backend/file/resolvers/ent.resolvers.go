@@ -42,6 +42,8 @@ func (r *Resolver) Query() exec.QueryResolver { return &queryResolver{r} }
 // FileWhereInput returns exec.FileWhereInputResolver implementation.
 func (r *Resolver) FileWhereInput() exec.FileWhereInputResolver { return &fileWhereInputResolver{r} }
 
-type fileResolver struct{ *Resolver }
-type queryResolver struct{ *Resolver }
-type fileWhereInputResolver struct{ *Resolver }
+type (
+	fileResolver           struct{ *Resolver }
+	queryResolver          struct{ *Resolver }
+	fileWhereInputResolver struct{ *Resolver }
+)

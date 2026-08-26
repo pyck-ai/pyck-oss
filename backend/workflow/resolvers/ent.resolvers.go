@@ -52,5 +52,7 @@ func (r *Resolver) WorkflowWhereInput() exec.WorkflowWhereInputResolver {
 	return &workflowWhereInputResolver{r}
 }
 
-type queryResolver struct{ *Resolver }
-type workflowWhereInputResolver struct{ *Resolver }
+type (
+	queryResolver              struct{ *Resolver }
+	workflowWhereInputResolver struct{ *Resolver }
+)

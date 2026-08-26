@@ -37,6 +37,7 @@ import (
 
 const (
 	healthPathDefault     = "/health"
+	readyPathDefault      = "/ready"
 	healthPortDefault     = 8080
 	healthIntervalDefault = 10 * time.Second
 	healthTimeoutDefault  = 3 * time.Second
@@ -121,7 +122,7 @@ type healthState struct {
 // at boot, the listener still binds and serves 503 (carrying the dial
 // error) instead of leaving the port unbound — which fly would otherwise
 // see as connection-refused and churn the machine on.
-func runHealthServer(ctx context.Context, cfg healthServerConfig, clientOptions temporalclient.Options) error {
+func runHealthServer(ctx context.Context, cfg healthServerConfig, clientOptions temporalclient.Options, ready *atomic.Bool) error {
 	logger := pycklog.ForContext(ctx).With().
 		Str("component", "health-server").
 		Logger()
@@ -136,6 +137,7 @@ func runHealthServer(ctx context.Context, cfg healthServerConfig, clientOptions 
 
 	mux := http.NewServeMux()
 	mux.HandleFunc(healthPathDefault, healthHandler(state, cfg.MaxStale, &logger))
+	mux.HandleFunc(readyPathDefault, readyHandler(state, ready, cfg.MaxStale, &logger))
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
@@ -332,15 +334,45 @@ func taskQueueHasFreshPoller(ctx context.Context, c temporalclient.Client, taskQ
 	return false, nil
 }
 
+// readyHandler backs the K8s readinessProbe: live AND, for a versioned worker,
+// UI bundle metadata stamped. The temporal-worker-controller gates version
+// promotion on readiness, so nothing is pinned to a version before its metadata
+// exists (#1317). Liveness (/health) stays independent so a wedged worker is
+// still restarted.
+func readyHandler(state *healthState, ready *atomic.Bool, maxStale time.Duration, logger *pycklog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		live, _ := state.liveness(maxStale)
+		stamped := ready.Load()
+		ok := live && stamped
+
+		status := http.StatusOK
+		if !ok {
+			status = http.StatusServiceUnavailable
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		if err := json.NewEncoder(w).Encode(map[string]any{"ready": ok, "live": live, "stamped": stamped}); err != nil {
+			logger.Warn().Err(err).Msg("ready response encode failed")
+		}
+	}
+}
+
+// liveness reports whether a probe has succeeded recently enough, along with the
+// time of that probe (zero if there has never been one). Both handlers read it,
+// so /health and /ready can never disagree on what "live" means.
+func (s *healthState) liveness(maxStale time.Duration) (bool, time.Time) {
+	last := s.lastSuccessUnixNano.Load()
+	if last == 0 {
+		return false, time.Time{}
+	}
+	at := time.Unix(0, last)
+	return time.Since(at) <= maxStale, at
+}
+
 func healthHandler(state *healthState, maxStale time.Duration, logger *pycklog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		last := state.lastSuccessUnixNano.Load()
-		var lastSuccessAt time.Time
-		if last > 0 {
-			lastSuccessAt = time.Unix(0, last)
-		}
+		ok, lastSuccessAt := state.liveness(maxStale)
 		age := time.Since(lastSuccessAt)
-		ok := last > 0 && age <= maxStale
 
 		body := map[string]any{
 			"ok":                ok,
@@ -350,7 +382,7 @@ func healthHandler(state *healthState, maxStale time.Duration, logger *pycklog.L
 			"probes_total":      state.totalProbes.Load(),
 			"probes_failed":     state.failedProbes.Load(),
 		}
-		if last > 0 {
+		if !lastSuccessAt.IsZero() {
 			body["last_success_at"] = lastSuccessAt.UTC().Format(time.RFC3339Nano)
 		}
 		if errPtr := state.lastError.Load(); errPtr != nil {

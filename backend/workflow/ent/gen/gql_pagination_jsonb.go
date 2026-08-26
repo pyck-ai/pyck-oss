@@ -10,6 +10,8 @@ import (
 	"entgo.io/contrib/entgql"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
+
+	"github.com/pyck-ai/pyck/backend/common/sqljsonpath"
 )
 
 // JSONType defines the supported types for casting JSONB values during ordering.
@@ -61,6 +63,15 @@ func WithEntityEventsOutboxOrder(order *EntityEventsOutboxOrder) EntityEventsOut
 		}
 		if o.JSONType != nil {
 			if err := o.JSONType.Validate(); err != nil {
+				return err
+			}
+		}
+		// Reject a client-supplied JSON path that could break out of the raw
+		// single-quoted path literal ent emits on Postgres (see #1382). Applied
+		// here — the single point where pager.order is set — so every downstream
+		// use of JSONPath (applyOrder/toCursor/orderExpr) sees a validated path.
+		if o.JSONPath != nil && *o.JSONPath != "" {
+			if err := sqljsonpath.Validate(*o.JSONPath); err != nil {
 				return err
 			}
 		}
@@ -151,6 +162,15 @@ func WithWorkflowOrder(order *WorkflowOrder) WorkflowPaginateOption {
 				return err
 			}
 		}
+		// Reject a client-supplied JSON path that could break out of the raw
+		// single-quoted path literal ent emits on Postgres (see #1382). Applied
+		// here — the single point where pager.order is set — so every downstream
+		// use of JSONPath (applyOrder/toCursor/orderExpr) sees a validated path.
+		if o.JSONPath != nil && *o.JSONPath != "" {
+			if err := sqljsonpath.Validate(*o.JSONPath); err != nil {
+				return err
+			}
+		}
 		if o.Field == nil && (o.JSONPath == nil || *o.JSONPath == "") {
 			o.Field = DefaultWorkflowOrder.Field
 		}
@@ -235,6 +255,15 @@ func WithWorkflowSignalOrder(order *WorkflowSignalOrder) WorkflowSignalPaginateO
 		}
 		if o.JSONType != nil {
 			if err := o.JSONType.Validate(); err != nil {
+				return err
+			}
+		}
+		// Reject a client-supplied JSON path that could break out of the raw
+		// single-quoted path literal ent emits on Postgres (see #1382). Applied
+		// here — the single point where pager.order is set — so every downstream
+		// use of JSONPath (applyOrder/toCursor/orderExpr) sees a validated path.
+		if o.JSONPath != nil && *o.JSONPath != "" {
+			if err := sqljsonpath.Validate(*o.JSONPath); err != nil {
 				return err
 			}
 		}

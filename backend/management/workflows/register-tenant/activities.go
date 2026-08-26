@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -16,17 +15,10 @@ import (
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/operatorservice/v1"
 	"go.temporal.io/api/serviceerror"
-	"go.temporal.io/sdk/activity"
 	temporalclient "go.temporal.io/sdk/client"
 	"google.golang.org/grpc/codes"
-	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
-	k8s "github.com/pyck-ai/pyck/backend/common/services/kubernetes"
 	"github.com/pyck-ai/pyck/backend/common/services/temporal"
 	"github.com/pyck-ai/pyck/backend/common/services/zitadel/sdk"
 	"github.com/pyck-ai/pyck/backend/common/tenant"
@@ -36,6 +28,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/management/core"
 	ent "github.com/pyck-ai/pyck/backend/management/ent/gen"
 	"github.com/pyck-ai/pyck/backend/management/exec"
+	"github.com/pyck-ai/pyck/backend/management/workerapi"
 	zitadelsync "github.com/pyck-ai/pyck/backend/management/workflows/zitadel-sync"
 )
 
@@ -58,15 +51,18 @@ type Activities struct {
 	entClient      *ent.Client
 	temporalClient temporalclient.Client
 	nsGetter       workflow.NamespaceGetter
+	// workerAPI owns the worker cluster; management never writes there itself.
+	workerAPI *workerapi.Client
 }
 
 // NewActivities creates a new Activities instance with the provided resolver
-func NewActivities(resolver exec.MutationResolver, entClient *ent.Client, temporalClient temporalclient.Client, nsGetter workflow.NamespaceGetter) *Activities {
+func NewActivities(resolver exec.MutationResolver, entClient *ent.Client, temporalClient temporalclient.Client, nsGetter workflow.NamespaceGetter, workerAPI *workerapi.Client) *Activities {
 	return &Activities{
 		resolver:       resolver,
 		entClient:      entClient,
 		temporalClient: temporalClient,
 		nsGetter:       nsGetter,
+		workerAPI:      workerAPI,
 	}
 }
 
@@ -154,6 +150,7 @@ func (a *Activities) CreateTenantActivity(ctx context.Context, input createTenan
 	if err != nil {
 		return nil, err
 	}
+	defer zitadelClient.Close()
 
 	organization, err := zitadelClient.AddOrganization(ctx, input.Name)
 	if err != nil {
@@ -175,6 +172,7 @@ func (*Activities) CreateZitadelUserActivity(ctx context.Context, input createZi
 	if err != nil {
 		return nil, err
 	}
+	defer zitadelClient.Close()
 
 	user, err := zitadelClient.CreateHumanUser(
 		ctx, input.Username, input.FirstName, input.LastName, input.Email, true, input.Password, false,
@@ -191,6 +189,7 @@ func (*Activities) SetUserAsOrganizationOwnerActivity(ctx context.Context, input
 	if err != nil {
 		return err
 	}
+	defer zitadelClient.Close()
 
 	currentMembers, err := zitadelClient.OrganizationMembers(ctx)
 	if err != nil {
@@ -212,7 +211,11 @@ func (*Activities) SetUserAsOrganizationOwnerActivity(ctx context.Context, input
 }
 
 func (*Activities) AddProjectGrantActivity(ctx context.Context, input addProjectGrantsInput) (*Grant, error) {
-	zitadelClient, _ := getZitadelClient(ctx, "")
+	zitadelClient, err := getZitadelClient(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	defer zitadelClient.Close()
 
 	grantResp, err := zitadelClient.AddProjectGrant(ctx, input.ProjectID, input.OrganizationID, input.Roles)
 	if err != nil {
@@ -226,13 +229,18 @@ func (*Activities) DeleteTenantActivity(ctx context.Context, input DeleteTenantA
 	if err != nil {
 		return err
 	}
+	defer zitadelClient.Close()
 	return zitadelClient.DeleteMyOrganization(ctx)
 }
 
 func (*Activities) AddUserGrantActivity(ctx context.Context, input addUserGrantInput) error {
-	zitadelClient, _ := getZitadelClient(ctx, input.OrganizationID)
+	zitadelClient, err := getZitadelClient(ctx, input.OrganizationID)
+	if err != nil {
+		return err
+	}
+	defer zitadelClient.Close()
 
-	err := zitadelClient.AddUserGrant(ctx, input.ProjectID, input.UserID, input.GrantID, input.Roles)
+	err = zitadelClient.AddUserGrant(ctx, input.ProjectID, input.UserID, input.GrantID, input.Roles)
 	if err != nil && !isAlreadyExistsError(err) {
 		return err
 	}
@@ -259,7 +267,7 @@ func (*Activities) CreateTemporalNamespaceActivity(ctx context.Context, input cr
 	}
 
 	// Add search attributes to the newly created namespace
-	temporalClient, err := temporal.NewTemporalClient(ctx, input.TemporalUrl)
+	temporalClient, err := temporal.NewTemporalClient(ctx, input.TemporalUrl, core.Config.TemporalDialTimeout)
 	if err != nil {
 		return fmt.Errorf("failed to create temporal client for search attributes: %w", err)
 	}
@@ -339,7 +347,9 @@ func (a *Activities) CreateTenantInDbActivity(ctx context.Context, input CreateT
 	}()
 	serviceUserCtx = ent.NewTxContext(serviceUserCtx, tx)
 
-	input.Data = core.EnrichRemoteUIURLs(input.Data, tenantID.String(), core.Config.FrontendBaseURL, core.Config.EnvironmentName)
+	// UI bundle URL templates are no longer seeded into tenant.Data: the workflow
+	// service renders a tenant-aware default at query time (#1317), and tenant.Data
+	// holds only explicit overrides set via setTenantUITemplate.
 
 	createOp := tx.Tenant.Create().
 		SetID(tenantID).
@@ -354,17 +364,40 @@ func (a *Activities) CreateTenantInDbActivity(ctx context.Context, input CreateT
 		createOp = createOp.SetExpiresAt(input.ExpiresAt.UTC())
 	}
 
-	err = createOp.
+	// On conflict, land the caller's input wholesale ("land my intent",
+	// not "merge"). The id is deterministic (ComputeUUID over the org),
+	// so a re-register collides with the tenant's prior row — including
+	// a soft-deleted one. Clearing deleted_at/deleted_by resurrects it:
+	// re-register yields an ACTIVE tenant, never a ghost that reports
+	// success while staying soft-deleted and disabled. ExpiresAt and
+	// Data are both written unconditionally (Set or Clear) so the
+	// caller's intent fully replaces the prior value. Name + idp_org_ref
+	// are immutable post-create.
+	upsert := createOp.
 		OnConflictColumns("id").
-		DoNothing().
-		Exec(serviceUserCtx)
-	// DoNothing() returns sql.ErrNoRows when a conflict is detected because
-	// no RETURNING clause is generated. This is the expected idempotent case.
-	if errors.Is(err, sql.ErrNoRows) {
-		err = nil
-		return nil
+		Update(func(u *ent.TenantUpsert) {
+			u.ClearDeletedAt()
+			u.ClearDeletedBy()
+			if input.ExpiresAt != nil {
+				u.SetExpiresAt(input.ExpiresAt.UTC())
+			} else {
+				u.ClearExpiresAt()
+			}
+			if len(input.Data) > 0 {
+				u.SetData(input.Data)
+			} else {
+				u.ClearData()
+			}
+		})
+	if err := upsert.Exec(serviceUserCtx); err != nil {
+		// Some drivers return sql.ErrNoRows on the upsert no-RETURNING
+		// case even when the Update applied; not an error here.
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
 	}
-	return err
+	return nil
 }
 
 // DeleteTenantFromDbActivity carries the same direct-DB workaround as
@@ -441,6 +474,7 @@ func (*Activities) CreateTenantServiceUserActivity(ctx context.Context, input cr
 	if err != nil {
 		return nil, err
 	}
+	defer zitadelClient.Close()
 
 	userName := fmt.Sprintf("worker-%s", input.OrganizationID)
 	serviceUser, err := zitadelClient.AddServiceUser(ctx, userName, "Tenant Worker")
@@ -462,235 +496,24 @@ func (*Activities) CreateTenantServiceUserActivity(ctx context.Context, input cr
 	return &CreateTenantServiceUserOutput{UserID: serviceUser.ID, Token: token.Token}, nil
 }
 
-// CreateK8sTenantSecretActivity creates a K8s Opaque secret with the tenant's API key.
-func (*Activities) CreateK8sTenantSecretActivity(ctx context.Context, input createK8sTenantSecretInput) error {
-	k8sClient, err := k8s.NewK8sClient(input.Namespace, input.IsInCluster, input.ConfigPath)
-	if err != nil {
-		return err
-	}
+// StoreTenantWorkerSecretActivity puts the tenant's worker credential in the
+// platform secret store, from which worker-api materializes the worker's K8s
+// Secret.
+func (a *Activities) StoreTenantWorkerSecretActivity(ctx context.Context, input storeTenantWorkerSecretInput) error {
+	return a.workerAPI.SetTenantSecret(ctx, input.TenantID, input.Key, input.Value)
+}
 
-	return k8sClient.UpsertSecrets(ctx, input.SecretName, map[string][]byte{
-		input.SecretKey: []byte(input.Token),
+// CreateTenantWorkerDeploymentActivity asks worker-api to create the tenant's
+// worker. No image is sent: pyckGo is a shared-image extension, so worker-api
+// resolves the platform's image itself. The environment is read here rather
+// than carried in the workflow input, which would pin a deploy-time value into
+// replay history.
+func (a *Activities) CreateTenantWorkerDeploymentActivity(ctx context.Context, input CreateTenantWorkerDeploymentInput) error {
+	return a.workerAPI.CreateDeployment(ctx, workerapi.CreateDeploymentInput{
+		Name:              input.Name,
+		TenantID:          input.TenantID.String(),
+		TemporalNamespace: input.TemporalNamespace,
+		Extension:         input.Extension,
+		Environment:       core.Config.EnvironmentName,
 	})
-}
-
-// K8s Worker Deployment Activities
-
-// CRD kinds of the temporal-worker-controller. Renamed from
-// TemporalConnection/TemporalWorkerDeployment in controller v1.7.0
-// (chart v0.26.0); the spec is unchanged.
-var temporalConnectionGVR = schema.GroupVersionResource{
-	Group:    "temporal.io",
-	Version:  "v1alpha1",
-	Resource: "connections",
-}
-
-var temporalWorkerDeploymentGVR = schema.GroupVersionResource{
-	Group:    "temporal.io",
-	Version:  "v1alpha1",
-	Resource: "workerdeployments",
-}
-
-// UpsertK8sWorkersNamespaceActivity creates the shared workers namespace if it doesn't exist.
-func (a *Activities) UpsertK8sWorkersNamespaceActivity(ctx context.Context, input upsertK8sWorkersNamespaceInput) error {
-	logger := activity.GetLogger(ctx)
-	logger.Info("Upserting K8s workers namespace", "namespace", input.Namespace)
-
-	k8sClient, err := k8s.NewK8sClient(input.Namespace, input.IsInCluster, input.ConfigPath)
-	if err != nil {
-		return err
-	}
-
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: input.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": "pyck-register-tenant",
-			},
-		},
-	}
-
-	_, err = k8sClient.Clientset().CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
-	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			logger.Info("Workers namespace already exists", "namespace", input.Namespace)
-			return nil
-		}
-		return fmt.Errorf("failed to create workers namespace %s: %w", input.Namespace, err)
-	}
-
-	logger.Info("Workers namespace created", "namespace", input.Namespace)
-	return nil
-}
-
-// CreateK8sTemporalConnectionActivity creates a Connection CRD in the workers namespace.
-func (a *Activities) CreateK8sTemporalConnectionActivity(ctx context.Context, input createK8sTemporalConnectionInput) error {
-	logger := activity.GetLogger(ctx)
-	logger.Info("Creating K8s temporal Connection", "name", input.Name, "namespace", input.Namespace)
-
-	k8sClient, err := k8s.NewK8sClient(input.Namespace, input.IsInCluster, input.ConfigPath)
-	if err != nil {
-		return err
-	}
-
-	conn := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "temporal.io/v1alpha1",
-			"kind":       "Connection",
-			"metadata": map[string]interface{}{
-				"name":      input.Name,
-				"namespace": input.Namespace,
-			},
-			"spec": map[string]interface{}{
-				"hostPort": input.HostPort,
-			},
-		},
-	}
-
-	_, err = k8sClient.DynamicClient().Resource(temporalConnectionGVR).Namespace(input.Namespace).Create(ctx, conn, metav1.CreateOptions{})
-	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			logger.Info("Connection already exists", "name", input.Name)
-			return nil
-		}
-		return fmt.Errorf("failed to create Connection %s: %w", input.Name, err)
-	}
-
-	logger.Info("Connection created", "name", input.Name)
-	return nil
-}
-
-// CreateK8sWorkerDeploymentActivity creates a WorkerDeployment CRD for the tenant.
-func (a *Activities) CreateK8sWorkerDeploymentActivity(ctx context.Context, input createK8sWorkerDeploymentInput) error {
-	logger := activity.GetLogger(ctx)
-	logger.Info("Creating K8s WorkerDeployment", "name", input.Name, "namespace", input.Namespace)
-
-	k8sClient, err := k8s.NewK8sClient(input.Namespace, input.IsInCluster, input.ConfigPath)
-	if err != nil {
-		return err
-	}
-
-	secretKeyRef := map[string]interface{}{
-		"name": input.APIKeySecretName,
-		"key":  input.APIKeySecretKey,
-	}
-
-	deployment := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "temporal.io/v1alpha1",
-			"kind":       "WorkerDeployment",
-			"metadata": map[string]interface{}{
-				"name":      input.Name,
-				"namespace": input.Namespace,
-				"labels": map[string]interface{}{
-					"app.kubernetes.io/managed-by": "pyck-register-tenant",
-					"pyck.ai/tenant-id":            input.TenantID,
-				},
-			},
-			"spec": map[string]interface{}{
-				"replicas": int64(input.Replicas),
-				"workerOptions": map[string]interface{}{
-					"connectionRef": map[string]interface{}{
-						"name": input.ConnectionName,
-					},
-					"temporalNamespace": input.TemporalNamespace,
-				},
-				"rollout": map[string]interface{}{
-					"strategy": "AllAtOnce",
-				},
-				"sunset": map[string]interface{}{
-					"scaledownDelay": "5m",
-					"deleteDelay":    "30m",
-				},
-				"template": map[string]interface{}{
-					"spec": workerPodSpec(input, secretKeyRef),
-				},
-			},
-		},
-	}
-
-	_, err = k8sClient.DynamicClient().Resource(temporalWorkerDeploymentGVR).Namespace(input.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
-	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			logger.Info("WorkerDeployment already exists", "name", input.Name)
-			return nil
-		}
-		return fmt.Errorf("failed to create WorkerDeployment %s: %w", input.Name, err)
-	}
-
-	logger.Info("WorkerDeployment created", "name", input.Name)
-	return nil
-}
-
-// workerPodSpec builds the pod spec for a worker deployment, including
-// imagePullSecrets when IMAGE_PULL_SECRET_NAME is provided.
-func workerPodSpec(input createK8sWorkerDeploymentInput, secretKeyRef map[string]interface{}) map[string]interface{} {
-	spec := map[string]interface{}{
-		"containers": []interface{}{
-			map[string]interface{}{
-				"name":  fmt.Sprintf("pyck-go-%s", input.TenantID),
-				"image": input.Image,
-				"resources": map[string]interface{}{
-					"requests": map[string]interface{}{
-						"cpu":    "100m",
-						"memory": "128Mi",
-					},
-					"limits": map[string]interface{}{
-						"cpu":    "500m",
-						"memory": "512Mi",
-					},
-				},
-				"env": workerEnvVars(input, secretKeyRef),
-			},
-		},
-	}
-	if input.ImagePullSecretName != "" {
-		spec["imagePullSecrets"] = []interface{}{
-			map[string]interface{}{"name": input.ImagePullSecretName},
-		}
-	}
-	return spec
-}
-
-// workerEnvVars builds the container env vars for a worker deployment.
-// It includes dynamic env vars from input.EnvVars, per-tenant overrides
-// (TEMPORAL_NAMESPACE, PYCK_API_TENANT_ID), and secret-backed vars
-// (TEMPORAL_API_KEY, PYCK_API_TOKEN).
-func workerEnvVars(input createK8sWorkerDeploymentInput, secretKeyRef map[string]interface{}) []interface{} {
-	envs := make([]interface{}, 0, len(input.EnvVars)+4)
-
-	// Add dynamic env vars in sorted order for deterministic output.
-	// IMAGE_PULL_SECRET_NAME is handled separately as imagePullSecrets.
-	keys := make([]string, 0, len(input.EnvVars))
-	for k := range input.EnvVars {
-		if k == "IMAGE_PULL_SECRET_NAME" {
-			continue
-		}
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		envs = append(envs, k8sEnvVar(k, input.EnvVars[k]))
-	}
-
-	// Per-tenant overrides
-	envs = append(envs, k8sEnvVar("TEMPORAL_NAMESPACE", input.TemporalNamespace))
-	envs = append(envs, k8sEnvVar("PYCK_API_TENANT_ID", input.TenantID))
-
-	// Secret-backed vars
-	envs = append(envs, k8sEnvVarFromSecret("TEMPORAL_API_KEY", secretKeyRef))
-	envs = append(envs, k8sEnvVarFromSecret("PYCK_API_TOKEN", secretKeyRef))
-
-	return envs
-}
-
-func k8sEnvVar(name, value string) map[string]interface{} {
-	return map[string]interface{}{"name": name, "value": value}
-}
-
-func k8sEnvVarFromSecret(name string, secretKeyRef map[string]interface{}) map[string]interface{} {
-	return map[string]interface{}{
-		"name":      name,
-		"valueFrom": map[string]interface{}{"secretKeyRef": secretKeyRef},
-	}
 }

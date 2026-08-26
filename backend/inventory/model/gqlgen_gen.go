@@ -28,7 +28,7 @@ type CollectionMovementArrayInput struct {
 	FromID       uuid.UUID      `json:"fromID"`
 	ToID         uuid.UUID      `json:"toID"`
 	ItemID       *uuid.UUID     `json:"itemID,omitempty"`
-	Quantity     *float64       `json:"quantity,omitempty"`
+	Quantity     *int64         `json:"quantity,omitempty"`
 	RepositoryID *uuid.UUID     `json:"repositoryID,omitempty"`
 	OrderID      *uuid.UUID     `json:"orderID,omitempty"`
 }
@@ -52,7 +52,7 @@ type CreateReplenishmentOrderItemsInput struct {
 	DataTypeSlug *string        `json:"dataTypeSlug,omitempty"`
 	Data         map[string]any `json:"data,omitempty"`
 	Sku          string         `json:"sku"`
-	Quantity     int            `json:"quantity"`
+	Quantity     int64          `json:"quantity"`
 }
 
 type CreateReplenishmentOrderWithItemsInput struct {
@@ -130,8 +130,8 @@ type ItemMovementDeletePayload struct {
 type PickingOrderItem struct {
 	Sku            string    `json:"sku"`
 	Item           *gen.Item `json:"item,omitempty"`
-	AvailableStock *int      `json:"availableStock,omitempty"`
-	ReservedStock  *int      `json:"reservedStock,omitempty"`
+	AvailableStock *int64    `json:"availableStock,omitempty"`
+	ReservedStock  *int64    `json:"reservedStock,omitempty"`
 }
 
 func (PickingOrderItem) IsEntity() {}

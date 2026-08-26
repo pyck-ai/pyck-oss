@@ -25,7 +25,7 @@ input CreatePickingOrderItemInput {
   dataTypeSlug: String
   data: Map
   sku: String!
-  quantity: Int!
+  quantity: Int64!
   orderID: ID!
 }
 """
@@ -285,6 +285,10 @@ input EntityEventsOutboxWhereInput {
   tenantIDLTE: UUID
 }
 """
+The builtin Int64 type
+"""
+scalar Int64
+"""
 JSON type for casting extracted JSONB values during ordering.
 """
 enum JSONType {
@@ -470,7 +474,7 @@ type PickingOrderItem implements Node @key(fields: "sku") @pyckImportable(identi
   deletedBy: UUID
   sku: String!
   orderID: ID!
-  quantity: Int!
+  quantity: Int64!
   order: PickingOrder!
 }
 """
@@ -674,14 +678,14 @@ input PickingOrderItemWhereInput {
   """
   quantity field predicates
   """
-  quantity: Int
-  quantityNEQ: Int
-  quantityIn: [Int!]
-  quantityNotIn: [Int!]
-  quantityGT: Int
-  quantityGTE: Int
-  quantityLT: Int
-  quantityLTE: Int
+  quantity: Int64
+  quantityNEQ: Int64
+  quantityIn: [Int64!]
+  quantityNotIn: [Int64!]
+  quantityGT: Int64
+  quantityGTE: Int64
+  quantityLT: Int64
+  quantityLTE: Int64
   """
   order edge predicates
   """
@@ -1202,7 +1206,7 @@ input UpdatePickingOrderItemInput {
   data: Map
   clearData: Boolean
   sku: String
-  quantity: Int
+  quantity: Int64
   orderID: ID
 }
 """

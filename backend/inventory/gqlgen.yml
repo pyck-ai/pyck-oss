@@ -72,6 +72,11 @@ models:
   Map:
     model:
       - github.com/99designs/gqlgen/graphql.Map
+  # 64-bit integer scalar for quantity-domain fields (Ent field.Int64) so
+  # resolvers no longer cast between Go int and int64 (issue #950).
+  Int64:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int64
   JSONPatchOp:
     model:
       - github.com/pyck-ai/pyck/backend/common/jsonpatch.JSONPatchOp

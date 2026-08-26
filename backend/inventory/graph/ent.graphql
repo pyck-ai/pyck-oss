@@ -37,7 +37,7 @@ input CreateItemMovementInput {
   dataTypeID: UUID
   dataTypeSlug: String
   data: Map
-  quantity: Int!
+  quantity: Int64!
   executed: Boolean
   handler: String!
   blockedBy: ItemMovementBlockedBy
@@ -68,7 +68,7 @@ input CreateReplenishmentOrderItemInput {
   dataTypeSlug: String
   data: Map
   sku: String!
-  quantity: Int!
+  quantity: Int64!
   replenishmentorderID: ID!
 }
 """
@@ -358,6 +358,10 @@ input EntityEventsOutboxWhereInput {
   tenantIDLT: UUID
   tenantIDLTE: UUID
 }
+"""
+The builtin Int64 type
+"""
+scalar Int64
 type InventoryCollection implements Node @goModel(model: "github.com/pyck-ai/pyck/backend/inventory/ent/gen.Collection_Movement") {
   id: ID!
   tenantID: UUID!
@@ -1047,7 +1051,7 @@ type ItemMovement implements Node @pyckImportable(identityField: "", list: "item
   itemID: ID!
   fromID: ID!
   toID: ID!
-  quantity: Int!
+  quantity: Int64!
   executed: Boolean!
   executedAt: Time
   handler: String!
@@ -1280,14 +1284,14 @@ input ItemMovementWhereInput {
   """
   quantity field predicates
   """
-  quantity: Int
-  quantityNEQ: Int
-  quantityIn: [Int!]
-  quantityNotIn: [Int!]
-  quantityGT: Int
-  quantityGTE: Int
-  quantityLT: Int
-  quantityLTE: Int
+  quantity: Int64
+  quantityNEQ: Int64
+  quantityIn: [Int64!]
+  quantityNotIn: [Int64!]
+  quantityGT: Int64
+  quantityGTE: Int64
+  quantityLT: Int64
+  quantityLTE: Int64
   """
   executed field predicates
   """
@@ -1868,7 +1872,7 @@ type ReplenishmentOrderItem implements Node @key(fields: "id") @pyckImportable(i
   deletedAt: Time
   deletedBy: UUID
   sku: String!
-  quantity: Int!
+  quantity: Int64!
   replenishmentOrderID: ID!
   replenishmentorder: ReplenishmentOrder! @goField(name: "ReplenishmentOrder", forceResolver: false)
 }
@@ -2066,14 +2070,14 @@ input ReplenishmentOrderItemWhereInput {
   """
   quantity field predicates
   """
-  quantity: Int
-  quantityNEQ: Int
-  quantityIn: [Int!]
-  quantityNotIn: [Int!]
-  quantityGT: Int
-  quantityGTE: Int
-  quantityLT: Int
-  quantityLTE: Int
+  quantity: Int64
+  quantityNEQ: Int64
+  quantityIn: [Int64!]
+  quantityNotIn: [Int64!]
+  quantityGT: Int64
+  quantityGTE: Int64
+  quantityLT: Int64
+  quantityLTE: Int64
   """
   replenishment_order_id field predicates
   """
@@ -3168,14 +3172,14 @@ type Stock implements Node {
   deletedBy: UUID
   itemID: ID!
   repositoryID: ID!
-  quantity: Int!
+  quantity: Int64!
   movementID: UUID
-  incomingStock: Int!
-  outgoingStock: Int!
-  ownQuantity: Int!
-  ownIncomingStock: Int!
-  ownOutgoingStock: Int!
-  version: Int!
+  incomingStock: Int64!
+  outgoingStock: Int64!
+  ownQuantity: Int64!
+  ownIncomingStock: Int64!
+  ownOutgoingStock: Int64!
+  version: Int64!
   item: InventoryItem!
   repository: Repository!
 }
@@ -3347,14 +3351,14 @@ input StockWhereInput {
   """
   quantity field predicates
   """
-  quantity: Int
-  quantityNEQ: Int
-  quantityIn: [Int!]
-  quantityNotIn: [Int!]
-  quantityGT: Int
-  quantityGTE: Int
-  quantityLT: Int
-  quantityLTE: Int
+  quantity: Int64
+  quantityNEQ: Int64
+  quantityIn: [Int64!]
+  quantityNotIn: [Int64!]
+  quantityGT: Int64
+  quantityGTE: Int64
+  quantityLT: Int64
+  quantityLTE: Int64
   """
   movement_id field predicates
   """
@@ -3371,69 +3375,69 @@ input StockWhereInput {
   """
   incoming_stock field predicates
   """
-  incomingStock: Int
-  incomingStockNEQ: Int
-  incomingStockIn: [Int!]
-  incomingStockNotIn: [Int!]
-  incomingStockGT: Int
-  incomingStockGTE: Int
-  incomingStockLT: Int
-  incomingStockLTE: Int
+  incomingStock: Int64
+  incomingStockNEQ: Int64
+  incomingStockIn: [Int64!]
+  incomingStockNotIn: [Int64!]
+  incomingStockGT: Int64
+  incomingStockGTE: Int64
+  incomingStockLT: Int64
+  incomingStockLTE: Int64
   """
   outgoing_stock field predicates
   """
-  outgoingStock: Int
-  outgoingStockNEQ: Int
-  outgoingStockIn: [Int!]
-  outgoingStockNotIn: [Int!]
-  outgoingStockGT: Int
-  outgoingStockGTE: Int
-  outgoingStockLT: Int
-  outgoingStockLTE: Int
+  outgoingStock: Int64
+  outgoingStockNEQ: Int64
+  outgoingStockIn: [Int64!]
+  outgoingStockNotIn: [Int64!]
+  outgoingStockGT: Int64
+  outgoingStockGTE: Int64
+  outgoingStockLT: Int64
+  outgoingStockLTE: Int64
   """
   own_quantity field predicates
   """
-  ownQuantity: Int
-  ownQuantityNEQ: Int
-  ownQuantityIn: [Int!]
-  ownQuantityNotIn: [Int!]
-  ownQuantityGT: Int
-  ownQuantityGTE: Int
-  ownQuantityLT: Int
-  ownQuantityLTE: Int
+  ownQuantity: Int64
+  ownQuantityNEQ: Int64
+  ownQuantityIn: [Int64!]
+  ownQuantityNotIn: [Int64!]
+  ownQuantityGT: Int64
+  ownQuantityGTE: Int64
+  ownQuantityLT: Int64
+  ownQuantityLTE: Int64
   """
   own_incoming_stock field predicates
   """
-  ownIncomingStock: Int
-  ownIncomingStockNEQ: Int
-  ownIncomingStockIn: [Int!]
-  ownIncomingStockNotIn: [Int!]
-  ownIncomingStockGT: Int
-  ownIncomingStockGTE: Int
-  ownIncomingStockLT: Int
-  ownIncomingStockLTE: Int
+  ownIncomingStock: Int64
+  ownIncomingStockNEQ: Int64
+  ownIncomingStockIn: [Int64!]
+  ownIncomingStockNotIn: [Int64!]
+  ownIncomingStockGT: Int64
+  ownIncomingStockGTE: Int64
+  ownIncomingStockLT: Int64
+  ownIncomingStockLTE: Int64
   """
   own_outgoing_stock field predicates
   """
-  ownOutgoingStock: Int
-  ownOutgoingStockNEQ: Int
-  ownOutgoingStockIn: [Int!]
-  ownOutgoingStockNotIn: [Int!]
-  ownOutgoingStockGT: Int
-  ownOutgoingStockGTE: Int
-  ownOutgoingStockLT: Int
-  ownOutgoingStockLTE: Int
+  ownOutgoingStock: Int64
+  ownOutgoingStockNEQ: Int64
+  ownOutgoingStockIn: [Int64!]
+  ownOutgoingStockNotIn: [Int64!]
+  ownOutgoingStockGT: Int64
+  ownOutgoingStockGTE: Int64
+  ownOutgoingStockLT: Int64
+  ownOutgoingStockLTE: Int64
   """
   version field predicates
   """
-  version: Int
-  versionNEQ: Int
-  versionIn: [Int!]
-  versionNotIn: [Int!]
-  versionGT: Int
-  versionGTE: Int
-  versionLT: Int
-  versionLTE: Int
+  version: Int64
+  versionNEQ: Int64
+  versionIn: [Int64!]
+  versionNotIn: [Int64!]
+  versionGT: Int64
+  versionGTE: Int64
+  versionLT: Int64
+  versionLTE: Int64
   """
   item edge predicates
   """
@@ -3460,7 +3464,7 @@ type Transaction implements Node {
   deletedBy: UUID
   itemID: ID!
   repositoryID: ID!
-  quantity: Int!
+  quantity: Int64!
   type: TransactionType!
   item: InventoryItem!
   repository: Repository!
@@ -3634,14 +3638,14 @@ input TransactionWhereInput {
   """
   quantity field predicates
   """
-  quantity: Int
-  quantityNEQ: Int
-  quantityIn: [Int!]
-  quantityNotIn: [Int!]
-  quantityGT: Int
-  quantityGTE: Int
-  quantityLT: Int
-  quantityLTE: Int
+  quantity: Int64
+  quantityNEQ: Int64
+  quantityIn: [Int64!]
+  quantityNotIn: [Int64!]
+  quantityGT: Int64
+  quantityGTE: Int64
+  quantityLT: Int64
+  quantityLTE: Int64
   """
   type field predicates
   """
@@ -3759,7 +3763,7 @@ input UpdateReplenishmentOrderItemInput {
   data: Map
   clearData: Boolean
   sku: String
-  quantity: Int
+  quantity: Int64
 }
 """
 UpdateRepositoryInput is used for update Repository object.

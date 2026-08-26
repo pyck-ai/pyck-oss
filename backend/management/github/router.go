@@ -4,8 +4,9 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/pyck-ai/pyck/backend/management/github/oauth"
 	"github.com/rs/cors"
+
+	"github.com/pyck-ai/pyck/backend/management/github/oauth"
 )
 
 func Router(clientID, clientSecret string) http.Handler {

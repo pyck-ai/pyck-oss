@@ -104,9 +104,8 @@ the definitive fingerprint of the write-path bug.
 
 ### `fix` — repair rollup quantity (dry-run by default)
 
-Repairs `quantity` on violating current stock rows by appending one corrective
-row per violating `(repo, item)`. The corrective row is a copy of the live
-current row with:
+Repairs `quantity` by appending one corrective row per `(repo, item)` it has to
+correct. The corrective row is a copy of the live current row with:
 
 - `quantity` set to `own_quantity + SUM(direct children current quantity)`
 - `version` set to `MAX(version including soft-deleted) + 1`
@@ -114,9 +113,12 @@ current row with:
 - `created_at` set to `NOW()`
 - all other fields copied from the live current row
 
-All inserts are wrapped in a single transaction. Before committing, the
-invariant check is re-run inside the transaction; if any touched pair is still
-violated the transaction is rolled back.
+Everything happens in one transaction, children before parents: a parent is
+priced only once every violation below it has been corrected, so it is never
+written against a child value that is about to move. Before committing, the
+invariant is re-checked across the **whole tenant** — not just the pairs that
+were touched — and anything still violated that was not already unfixable rolls
+the transaction back.
 
 **Caveats**
 
@@ -126,6 +128,15 @@ violated the transaction is rolled back.
   are for unblocking operations only.
 - Only `quantity` is repaired. `incoming_stock`, `outgoing_stock`,
   `own_incoming_stock`, `own_outgoing_stock` are never auto-modified.
+- Corrections run children before parents, and a parent is repriced whenever a
+  child's correction moves its expected sum — so a single run can write rows for
+  pairs that were consistent when it started. The plan lists every one of them.
+- Soft-deleted repositories take no part: `create_item_movement_proc`'s ancestor
+  walk skips them, so their stock is frozen and never counts towards a parent.
+- A dry run is the same repair rolled back, so it holds locks on the version
+  index entries it writes — the same ones a concurrent movement would take. It
+  blocks real writes while it runs, and aborts after 60 s to bound that. Prefer
+  off-peak, or point `--db-url` at a replica.
 
 **Flags**
 
@@ -144,9 +155,11 @@ violated the transaction is rolled back.
 
 **Quiescence check**
 
-Before mutating, the tool reads `MAX(created_at)` from the tenant's stock rows
-twice (separated by `--settle`, default 20 s). If the value changes between
-reads, concurrent writes are in flight and the tool aborts.
+Before mutating, the tool reads `COUNT(*)` and `SUM(version)` over the tenant's
+stock rows twice (separated by `--settle`, default 20 s). If either moves,
+concurrent writes are in flight and the tool aborts. Both only ever grow on an
+append-only table, so a straggler pod whose clock lags cannot slip a write past
+the guard the way it could past a `MAX(created_at)` comparison.
 
 `--execute` without `--assume-quiesced` requires either `--fly-app` or
 `--k8s-deploy` so workers are stopped first. Use `--assume-quiesced` only when
@@ -216,7 +229,7 @@ stockfix fix \
 | Default mode | **Dry-run** — connects to DB read-only, prints plan, exits 0 |
 | Mutations | Only with explicit `--execute` |
 | Interactive confirm | Operator must re-type the tenant UUID before any INSERT (bypass with `--yes`) |
-| Quiescence | Two reads of `MAX(created_at)` with `--settle` gap; aborts if changed |
+| Quiescence | Two reads of `COUNT(*)` + `SUM(version)` with `--settle` gap; aborts if changed |
 | Transaction | All inserts in one transaction; rolled back if post-insert verify fails |
 | Workers | Stopped before mutating (via `--fly-app`/`--k8s-deploy`), restarted after commit |
 | `movement_id` | Always NULL on corrective rows — distinguishes them from ledger-driven rows |
@@ -228,9 +241,26 @@ stockfix fix \
 
 ```bash
 task build        # → bin/stockfix
-task test         # unit tests (no DB required)
+task test         # unit tests; the DB-backed ones skip without a database
 task lint         # go vet
 task tidy         # go mod tidy
+
+# The rollup invariant and the repair loop, against a real Postgres. Each test
+# creates and drops its own schema, so any database you can CREATE SCHEMA in
+# works — no pyck schema, no migrations.
+task test:db DB_URL='postgres://admin:12345@localhost:5432/pyck_dev?sslmode=disable'
 ```
 
 Module: `github.com/pyck-ai/pyck/hack/stockfix` (standalone; not in go.work).
+
+## CI
+
+`run-tests` gives this module its own job with a Postgres service, so the
+database-backed tests run instead of skipping. Separate rather than folded into
+the backend matrix: that matrix has no use for the service, and testcontainers
+would cost the module its pgx-and-testify dependency set — the property that
+makes it easy to build and copy to a jump host.
+
+The repo's golangci-lint set does not run here: it targets services and flags a
+print-heavy CLI on nearly every line (unchecked `fmt.Fprintln` returns,
+`flag.Parse`, missing `t.Parallel`). `task lint` is `go vet`.

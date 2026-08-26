@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -15,31 +16,30 @@ import (
 	"time"
 )
 
-// maxCreatedAtFn abstracts the DB call so checkQuiescence is testable without postgres.
-type maxCreatedAtFn func(ctx context.Context) (time.Time, error)
+// quiescenceFn abstracts the DB call so checkQuiescence is testable without postgres.
+type quiescenceFn func(ctx context.Context) (quiescenceMark, error)
 
-// checkQuiescence reads max(created_at) twice with a settle delay.
-// Returns an error if the value changed between reads (concurrent writes detected).
-func checkQuiescence(ctx context.Context, fn maxCreatedAtFn, settle time.Duration, out io.Writer) error {
-	t1, err := fn(ctx)
+// checkQuiescence reads the append-only fingerprint twice with a settle delay.
+// Returns an error if it changed between reads (concurrent writes detected).
+func checkQuiescence(ctx context.Context, fn quiescenceFn, settle time.Duration, out io.Writer) error {
+	first, err := fn(ctx)
 	if err != nil {
 		return fmt.Errorf("quiescence check (read 1): %w", err)
 	}
-	fmt.Fprintf(out, "quiescence: first max(created_at) = %s; waiting %v…\n",
-		t1.UTC().Format(time.RFC3339), settle)
+	fmt.Fprintf(out, "quiescence: first read %s; waiting %v…\n", first, settle)
 	select {
 	case <-time.After(settle):
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-	t2, err := fn(ctx)
+	second, err := fn(ctx)
 	if err != nil {
 		return fmt.Errorf("quiescence check (read 2): %w", err)
 	}
-	if !t2.Equal(t1) {
+	if second != first {
 		return fmt.Errorf(
-			"concurrent writes detected: max(created_at) moved %s → %s; stop workers before retrying (stockfix workers stop)",
-			t1.UTC().Format(time.RFC3339), t2.UTC().Format(time.RFC3339),
+			"concurrent writes detected: %s → %s; stop workers before retrying (stockfix workers stop)",
+			first, second,
 		)
 	}
 	fmt.Fprintln(out, "quiescence: stable ✓")
@@ -72,7 +72,8 @@ func confirmInteractive(tenantID string, out io.Writer, in io.Reader) error {
 }
 
 // renderFixPlan writes the corrective row plan and verification queries to w.
-func renderFixPlan(w io.Writer, rows []CorrectiveRow) {
+// Rows come out in repair order: children before the parents whose sums they feed.
+func renderFixPlan(w io.Writer, schema string, rows []CorrectiveRow) {
 	fmt.Fprintln(w, "=== FIX PLAN (movement_id=NULL marks manual correction) ===")
 	fmt.Fprintln(w)
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
@@ -86,7 +87,7 @@ func renderFixPlan(w io.Writer, rows []CorrectiveRow) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Verification queries (run after fix):")
 	for _, r := range rows {
-		fmt.Fprintf(w, "  SELECT version, quantity, own_quantity FROM %s.stocks\n", "inventory")
+		fmt.Fprintf(w, "  SELECT version, quantity, own_quantity FROM %s.stocks\n", schema)
 		fmt.Fprintf(w, "    WHERE repository_id='%s' AND item_id='%s'\n", r.RepoID, r.ItemID)
 		fmt.Fprintf(w, "    AND tenant_id='%s' ORDER BY version DESC LIMIT 3;\n\n", r.TenantID)
 	}
@@ -94,7 +95,7 @@ func renderFixPlan(w io.Writer, rows []CorrectiveRow) {
 	fmt.Fprintln(w, "replays the ledger without them; permanent fix requires the write-path hotfix.")
 }
 
-func cmdFix(args []string) int {
+func cmdFix(args []string) (code int) {
 	fs := flag.NewFlagSet("fix", flag.ExitOnError)
 	var g globalFlags
 	addGlobal(fs, &g)
@@ -110,7 +111,7 @@ func cmdFix(args []string) int {
 	fs.BoolVar(&execute, "execute", false, "Perform mutations (default is dry-run)")
 	fs.BoolVar(&dryRunExplicit, "dry-run", false, "Explicit dry-run no-op confirmer")
 	fs.BoolVar(&skipConfirm, "yes", false, "Skip interactive tenant-ID confirmation prompt")
-	fs.StringVar(&settleS, "settle", "20s", "Quiescence settle interval between two max(created_at) reads")
+	fs.StringVar(&settleS, "settle", "20s", "Settle interval between the two quiescence reads")
 	fs.BoolVar(&assumeQuiesced, "assume-quiesced", false, "Skip quiescence check (dangerous — log loudly)")
 	fs.StringVar(&flyApp, "fly-app", "", "Fly.io app name for automatic worker stop/start")
 	fs.StringVar(&k8sDeploy, "k8s-deploy", "", "K8s namespace/deploy for automatic worker stop/start (e.g. prod/inventory-worker)")
@@ -127,6 +128,12 @@ func cmdFix(args []string) int {
 	}
 	if err := validateSchema(g.schema); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	// An operator who adds --dry-run to a line that already carries --execute
+	// means "do not write"; letting one flag win would write anyway.
+	if dryRunExplicit && execute {
+		fmt.Fprintln(os.Stderr, "error: --dry-run and --execute are mutually exclusive")
 		return 1
 	}
 	settle, err := time.ParseDuration(settleS)
@@ -149,56 +156,22 @@ func cmdFix(args []string) int {
 	}
 	defer db.Close()
 
-	// Always run the read-only analysis (safe regardless of --execute).
-	violations, err := rollupViolations(ctx, db, g.schema, g.tenantID)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "error: rollup check:", err)
-		return 1
-	}
-	var fixable []RollupViolation
-	for _, v := range violations {
-		if v.HasCurrentRow {
-			fixable = append(fixable, v)
-		} else {
-			fmt.Fprintf(os.Stdout, "WARNING: %s/%s has no current stock row — cannot auto-fix, manual intervention required\n",
-				v.RepoID, v.ItemID)
-		}
-	}
-	if len(fixable) == 0 {
-		printRollupTable(os.Stdout, violations)
-		fmt.Fprintln(os.Stdout, "\nNo fixable violations found.")
-		return 0
-	}
-
-	// Build corrective rows (requires max version per pair — one query each).
-	corrective := make([]CorrectiveRow, 0, len(fixable))
-	for _, v := range fixable {
-		maxVer, err := maxVersion(ctx, db, g.schema, v.TenantID, v.RepoID, v.ItemID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: max version for %s/%s: %v\n", v.RepoID, v.ItemID, err)
+	if !execute {
+		// The repair itself, rolled back: the plan is then the exact rows
+		// --execute would insert, parents already priced off their children.
+		plan, perr := previewRepair(ctx, db, g.schema, g.tenantID)
+		if perr != nil {
+			fmt.Fprintln(os.Stderr, "error:", perr)
 			return 1
 		}
-		corrective = append(corrective, CorrectiveRow{
-			ID:          newUUID(),
-			TenantID:    v.TenantID,
-			RepoID:      v.RepoID,
-			ItemID:      v.ItemID,
-			Version:     nextVersion(maxVer),
-			Quantity:    v.ExpectedQty,
-			OwnQuantity: v.OwnQty,
-			Incoming:    v.IncomingQty,
-			Outgoing:    v.OutgoingQty,
-			OwnIncoming: v.OwnIncomingQty,
-			OwnOutgoing: v.OwnOutgoingQty,
-			CreatedBy:   v.CreatedBy,
-		})
-	}
+		printRollupTable(os.Stdout, plan.Initial)
+		fmt.Fprintln(os.Stdout)
+		if len(plan.Corrective) == 0 {
+			fmt.Fprintln(os.Stdout, "No fixable violations found.")
+			return 0
+		}
+		renderFixPlan(os.Stdout, g.schema, plan.Corrective)
 
-	printRollupTable(os.Stdout, violations)
-	fmt.Fprintln(os.Stdout)
-	renderFixPlan(os.Stdout, corrective)
-
-	if !execute {
 		fmt.Fprintln(os.Stdout)
 		fmt.Fprintln(os.Stdout, "=== DRY RUN — use --execute to apply ===")
 		if hasWorkerBackend {
@@ -206,7 +179,7 @@ func cmdFix(args []string) int {
 			fmt.Fprintln(os.Stdout, "\n[DRY RUN] Would stop workers:")
 			wb.printStopCmds(os.Stdout)
 			fmt.Fprintf(os.Stdout, "[DRY RUN] Would wait %v for quiescence\n", settle)
-			fmt.Fprintf(os.Stdout, "[DRY RUN] Would insert %d corrective row(s)\n", len(corrective))
+			fmt.Fprintf(os.Stdout, "[DRY RUN] Would insert %d corrective row(s)\n", len(plan.Corrective))
 			fmt.Fprintln(os.Stdout, "[DRY RUN] Would start workers:")
 			wb.printStartCmds(os.Stdout)
 		}
@@ -223,20 +196,29 @@ func cmdFix(args []string) int {
 			fmt.Fprintln(os.Stderr, "error: stop workers:", err)
 			return 1
 		}
+		// Every exit from here restarts them: workers left down after an
+		// aborted repair are worse than the drift. A failed restart surfaces in
+		// the exit code even when the repair itself committed.
+		defer func() {
+			fmt.Fprintln(os.Stdout, "Starting workers…")
+			if serr := wb.start(ctx, false, os.Stdout); serr != nil {
+				fmt.Fprintln(os.Stderr, "error: start workers:", serr)
+				fmt.Fprintln(os.Stderr, "Workers are still stopped — run: stockfix workers start")
+				if code == 0 {
+					code = 1
+				}
+			}
+		}()
 	}
 
 	if assumeQuiesced {
 		fmt.Fprintln(os.Stdout, "WARNING: --assume-quiesced set — skipping quiescence check (dangerous)")
 	} else {
-		quiesceFn := func(ctx context.Context) (time.Time, error) {
-			return maxCreatedAt(ctx, db, g.schema, g.tenantID)
+		quiesceFn := func(ctx context.Context) (quiescenceMark, error) {
+			return quiescence(ctx, db, g.schema, g.tenantID)
 		}
 		if err := checkQuiescence(ctx, quiesceFn, settle, os.Stdout); err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
-			if hasWorkerBackend {
-				fmt.Fprintln(os.Stderr, "Workers were stopped — restarting before aborting…")
-				_ = wb.start(ctx, false, os.Stderr)
-			}
 			return 1
 		}
 	}
@@ -244,18 +226,8 @@ func cmdFix(args []string) int {
 	if !skipConfirm {
 		if err := confirmInteractive(g.tenantID, os.Stdout, os.Stdin); err != nil {
 			fmt.Fprintln(os.Stderr, "aborted:", err)
-			if hasWorkerBackend {
-				fmt.Fprintln(os.Stderr, "Workers were stopped — restarting…")
-				_ = wb.start(ctx, false, os.Stderr)
-			}
 			return 1
 		}
-	}
-
-	// Build the touched key set for post-insert verification.
-	touched := make(map[string]bool, len(corrective))
-	for _, r := range corrective {
-		touched[r.RepoID+"/"+r.ItemID] = true
 	}
 
 	tx, err := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
@@ -264,16 +236,27 @@ func cmdFix(args []string) int {
 		return 1
 	}
 
-	for _, r := range corrective {
-		if err := insertCorrectiveRow(ctx, tx, g.schema, r); err != nil {
-			_ = tx.Rollback()
-			fmt.Fprintf(os.Stderr, "error: insert %s/%s: %v\n", r.RepoID, r.ItemID, err)
-			return 1
-		}
+	// Computed and applied here, after the stop: a plan built against the live
+	// database before it would already be stale.
+	plan, err := repairTenant(ctx, tx, g.schema, g.tenantID, os.Stdout)
+	if err != nil {
+		_ = tx.Rollback()
+		fmt.Fprintln(os.Stderr, "error: repair:", err)
+		return 1
 	}
 
-	// Verify inside the transaction before committing.
-	remaining, err := verifyAfterFix(ctx, tx, g.schema, g.tenantID, touched)
+	printRollupTable(os.Stdout, plan.Initial)
+	fmt.Fprintln(os.Stdout)
+	if len(plan.Corrective) == 0 {
+		_ = tx.Rollback()
+		fmt.Fprintln(os.Stdout, "No fixable violations found.")
+		return 0
+	}
+	renderFixPlan(os.Stdout, g.schema, plan.Corrective)
+
+	// Verify the whole tenant inside the transaction before committing: the
+	// repair may only leave behind violations that were already unfixable.
+	remaining, err := verifyAfterFix(ctx, tx, g.schema, g.tenantID, plan.Unfixable)
 	if err != nil {
 		_ = tx.Rollback()
 		fmt.Fprintln(os.Stderr, "error: post-insert verify:", err)
@@ -284,10 +267,6 @@ func cmdFix(args []string) int {
 		fmt.Fprintln(os.Stderr, "\nROLLBACK: invariant still violated after corrective rows:")
 		printRollupTable(os.Stderr, remaining)
 		fmt.Fprintln(os.Stderr, "No changes were committed. Investigate before retrying.")
-		if hasWorkerBackend {
-			fmt.Fprintln(os.Stderr, "Restarting workers…")
-			_ = wb.start(ctx, false, os.Stderr)
-		}
 		return 3
 	}
 
@@ -296,15 +275,32 @@ func cmdFix(args []string) int {
 		return 1
 	}
 
-	fmt.Fprintf(os.Stdout, "\nCOMMITTED: %d corrective row(s) inserted successfully.\n", len(corrective))
-
-	if hasWorkerBackend {
-		fmt.Fprintln(os.Stdout, "Starting workers…")
-		if err := wb.start(ctx, false, os.Stdout); err != nil {
-			fmt.Fprintln(os.Stderr, "error: start workers:", err)
-			fmt.Fprintln(os.Stderr, "Fix succeeded but workers not restarted — run: stockfix workers start")
-			return 1
-		}
-	}
+	fmt.Fprintf(os.Stdout, "\nCOMMITTED: %d corrective row(s) inserted successfully.\n", len(plan.Corrective))
 	return 0
+}
+
+// previewTimeout caps a dry run, which holds locks on the version index entries
+// it writes until it rolls back — the same (tenant, repo, item, version) a
+// concurrent create_item_movement_proc takes, since both use MAX(version) + 1.
+// Blocking live movements is acceptable briefly and not at all for long.
+const previewTimeout = 60 * time.Second
+
+// previewRepair runs the repair in a transaction it always rolls back.
+func previewRepair(ctx context.Context, db *sql.DB, schema, tenantID string) (*repairPlan, error) {
+	ctx, cancel := context.WithTimeout(ctx, previewTimeout)
+	defer cancel()
+
+	tx, err := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	plan, err := repairTenant(ctx, tx, schema, tenantID, os.Stdout)
+	if err != nil && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return nil, fmt.Errorf("dry run exceeded %v and was rolled back; run it "+
+			"off-peak, against a replica, or go straight to --execute with the "+
+			"workers stopped (which is not capped): %w", previewTimeout, err)
+	}
+	return plan, err
 }

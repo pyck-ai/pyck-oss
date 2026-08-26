@@ -7,6 +7,7 @@ import (
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/importexport"
@@ -61,6 +62,7 @@ func (OrderItems) Fields() []ent.Field {
 			Min(0).
 			Annotations(
 				entgql.OrderField("QUANTITY"),
+				entgql.Type("Int64"),
 			),
 	}
 }
@@ -73,6 +75,13 @@ func (OrderItems) Edges() []ent.Edge {
 			Field("order_id").
 			Required().
 			Unique(),
+	}
+}
+
+func (OrderItems) Indexes() []ent.Index {
+	return []ent.Index{
+		index.Fields("order_id").
+			Annotations(mixin.HistoryMixinNotDeletedIndexAnnotation()),
 	}
 }
 

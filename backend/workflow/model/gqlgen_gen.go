@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pyck-ai/pyck/backend/common/workflow"
 	"github.com/pyck-ai/pyck/backend/workflow/ent/gen/workflowsignal"
 )
 
@@ -35,6 +36,27 @@ type CurrentUserDataInput struct {
 	Type          *WorkflowUpdateType `json:"type,omitempty"`
 	Data          any                 `json:"data,omitempty"`
 	Errors        []string            `json:"errors,omitempty"`
+}
+
+// A connection to a list of DeploymentVersionUI items.
+type DeploymentVersionUIConnection struct {
+	Edges      []*DeploymentVersionUIEdge   `json:"edges"`
+	PageInfo   *DeploymentVersionUIPageInfo `json:"pageInfo"`
+	TotalCount int                          `json:"totalCount"`
+}
+
+// An edge in a DeploymentVersionUI connection.
+type DeploymentVersionUIEdge struct {
+	Node   *workflow.DeploymentVersionUI `json:"node"`
+	Cursor string                        `json:"cursor"`
+}
+
+// Pagination information for a DeploymentVersionUI connection.
+type DeploymentVersionUIPageInfo struct {
+	HasNextPage     bool    `json:"hasNextPage"`
+	HasPreviousPage bool    `json:"hasPreviousPage"`
+	StartCursor     *string `json:"startCursor,omitempty"`
+	EndCursor       *string `json:"endCursor,omitempty"`
 }
 
 type GetWorkflowActionsInput struct {
@@ -87,7 +109,13 @@ type RegisterWorkflowWithSignalsInput struct {
 	Data         map[string]any                 `json:"data,omitempty"`
 	Name         string                         `json:"name"`
 	TaskQueue    string                         `json:"taskQueue"`
+	WorkerID     *string                        `json:"workerID,omitempty"`
 	Signals      []*RegisterWorkflowSignalInput `json:"signals,omitempty"`
+}
+
+type RemoteUIQueryInput struct {
+	WorkflowID          string `json:"workflowID"`
+	WorkflowExecutionID string `json:"workflowExecutionID"`
 }
 
 type ServiceInfo struct {
@@ -173,7 +201,7 @@ type WorkflowDeletePayload struct {
 }
 
 type WorkflowEvent struct {
-	EventID   int            `json:"eventId"`
+	EventID   int64          `json:"eventId"`
 	EventTime string         `json:"eventTime"`
 	EventType string         `json:"eventType"`
 	Extra     map[string]any `json:"extra,omitempty"`
@@ -228,7 +256,7 @@ type WorkflowExecutionInfo struct {
 	// The current status of the workflow execution.
 	Status string `json:"status"`
 	// The number of events in the workflow history.
-	HistoryLength int `json:"historyLength"`
+	HistoryLength int64 `json:"historyLength"`
 	// The parent namespace ID if this is a child workflow.
 	ParentNamespaceID *string `json:"parentNamespaceId,omitempty"`
 	// The parent execution if this is a child workflow.
@@ -242,9 +270,9 @@ type WorkflowExecutionInfo struct {
 	// The task queue where the workflow is executed.
 	TaskQueue string `json:"taskQueue"`
 	// The number of state transitions in the workflow.
-	StateTransitionCount int `json:"stateTransitionCount"`
+	StateTransitionCount int64 `json:"stateTransitionCount"`
 	// The size of the workflow history in bytes.
-	HistorySizeBytes int `json:"historySizeBytes"`
+	HistorySizeBytes int64 `json:"historySizeBytes"`
 	// The version stamp of the most recent worker.
 	MostRecentWorkerVersionStamp map[string]any `json:"mostRecentWorkerVersionStamp,omitempty"`
 	// The duration of the workflow execution.

@@ -462,6 +462,7 @@ type tenantBuilder struct {
 	name      string
 	expiresAt *time.Time
 	deleted   bool
+	data      map[string]any
 }
 
 func (te *testEnv) newTenant(ctx context.Context, tenantID uuid.UUID) *tenantBuilder {
@@ -489,6 +490,11 @@ func (b *tenantBuilder) Deleted() *tenantBuilder {
 	return b
 }
 
+func (b *tenantBuilder) Data(data map[string]any) *tenantBuilder {
+	b.data = data
+	return b
+}
+
 func (b *tenantBuilder) Create() *gen.Tenant {
 	b.te.t.Helper()
 	var tenant *gen.Tenant
@@ -504,6 +510,9 @@ func (b *tenantBuilder) Create() *gen.Tenant {
 		if b.deleted {
 			builder = builder.SetDeletedAt(time.Now().UTC()).SetDeletedBy(uuid.Max)
 		}
+		if b.data != nil {
+			builder = builder.SetData(b.data)
+		}
 
 		var err error
 		tenant, err = builder.Save(gen.NewTxContext(txid.With(b.ctx, txid.New()), tx))
@@ -511,65 +520,6 @@ func (b *tenantBuilder) Create() *gen.Tenant {
 	})
 	require.NoError(b.te.t, err)
 	return tenant
-}
-
-// --- Event Builder ---
-
-type eventBuilder struct {
-	te          *testEnv
-	ctx         context.Context //nolint:containedctx // Builder pattern for tests
-	name        string
-	description string
-	topic       string
-	example     map[string]any
-}
-
-func (te *testEnv) newEvent(ctx context.Context) *eventBuilder {
-	return &eventBuilder{
-		te:          te,
-		ctx:         ctx,
-		name:        "Event-" + uuidgql.GenerateV7UUID().String()[:8],
-		description: "Test event description",
-		topic:       "management-test-topic",
-		example:     map[string]any{"test": "data"},
-	}
-}
-
-func (b *eventBuilder) Name(name string) *eventBuilder {
-	b.name = name
-	return b
-}
-
-func (b *eventBuilder) Description(desc string) *eventBuilder {
-	b.description = desc
-	return b
-}
-
-func (b *eventBuilder) Topic(topic string) *eventBuilder {
-	b.topic = topic
-	return b
-}
-
-func (b *eventBuilder) Example(example map[string]any) *eventBuilder {
-	b.example = example
-	return b
-}
-
-func (b *eventBuilder) Create() *gen.Event {
-	b.te.t.Helper()
-	var event *gen.Event
-	err := b.te.withTx(b.ctx, func(tx *gen.Tx) error {
-		var err error
-		event, err = tx.Event.Create().
-			SetName(b.name).
-			SetDescription(b.description).
-			SetTopic(b.topic).
-			SetExample(b.example).
-			Save(gen.NewTxContext(txid.With(b.ctx, txid.New()), tx))
-		return err
-	})
-	require.NoError(b.te.t, err)
-	return event
 }
 
 // --- DataType Builder ---

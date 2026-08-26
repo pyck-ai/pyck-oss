@@ -72,10 +72,15 @@ func (f File) Fields() []ent.Field {
 			Annotations(entgql.OrderField("DESCRIPTION")),
 		field.String("name").
 			NotEmpty().
+			Immutable().
 			Annotations(
-				entgql.Skip(entgql.SkipMutationUpdateInput),
 				entgql.OrderField("NAME"),
 			),
+		// size stays SkipMutationUpdateInput rather than Immutable: it is
+		// process-managed and reconciled after creation by FinalizeFileUpload,
+		// which reads the real object size from S3 (see file/resolvers
+		// mutations.resolvers.go). Hiding it from the GraphQL update input still
+		// blocks client backdoors.
 		field.Int64("size").
 			Min(0).
 			Optional().
@@ -86,8 +91,8 @@ func (f File) Fields() []ent.Field {
 			),
 		field.String("content_type").
 			NotEmpty().
+			Immutable().
 			Annotations(
-				entgql.Skip(entgql.SkipMutationUpdateInput),
 				entgql.OrderField("CONTENT_TYPE"),
 			),
 		field.String("public_alias").

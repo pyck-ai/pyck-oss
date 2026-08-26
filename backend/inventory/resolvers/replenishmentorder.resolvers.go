@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
+	"github.com/pyck-ai/pyck/backend/common/sqljsonpath"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/replenishmentorder"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/replenishmentorderitem"
@@ -22,8 +23,12 @@ func (r *replenishmentOrderItemWhereInputResolver) Data(ctx context.Context, obj
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(replenishmentorderitem.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueEQ(replenishmentorderitem.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil
@@ -36,8 +41,12 @@ func (r *replenishmentOrderItemWhereInputResolver) DataHasKey(ctx context.Contex
 	}
 
 	if *data != "" {
+		jsonPath, err := sqljsonpath.DotPath(*data)
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(replenishmentorderitem.FieldData, sqljson.DotPath(*data)))
+			s.Where(sqljson.HasKey(replenishmentorderitem.FieldData, jsonPath))
 		})
 	}
 	return nil
@@ -54,8 +63,12 @@ func (r *replenishmentOrderItemWhereInputResolver) DataIn(ctx context.Context, o
 		for _, v := range data[1:] {
 			args = append(args, v)
 		}
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(replenishmentorderitem.FieldData, args, sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueIn(replenishmentorderitem.FieldData, args, jsonPath))
 		})
 	}
 	return nil
@@ -68,8 +81,12 @@ func (r *replenishmentOrderItemWhereInputResolver) DataContains(ctx context.Cont
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(replenishmentorderitem.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueContains(replenishmentorderitem.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil
@@ -82,8 +99,12 @@ func (r *replenishmentOrderWhereInputResolver) Data(ctx context.Context, obj *ge
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(replenishmentorder.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueEQ(replenishmentorder.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil
@@ -96,8 +117,12 @@ func (r *replenishmentOrderWhereInputResolver) DataHasKey(ctx context.Context, o
 	}
 
 	if *data != "" {
+		jsonPath, err := sqljsonpath.DotPath(*data)
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(replenishmentorder.FieldData, sqljson.DotPath(*data)))
+			s.Where(sqljson.HasKey(replenishmentorder.FieldData, jsonPath))
 		})
 	}
 	return nil
@@ -114,8 +139,12 @@ func (r *replenishmentOrderWhereInputResolver) DataIn(ctx context.Context, obj *
 		for _, v := range data[1:] {
 			args = append(args, v)
 		}
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(replenishmentorder.FieldData, args, sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueIn(replenishmentorder.FieldData, args, jsonPath))
 		})
 	}
 	return nil
@@ -128,8 +157,12 @@ func (r *replenishmentOrderWhereInputResolver) DataContains(ctx context.Context,
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(replenishmentorder.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueContains(replenishmentorder.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil

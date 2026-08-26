@@ -10,8 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/mattn/go-sqlite3"
-
 	ent "github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	entstock "github.com/pyck-ai/pyck/backend/inventory/ent/gen/stock"
 )

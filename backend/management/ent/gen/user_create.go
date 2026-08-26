@@ -14,8 +14,6 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/deviceuser"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/group"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/role"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/user"
 )
@@ -146,12 +144,6 @@ func (_c *UserCreate) SetNillableIsAdmin(v *bool) *UserCreate {
 	return _c
 }
 
-// SetLegacyRoles sets the "legacy_roles" field.
-func (_c *UserCreate) SetLegacyRoles(v []string) *UserCreate {
-	_c.mutation.SetLegacyRoles(v)
-	return _c
-}
-
 // SetID sets the "id" field.
 func (_c *UserCreate) SetID(v uuid.UUID) *UserCreate {
 	_c.mutation.SetID(v)
@@ -169,36 +161,6 @@ func (_c *UserCreate) SetNillableID(v *uuid.UUID) *UserCreate {
 // SetTenant sets the "tenant" edge to the Tenant entity.
 func (_c *UserCreate) SetTenant(v *Tenant) *UserCreate {
 	return _c.SetTenantID(v.ID)
-}
-
-// AddRoleIDs adds the "roles" edge to the Role entity by IDs.
-func (_c *UserCreate) AddRoleIDs(ids ...uuid.UUID) *UserCreate {
-	_c.mutation.AddRoleIDs(ids...)
-	return _c
-}
-
-// AddRoles adds the "roles" edges to the Role entity.
-func (_c *UserCreate) AddRoles(v ...*Role) *UserCreate {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _c.AddRoleIDs(ids...)
-}
-
-// AddGroupIDs adds the "groups" edge to the Group entity by IDs.
-func (_c *UserCreate) AddGroupIDs(ids ...uuid.UUID) *UserCreate {
-	_c.mutation.AddGroupIDs(ids...)
-	return _c
-}
-
-// AddGroups adds the "groups" edges to the Group entity.
-func (_c *UserCreate) AddGroups(v ...*Group) *UserCreate {
-	ids := make([]uuid.UUID, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _c.AddGroupIDs(ids...)
 }
 
 // AddDeviceUsersUserIDs adds the "deviceUsersUsers" edge to the DeviceUser entity by IDs.
@@ -257,10 +219,6 @@ func (_c *UserCreate) defaults() error {
 		v := user.DefaultIsAdmin
 		_c.mutation.SetIsAdmin(v)
 	}
-	if _, ok := _c.mutation.LegacyRoles(); !ok {
-		v := user.DefaultLegacyRoles
-		_c.mutation.SetLegacyRoles(v)
-	}
 	if _, ok := _c.mutation.ID(); !ok {
 		if user.DefaultID == nil {
 			return fmt.Errorf("gen: uninitialized user.DefaultID (forgotten import gen/runtime?)")
@@ -304,9 +262,6 @@ func (_c *UserCreate) check() error {
 	}
 	if _, ok := _c.mutation.IsAdmin(); !ok {
 		return &ValidationError{Name: "is_admin", err: errors.New(`gen: missing required field "User.is_admin"`)}
-	}
-	if _, ok := _c.mutation.LegacyRoles(); !ok {
-		return &ValidationError{Name: "legacy_roles", err: errors.New(`gen: missing required field "User.legacy_roles"`)}
 	}
 	if len(_c.mutation.TenantIDs()) == 0 {
 		return &ValidationError{Name: "tenant", err: errors.New(`gen: missing required edge "User.tenant"`)}
@@ -396,10 +351,6 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		_spec.SetField(user.FieldIsAdmin, field.TypeBool, value)
 		_node.IsAdmin = value
 	}
-	if value, ok := _c.mutation.LegacyRoles(); ok {
-		_spec.SetField(user.FieldLegacyRoles, field.TypeJSON, value)
-		_node.LegacyRoles = value
-	}
 	if nodes := _c.mutation.TenantIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -416,40 +367,6 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.TenantID = nodes[0]
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := _c.mutation.RolesIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   user.RolesTable,
-			Columns: user.RolesPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(role.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _c.schemaConfig.UserRoles
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := _c.mutation.GroupsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: true,
-			Table:   user.GroupsTable,
-			Columns: user.GroupsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _c.schemaConfig.GroupUsers
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.DeviceUsersUsersIDs(); len(nodes) > 0 {
@@ -650,18 +567,6 @@ func (u *UserUpsert) SetIsAdmin(v bool) *UserUpsert {
 // UpdateIsAdmin sets the "is_admin" field to the value that was provided on create.
 func (u *UserUpsert) UpdateIsAdmin() *UserUpsert {
 	u.SetExcluded(user.FieldIsAdmin)
-	return u
-}
-
-// SetLegacyRoles sets the "legacy_roles" field.
-func (u *UserUpsert) SetLegacyRoles(v []string) *UserUpsert {
-	u.Set(user.FieldLegacyRoles, v)
-	return u
-}
-
-// UpdateLegacyRoles sets the "legacy_roles" field to the value that was provided on create.
-func (u *UserUpsert) UpdateLegacyRoles() *UserUpsert {
-	u.SetExcluded(user.FieldLegacyRoles)
 	return u
 }
 
@@ -876,20 +781,6 @@ func (u *UserUpsertOne) SetIsAdmin(v bool) *UserUpsertOne {
 func (u *UserUpsertOne) UpdateIsAdmin() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateIsAdmin()
-	})
-}
-
-// SetLegacyRoles sets the "legacy_roles" field.
-func (u *UserUpsertOne) SetLegacyRoles(v []string) *UserUpsertOne {
-	return u.Update(func(s *UserUpsert) {
-		s.SetLegacyRoles(v)
-	})
-}
-
-// UpdateLegacyRoles sets the "legacy_roles" field to the value that was provided on create.
-func (u *UserUpsertOne) UpdateLegacyRoles() *UserUpsertOne {
-	return u.Update(func(s *UserUpsert) {
-		s.UpdateLegacyRoles()
 	})
 }
 
@@ -1271,20 +1162,6 @@ func (u *UserUpsertBulk) SetIsAdmin(v bool) *UserUpsertBulk {
 func (u *UserUpsertBulk) UpdateIsAdmin() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateIsAdmin()
-	})
-}
-
-// SetLegacyRoles sets the "legacy_roles" field.
-func (u *UserUpsertBulk) SetLegacyRoles(v []string) *UserUpsertBulk {
-	return u.Update(func(s *UserUpsert) {
-		s.SetLegacyRoles(v)
-	})
-}
-
-// UpdateLegacyRoles sets the "legacy_roles" field to the value that was provided on create.
-func (u *UserUpsertBulk) UpdateLegacyRoles() *UserUpsertBulk {
-	return u.Update(func(s *UserUpsert) {
-		s.UpdateLegacyRoles()
 	})
 }
 

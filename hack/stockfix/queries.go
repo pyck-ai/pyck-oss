@@ -11,6 +11,10 @@ package main
 // queryRollupByTenant finds (repo, item) pairs where the current stock row's
 // quantity ≠ own_quantity + sum(direct children's current quantity).
 // Returns one row per violating pair with all fields needed to build a corrective row.
+//
+// Only live repositories take part: create_item_movement_proc's ancestor walk
+// skips soft-deleted repos, so counting their frozen stock would invent a
+// violation on the parent that no write path can produce or resolve.
 // Args: $1 = tenant_id.
 const queryRollupByTenant = `
 WITH cur AS (
@@ -21,15 +25,19 @@ WITH cur AS (
   WHERE tenant_id = $1::uuid AND deleted_at IS NULL
   ORDER BY repository_id, item_id, version DESC
 ),
-child_sum AS (
-  SELECT r.parent_id AS repo, c.item_id, SUM(c.quantity) AS q
+live AS (
+  SELECT c.*, r.parent_id
   FROM cur c
-  JOIN %[1]s.repositories r ON r.id = c.repository_id
-  WHERE r.parent_id IS NOT NULL
+  JOIN %[1]s.repositories r ON r.id = c.repository_id AND r.deleted_at IS NULL
+),
+child_sum AS (
+  SELECT parent_id AS repo, item_id, SUM(quantity) AS q
+  FROM live
+  WHERE parent_id IS NOT NULL
   GROUP BY 1, 2
 ),
 node AS (
-  SELECT repository_id AS repo, item_id FROM cur
+  SELECT repository_id AS repo, item_id FROM live
   UNION
   SELECT repo, item_id FROM child_sum
 )
@@ -37,20 +45,20 @@ SELECT
   n.repo::text,
   COALESCE(rp.name, '')                AS repo_name,
   n.item_id::text,
-  COALESCE(cur.quantity, 0)            AS stored,
-  COALESCE(cur.own_quantity, 0) + COALESCE(cs.q, 0) AS expected,
-  COALESCE(cur.own_quantity, 0)           AS own_qty,
-  COALESCE(cur.own_incoming_stock, 0)     AS own_incoming,
-  COALESCE(cur.own_outgoing_stock, 0)     AS own_outgoing,
-  COALESCE(cur.incoming_stock, 0)         AS incoming,
-  COALESCE(cur.outgoing_stock, 0)         AS outgoing,
-  COALESCE(cur.created_by::text, '')      AS created_by,
-  (cur.repository_id IS NOT NULL)         AS has_current_row
+  COALESCE(lv.quantity, 0)             AS stored,
+  COALESCE(lv.own_quantity, 0) + COALESCE(cs.q, 0) AS expected,
+  COALESCE(lv.own_quantity, 0)            AS own_qty,
+  COALESCE(lv.own_incoming_stock, 0)      AS own_incoming,
+  COALESCE(lv.own_outgoing_stock, 0)      AS own_outgoing,
+  COALESCE(lv.incoming_stock, 0)          AS incoming,
+  COALESCE(lv.outgoing_stock, 0)          AS outgoing,
+  COALESCE(lv.created_by::text, '')       AS created_by,
+  (lv.repository_id IS NOT NULL)          AS has_current_row
 FROM node n
-LEFT JOIN cur         ON cur.repository_id = n.repo AND cur.item_id = n.item_id
+JOIN %[1]s.repositories rp ON rp.id = n.repo AND rp.deleted_at IS NULL
+LEFT JOIN live lv      ON lv.repository_id = n.repo AND lv.item_id = n.item_id
 LEFT JOIN child_sum cs ON cs.repo = n.repo AND cs.item_id = n.item_id
-LEFT JOIN %[1]s.repositories rp ON rp.id = n.repo
-WHERE COALESCE(cur.quantity, 0) <> COALESCE(cur.own_quantity, 0) + COALESCE(cs.q, 0)
+WHERE COALESCE(lv.quantity, 0) <> COALESCE(lv.own_quantity, 0) + COALESCE(cs.q, 0)
 ORDER BY n.repo, n.item_id
 `
 
@@ -66,15 +74,19 @@ WITH cur AS (
   WHERE deleted_at IS NULL
   ORDER BY tenant_id, repository_id, item_id, version DESC
 ),
-child_sum AS (
-  SELECT c.tenant_id, r.parent_id AS repo, c.item_id, SUM(c.quantity) AS q
+live AS (
+  SELECT c.*, r.parent_id
   FROM cur c
-  JOIN %[1]s.repositories r ON r.id = c.repository_id
-  WHERE r.parent_id IS NOT NULL
+  JOIN %[1]s.repositories r ON r.id = c.repository_id AND r.deleted_at IS NULL
+),
+child_sum AS (
+  SELECT tenant_id, parent_id AS repo, item_id, SUM(quantity) AS q
+  FROM live
+  WHERE parent_id IS NOT NULL
   GROUP BY 1, 2, 3
 ),
 node AS (
-  SELECT tenant_id, repository_id AS repo, item_id FROM cur
+  SELECT tenant_id, repository_id AS repo, item_id FROM live
   UNION
   SELECT tenant_id, repo, item_id FROM child_sum
 )
@@ -83,20 +95,20 @@ SELECT
   n.repo::text,
   COALESCE(rp.name, '')                AS repo_name,
   n.item_id::text,
-  COALESCE(cur.quantity, 0)            AS stored,
-  COALESCE(cur.own_quantity, 0) + COALESCE(cs.q, 0) AS expected,
-  COALESCE(cur.own_quantity, 0)           AS own_qty,
-  COALESCE(cur.own_incoming_stock, 0)     AS own_incoming,
-  COALESCE(cur.own_outgoing_stock, 0)     AS own_outgoing,
-  COALESCE(cur.incoming_stock, 0)         AS incoming,
-  COALESCE(cur.outgoing_stock, 0)         AS outgoing,
-  COALESCE(cur.created_by::text, '')      AS created_by,
-  (cur.repository_id IS NOT NULL)         AS has_current_row
+  COALESCE(lv.quantity, 0)             AS stored,
+  COALESCE(lv.own_quantity, 0) + COALESCE(cs.q, 0) AS expected,
+  COALESCE(lv.own_quantity, 0)            AS own_qty,
+  COALESCE(lv.own_incoming_stock, 0)      AS own_incoming,
+  COALESCE(lv.own_outgoing_stock, 0)      AS own_outgoing,
+  COALESCE(lv.incoming_stock, 0)          AS incoming,
+  COALESCE(lv.outgoing_stock, 0)          AS outgoing,
+  COALESCE(lv.created_by::text, '')       AS created_by,
+  (lv.repository_id IS NOT NULL)          AS has_current_row
 FROM node n
-LEFT JOIN cur ON cur.tenant_id = n.tenant_id AND cur.repository_id = n.repo AND cur.item_id = n.item_id
+JOIN %[1]s.repositories rp ON rp.id = n.repo AND rp.deleted_at IS NULL
+LEFT JOIN live lv      ON lv.tenant_id = n.tenant_id AND lv.repository_id = n.repo AND lv.item_id = n.item_id
 LEFT JOIN child_sum cs ON cs.tenant_id = n.tenant_id AND cs.repo = n.repo AND cs.item_id = n.item_id
-LEFT JOIN %[1]s.repositories rp ON rp.id = n.repo
-WHERE COALESCE(cur.quantity, 0) <> COALESCE(cur.own_quantity, 0) + COALESCE(cs.q, 0)
+WHERE COALESCE(lv.quantity, 0) <> COALESCE(lv.own_quantity, 0) + COALESCE(cs.q, 0)
 ORDER BY n.tenant_id, n.repo, n.item_id
 `
 
@@ -152,22 +164,38 @@ WHERE led.pq IS NOT NULL
 ORDER BY led.version
 `
 
-// queryMaxCreatedAt returns the max created_at for a tenant's stocks rows.
-// Used by the quiescence check to detect in-flight writes.
+// queryQuiescence fingerprints a tenant's stocks table for the quiescence check.
+//
+// Deliberately NOT max(created_at): created_at is the writing pod's wall clock,
+// so a straggler whose clock lags inserts below the current max and the value
+// never moves — the guard would report "stable" while writes land. stocks is
+// append-only, so row count plus the version sum only ever grow.
 // Args: $1 = tenant_id.
-const queryMaxCreatedAt = `
-SELECT COALESCE(MAX(created_at), '1970-01-01 00:00:00+00'::timestamptz)
+// The cast pins the scan target: SUM over bigint yields numeric.
+const queryQuiescence = `
+SELECT COUNT(*), COALESCE(SUM(version), 0)::bigint
 FROM %[1]s.stocks
 WHERE tenant_id = $1::uuid
 `
 
-// queryMaxVersion returns the max version for a (tenant, repo, item) triple,
-// including soft-deleted rows (no deleted_at filter) to guarantee monotonicity.
-// Args: $1 = tenant_id, $2 = repository_id, $3 = item_id.
-const queryMaxVersion = `
-SELECT COALESCE(MAX(version), 0)
+// queryMaxVersions returns the max version per (repo, item) for a tenant,
+// including soft-deleted rows (no deleted_at filter) so an assigned version
+// clears the whole unique index.
+// Args: $1 = tenant_id.
+const queryMaxVersions = `
+SELECT repository_id::text, item_id::text, MAX(version)
 FROM %[1]s.stocks
-WHERE tenant_id = $1::uuid AND repository_id = $2::uuid AND item_id = $3::uuid
+WHERE tenant_id = $1::uuid
+GROUP BY 1, 2
+`
+
+// queryRepoParents returns parent_id per live repository ("" for a root), which
+// is how the repair orders children before parents.
+// Args: $1 = tenant_id.
+const queryRepoParents = `
+SELECT id::text, COALESCE(parent_id::text, '')
+FROM %[1]s.repositories
+WHERE tenant_id = $1::uuid AND deleted_at IS NULL
 `
 
 // queryInsertCorrective appends one corrective stock row.

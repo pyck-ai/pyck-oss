@@ -576,18 +576,6 @@ func (u *DataTypeUpsert) UpdateDefault() *DataTypeUpsert {
 	return u
 }
 
-// SetEntity sets the "entity" field.
-func (u *DataTypeUpsert) SetEntity(v string) *DataTypeUpsert {
-	u.Set(datatype.FieldEntity, v)
-	return u
-}
-
-// UpdateEntity sets the "entity" field to the value that was provided on create.
-func (u *DataTypeUpsert) UpdateEntity() *DataTypeUpsert {
-	u.SetExcluded(datatype.FieldEntity)
-	return u
-}
-
 // UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
 // Using this option is equivalent to using:
 //
@@ -616,6 +604,9 @@ func (u *DataTypeUpsertOne) UpdateNewValues() *DataTypeUpsertOne {
 		}
 		if _, exists := u.create.mutation.Slug(); exists {
 			s.SetIgnore(datatype.FieldSlug)
+		}
+		if _, exists := u.create.mutation.Entity(); exists {
+			s.SetIgnore(datatype.FieldEntity)
 		}
 	}))
 	return u
@@ -816,20 +807,6 @@ func (u *DataTypeUpsertOne) UpdateDefault() *DataTypeUpsertOne {
 	})
 }
 
-// SetEntity sets the "entity" field.
-func (u *DataTypeUpsertOne) SetEntity(v string) *DataTypeUpsertOne {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.SetEntity(v)
-	})
-}
-
-// UpdateEntity sets the "entity" field to the value that was provided on create.
-func (u *DataTypeUpsertOne) UpdateEntity() *DataTypeUpsertOne {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.UpdateEntity()
-	})
-}
-
 // Exec executes the query.
 func (u *DataTypeUpsertOne) Exec(ctx context.Context) error {
 	if len(u.create.conflict) == 0 {
@@ -1024,6 +1001,9 @@ func (u *DataTypeUpsertBulk) UpdateNewValues() *DataTypeUpsertBulk {
 			}
 			if _, exists := b.mutation.Slug(); exists {
 				s.SetIgnore(datatype.FieldSlug)
+			}
+			if _, exists := b.mutation.Entity(); exists {
+				s.SetIgnore(datatype.FieldEntity)
 			}
 		}
 	}))
@@ -1222,20 +1202,6 @@ func (u *DataTypeUpsertBulk) SetDefault(v bool) *DataTypeUpsertBulk {
 func (u *DataTypeUpsertBulk) UpdateDefault() *DataTypeUpsertBulk {
 	return u.Update(func(s *DataTypeUpsert) {
 		s.UpdateDefault()
-	})
-}
-
-// SetEntity sets the "entity" field.
-func (u *DataTypeUpsertBulk) SetEntity(v string) *DataTypeUpsertBulk {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.SetEntity(v)
-	})
-}
-
-// UpdateEntity sets the "entity" field to the value that was provided on create.
-func (u *DataTypeUpsertBulk) UpdateEntity() *DataTypeUpsertBulk {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.UpdateEntity()
 	})
 }
 

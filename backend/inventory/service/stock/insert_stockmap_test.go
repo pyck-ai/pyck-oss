@@ -5,19 +5,14 @@ import (
 	"context"
 	"testing"
 
-	"entgo.io/ent/dialect"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-
-	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/request"
-	testresolver "github.com/pyck-ai/pyck/backend/common/test/resolver"
 
 	ent "github.com/pyck-ai/pyck/backend/inventory/ent/gen"
-	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/enttest"
 	entprivacy "github.com/pyck-ai/pyck/backend/inventory/ent/gen/privacy"
 	entrepository "github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
 	entstock "github.com/pyck-ai/pyck/backend/inventory/ent/gen/stock"
@@ -63,8 +58,7 @@ import (
 func TestInsertStockMap_SkipsNoOpEntries(t *testing.T) {
 	t.Parallel()
 
-	client := enttest.Open(t, dialect.SQLite, testresolver.DatabaseURI(t))
-	t.Cleanup(func() { _ = client.Close() })
+	client := openPGEntClient(t)
 
 	tenantID := uuid.New()
 	user := &authn.User{ID: uuid.New(), TenantID: tenantID}
@@ -233,8 +227,7 @@ func TestInsertStockMap_InsertsWhenAnyInOutFieldChanges(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			client := enttest.Open(t, dialect.SQLite, testresolver.DatabaseURI(t))
-			t.Cleanup(func() { _ = client.Close() })
+			client := openPGEntClient(t)
 
 			tenantID := uuid.New()
 			user := &authn.User{ID: uuid.New(), TenantID: tenantID}
@@ -343,8 +336,7 @@ func TestInsertStockMap_InsertsWhenAnyInOutFieldChanges(t *testing.T) {
 func TestInsertStockMap_BaselineQuantitySourcedFromLatest(t *testing.T) {
 	t.Parallel()
 
-	client := enttest.Open(t, dialect.SQLite, testresolver.DatabaseURI(t))
-	t.Cleanup(func() { _ = client.Close() })
+	client := openPGEntClient(t)
 
 	tenantID := uuid.New()
 	user := &authn.User{ID: uuid.New(), TenantID: tenantID}

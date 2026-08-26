@@ -54,6 +54,7 @@ func (InboundItem) Fields() []ent.Field {
 			Min(0).
 			Annotations(
 				entgql.OrderField("QUANTITY"),
+				entgql.Type("Int64"),
 			),
 	}
 }

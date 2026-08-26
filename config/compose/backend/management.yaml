@@ -9,6 +9,10 @@ services:
         - SERVICE_PORT=8082
       network: host
     restart: on-failure
+    # Must exceed pre-drain delay + HTTP drain timeout + resource teardown
+    # (outbox flush, NATS drain, tracer flush) so SIGKILL never interrupts a
+    # graceful shutdown.
+    stop_grace_period: 30s
     environment:
       - PYCK_BOOTSTRAP_TIMEOUT=10m
       - PYCK_BOOTSTRAP_ENABLED=true
@@ -27,7 +31,9 @@ services:
       - "7082:7082"
       - "8082:8082"
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "8082"]
+      # Readiness endpoint: reports 503 while the service drains, unlike a
+      # bare TCP check which passes as long as the listener is bound.
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8082/health/ready"]
       interval: 5s
       timeout: 5s
       retries: 3

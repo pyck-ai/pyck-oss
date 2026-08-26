@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Force a stable, locale-independent collation. The supergraph field order
+# follows the order per-feature *.graphql files are concatenated, which is
+# driven by `sort`/`find` below. Without this, UTF-8 locales sort punctuation
+# (e.g. "workflow.graphql" vs "workflowactions.graphql") differently from CI's
+# C locale, producing a supergraph that is "out of sync" only on some machines.
+export LC_ALL=C
+
 # Default configuration
 SUPERGRAPH_OUTPUT="supergraph.graphql"
 VERBOSE=false

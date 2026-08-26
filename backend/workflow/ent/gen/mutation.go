@@ -3344,6 +3344,8 @@ type WorkflowSignalMutation struct {
 	temporal_signal      *string
 	temporal_signal_type *workflowsignal.TemporalSignalType
 	filter_rule          *string
+	worker_id            *string
+	expires_at           *time.Time
 	clearedFields        map[string]struct{}
 	workflow             *uuid.UUID
 	clearedworkflow      bool
@@ -3966,6 +3968,104 @@ func (m *WorkflowSignalMutation) ResetFilterRule() {
 	delete(m.clearedFields, workflowsignal.FieldFilterRule)
 }
 
+// SetWorkerID sets the "worker_id" field.
+func (m *WorkflowSignalMutation) SetWorkerID(s string) {
+	m.worker_id = &s
+}
+
+// WorkerID returns the value of the "worker_id" field in the mutation.
+func (m *WorkflowSignalMutation) WorkerID() (r string, exists bool) {
+	v := m.worker_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWorkerID returns the old "worker_id" field's value of the WorkflowSignal entity.
+// If the WorkflowSignal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowSignalMutation) OldWorkerID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWorkerID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWorkerID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWorkerID: %w", err)
+	}
+	return oldValue.WorkerID, nil
+}
+
+// ClearWorkerID clears the value of the "worker_id" field.
+func (m *WorkflowSignalMutation) ClearWorkerID() {
+	m.worker_id = nil
+	m.clearedFields[workflowsignal.FieldWorkerID] = struct{}{}
+}
+
+// WorkerIDCleared returns if the "worker_id" field was cleared in this mutation.
+func (m *WorkflowSignalMutation) WorkerIDCleared() bool {
+	_, ok := m.clearedFields[workflowsignal.FieldWorkerID]
+	return ok
+}
+
+// ResetWorkerID resets all changes to the "worker_id" field.
+func (m *WorkflowSignalMutation) ResetWorkerID() {
+	m.worker_id = nil
+	delete(m.clearedFields, workflowsignal.FieldWorkerID)
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *WorkflowSignalMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *WorkflowSignalMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the WorkflowSignal entity.
+// If the WorkflowSignal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkflowSignalMutation) OldExpiresAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (m *WorkflowSignalMutation) ClearExpiresAt() {
+	m.expires_at = nil
+	m.clearedFields[workflowsignal.FieldExpiresAt] = struct{}{}
+}
+
+// ExpiresAtCleared returns if the "expires_at" field was cleared in this mutation.
+func (m *WorkflowSignalMutation) ExpiresAtCleared() bool {
+	_, ok := m.clearedFields[workflowsignal.FieldExpiresAt]
+	return ok
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *WorkflowSignalMutation) ResetExpiresAt() {
+	m.expires_at = nil
+	delete(m.clearedFields, workflowsignal.FieldExpiresAt)
+}
+
 // ClearWorkflow clears the "workflow" edge to the Workflow entity.
 func (m *WorkflowSignalMutation) ClearWorkflow() {
 	m.clearedworkflow = true
@@ -4027,7 +4127,7 @@ func (m *WorkflowSignalMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *WorkflowSignalMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 14)
 	if m.tenant_id != nil {
 		fields = append(fields, workflowsignal.FieldTenantID)
 	}
@@ -4064,6 +4164,12 @@ func (m *WorkflowSignalMutation) Fields() []string {
 	if m.filter_rule != nil {
 		fields = append(fields, workflowsignal.FieldFilterRule)
 	}
+	if m.worker_id != nil {
+		fields = append(fields, workflowsignal.FieldWorkerID)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, workflowsignal.FieldExpiresAt)
+	}
 	return fields
 }
 
@@ -4096,6 +4202,10 @@ func (m *WorkflowSignalMutation) Field(name string) (ent.Value, bool) {
 		return m.TemporalSignalType()
 	case workflowsignal.FieldFilterRule:
 		return m.FilterRule()
+	case workflowsignal.FieldWorkerID:
+		return m.WorkerID()
+	case workflowsignal.FieldExpiresAt:
+		return m.ExpiresAt()
 	}
 	return nil, false
 }
@@ -4129,6 +4239,10 @@ func (m *WorkflowSignalMutation) OldField(ctx context.Context, name string) (ent
 		return m.OldTemporalSignalType(ctx)
 	case workflowsignal.FieldFilterRule:
 		return m.OldFilterRule(ctx)
+	case workflowsignal.FieldWorkerID:
+		return m.OldWorkerID(ctx)
+	case workflowsignal.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown WorkflowSignal field %s", name)
 }
@@ -4222,6 +4336,20 @@ func (m *WorkflowSignalMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetFilterRule(v)
 		return nil
+	case workflowsignal.FieldWorkerID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWorkerID(v)
+		return nil
+	case workflowsignal.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
 	}
 	return fmt.Errorf("unknown WorkflowSignal field %s", name)
 }
@@ -4270,6 +4398,12 @@ func (m *WorkflowSignalMutation) ClearedFields() []string {
 	if m.FieldCleared(workflowsignal.FieldFilterRule) {
 		fields = append(fields, workflowsignal.FieldFilterRule)
 	}
+	if m.FieldCleared(workflowsignal.FieldWorkerID) {
+		fields = append(fields, workflowsignal.FieldWorkerID)
+	}
+	if m.FieldCleared(workflowsignal.FieldExpiresAt) {
+		fields = append(fields, workflowsignal.FieldExpiresAt)
+	}
 	return fields
 }
 
@@ -4301,6 +4435,12 @@ func (m *WorkflowSignalMutation) ClearField(name string) error {
 		return nil
 	case workflowsignal.FieldFilterRule:
 		m.ClearFilterRule()
+		return nil
+	case workflowsignal.FieldWorkerID:
+		m.ClearWorkerID()
+		return nil
+	case workflowsignal.FieldExpiresAt:
+		m.ClearExpiresAt()
 		return nil
 	}
 	return fmt.Errorf("unknown WorkflowSignal nullable field %s", name)
@@ -4345,6 +4485,12 @@ func (m *WorkflowSignalMutation) ResetField(name string) error {
 		return nil
 	case workflowsignal.FieldFilterRule:
 		m.ResetFilterRule()
+		return nil
+	case workflowsignal.FieldWorkerID:
+		m.ResetWorkerID()
+		return nil
+	case workflowsignal.FieldExpiresAt:
+		m.ResetExpiresAt()
 		return nil
 	}
 	return fmt.Errorf("unknown WorkflowSignal field %s", name)

@@ -212,6 +212,54 @@ steps:
     assertions:
     - ref: res.body.data.getStockTree.edges
       nil: false
+- name: Get stocks with time filter (latest-as-of)
+  operation: inventory.getStocks
+  vars:
+    where:
+      itemID:
+        $ref: res[createItem].body.data.createInventoryItem.inventoryItem.id
+      time: "2099-01-01T00:00:00Z"
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Time filter returns the latest stock rows for the item
+    assertions:
+    - ref: res.body.data.stocks.totalCount
+      greater: 0
+    - ref: res.body.data.stocks.edges[0].node.itemID
+      equal:
+        $ref: res[createItem].body.data.createInventoryItem.inventoryItem.id
+- name: Get stock tree filtered by item
+  operation: inventory.getStockTree
+  vars:
+    where:
+      itemID:
+        $ref: res[createItem].body.data.createInventoryItem.inventoryItem.id
+      repositoryID:
+        $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Stock tree contains the destination repository for the item
+    assertions:
+    - ref: res.body.data.getStockTree.edges[0].node.repositoryID
+      equal:
+        $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
+    - ref: res.body.data.getStockTree.edges[0].node.stocks[0].itemID
+      equal:
+        $ref: res[createItem].body.data.createInventoryItem.inventoryItem.id
 - id: reverseMovement
   name: Create reverse item movement
   operation: inventory.createInventoryItemMovement

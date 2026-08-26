@@ -729,60 +729,6 @@ func (u *ItemMovementUpsert) ClearDeletedBy() *ItemMovementUpsert {
 	return u
 }
 
-// SetItemID sets the "item_id" field.
-func (u *ItemMovementUpsert) SetItemID(v uuid.UUID) *ItemMovementUpsert {
-	u.Set(itemmovement.FieldItemID, v)
-	return u
-}
-
-// UpdateItemID sets the "item_id" field to the value that was provided on create.
-func (u *ItemMovementUpsert) UpdateItemID() *ItemMovementUpsert {
-	u.SetExcluded(itemmovement.FieldItemID)
-	return u
-}
-
-// SetFromID sets the "from_id" field.
-func (u *ItemMovementUpsert) SetFromID(v uuid.UUID) *ItemMovementUpsert {
-	u.Set(itemmovement.FieldFromID, v)
-	return u
-}
-
-// UpdateFromID sets the "from_id" field to the value that was provided on create.
-func (u *ItemMovementUpsert) UpdateFromID() *ItemMovementUpsert {
-	u.SetExcluded(itemmovement.FieldFromID)
-	return u
-}
-
-// SetToID sets the "to_id" field.
-func (u *ItemMovementUpsert) SetToID(v uuid.UUID) *ItemMovementUpsert {
-	u.Set(itemmovement.FieldToID, v)
-	return u
-}
-
-// UpdateToID sets the "to_id" field to the value that was provided on create.
-func (u *ItemMovementUpsert) UpdateToID() *ItemMovementUpsert {
-	u.SetExcluded(itemmovement.FieldToID)
-	return u
-}
-
-// SetQuantity sets the "quantity" field.
-func (u *ItemMovementUpsert) SetQuantity(v int64) *ItemMovementUpsert {
-	u.Set(itemmovement.FieldQuantity, v)
-	return u
-}
-
-// UpdateQuantity sets the "quantity" field to the value that was provided on create.
-func (u *ItemMovementUpsert) UpdateQuantity() *ItemMovementUpsert {
-	u.SetExcluded(itemmovement.FieldQuantity)
-	return u
-}
-
-// AddQuantity adds v to the "quantity" field.
-func (u *ItemMovementUpsert) AddQuantity(v int64) *ItemMovementUpsert {
-	u.Add(itemmovement.FieldQuantity, v)
-	return u
-}
-
 // SetExecuted sets the "executed" field.
 func (u *ItemMovementUpsert) SetExecuted(v bool) *ItemMovementUpsert {
 	u.Set(itemmovement.FieldExecuted, v)
@@ -843,42 +789,6 @@ func (u *ItemMovementUpsert) ClearBlockedBy() *ItemMovementUpsert {
 	return u
 }
 
-// SetOrderID sets the "order_id" field.
-func (u *ItemMovementUpsert) SetOrderID(v uuid.UUID) *ItemMovementUpsert {
-	u.Set(itemmovement.FieldOrderID, v)
-	return u
-}
-
-// UpdateOrderID sets the "order_id" field to the value that was provided on create.
-func (u *ItemMovementUpsert) UpdateOrderID() *ItemMovementUpsert {
-	u.SetExcluded(itemmovement.FieldOrderID)
-	return u
-}
-
-// ClearOrderID clears the value of the "order_id" field.
-func (u *ItemMovementUpsert) ClearOrderID() *ItemMovementUpsert {
-	u.SetNull(itemmovement.FieldOrderID)
-	return u
-}
-
-// SetPosition sets the "position" field.
-func (u *ItemMovementUpsert) SetPosition(v int) *ItemMovementUpsert {
-	u.Set(itemmovement.FieldPosition, v)
-	return u
-}
-
-// UpdatePosition sets the "position" field to the value that was provided on create.
-func (u *ItemMovementUpsert) UpdatePosition() *ItemMovementUpsert {
-	u.SetExcluded(itemmovement.FieldPosition)
-	return u
-}
-
-// AddPosition adds v to the "position" field.
-func (u *ItemMovementUpsert) AddPosition(v int) *ItemMovementUpsert {
-	u.Add(itemmovement.FieldPosition, v)
-	return u
-}
-
 // UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
 // Using this option is equivalent to using:
 //
@@ -905,8 +815,26 @@ func (u *ItemMovementUpsertOne) UpdateNewValues() *ItemMovementUpsertOne {
 		if _, exists := u.create.mutation.CreatedBy(); exists {
 			s.SetIgnore(itemmovement.FieldCreatedBy)
 		}
+		if _, exists := u.create.mutation.ItemID(); exists {
+			s.SetIgnore(itemmovement.FieldItemID)
+		}
+		if _, exists := u.create.mutation.FromID(); exists {
+			s.SetIgnore(itemmovement.FieldFromID)
+		}
+		if _, exists := u.create.mutation.ToID(); exists {
+			s.SetIgnore(itemmovement.FieldToID)
+		}
+		if _, exists := u.create.mutation.Quantity(); exists {
+			s.SetIgnore(itemmovement.FieldQuantity)
+		}
 		if _, exists := u.create.mutation.CollectionID(); exists {
 			s.SetIgnore(itemmovement.FieldCollectionID)
+		}
+		if _, exists := u.create.mutation.OrderID(); exists {
+			s.SetIgnore(itemmovement.FieldOrderID)
+		}
+		if _, exists := u.create.mutation.Position(); exists {
+			s.SetIgnore(itemmovement.FieldPosition)
 		}
 	}))
 	return u
@@ -1086,69 +1014,6 @@ func (u *ItemMovementUpsertOne) ClearDeletedBy() *ItemMovementUpsertOne {
 	})
 }
 
-// SetItemID sets the "item_id" field.
-func (u *ItemMovementUpsertOne) SetItemID(v uuid.UUID) *ItemMovementUpsertOne {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.SetItemID(v)
-	})
-}
-
-// UpdateItemID sets the "item_id" field to the value that was provided on create.
-func (u *ItemMovementUpsertOne) UpdateItemID() *ItemMovementUpsertOne {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.UpdateItemID()
-	})
-}
-
-// SetFromID sets the "from_id" field.
-func (u *ItemMovementUpsertOne) SetFromID(v uuid.UUID) *ItemMovementUpsertOne {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.SetFromID(v)
-	})
-}
-
-// UpdateFromID sets the "from_id" field to the value that was provided on create.
-func (u *ItemMovementUpsertOne) UpdateFromID() *ItemMovementUpsertOne {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.UpdateFromID()
-	})
-}
-
-// SetToID sets the "to_id" field.
-func (u *ItemMovementUpsertOne) SetToID(v uuid.UUID) *ItemMovementUpsertOne {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.SetToID(v)
-	})
-}
-
-// UpdateToID sets the "to_id" field to the value that was provided on create.
-func (u *ItemMovementUpsertOne) UpdateToID() *ItemMovementUpsertOne {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.UpdateToID()
-	})
-}
-
-// SetQuantity sets the "quantity" field.
-func (u *ItemMovementUpsertOne) SetQuantity(v int64) *ItemMovementUpsertOne {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.SetQuantity(v)
-	})
-}
-
-// AddQuantity adds v to the "quantity" field.
-func (u *ItemMovementUpsertOne) AddQuantity(v int64) *ItemMovementUpsertOne {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.AddQuantity(v)
-	})
-}
-
-// UpdateQuantity sets the "quantity" field to the value that was provided on create.
-func (u *ItemMovementUpsertOne) UpdateQuantity() *ItemMovementUpsertOne {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.UpdateQuantity()
-	})
-}
-
 // SetExecuted sets the "executed" field.
 func (u *ItemMovementUpsertOne) SetExecuted(v bool) *ItemMovementUpsertOne {
 	return u.Update(func(s *ItemMovementUpsert) {
@@ -1216,48 +1081,6 @@ func (u *ItemMovementUpsertOne) UpdateBlockedBy() *ItemMovementUpsertOne {
 func (u *ItemMovementUpsertOne) ClearBlockedBy() *ItemMovementUpsertOne {
 	return u.Update(func(s *ItemMovementUpsert) {
 		s.ClearBlockedBy()
-	})
-}
-
-// SetOrderID sets the "order_id" field.
-func (u *ItemMovementUpsertOne) SetOrderID(v uuid.UUID) *ItemMovementUpsertOne {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.SetOrderID(v)
-	})
-}
-
-// UpdateOrderID sets the "order_id" field to the value that was provided on create.
-func (u *ItemMovementUpsertOne) UpdateOrderID() *ItemMovementUpsertOne {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.UpdateOrderID()
-	})
-}
-
-// ClearOrderID clears the value of the "order_id" field.
-func (u *ItemMovementUpsertOne) ClearOrderID() *ItemMovementUpsertOne {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.ClearOrderID()
-	})
-}
-
-// SetPosition sets the "position" field.
-func (u *ItemMovementUpsertOne) SetPosition(v int) *ItemMovementUpsertOne {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.SetPosition(v)
-	})
-}
-
-// AddPosition adds v to the "position" field.
-func (u *ItemMovementUpsertOne) AddPosition(v int) *ItemMovementUpsertOne {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.AddPosition(v)
-	})
-}
-
-// UpdatePosition sets the "position" field to the value that was provided on create.
-func (u *ItemMovementUpsertOne) UpdatePosition() *ItemMovementUpsertOne {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.UpdatePosition()
 	})
 }
 
@@ -1453,8 +1276,26 @@ func (u *ItemMovementUpsertBulk) UpdateNewValues() *ItemMovementUpsertBulk {
 			if _, exists := b.mutation.CreatedBy(); exists {
 				s.SetIgnore(itemmovement.FieldCreatedBy)
 			}
+			if _, exists := b.mutation.ItemID(); exists {
+				s.SetIgnore(itemmovement.FieldItemID)
+			}
+			if _, exists := b.mutation.FromID(); exists {
+				s.SetIgnore(itemmovement.FieldFromID)
+			}
+			if _, exists := b.mutation.ToID(); exists {
+				s.SetIgnore(itemmovement.FieldToID)
+			}
+			if _, exists := b.mutation.Quantity(); exists {
+				s.SetIgnore(itemmovement.FieldQuantity)
+			}
 			if _, exists := b.mutation.CollectionID(); exists {
 				s.SetIgnore(itemmovement.FieldCollectionID)
+			}
+			if _, exists := b.mutation.OrderID(); exists {
+				s.SetIgnore(itemmovement.FieldOrderID)
+			}
+			if _, exists := b.mutation.Position(); exists {
+				s.SetIgnore(itemmovement.FieldPosition)
 			}
 		}
 	}))
@@ -1635,69 +1476,6 @@ func (u *ItemMovementUpsertBulk) ClearDeletedBy() *ItemMovementUpsertBulk {
 	})
 }
 
-// SetItemID sets the "item_id" field.
-func (u *ItemMovementUpsertBulk) SetItemID(v uuid.UUID) *ItemMovementUpsertBulk {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.SetItemID(v)
-	})
-}
-
-// UpdateItemID sets the "item_id" field to the value that was provided on create.
-func (u *ItemMovementUpsertBulk) UpdateItemID() *ItemMovementUpsertBulk {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.UpdateItemID()
-	})
-}
-
-// SetFromID sets the "from_id" field.
-func (u *ItemMovementUpsertBulk) SetFromID(v uuid.UUID) *ItemMovementUpsertBulk {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.SetFromID(v)
-	})
-}
-
-// UpdateFromID sets the "from_id" field to the value that was provided on create.
-func (u *ItemMovementUpsertBulk) UpdateFromID() *ItemMovementUpsertBulk {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.UpdateFromID()
-	})
-}
-
-// SetToID sets the "to_id" field.
-func (u *ItemMovementUpsertBulk) SetToID(v uuid.UUID) *ItemMovementUpsertBulk {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.SetToID(v)
-	})
-}
-
-// UpdateToID sets the "to_id" field to the value that was provided on create.
-func (u *ItemMovementUpsertBulk) UpdateToID() *ItemMovementUpsertBulk {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.UpdateToID()
-	})
-}
-
-// SetQuantity sets the "quantity" field.
-func (u *ItemMovementUpsertBulk) SetQuantity(v int64) *ItemMovementUpsertBulk {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.SetQuantity(v)
-	})
-}
-
-// AddQuantity adds v to the "quantity" field.
-func (u *ItemMovementUpsertBulk) AddQuantity(v int64) *ItemMovementUpsertBulk {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.AddQuantity(v)
-	})
-}
-
-// UpdateQuantity sets the "quantity" field to the value that was provided on create.
-func (u *ItemMovementUpsertBulk) UpdateQuantity() *ItemMovementUpsertBulk {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.UpdateQuantity()
-	})
-}
-
 // SetExecuted sets the "executed" field.
 func (u *ItemMovementUpsertBulk) SetExecuted(v bool) *ItemMovementUpsertBulk {
 	return u.Update(func(s *ItemMovementUpsert) {
@@ -1765,48 +1543,6 @@ func (u *ItemMovementUpsertBulk) UpdateBlockedBy() *ItemMovementUpsertBulk {
 func (u *ItemMovementUpsertBulk) ClearBlockedBy() *ItemMovementUpsertBulk {
 	return u.Update(func(s *ItemMovementUpsert) {
 		s.ClearBlockedBy()
-	})
-}
-
-// SetOrderID sets the "order_id" field.
-func (u *ItemMovementUpsertBulk) SetOrderID(v uuid.UUID) *ItemMovementUpsertBulk {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.SetOrderID(v)
-	})
-}
-
-// UpdateOrderID sets the "order_id" field to the value that was provided on create.
-func (u *ItemMovementUpsertBulk) UpdateOrderID() *ItemMovementUpsertBulk {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.UpdateOrderID()
-	})
-}
-
-// ClearOrderID clears the value of the "order_id" field.
-func (u *ItemMovementUpsertBulk) ClearOrderID() *ItemMovementUpsertBulk {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.ClearOrderID()
-	})
-}
-
-// SetPosition sets the "position" field.
-func (u *ItemMovementUpsertBulk) SetPosition(v int) *ItemMovementUpsertBulk {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.SetPosition(v)
-	})
-}
-
-// AddPosition adds v to the "position" field.
-func (u *ItemMovementUpsertBulk) AddPosition(v int) *ItemMovementUpsertBulk {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.AddPosition(v)
-	})
-}
-
-// UpdatePosition sets the "position" field to the value that was provided on create.
-func (u *ItemMovementUpsertBulk) UpdatePosition() *ItemMovementUpsertBulk {
-	return u.Update(func(s *ItemMovementUpsert) {
-		s.UpdatePosition()
 	})
 }
 

@@ -194,6 +194,26 @@ func (_u *WorkflowSignalUpdate) ClearFilterRule() *WorkflowSignalUpdate {
 	return _u
 }
 
+// SetExpiresAt sets the "expires_at" field.
+func (_u *WorkflowSignalUpdate) SetExpiresAt(v time.Time) *WorkflowSignalUpdate {
+	_u.mutation.SetExpiresAt(v)
+	return _u
+}
+
+// SetNillableExpiresAt sets the "expires_at" field if the given value is not nil.
+func (_u *WorkflowSignalUpdate) SetNillableExpiresAt(v *time.Time) *WorkflowSignalUpdate {
+	if v != nil {
+		_u.SetExpiresAt(*v)
+	}
+	return _u
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (_u *WorkflowSignalUpdate) ClearExpiresAt() *WorkflowSignalUpdate {
+	_u.mutation.ClearExpiresAt()
+	return _u
+}
+
 // SetWorkflow sets the "workflow" edge to the Workflow entity.
 func (_u *WorkflowSignalUpdate) SetWorkflow(v *Workflow) *WorkflowSignalUpdate {
 	return _u.SetWorkflowID(v.ID)
@@ -308,6 +328,15 @@ func (_u *WorkflowSignalUpdate) sqlSave(ctx context.Context) (_node int, err err
 	}
 	if _u.mutation.FilterRuleCleared() {
 		_spec.ClearField(workflowsignal.FieldFilterRule, field.TypeString)
+	}
+	if _u.mutation.WorkerIDCleared() {
+		_spec.ClearField(workflowsignal.FieldWorkerID, field.TypeString)
+	}
+	if value, ok := _u.mutation.ExpiresAt(); ok {
+		_spec.SetField(workflowsignal.FieldExpiresAt, field.TypeTime, value)
+	}
+	if _u.mutation.ExpiresAtCleared() {
+		_spec.ClearField(workflowsignal.FieldExpiresAt, field.TypeTime)
 	}
 	if _u.mutation.WorkflowCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -524,6 +553,26 @@ func (_u *WorkflowSignalUpdateOne) ClearFilterRule() *WorkflowSignalUpdateOne {
 	return _u
 }
 
+// SetExpiresAt sets the "expires_at" field.
+func (_u *WorkflowSignalUpdateOne) SetExpiresAt(v time.Time) *WorkflowSignalUpdateOne {
+	_u.mutation.SetExpiresAt(v)
+	return _u
+}
+
+// SetNillableExpiresAt sets the "expires_at" field if the given value is not nil.
+func (_u *WorkflowSignalUpdateOne) SetNillableExpiresAt(v *time.Time) *WorkflowSignalUpdateOne {
+	if v != nil {
+		_u.SetExpiresAt(*v)
+	}
+	return _u
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (_u *WorkflowSignalUpdateOne) ClearExpiresAt() *WorkflowSignalUpdateOne {
+	_u.mutation.ClearExpiresAt()
+	return _u
+}
+
 // SetWorkflow sets the "workflow" edge to the Workflow entity.
 func (_u *WorkflowSignalUpdateOne) SetWorkflow(v *Workflow) *WorkflowSignalUpdateOne {
 	return _u.SetWorkflowID(v.ID)
@@ -668,6 +717,15 @@ func (_u *WorkflowSignalUpdateOne) sqlSave(ctx context.Context) (_node *Workflow
 	}
 	if _u.mutation.FilterRuleCleared() {
 		_spec.ClearField(workflowsignal.FieldFilterRule, field.TypeString)
+	}
+	if _u.mutation.WorkerIDCleared() {
+		_spec.ClearField(workflowsignal.FieldWorkerID, field.TypeString)
+	}
+	if value, ok := _u.mutation.ExpiresAt(); ok {
+		_spec.SetField(workflowsignal.FieldExpiresAt, field.TypeTime, value)
+	}
+	if _u.mutation.ExpiresAtCleared() {
+		_spec.ClearField(workflowsignal.FieldExpiresAt, field.TypeTime)
 	}
 	if _u.mutation.WorkflowCleared() {
 		edge := &sqlgraph.EdgeSpec{

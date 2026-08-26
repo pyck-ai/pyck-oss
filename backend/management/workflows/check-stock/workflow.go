@@ -1,9 +1,10 @@
 package checkstock
 
 import (
+	"time"
+
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
-	"time"
 )
 
 func CheckStockConsistencyWorkflow(wCtx workflow.Context, input WorkflowInput) (*WorkflowOutput, error) {

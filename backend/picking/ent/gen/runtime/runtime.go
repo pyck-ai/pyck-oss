@@ -89,7 +89,7 @@ func init() {
 	// idempotencykey.DefaultID holds the default value on creation for the id field.
 	idempotencykey.DefaultID = idempotencykeyDescID.Default.(func() uuid.UUID)
 	orderMixin := schema.Order{}.Mixin()
-	order.Policy = privacy.NewPolicies(orderMixin[0], orderMixin[2], schema.Order{})
+	order.Policy = privacy.NewPolicies(orderMixin[0], orderMixin[3], schema.Order{})
 	order.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := order.Policy.EvalMutation(ctx, m); err != nil {
@@ -99,13 +99,13 @@ func init() {
 		})
 	}
 	orderMixinHooks0 := orderMixin[0].Hooks()
-	orderMixinHooks2 := orderMixin[2].Hooks()
+	orderMixinHooks3 := orderMixin[3].Hooks()
 
 	order.Hooks[1] = orderMixinHooks0[0]
 
-	order.Hooks[2] = orderMixinHooks2[0]
-	orderMixinInters3 := orderMixin[3].Interceptors()
-	order.Interceptors[0] = orderMixinInters3[0]
+	order.Hooks[2] = orderMixinHooks3[0]
+	orderMixinInters4 := orderMixin[4].Interceptors()
+	order.Interceptors[0] = orderMixinInters4[0]
 	orderFields := schema.Order{}.Fields()
 	_ = orderFields
 	// orderDescCustomerID is the schema descriptor for customer_id field.

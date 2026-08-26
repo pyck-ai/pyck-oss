@@ -1,0 +1,191 @@
+---
+name: "User - Management KeyValue Unique Field Update"
+description: >
+  Regression test for #1142. When a key-value's DataType schema marks a field
+  "unique": true, setKeyValue must exclude the entry's own row from the
+  uniqueness check and run the check before persisting. Because setKeyValue is
+  an upsert keyed on (tenant, user, name), re-setting an existing entry with an
+  unchanged unique value, or to a new genuinely-unique value, must succeed —
+  while setting it to a value already owned by a different entry is still
+  rejected.
+steps:
+  - id: createDT
+    name: "Create data type with a unique field"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Unique KeyValue Schema"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "keyvalue"
+        jsonSchema: '{"type":"object","properties":{"label":{"type":"string","minLength":1},"token":{"type":"string","unique":true}},"required":["label","token"],"additionalProperties":false}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: setA
+    name: "Set entry A with unique token"
+    operation: management.setKeyValue
+    vars:
+      input:
+        name: {$fake: "kv-a-{{nonce}}"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          label: "Entry A"
+          token: {$fake: "{{loremslug}}-{{nonce}}-aaa"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Entry A created"
+        assertions:
+          - ref: res.body.data.setKeyValue.id
+            nil: false
+
+  - id: setB
+    name: "Set entry B with a different unique token"
+    operation: management.setKeyValue
+    vars:
+      input:
+        name: {$fake: "kv-b-{{nonce}}"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          label: "Entry B"
+          token: {$fake: "{{loremslug}}-{{nonce}}-bbb"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Entry B created"
+        assertions:
+          - ref: res.body.data.setKeyValue.id
+            nil: false
+
+  # The bug: before the fix this failed because the upsert rewrote A's row and
+  # the check then counted that freshly written row as a collision.
+  - name: "Re-set A keeping the same token succeeds"
+    operation: management.setKeyValue
+    vars:
+      input:
+        name: {$ref: "res[setA].body.data.setKeyValue.name"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          label: "Entry A renamed"
+          token: {$ref: "res[setA].body.data.setKeyValue.data.token"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors (self is excluded from uniqueness check)"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Label updated"
+        assertions:
+          - ref: res.body.data.setKeyValue.data.label
+            equal: "Entry A renamed"
+
+  # setKeyValue upserts on (tenant, user, name): each call replaces the live
+  # row and returns a new id (HistoryMixin resolves with new values), so the
+  # latest call's id is the one to operate on afterwards.
+  - id: setALatest
+    name: "Re-set A to a new genuinely-unique token succeeds"
+    operation: management.setKeyValue
+    vars:
+      input:
+        name: {$ref: "res[setA].body.data.setKeyValue.name"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          label: "Entry A renamed"
+          token: {$fake: "{{loremslug}}-{{nonce}}-ccc"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  # The guard: a real collision with a different entry must still be rejected.
+  - name: "Re-set A to B's token is rejected"
+    operation: management.setKeyValue
+    vars:
+      input:
+        name: {$ref: "res[setA].body.data.setKeyValue.name"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          label: "Entry A renamed"
+          token: {$ref: "res[setB].body.data.setKeyValue.data.token"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (collides with entry B)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Cleanup - delete entry A"
+    operation: management.deleteKeyValue
+    vars:
+      id: {$ref: "res[setALatest].body.data.setKeyValue.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete entry B"
+    operation: management.deleteKeyValue
+    vars:
+      id: {$ref: "res[setB].body.data.setKeyValue.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

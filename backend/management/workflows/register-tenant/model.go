@@ -20,10 +20,6 @@ type RegisterTenantWorkflowInput struct {
 	// once the timestamp is reached. Not propagated to Zitadel
 	// metadata — DB is the source of truth for this field.
 	ExpiresAt *time.Time
-	// K8s worker deployment config
-	WorkerImage    string            // e.g. "ghcr.io/pyck-ai/pyck-go/worker:latest"
-	WorkerReplicas int32             // number of worker replicas (defaults to 2 if zero)
-	WorkerEnvVars  map[string]string // env vars stripped of PYCK_FLAVOUR_GO_ prefix
 }
 
 type RegisterTenantWorkflowOutput struct {
@@ -133,41 +129,15 @@ type CreateTenantServiceUserOutput struct {
 	Token  string
 }
 
-type createK8sTenantSecretInput struct {
-	Namespace   string
-	SecretName  string
-	SecretKey   string
-	Token       string
-	IsInCluster bool
-	ConfigPath  string
+type storeTenantWorkerSecretInput struct {
+	TenantID uuid.UUID
+	Key      string
+	Value    string
 }
 
-type upsertK8sWorkersNamespaceInput struct {
-	Namespace   string
-	IsInCluster bool
-	ConfigPath  string
-}
-
-type createK8sTemporalConnectionInput struct {
-	Namespace   string
-	Name        string
-	HostPort    string
-	IsInCluster bool
-	ConfigPath  string
-}
-
-type createK8sWorkerDeploymentInput struct {
-	Namespace           string
-	Name                string
-	ConnectionName      string
-	TemporalNamespace   string
-	Image               string
-	TenantID            string
-	EnvVars             map[string]string // plain env vars (from PYCK_FLAVOUR_GO_ prefix)
-	Replicas            int32
-	ImagePullSecretName string
-	APIKeySecretName    string
-	APIKeySecretKey     string
-	IsInCluster         bool
-	ConfigPath          string
+type CreateTenantWorkerDeploymentInput struct {
+	Name              string
+	TenantID          uuid.UUID
+	TemporalNamespace string
+	Extension         string
 }

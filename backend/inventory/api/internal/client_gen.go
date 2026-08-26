@@ -28,6 +28,7 @@ type APIClient interface {
 	GetTransactions(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *TransactionOrder, where *TransactionWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetTransactions, error)
 	GetInventoryServiceInfo(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetInventoryServiceInfo, error)
 	GetStockTree(ctx context.Context, after *string, first *int, before *string, last *int, where *StockWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetStockTree, error)
+	GetCurrentStocks(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *StockOrder, where *StockWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetCurrentStocks, error)
 	CreateInventoryItem(ctx context.Context, input CreateInventoryItemInput, interceptors ...clientv2.RequestInterceptor) (*CreateInventoryItem, error)
 	UpdateInventoryItem(ctx context.Context, id string, input UpdateInventoryItemInput, interceptors ...clientv2.RequestInterceptor) (*UpdateInventoryItem, error)
 	DeleteInventoryItem(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeleteInventoryItem, error)
@@ -2379,6 +2380,211 @@ func (t *GetStockTree_GetStockTree) GetPageInfo() *GetStockTree_GetStockTree_Pag
 		t = &GetStockTree_GetStockTree{}
 	}
 	return &t.PageInfo
+}
+
+type GetCurrentStocks_CurrentStocks_PageInfo struct {
+	EndCursor       *string "json:\"endCursor,omitempty\" graphql:\"endCursor\""
+	HasNextPage     bool    "json:\"hasNextPage\" graphql:\"hasNextPage\""
+	HasPreviousPage bool    "json:\"hasPreviousPage\" graphql:\"hasPreviousPage\""
+	StartCursor     *string "json:\"startCursor,omitempty\" graphql:\"startCursor\""
+}
+
+func (t *GetCurrentStocks_CurrentStocks_PageInfo) GetEndCursor() *string {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_PageInfo{}
+	}
+	return t.EndCursor
+}
+func (t *GetCurrentStocks_CurrentStocks_PageInfo) GetHasNextPage() bool {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_PageInfo{}
+	}
+	return t.HasNextPage
+}
+func (t *GetCurrentStocks_CurrentStocks_PageInfo) GetHasPreviousPage() bool {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_PageInfo{}
+	}
+	return t.HasPreviousPage
+}
+func (t *GetCurrentStocks_CurrentStocks_PageInfo) GetStartCursor() *string {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_PageInfo{}
+	}
+	return t.StartCursor
+}
+
+type GetCurrentStocks_CurrentStocks_Edges_Node struct {
+	CreatedAt        time.Time  "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy        uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
+	DeletedAt        *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy        *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	ID               string     "json:\"id\" graphql:\"id\""
+	IncomingStock    int        "json:\"incomingStock\" graphql:\"incomingStock\""
+	ItemID           string     "json:\"itemID\" graphql:\"itemID\""
+	MovementID       *uuid.UUID "json:\"movementID,omitempty\" graphql:\"movementID\""
+	OutgoingStock    int        "json:\"outgoingStock\" graphql:\"outgoingStock\""
+	OwnIncomingStock int        "json:\"ownIncomingStock\" graphql:\"ownIncomingStock\""
+	OwnOutgoingStock int        "json:\"ownOutgoingStock\" graphql:\"ownOutgoingStock\""
+	OwnQuantity      int        "json:\"ownQuantity\" graphql:\"ownQuantity\""
+	Quantity         int        "json:\"quantity\" graphql:\"quantity\""
+	RepositoryID     string     "json:\"repositoryID\" graphql:\"repositoryID\""
+	TenantID         uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt        *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy        *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+	Version          int        "json:\"version\" graphql:\"version\""
+}
+
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return &t.CreatedAt
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return &t.CreatedBy
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return t.DeletedAt
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return t.DeletedBy
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetID() string {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return t.ID
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetIncomingStock() int {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return t.IncomingStock
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetItemID() string {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return t.ItemID
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetMovementID() *uuid.UUID {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return t.MovementID
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetOutgoingStock() int {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return t.OutgoingStock
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetOwnIncomingStock() int {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return t.OwnIncomingStock
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetOwnOutgoingStock() int {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return t.OwnOutgoingStock
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetOwnQuantity() int {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return t.OwnQuantity
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetQuantity() int {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return t.Quantity
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetRepositoryID() string {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return t.RepositoryID
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return &t.TenantID
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return t.UpdatedAt
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return t.UpdatedBy
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges_Node) GetVersion() int {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges_Node{}
+	}
+	return t.Version
+}
+
+type GetCurrentStocks_CurrentStocks_Edges struct {
+	Cursor string                                     "json:\"cursor\" graphql:\"cursor\""
+	Node   *GetCurrentStocks_CurrentStocks_Edges_Node "json:\"node,omitempty\" graphql:\"node\""
+}
+
+func (t *GetCurrentStocks_CurrentStocks_Edges) GetCursor() string {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges{}
+	}
+	return t.Cursor
+}
+func (t *GetCurrentStocks_CurrentStocks_Edges) GetNode() *GetCurrentStocks_CurrentStocks_Edges_Node {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks_Edges{}
+	}
+	return t.Node
+}
+
+type GetCurrentStocks_CurrentStocks struct {
+	Edges      []*GetCurrentStocks_CurrentStocks_Edges "json:\"edges,omitempty\" graphql:\"edges\""
+	PageInfo   GetCurrentStocks_CurrentStocks_PageInfo "json:\"pageInfo\" graphql:\"pageInfo\""
+	TotalCount int                                     "json:\"totalCount\" graphql:\"totalCount\""
+}
+
+func (t *GetCurrentStocks_CurrentStocks) GetEdges() []*GetCurrentStocks_CurrentStocks_Edges {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks{}
+	}
+	return t.Edges
+}
+func (t *GetCurrentStocks_CurrentStocks) GetPageInfo() *GetCurrentStocks_CurrentStocks_PageInfo {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks{}
+	}
+	return &t.PageInfo
+}
+func (t *GetCurrentStocks_CurrentStocks) GetTotalCount() int {
+	if t == nil {
+		t = &GetCurrentStocks_CurrentStocks{}
+	}
+	return t.TotalCount
 }
 
 type CreateInventoryItem_CreateInventoryItem_InventoryItem struct {
@@ -6901,6 +7107,17 @@ func (t *GetStockTree) GetGetStockTree() *GetStockTree_GetStockTree {
 	return &t.GetStockTree
 }
 
+type GetCurrentStocks struct {
+	CurrentStocks GetCurrentStocks_CurrentStocks "json:\"currentStocks\" graphql:\"currentStocks\""
+}
+
+func (t *GetCurrentStocks) GetCurrentStocks() *GetCurrentStocks_CurrentStocks {
+	if t == nil {
+		t = &GetCurrentStocks{}
+	}
+	return &t.CurrentStocks
+}
+
 type CreateInventoryItem struct {
 	CreateInventoryItem *CreateInventoryItem_CreateInventoryItem "json:\"createInventoryItem,omitempty\" graphql:\"createInventoryItem\""
 }
@@ -7954,6 +8171,64 @@ func (c *Client) GetStockTree(ctx context.Context, after *string, first *int, be
 
 	var res GetStockTree
 	if err := c.Client.Post(ctx, "GetStockTree", GetStockTreeDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const GetCurrentStocksDocument = `query GetCurrentStocks ($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orderBy: StockOrder, $where: StockWhereInput) {
+	currentStocks(after: $after, first: $first, before: $before, last: $last, orderBy: $orderBy, where: $where) {
+		totalCount
+		pageInfo {
+			hasNextPage
+			hasPreviousPage
+			startCursor
+			endCursor
+		}
+		edges {
+			cursor
+			node {
+				createdAt
+				createdBy
+				deletedAt
+				deletedBy
+				id
+				incomingStock
+				itemID
+				movementID
+				outgoingStock
+				ownIncomingStock
+				ownOutgoingStock
+				ownQuantity
+				quantity
+				repositoryID
+				tenantID
+				updatedAt
+				updatedBy
+				version
+			}
+		}
+	}
+}
+`
+
+func (c *Client) GetCurrentStocks(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *StockOrder, where *StockWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetCurrentStocks, error) {
+	vars := map[string]any{
+		"after":   after,
+		"first":   first,
+		"before":  before,
+		"last":    last,
+		"orderBy": orderBy,
+		"where":   where,
+	}
+
+	var res GetCurrentStocks
+	if err := c.Client.Post(ctx, "GetCurrentStocks", GetCurrentStocksDocument, &res, vars, interceptors...); err != nil {
 		if c.Client.ParseDataWhenErrors {
 			return &res, err
 		}
@@ -9451,6 +9726,7 @@ var DocumentOperationNames = map[string]string{
 	GetTransactionsDocument:                      "GetTransactions",
 	GetInventoryServiceInfoDocument:              "GetInventoryServiceInfo",
 	GetStockTreeDocument:                         "GetStockTree",
+	GetCurrentStocksDocument:                     "GetCurrentStocks",
 	CreateInventoryItemDocument:                  "CreateInventoryItem",
 	UpdateInventoryItemDocument:                  "UpdateInventoryItem",
 	DeleteInventoryItemDocument:                  "DeleteInventoryItem",

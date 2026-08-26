@@ -1,0 +1,180 @@
+---
+name: "Cross - Picking Data Index Filter"
+description: >
+  Cross-service test for the typed-slot index. Declares an x-indices block on a
+  picking-order data type, writes an order whose payload carries the indexed
+  keys, and queries it back through the dataIndex filter — the path the serial
+  claim pre-filter runs on. Also pins the refusals: an operator that does not
+  match the slot's kind, an unknown index name, and a filter nested under not:,
+  where the datatype scope would be negated along with the operator and match
+  every other datatype's rows.
+steps:
+  - id: createDataType
+    name: "Create picking-order data type with an x-indices block"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Data Index Order Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "picking_order"
+        jsonSchema: '{"type":"object","properties":{"serials":{"type":"array"},"carrier":{"type":"string"}},"x-indices":{"serialNumbers":{"source":"/serials","slot":"data_ix_list1"},"carrierName":{"source":"/carrier","slot":"data_ix_text1"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.slug
+            nil: false
+
+  - id: createOrder
+    name: "Create an order carrying the indexed keys"
+    operation: picking.createPickingOrder
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDataType].body.data.createDataType.id"}
+        data:
+          serials: ["SN-INDEX-1", "SN-INDEX-2"]
+          carrier: "DHL"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Order created"
+        assertions:
+          - ref: res.body.data.createPickingOrder.pickingOrder.id
+            nil: false
+
+  - name: "overlaps finds the order by one of its serials"
+    operation: picking.getPickingOrders
+    vars:
+      first: 10
+      where:
+        dataIndex:
+          dataType: {$ref: "res[createDataType].body.data.createDataType.slug"}
+          field: "serialNumbers"
+          overlaps: ["SN-INDEX-2"]
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "The order is returned"
+        assertions:
+          - ref: res.body.data.pickingOrders.totalCount
+            equal: 1
+
+  - name: "eq matches the text slot"
+    operation: picking.getPickingOrders
+    vars:
+      first: 10
+      where:
+        dataIndex:
+          dataType: {$ref: "res[createDataType].body.data.createDataType.slug"}
+          field: "carrierName"
+          eq: "DHL"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "The order is returned"
+        assertions:
+          - ref: res.body.data.pickingOrders.totalCount
+            equal: 1
+
+  - name: "in matches the text slot"
+    operation: picking.getPickingOrders
+    vars:
+      first: 10
+      where:
+        dataIndex:
+          dataType: {$ref: "res[createDataType].body.data.createDataType.slug"}
+          field: "carrierName"
+          in: ["UPS", "DHL"]
+    tests:
+      - msg: "The order is returned"
+        assertions:
+          - ref: res.body.data.pickingOrders.totalCount
+            equal: 1
+
+  - name: "an empty candidate list matches nothing instead of erroring"
+    operation: picking.getPickingOrders
+    vars:
+      first: 10
+      where:
+        dataIndex:
+          dataType: {$ref: "res[createDataType].body.data.createDataType.slug"}
+          field: "serialNumbers"
+          overlaps: []
+    tests:
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Nothing matches"
+        assertions:
+          - ref: res.body.data.pickingOrders.totalCount
+            equal: 0
+
+  - name: "an operator that does not fit the slot's kind is refused"
+    operation: picking.getPickingOrders
+    vars:
+      first: 10
+      where:
+        dataIndex:
+          dataType: {$ref: "res[createDataType].body.data.createDataType.slug"}
+          field: "serialNumbers"
+          eq: "SN-INDEX-1"
+    tests:
+      - msg: "Rejected: eq on a list index"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "an unknown index name is refused"
+    operation: picking.getPickingOrders
+    vars:
+      first: 10
+      where:
+        dataIndex:
+          dataType: {$ref: "res[createDataType].body.data.createDataType.slug"}
+          field: "noSuchIndex"
+          eq: "x"
+    tests:
+      - msg: "Rejected: no index with that name"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "dataIndex under not: is refused rather than widened"
+    operation: picking.getPickingOrders
+    vars:
+      first: 10
+      where:
+        not:
+          dataIndex:
+            dataType: {$ref: "res[createDataType].body.data.createDataType.slug"}
+            field: "carrierName"
+            eq: "DHL"
+    tests:
+      - msg: "Rejected: negating the filter would negate the datatype scope too"
+        assertions:
+          - ref: res.body.errors
+            nil: false

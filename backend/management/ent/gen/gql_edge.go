@@ -8,14 +8,6 @@ import (
 	"github.com/99designs/gqlgen/graphql"
 )
 
-func (_m *AccessPolicy) Role(ctx context.Context) (*Role, error) {
-	result, err := _m.Edges.RoleOrErr()
-	if IsNotLoaded(err) {
-		result, err = _m.QueryRole().Only(ctx)
-	}
-	return result, err
-}
-
 func (_m *Device) DeviceLocationsDevice(
 	ctx context.Context, after *Cursor, first *int, before *Cursor, last *int, orderBy *DeviceLocationOrder, where *DeviceLocationWhereInput,
 ) (*DeviceLocationConnection, error) {
@@ -90,48 +82,6 @@ func (_m *DeviceUser) User(ctx context.Context) (*User, error) {
 	return result, err
 }
 
-func (_m *Group) Users(
-	ctx context.Context, after *Cursor, first *int, before *Cursor, last *int, orderBy *UserOrder, where *UserWhereInput,
-) (*UserConnection, error) {
-	opts := []UserPaginateOption{
-		WithUserOrder(orderBy),
-		WithUserFilter(where.Filter),
-	}
-	alias := graphql.GetFieldContext(ctx).Field.Alias
-	totalCount, hasTotalCount := _m.Edges.totalCount[0][alias]
-	if nodes, err := _m.NamedUsers(alias); err == nil || hasTotalCount {
-		pager, err := newUserPager(opts, last != nil)
-		if err != nil {
-			return nil, err
-		}
-		conn := &UserConnection{Edges: []*UserEdge{}, TotalCount: totalCount}
-		conn.build(nodes, pager, after, first, before, last)
-		return conn, nil
-	}
-	return _m.QueryUsers().Paginate(ctx, after, first, before, last, opts...)
-}
-
-func (_m *Group) Roles(
-	ctx context.Context, after *Cursor, first *int, before *Cursor, last *int, orderBy *RoleOrder, where *RoleWhereInput,
-) (*RoleConnection, error) {
-	opts := []RolePaginateOption{
-		WithRoleOrder(orderBy),
-		WithRoleFilter(where.Filter),
-	}
-	alias := graphql.GetFieldContext(ctx).Field.Alias
-	totalCount, hasTotalCount := _m.Edges.totalCount[1][alias]
-	if nodes, err := _m.NamedRoles(alias); err == nil || hasTotalCount {
-		pager, err := newRolePager(opts, last != nil)
-		if err != nil {
-			return nil, err
-		}
-		conn := &RoleConnection{Edges: []*RoleEdge{}, TotalCount: totalCount}
-		conn.build(nodes, pager, after, first, before, last)
-		return conn, nil
-	}
-	return _m.QueryRoles().Paginate(ctx, after, first, before, last, opts...)
-}
-
 func (_m *Location) DeviceLocationsLocation(
 	ctx context.Context, after *Cursor, first *int, before *Cursor, last *int, orderBy *DeviceLocationOrder, where *DeviceLocationWhereInput,
 ) (*DeviceLocationConnection, error) {
@@ -151,69 +101,6 @@ func (_m *Location) DeviceLocationsLocation(
 		return conn, nil
 	}
 	return _m.QueryDeviceLocationsLocation().Paginate(ctx, after, first, before, last, opts...)
-}
-
-func (_m *Role) Users(
-	ctx context.Context, after *Cursor, first *int, before *Cursor, last *int, orderBy *UserOrder, where *UserWhereInput,
-) (*UserConnection, error) {
-	opts := []UserPaginateOption{
-		WithUserOrder(orderBy),
-		WithUserFilter(where.Filter),
-	}
-	alias := graphql.GetFieldContext(ctx).Field.Alias
-	totalCount, hasTotalCount := _m.Edges.totalCount[0][alias]
-	if nodes, err := _m.NamedUsers(alias); err == nil || hasTotalCount {
-		pager, err := newUserPager(opts, last != nil)
-		if err != nil {
-			return nil, err
-		}
-		conn := &UserConnection{Edges: []*UserEdge{}, TotalCount: totalCount}
-		conn.build(nodes, pager, after, first, before, last)
-		return conn, nil
-	}
-	return _m.QueryUsers().Paginate(ctx, after, first, before, last, opts...)
-}
-
-func (_m *Role) Groups(
-	ctx context.Context, after *Cursor, first *int, before *Cursor, last *int, orderBy *GroupOrder, where *GroupWhereInput,
-) (*GroupConnection, error) {
-	opts := []GroupPaginateOption{
-		WithGroupOrder(orderBy),
-		WithGroupFilter(where.Filter),
-	}
-	alias := graphql.GetFieldContext(ctx).Field.Alias
-	totalCount, hasTotalCount := _m.Edges.totalCount[1][alias]
-	if nodes, err := _m.NamedGroups(alias); err == nil || hasTotalCount {
-		pager, err := newGroupPager(opts, last != nil)
-		if err != nil {
-			return nil, err
-		}
-		conn := &GroupConnection{Edges: []*GroupEdge{}, TotalCount: totalCount}
-		conn.build(nodes, pager, after, first, before, last)
-		return conn, nil
-	}
-	return _m.QueryGroups().Paginate(ctx, after, first, before, last, opts...)
-}
-
-func (_m *Role) Policies(
-	ctx context.Context, after *Cursor, first *int, before *Cursor, last *int, orderBy *AccessPolicyOrder, where *AccessPolicyWhereInput,
-) (*AccessPolicyConnection, error) {
-	opts := []AccessPolicyPaginateOption{
-		WithAccessPolicyOrder(orderBy),
-		WithAccessPolicyFilter(where.Filter),
-	}
-	alias := graphql.GetFieldContext(ctx).Field.Alias
-	totalCount, hasTotalCount := _m.Edges.totalCount[2][alias]
-	if nodes, err := _m.NamedPolicies(alias); err == nil || hasTotalCount {
-		pager, err := newAccessPolicyPager(opts, last != nil)
-		if err != nil {
-			return nil, err
-		}
-		conn := &AccessPolicyConnection{Edges: []*AccessPolicyEdge{}, TotalCount: totalCount}
-		conn.build(nodes, pager, after, first, before, last)
-		return conn, nil
-	}
-	return _m.QueryPolicies().Paginate(ctx, after, first, before, last, opts...)
 }
 
 func (_m *Tenant) TenantUsers(
@@ -245,48 +132,6 @@ func (_m *User) Tenant(ctx context.Context) (*Tenant, error) {
 	return result, err
 }
 
-func (_m *User) Roles(
-	ctx context.Context, after *Cursor, first *int, before *Cursor, last *int, orderBy *RoleOrder, where *RoleWhereInput,
-) (*RoleConnection, error) {
-	opts := []RolePaginateOption{
-		WithRoleOrder(orderBy),
-		WithRoleFilter(where.Filter),
-	}
-	alias := graphql.GetFieldContext(ctx).Field.Alias
-	totalCount, hasTotalCount := _m.Edges.totalCount[1][alias]
-	if nodes, err := _m.NamedRoles(alias); err == nil || hasTotalCount {
-		pager, err := newRolePager(opts, last != nil)
-		if err != nil {
-			return nil, err
-		}
-		conn := &RoleConnection{Edges: []*RoleEdge{}, TotalCount: totalCount}
-		conn.build(nodes, pager, after, first, before, last)
-		return conn, nil
-	}
-	return _m.QueryRoles().Paginate(ctx, after, first, before, last, opts...)
-}
-
-func (_m *User) Groups(
-	ctx context.Context, after *Cursor, first *int, before *Cursor, last *int, orderBy *GroupOrder, where *GroupWhereInput,
-) (*GroupConnection, error) {
-	opts := []GroupPaginateOption{
-		WithGroupOrder(orderBy),
-		WithGroupFilter(where.Filter),
-	}
-	alias := graphql.GetFieldContext(ctx).Field.Alias
-	totalCount, hasTotalCount := _m.Edges.totalCount[2][alias]
-	if nodes, err := _m.NamedGroups(alias); err == nil || hasTotalCount {
-		pager, err := newGroupPager(opts, last != nil)
-		if err != nil {
-			return nil, err
-		}
-		conn := &GroupConnection{Edges: []*GroupEdge{}, TotalCount: totalCount}
-		conn.build(nodes, pager, after, first, before, last)
-		return conn, nil
-	}
-	return _m.QueryGroups().Paginate(ctx, after, first, before, last, opts...)
-}
-
 func (_m *User) DeviceUsersUsers(
 	ctx context.Context, after *Cursor, first *int, before *Cursor, last *int, orderBy *DeviceUserOrder, where *DeviceUserWhereInput,
 ) (*DeviceUserConnection, error) {
@@ -295,7 +140,7 @@ func (_m *User) DeviceUsersUsers(
 		WithDeviceUserFilter(where.Filter),
 	}
 	alias := graphql.GetFieldContext(ctx).Field.Alias
-	totalCount, hasTotalCount := _m.Edges.totalCount[3][alias]
+	totalCount, hasTotalCount := _m.Edges.totalCount[1][alias]
 	if nodes, err := _m.NamedDeviceUsersUsers(alias); err == nil || hasTotalCount {
 		pager, err := newDeviceUserPager(opts, last != nil)
 		if err != nil {

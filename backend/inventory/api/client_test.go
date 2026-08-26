@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect"
-	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/gqlgo/gqlgenc/clientv2"
@@ -16,23 +15,20 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/mattn/go-sqlite3"
-
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/feature"
+	"github.com/pyck-ai/pyck/backend/common/gqlserver"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
 	json_schema "github.com/pyck-ai/pyck/backend/common/json-schema"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/tenant"
 	"github.com/pyck-ai/pyck/backend/common/test/mocks"
-	testresolver "github.com/pyck-ai/pyck/backend/common/test/resolver"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 
 	"github.com/pyck-ai/pyck/backend/inventory/api"
 	ent "github.com/pyck-ai/pyck/backend/inventory/ent/gen"
-	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/enttest"
 	entreplenishmentorder "github.com/pyck-ai/pyck/backend/inventory/ent/gen/replenishmentorder"
 	entreplenishmentorderitem "github.com/pyck-ai/pyck/backend/inventory/ent/gen/replenishmentorderitem"
 	"github.com/pyck-ai/pyck/backend/inventory/model"
@@ -57,8 +53,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, *ent.Client, context.Conte
 	t.Helper()
 
 	// Create test database
-	dbURI := testresolver.DatabaseURI(t)
-	entClient := enttest.Open(t, dialect.SQLite, dbURI, enttest.WithOptions(ent.Log(t.Log))).Debug()
+	entClient := openPGEntClientWithLogger(t, t.Log).Debug()
 
 	// Create context with user for privacy checks
 	ctx := context.Background()
@@ -66,7 +61,8 @@ func setupTestServer(t *testing.T) (*httptest.Server, *ent.Client, context.Conte
 
 	// Set up resolver dependencies
 	publisher := new(mocks.MockPublisher)
-	inventoryStock, _ := stock.New(dialect.SQLite, nil)
+	inventoryStock, err := stock.New(dialect.Postgres, nil)
+	require.NoError(t, err)
 	dataTypeProvider := new(mocks.MockDataTypeProvider)
 	validator := validator.NewValidator(dataTypeProvider)
 
@@ -80,7 +76,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, *ent.Client, context.Conte
 	schema := resolvers.NewSchema(resolver)
 
 	// Create GraphQL server
-	gqlServer := handler.NewDefaultServer(schema)
+	gqlServer := gqlserver.New(schema)
 	gqlServer.Use(gqltx.NewMiddleware(entClient, ent.NewTxContext, "inventory-test", 0))
 
 	// Set up HTTP router with auth middleware

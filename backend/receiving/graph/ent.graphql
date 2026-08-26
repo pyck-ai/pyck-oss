@@ -26,7 +26,7 @@ input CreateReceivingInboundItemInput {
   dataTypeSlug: String
   data: Map
   sku: String!
-  quantity: Int!
+  quantity: Int64!
   inboundID: ID!
 }
 """
@@ -285,6 +285,10 @@ input EntityEventsOutboxWhereInput {
   tenantIDLT: UUID
   tenantIDLTE: UUID
 }
+"""
+The builtin Int64 type
+"""
+scalar Int64
 """
 JSON type for casting extracted JSONB values during ordering.
 """
@@ -585,7 +589,7 @@ type ReceivingInboundItem implements Node @pyckImportable(identityField: "", lis
   deletedBy: UUID
   sku: String!
   inboundID: ID!
-  quantity: Int!
+  quantity: Int64!
   inbound: ReceivingInbound!
 }
 """
@@ -789,14 +793,14 @@ input ReceivingInboundItemWhereInput {
   """
   quantity field predicates
   """
-  quantity: Int
-  quantityNEQ: Int
-  quantityIn: [Int!]
-  quantityNotIn: [Int!]
-  quantityGT: Int
-  quantityGTE: Int
-  quantityLT: Int
-  quantityLTE: Int
+  quantity: Int64
+  quantityNEQ: Int64
+  quantityIn: [Int64!]
+  quantityNotIn: [Int64!]
+  quantityGT: Int64
+  quantityGTE: Int64
+  quantityLT: Int64
+  quantityLTE: Int64
   """
   inbound edge predicates
   """
@@ -1225,7 +1229,7 @@ input UpdateReceivingInboundItemInput {
   data: Map
   clearData: Boolean
   sku: String
-  quantity: Int
+  quantity: Int64
   inboundID: ID
 }
 """

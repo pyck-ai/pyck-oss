@@ -6,10 +6,12 @@ package main
 import (
 	"context"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/pyck-ai/pyck/backend/common/ent"
+
 	"github.com/pyck-ai/pyck/backend/management/core"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/migrate"
-	"github.com/rs/zerolog/log"
 )
 
 func main() {

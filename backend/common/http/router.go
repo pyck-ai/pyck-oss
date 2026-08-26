@@ -17,7 +17,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 )
 
-var routerSkipPaths = []string{"/health", "/metrics"}
+var routerSkipPaths = []string{"/health", "/health/ready", "/metrics"}
 
 type Middleware func(nethttp.Handler) nethttp.Handler
 

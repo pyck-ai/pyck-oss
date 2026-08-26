@@ -1,0 +1,21 @@
+---
+operation: GetServiceRoles
+name: "List assignable service roles"
+description: >
+  Returns the fixed set of per-service gate roles that can be assigned to
+  users (inventory_service, picking_service, …). Tenant-admin only.
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Returns the service-role catalog"
+    assertions:
+      - ref: res.body.data.serviceRoles
+        empty: false
+      - ref: res.body.data.serviceRoles[].key
+        nil: false

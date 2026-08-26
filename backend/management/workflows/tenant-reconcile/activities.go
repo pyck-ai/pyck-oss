@@ -84,21 +84,74 @@ func NewActivities(entClient *ent.Client, temporal temporalclient.Client, zitade
 	}
 }
 
+// driftResult is the pure (DB- and Zitadel-free) output of the drift
+// classification. toDisable is fully resolved because its tenant_ids come
+// from disabledByOrg; restoreOrgIDs is returned as bare org IDs because
+// those rows are active and their tenant_ids must still be looked up.
+// deletedDisabled carries DB-disabled tenants whose org no longer exists
+// — terminal, not drift — surfaced only for logging.
+type driftResult struct {
+	toDisable       []TenantRef
+	restoreOrgIDs   []string
+	deletedDisabled []TenantRef
+}
+
+// computeDrift is the pure decision-matrix core of ComputeDriftActivity
+// (see that method's doc comment for the matrix). It performs no I/O so
+// it can be unit-tested exhaustively. Inputs:
+//
+//   - disabledByOrg:  org_id → tenant_id for DB rows with deleted_at set.
+//   - activeOrgIDs:   org_ids in Zitadel state ACTIVE.
+//   - inactiveOrgIDs: org_ids in Zitadel state INACTIVE.
+//
+// An org_id present in neither active nor inactive is treated as deleted.
+func computeDrift(disabledByOrg map[string]uuid.UUID, activeOrgIDs, inactiveOrgIDs map[string]struct{}) driftResult {
+	var res driftResult
+	for orgID, tenantID := range disabledByOrg {
+		if _, active := activeOrgIDs[orgID]; active {
+			// DB disabled, Zitadel still ACTIVE → need disable.
+			res.toDisable = append(res.toDisable, TenantRef{TenantID: tenantID, IdpOrgRef: orgID})
+			continue
+		}
+		if _, inactive := inactiveOrgIDs[orgID]; !inactive {
+			// Neither active nor inactive → deleted in Zitadel. DB row is
+			// already disabled, so the states are aligned: terminal.
+			res.deletedDisabled = append(res.deletedDisabled, TenantRef{TenantID: tenantID, IdpOrgRef: orgID})
+		}
+		// else: DB disabled, Zitadel INACTIVE → already aligned, no-op.
+	}
+	for orgID := range inactiveOrgIDs {
+		if _, disabled := disabledByOrg[orgID]; !disabled {
+			// Zitadel inactive, DB not disabled → need restore.
+			res.restoreOrgIDs = append(res.restoreOrgIDs, orgID)
+		}
+	}
+	return res
+}
+
 // ComputeDriftActivity returns the set of tenants whose DB deleted_at
-// disagrees with their Zitadel org state. It does so with two narrow
-// lookups instead of scanning every tenant:
+// disagrees with their Zitadel org state. A deleted org is absent from
+// ListOrganizations entirely, so it is a distinct third state from
+// active/inactive.
 //
-//   - DB tenants with deleted_at NOT NULL → set D (idp_org_ref → tenant_id).
-//   - Zitadel orgs in state INACTIVE      → set I (org_id).
+// Decision matrix (DB row × Zitadel org state):
 //
-// Drift is the symmetric difference:
+//	DB \ org   | ACTIVE      | INACTIVE   | DELETED
+//	-----------+-------------+------------+----------------------------
+//	disabled   | ToDisable   | aligned    | aligned (skip+log)
+//	active     | aligned     | ToRestore  | out of scope → zitadel-sync
 //
-//	ToDisable = D \ I   (DB disabled, Zitadel still active)
-//	ToRestore = I \ D   (Zitadel inactive, DB says active)
+// DELETED + disabled is already aligned (org gone, DB disabled), so it is
+// NOT drift — emitting a disable would loop forever, since the org can
+// never become "inactive" and each dispatch hits NotFound. DELETED +
+// active is left to zitadel-sync's ReconcileTenantsActivity, which
+// soft-deletes DB tenants missing from Zitadel (the SSOT).
 //
-// In steady state both sets are tiny (usually empty), so the cost is
-// O(drift), not O(tenants). A third small DB query fills in tenant_ids
-// for the ToRestore side since those rows are not in D.
+// Cost: the drift sets themselves stay tiny in steady state (usually
+// empty), but the Zitadel org listing is O(total orgs) per run — it
+// enumerates every org with no state filter so a DELETED org can be told
+// apart from ACTIVE/INACTIVE. A small DB query fills in tenant_ids for the
+// ToRestore side since those rows are not in the disabled set.
 func (a *Activities) ComputeDriftActivity(ctx context.Context, _ ComputeDriftActivityInput) (DriftSet, error) {
 	logger := activity.GetLogger(ctx)
 	sysCtx := authn.Context(ctx, authn.SystemUser())
@@ -123,49 +176,56 @@ func (a *Activities) ComputeDriftActivity(ctx context.Context, _ ComputeDriftAct
 		disabledByOrg[t.IdpOrgRef] = t.ID
 	}
 
-	// Zitadel orgs in INACTIVE state. Paginated — without an explicit
-	// ListQuery, Zitadel applies its default page cap and silently
-	// truncates, hiding drift past the first page.
+	// All Zitadel orgs, bucketed by state in a single paginated pass.
+	// Querying without a state filter returns every org with its State
+	// field set, so we can separate ACTIVE from INACTIVE here and still
+	// tell both apart from an org that is absent entirely (deleted in
+	// Zitadel). Paginated — without an explicit ListQuery, Zitadel applies
+	// its default page cap and silently truncates, hiding drift past the
+	// first page.
 	orgClient := org_pb.NewOrganizationServiceClient(a.zitadelConn)
-	inactiveOrgs, err := paginateOrgs(ctx, orgClient, []*org_pb.SearchQuery{{
-		Query: &org_pb.SearchQuery_StateQuery{
-			StateQuery: &org_pb.OrganizationStateQuery{
-				State: org_pb.OrganizationState_ORGANIZATION_STATE_INACTIVE,
-			},
-		},
-	}})
+
+	allOrgs, err := paginateOrgs(ctx, orgClient, nil)
 	if err != nil {
-		logger.Error("ListOrganizations (inactive) failed", "err", err)
-		return DriftSet{}, fmt.Errorf("list inactive zitadel orgs: %w", err)
-	}
-	inactiveOrgIDs := make(map[string]struct{}, len(inactiveOrgs))
-	for _, o := range inactiveOrgs {
-		inactiveOrgIDs[o.GetId()] = struct{}{}
+		logger.Error("ListOrganizations failed", "err", err)
+		return DriftSet{}, fmt.Errorf("list zitadel orgs: %w", err)
 	}
 
-	// Compute drift sets.
-	drift := DriftSet{}
-	var restoreOrgIDs []string
-	for orgID, tenantID := range disabledByOrg {
-		if _, inactive := inactiveOrgIDs[orgID]; !inactive {
-			// DB disabled, Zitadel not inactive → need disable.
-			drift.ToDisable = append(drift.ToDisable, TenantRef{TenantID: tenantID, IdpOrgRef: orgID})
+	activeOrgIDs := make(map[string]struct{})
+	inactiveOrgIDs := make(map[string]struct{})
+	for _, o := range allOrgs {
+		switch o.GetState() {
+		case org_pb.OrganizationState_ORGANIZATION_STATE_ACTIVE:
+			activeOrgIDs[o.GetId()] = struct{}{}
+		case org_pb.OrganizationState_ORGANIZATION_STATE_INACTIVE:
+			inactiveOrgIDs[o.GetId()] = struct{}{}
 		}
 	}
-	for orgID := range inactiveOrgIDs {
-		if _, disabled := disabledByOrg[orgID]; !disabled {
-			// Zitadel inactive, DB not disabled → need restore.
-			// Collect org_ids for a single batched tenant lookup below.
-			restoreOrgIDs = append(restoreOrgIDs, orgID)
-		}
+
+	// Apply the pure decision matrix (no I/O, unit-tested in
+	// activities_test.go).
+	res := computeDrift(disabledByOrg, activeOrgIDs, inactiveOrgIDs)
+	drift := DriftSet{ToDisable: res.toDisable}
+
+	// Deleted-org + DB-disabled is terminal, not drift. Log so an operator
+	// can see leftover orgs being skipped rather than retried.
+	for _, ref := range res.deletedDisabled {
+		logger.Info("DB-disabled tenant has no Zitadel org; treating as consistent",
+			"tenant_id", ref.TenantID, "idp_org_ref", ref.IdpOrgRef)
 	}
 
 	// Resolve tenant_ids for the restore side via a single batched query.
-	// Tenants in restoreOrgIDs are active (not in set D), so we look them
-	// up by idp_org_ref.
-	if len(restoreOrgIDs) > 0 {
+	// Tenants in res.restoreOrgIDs are active (not in the disabled set), so
+	// we look them up by idp_org_ref. DeletedAtIsNil is required even under
+	// FEATURE_SHOW_DELETED: a concurrent soft-delete between the disabled
+	// snapshot above and this query would otherwise leak through to
+	// ToRestore and override the admin's intent.
+	if len(res.restoreOrgIDs) > 0 {
 		rows, err := a.ent.Tenant.Query().
-			Where(enttenant.IdpOrgRefIn(restoreOrgIDs...)).
+			Where(
+				enttenant.IdpOrgRefIn(res.restoreOrgIDs...),
+				enttenant.DeletedAtIsNil(),
+			).
 			AllPages(sysCtx, mixin.Limit)
 		if err != nil {
 			logger.Error("failed to resolve tenants for restore set", "err", err)

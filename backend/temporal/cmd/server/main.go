@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	temporalconfig "go.temporal.io/server/common/config"
 	temporalheaders "go.temporal.io/server/common/headers"
 	"go.temporal.io/server/temporal"
@@ -27,16 +27,20 @@ func main() {
 	ctx, _ := log.SetupLogger(context.Background(), serviceName, pyckconfig.LogConfig{})
 
 	app := buildCLI()
-	_ = app.RunContext(ctx, os.Args)
+	if err := app.Run(ctx, os.Args); err != nil {
+		// cli.Exit errors terminate inside Run; only unexpected errors reach here.
+		log.ForContext(ctx).Fatal().Err(err).Msg("temporal server exited with error")
+	}
 }
 
-func buildCLI() *cli.App {
+func buildCLI() *cli.Command {
 	bi := env.GetBuildInfo()
 
-	app := cli.NewApp()
-	app.Name = serviceName
-	app.Usage = "Temporal server"
-	app.Version = fmt.Sprintf("%s-pyck-%s", temporalheaders.ServerVersion, bi.GitCommitSHA())
+	app := &cli.Command{
+		Name:    serviceName,
+		Usage:   "Temporal server",
+		Version: fmt.Sprintf("%s-pyck-%s", temporalheaders.ServerVersion, bi.GitCommitSHA()),
+	}
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
@@ -44,37 +48,37 @@ func buildCLI() *cli.App {
 			Aliases: []string{"r"},
 			Value:   ".",
 			Usage:   "root directory of execution environment",
-			EnvVars: []string{temporalconfig.EnvKeyRoot},
+			Sources: cli.EnvVars(temporalconfig.EnvKeyRoot),
 		},
 		&cli.StringFlag{
 			Name:    "config",
 			Aliases: []string{"c"},
 			Value:   "config",
 			Usage:   "config dir path relative to root",
-			EnvVars: []string{temporalconfig.EnvKeyConfigDir},
+			Sources: cli.EnvVars(temporalconfig.EnvKeyConfigDir),
 		},
 		&cli.StringFlag{
 			Name:    "env",
 			Aliases: []string{"e"},
 			Value:   "development",
 			Usage:   "runtime environment",
-			EnvVars: []string{temporalconfig.EnvKeyEnvironment},
+			Sources: cli.EnvVars(temporalconfig.EnvKeyEnvironment),
 		},
 		&cli.StringFlag{
 			Name:    "zone",
 			Aliases: []string{"az"},
 			Usage:   "availability zone",
-			EnvVars: []string{temporalconfig.EnvKeyAvailabilityZone},
+			Sources: cli.EnvVars(temporalconfig.EnvKeyAvailabilityZone),
 		},
 		&cli.StringFlag{
 			Name:    "config-file",
 			Usage:   "path to config file (absolute or relative to current working directory)",
-			EnvVars: []string{temporalconfig.EnvKeyConfigFile},
+			Sources: cli.EnvVars(temporalconfig.EnvKeyConfigFile),
 		},
 		&cli.BoolFlag{
 			Name:    "allow-no-auth",
 			Usage:   "allow no authorizer",
-			EnvVars: []string{temporalconfig.EnvKeyAllowNoAuth},
+			Sources: cli.EnvVars(temporalconfig.EnvKeyAllowNoAuth),
 		},
 	}
 
@@ -93,18 +97,18 @@ func buildCLI() *cli.App {
 				&cli.StringSliceFlag{
 					Name:    "service",
 					Aliases: []string{"svc"},
-					Value:   cli.NewStringSlice(temporal.DefaultServices...),
+					Value:   temporal.DefaultServices,
 					Usage:   "service(s) to start",
 				},
 			},
-			Before: func(c *cli.Context) error {
-				if c.Args().Len() > 0 {
-					return cli.Exit("ERROR: start command doesn't support arguments. Use --service flag instead.", 1)
+			Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
+				if cmd.Args().Len() > 0 {
+					return ctx, cli.Exit("ERROR: start command doesn't support arguments. Use --service flag instead.", 1)
 				}
-				return nil
+				return ctx, nil
 			},
-			Action: func(c *cli.Context) error {
-				if err := runServer(c); err != nil {
+			Action: func(ctx context.Context, cmd *cli.Command) error {
+				if err := runServer(ctx, cmd); err != nil {
 					return cli.Exit(fmt.Errorf("server exited unexpectedly: %w", err), 1)
 				}
 				return nil
@@ -120,7 +124,7 @@ func buildCLI() *cli.App {
 					Aliases: []string{"a"},
 					Value:   "127.0.0.1:7236",
 					Usage:   "address of the Temporal frontend to check",
-					EnvVars: []string{"TEMPORAL_ADDRESS"},
+					Sources: cli.EnvVars("TEMPORAL_ADDRESS"),
 				},
 			},
 			Action: checkHealth,
@@ -129,11 +133,11 @@ func buildCLI() *cli.App {
 			Name:      "render-config",
 			Usage:     "Render server config template",
 			ArgsUsage: " ",
-			Action: func(c *cli.Context) error {
+			Action: func(ctx context.Context, cmd *cli.Command) error {
 				cfg, err := temporalconfig.Load(
-					temporalconfig.WithEnv(c.String("env")),
-					temporalconfig.WithConfigDir(c.String("config")),
-					temporalconfig.WithZone(c.String("zone")),
+					temporalconfig.WithEnv(cmd.String("env")),
+					temporalconfig.WithConfigDir(cmd.String("config")),
+					temporalconfig.WithZone(cmd.String("zone")),
 				)
 				if err != nil {
 					return cli.Exit(fmt.Errorf("unable to load configuration: %w", err), 1)

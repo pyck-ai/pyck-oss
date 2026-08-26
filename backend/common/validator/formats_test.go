@@ -2,13 +2,7 @@ package validator
 
 import (
 	"testing"
-
-	"github.com/santhosh-tekuri/jsonschema/v5"
 )
-
-func init() {
-	registerCustomFormats()
-}
 
 func TestEAN13Format(t *testing.T) {
 	valid := []string{
@@ -23,13 +17,13 @@ func TestEAN13Format(t *testing.T) {
 	}
 
 	for _, code := range valid {
-		if !jsonschema.Formats["ean13"](code) {
+		if err := validateEAN13(code); err != nil {
 			t.Errorf("ean13: expected valid but got invalid for %s", code)
 		}
 	}
 
 	for _, code := range invalid {
-		if jsonschema.Formats["ean13"](code) {
+		if err := validateEAN13(code); err == nil {
 			t.Errorf("ean13: expected invalid but got valid for %s", code)
 		}
 	}
@@ -47,13 +41,13 @@ func TestEAN8Format(t *testing.T) {
 	}
 
 	for _, code := range valid {
-		if !jsonschema.Formats["ean8"](code) {
+		if err := validateEAN8(code); err != nil {
 			t.Errorf("ean8: expected valid but got invalid for %s", code)
 		}
 	}
 
 	for _, code := range invalid {
-		if jsonschema.Formats["ean8"](code) {
+		if err := validateEAN8(code); err == nil {
 			t.Errorf("ean8: expected invalid but got valid for %s", code)
 		}
 	}
@@ -72,13 +66,13 @@ func TestUPCAFormat(t *testing.T) {
 	}
 
 	for _, code := range valid {
-		if !jsonschema.Formats["upca"](code) {
+		if err := validateUPCA(code); err != nil {
 			t.Errorf("upca: expected valid but got invalid for %s", code)
 		}
 	}
 
 	for _, code := range invalid {
-		if jsonschema.Formats["upca"](code) {
+		if err := validateUPCA(code); err == nil {
 			t.Errorf("upca: expected invalid but got valid for %s", code)
 		}
 	}
@@ -99,13 +93,13 @@ func TestUPCEFormat(t *testing.T) {
 	}
 
 	for _, code := range valid {
-		if !jsonschema.Formats["upce"](code) {
+		if err := validateUPCE(code); err != nil {
 			t.Errorf("upce: expected valid but got invalid for %s", code)
 		}
 	}
 
 	for _, code := range invalid {
-		if jsonschema.Formats["upce"](code) {
+		if err := validateUPCE(code); err == nil {
 			t.Errorf("upce: expected invalid but got valid for %s", code)
 		}
 	}

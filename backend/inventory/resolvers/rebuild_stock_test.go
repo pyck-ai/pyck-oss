@@ -1122,8 +1122,38 @@ func TestRebuildInventoryStock_RequiresAdminRole(t *testing.T) {
 func execSQL(t *testing.T, ctx context.Context, entClient *ent.Client, query string, args ...any) {
 	t.Helper()
 
-	_, err := entClient.ExecContext(ctx, query, args...)
+	_, err := entClient.ExecContext(ctx, rebindQuery(query), args...)
 	require.NoError(t, err, "raw SQL exec failed: %s", query)
+}
+
+// rebindQuery replaces ? placeholders with $1, $2, ... for Postgres.
+func rebindQuery(query string) string {
+	var buf bytes.Buffer
+	n := 0
+	for _, c := range query {
+		if c == '?' {
+			n++
+			fmt.Fprintf(&buf, "$%d", n)
+		} else {
+			buf.WriteRune(c)
+		}
+	}
+	return buf.String()
+}
+
+// deleteIgnoringFKs hard-deletes a row while bypassing FK constraints.
+// Opens a transaction so SET session_replication_role runs on the same
+// connection as the DELETE, preventing FK violation errors.
+func deleteIgnoringFKs(t *testing.T, ctx context.Context, entClient *ent.Client, query string, args ...any) {
+	t.Helper()
+	query = rebindQuery(query)
+	tx, err := entClient.Tx(ctx)
+	require.NoError(t, err)
+	_, err = tx.ExecContext(ctx, "SET LOCAL session_replication_role = replica")
+	require.NoError(t, err)
+	_, err = tx.ExecContext(ctx, query, args...)
+	require.NoError(t, err, "raw SQL exec (no FK) failed: %s", query)
+	require.NoError(t, tx.Commit())
 }
 
 // TestRebuildInventoryStock_SameTimestampMovements_Deterministic verifies that
@@ -1313,9 +1343,7 @@ func TestRebuildInventoryStock_OrphanedRepoMovement_ReturnsError(t *testing.T) {
 
 	// Hard-delete the "box" repository via raw SQL, bypassing FK constraints.
 	// This simulates a data corruption scenario where the referenced repo is gone.
-	execSQL(t, ctx, te.Ent, "PRAGMA foreign_keys = OFF")
-	execSQL(t, ctx, te.Ent, "DELETE FROM repositories WHERE id = ?", boxID)
-	execSQL(t, ctx, te.Ent, "PRAGMA foreign_keys = ON")
+	deleteIgnoringFKs(t, ctx, te.Ent, "DELETE FROM repositories WHERE id = ?", boxID)
 
 	// Corrupt stock and attempt rebuild
 	corruptAllStock(t, ctx, te.Ent)
@@ -1385,9 +1413,7 @@ func TestRebuildInventoryStock_OrphanedRepoMovement_SilentCorruption(t *testing.
 		"box should have non-zero stock before corruption")
 
 	// Hard-delete the "box" repository to create the orphaned movement condition
-	execSQL(t, ctx, te.Ent, "PRAGMA foreign_keys = OFF")
-	execSQL(t, ctx, te.Ent, "DELETE FROM repositories WHERE id = ?", boxID)
-	execSQL(t, ctx, te.Ent, "PRAGMA foreign_keys = ON")
+	deleteIgnoringFKs(t, ctx, te.Ent, "DELETE FROM repositories WHERE id = ?", boxID)
 
 	// Corrupt stock and rebuild
 	corruptAllStock(t, ctx, te.Ent)
@@ -1836,7 +1862,7 @@ func runFuzzRebuildTestViaMovementFlow(t *testing.T, cfg fuzzConfig) {
 // TestRebuildInventoryStock_FuzzViaMovementFlow exercises RebuildInventoryStock
 // with a broad set of deterministic pseudo-random scenarios (seed+config pairs).
 // Each sub-test runs in parallel because every call to runFuzzRebuildTestViaMovementFlow
-// creates its own isolated test environment with its own in-memory database.
+// creates its own isolated test environment with its own Postgres database.
 //
 // Corruption uses a large sentinel value (999_999_999) rather than deleting rows,
 // so a no-op rebuild would be caught by the snapshot comparison.
@@ -1957,9 +1983,12 @@ func corruptStockWithGarbageValues(t *testing.T, ctx context.Context, entClient 
 // pair for the tenant and returns a map keyed by "repoID|itemID" → rawStockValues.
 //
 // The HistoryMixin creates a new row per stock update, so there can be many rows
-// per (repositoryID, itemID) pair. We order by created_at DESC and paginate with
-// the maximum page size (200, as enforced by LimitMixin), keeping only the first
-// (= most recent) value per key across all pages.
+// per (repositoryID, itemID) pair. We order by version DESC — the monotonic
+// per-pair sequence, NOT created_at (which is only microsecond-precise on
+// Postgres and ties under rapid updates, making "newest" ambiguous) — with an id
+// tiebreak so OFFSET pagination is a stable total order. We paginate with the
+// maximum page size (200, as enforced by LimitMixin), keeping only the first
+// (= highest version) value per key across all pages.
 func captureRawStockSnapshot(t *testing.T, ctx context.Context, entClient *ent.Client) map[string]rawStockValues {
 	t.Helper()
 
@@ -1971,7 +2000,7 @@ func captureRawStockSnapshot(t *testing.T, ctx context.Context, entClient *ent.C
 	for {
 		rows, err := entClient.Stock.Query().
 			Where(entstock.TenantID(tenantA)).
-			Order(entstock.ByCreatedAt(sql.OrderDesc())).
+			Order(entstock.ByVersion(sql.OrderDesc()), entstock.ByID()).
 			Limit(pageSize).
 			Offset(offset).
 			All(ctx)
@@ -2311,14 +2340,9 @@ func TestRebuildInventoryStock_FromTestData(t *testing.T) {
 // ─── Why Postgres-only ────────────────────────────────────────────────
 //
 // The wire-protocol parameter limit is intrinsic to PostgreSQL's
-// extended-query Bind message (an int16 count, hence 65,535 max). SQLite
-// has its own much lower variable ceiling (~32K in the default
-// go-sqlite3 build) which would trip on the seeding INSERTs long before
-// we could simulate the production fan-out — and SQLite's failure mode
-// ("too many SQL variables") is a different error class than the one
-// being regressed. We therefore run this test against an embedded
-// Postgres container (same harness used by stocks_race_test.go's
-// READ COMMITTED snapshot tests) where the production constraint is real.
+// extended-query Bind message (an int16 count, hence 65,535 max). This
+// test requires real Postgres so the production constraint is real; the
+// parameter-limit error class being regressed only occurs in Postgres.
 //
 // ─── Seeding strategy ─────────────────────────────────────────────────
 //
@@ -2360,8 +2384,7 @@ func TestRebuildInventoryStock_FromTestData(t *testing.T) {
 func TestRebuildInventoryStock_LargeClosureChunksOverWireLimit_Postgres(t *testing.T) {
 	t.Parallel()
 
-	pg := startEmbeddedPostgres(t)
-	te := setupPostgres(t, pg)
+	te := setup(t)
 	apiClient := setupAPIClient(t, te)
 	ctx := te.ctx(userA)
 
@@ -2459,7 +2482,7 @@ func TestRebuildInventoryStock_LargeClosureChunksOverWireLimit_Postgres(t *testi
 			movCreates := make([]*ent.ItemMovementCreate, 0, batchEnd-batchStart)
 			for i := batchStart; i < batchEnd; i++ {
 				createdAt := now.Add(time.Duration(i) * time.Microsecond)
-				executedAt := createdAt.Add(time.Nanosecond)
+				executedAt := createdAt.Add(time.Millisecond)
 				movCreates = append(movCreates, tx.ItemMovement.Create().
 					SetTenantID(tenantA).
 					SetCreatedAt(createdAt).

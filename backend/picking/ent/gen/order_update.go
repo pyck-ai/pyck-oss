@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen/order"
@@ -82,6 +83,216 @@ func (_u *OrderUpdate) SetData(v map[string]interface{}) *OrderUpdate {
 // ClearData clears the value of the "data" field.
 func (_u *OrderUpdate) ClearData() *OrderUpdate {
 	_u.mutation.ClearData()
+	return _u
+}
+
+// SetDataIxText1 sets the "data_ix_text1" field.
+func (_u *OrderUpdate) SetDataIxText1(v string) *OrderUpdate {
+	_u.mutation.SetDataIxText1(v)
+	return _u
+}
+
+// SetNillableDataIxText1 sets the "data_ix_text1" field if the given value is not nil.
+func (_u *OrderUpdate) SetNillableDataIxText1(v *string) *OrderUpdate {
+	if v != nil {
+		_u.SetDataIxText1(*v)
+	}
+	return _u
+}
+
+// ClearDataIxText1 clears the value of the "data_ix_text1" field.
+func (_u *OrderUpdate) ClearDataIxText1() *OrderUpdate {
+	_u.mutation.ClearDataIxText1()
+	return _u
+}
+
+// SetDataIxText2 sets the "data_ix_text2" field.
+func (_u *OrderUpdate) SetDataIxText2(v string) *OrderUpdate {
+	_u.mutation.SetDataIxText2(v)
+	return _u
+}
+
+// SetNillableDataIxText2 sets the "data_ix_text2" field if the given value is not nil.
+func (_u *OrderUpdate) SetNillableDataIxText2(v *string) *OrderUpdate {
+	if v != nil {
+		_u.SetDataIxText2(*v)
+	}
+	return _u
+}
+
+// ClearDataIxText2 clears the value of the "data_ix_text2" field.
+func (_u *OrderUpdate) ClearDataIxText2() *OrderUpdate {
+	_u.mutation.ClearDataIxText2()
+	return _u
+}
+
+// SetDataIxText3 sets the "data_ix_text3" field.
+func (_u *OrderUpdate) SetDataIxText3(v string) *OrderUpdate {
+	_u.mutation.SetDataIxText3(v)
+	return _u
+}
+
+// SetNillableDataIxText3 sets the "data_ix_text3" field if the given value is not nil.
+func (_u *OrderUpdate) SetNillableDataIxText3(v *string) *OrderUpdate {
+	if v != nil {
+		_u.SetDataIxText3(*v)
+	}
+	return _u
+}
+
+// ClearDataIxText3 clears the value of the "data_ix_text3" field.
+func (_u *OrderUpdate) ClearDataIxText3() *OrderUpdate {
+	_u.mutation.ClearDataIxText3()
+	return _u
+}
+
+// SetDataIxText4 sets the "data_ix_text4" field.
+func (_u *OrderUpdate) SetDataIxText4(v string) *OrderUpdate {
+	_u.mutation.SetDataIxText4(v)
+	return _u
+}
+
+// SetNillableDataIxText4 sets the "data_ix_text4" field if the given value is not nil.
+func (_u *OrderUpdate) SetNillableDataIxText4(v *string) *OrderUpdate {
+	if v != nil {
+		_u.SetDataIxText4(*v)
+	}
+	return _u
+}
+
+// ClearDataIxText4 clears the value of the "data_ix_text4" field.
+func (_u *OrderUpdate) ClearDataIxText4() *OrderUpdate {
+	_u.mutation.ClearDataIxText4()
+	return _u
+}
+
+// SetDataIxNumeric1 sets the "data_ix_numeric1" field.
+func (_u *OrderUpdate) SetDataIxNumeric1(v float64) *OrderUpdate {
+	_u.mutation.ResetDataIxNumeric1()
+	_u.mutation.SetDataIxNumeric1(v)
+	return _u
+}
+
+// SetNillableDataIxNumeric1 sets the "data_ix_numeric1" field if the given value is not nil.
+func (_u *OrderUpdate) SetNillableDataIxNumeric1(v *float64) *OrderUpdate {
+	if v != nil {
+		_u.SetDataIxNumeric1(*v)
+	}
+	return _u
+}
+
+// AddDataIxNumeric1 adds value to the "data_ix_numeric1" field.
+func (_u *OrderUpdate) AddDataIxNumeric1(v float64) *OrderUpdate {
+	_u.mutation.AddDataIxNumeric1(v)
+	return _u
+}
+
+// ClearDataIxNumeric1 clears the value of the "data_ix_numeric1" field.
+func (_u *OrderUpdate) ClearDataIxNumeric1() *OrderUpdate {
+	_u.mutation.ClearDataIxNumeric1()
+	return _u
+}
+
+// SetDataIxNumeric2 sets the "data_ix_numeric2" field.
+func (_u *OrderUpdate) SetDataIxNumeric2(v float64) *OrderUpdate {
+	_u.mutation.ResetDataIxNumeric2()
+	_u.mutation.SetDataIxNumeric2(v)
+	return _u
+}
+
+// SetNillableDataIxNumeric2 sets the "data_ix_numeric2" field if the given value is not nil.
+func (_u *OrderUpdate) SetNillableDataIxNumeric2(v *float64) *OrderUpdate {
+	if v != nil {
+		_u.SetDataIxNumeric2(*v)
+	}
+	return _u
+}
+
+// AddDataIxNumeric2 adds value to the "data_ix_numeric2" field.
+func (_u *OrderUpdate) AddDataIxNumeric2(v float64) *OrderUpdate {
+	_u.mutation.AddDataIxNumeric2(v)
+	return _u
+}
+
+// ClearDataIxNumeric2 clears the value of the "data_ix_numeric2" field.
+func (_u *OrderUpdate) ClearDataIxNumeric2() *OrderUpdate {
+	_u.mutation.ClearDataIxNumeric2()
+	return _u
+}
+
+// SetDataIxBool1 sets the "data_ix_bool1" field.
+func (_u *OrderUpdate) SetDataIxBool1(v bool) *OrderUpdate {
+	_u.mutation.SetDataIxBool1(v)
+	return _u
+}
+
+// SetNillableDataIxBool1 sets the "data_ix_bool1" field if the given value is not nil.
+func (_u *OrderUpdate) SetNillableDataIxBool1(v *bool) *OrderUpdate {
+	if v != nil {
+		_u.SetDataIxBool1(*v)
+	}
+	return _u
+}
+
+// ClearDataIxBool1 clears the value of the "data_ix_bool1" field.
+func (_u *OrderUpdate) ClearDataIxBool1() *OrderUpdate {
+	_u.mutation.ClearDataIxBool1()
+	return _u
+}
+
+// SetDataIxBool2 sets the "data_ix_bool2" field.
+func (_u *OrderUpdate) SetDataIxBool2(v bool) *OrderUpdate {
+	_u.mutation.SetDataIxBool2(v)
+	return _u
+}
+
+// SetNillableDataIxBool2 sets the "data_ix_bool2" field if the given value is not nil.
+func (_u *OrderUpdate) SetNillableDataIxBool2(v *bool) *OrderUpdate {
+	if v != nil {
+		_u.SetDataIxBool2(*v)
+	}
+	return _u
+}
+
+// ClearDataIxBool2 clears the value of the "data_ix_bool2" field.
+func (_u *OrderUpdate) ClearDataIxBool2() *OrderUpdate {
+	_u.mutation.ClearDataIxBool2()
+	return _u
+}
+
+// SetDataIxList1 sets the "data_ix_list1" field.
+func (_u *OrderUpdate) SetDataIxList1(v []string) *OrderUpdate {
+	_u.mutation.SetDataIxList1(v)
+	return _u
+}
+
+// AppendDataIxList1 appends value to the "data_ix_list1" field.
+func (_u *OrderUpdate) AppendDataIxList1(v []string) *OrderUpdate {
+	_u.mutation.AppendDataIxList1(v)
+	return _u
+}
+
+// ClearDataIxList1 clears the value of the "data_ix_list1" field.
+func (_u *OrderUpdate) ClearDataIxList1() *OrderUpdate {
+	_u.mutation.ClearDataIxList1()
+	return _u
+}
+
+// SetDataIxList2 sets the "data_ix_list2" field.
+func (_u *OrderUpdate) SetDataIxList2(v []string) *OrderUpdate {
+	_u.mutation.SetDataIxList2(v)
+	return _u
+}
+
+// AppendDataIxList2 appends value to the "data_ix_list2" field.
+func (_u *OrderUpdate) AppendDataIxList2(v []string) *OrderUpdate {
+	_u.mutation.AppendDataIxList2(v)
+	return _u
+}
+
+// ClearDataIxList2 clears the value of the "data_ix_list2" field.
+func (_u *OrderUpdate) ClearDataIxList2() *OrderUpdate {
+	_u.mutation.ClearDataIxList2()
 	return _u
 }
 
@@ -310,6 +521,82 @@ func (_u *OrderUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.DataCleared() {
 		_spec.ClearField(order.FieldData, field.TypeJSON)
 	}
+	if value, ok := _u.mutation.DataIxText1(); ok {
+		_spec.SetField(order.FieldDataIxText1, field.TypeString, value)
+	}
+	if _u.mutation.DataIxText1Cleared() {
+		_spec.ClearField(order.FieldDataIxText1, field.TypeString)
+	}
+	if value, ok := _u.mutation.DataIxText2(); ok {
+		_spec.SetField(order.FieldDataIxText2, field.TypeString, value)
+	}
+	if _u.mutation.DataIxText2Cleared() {
+		_spec.ClearField(order.FieldDataIxText2, field.TypeString)
+	}
+	if value, ok := _u.mutation.DataIxText3(); ok {
+		_spec.SetField(order.FieldDataIxText3, field.TypeString, value)
+	}
+	if _u.mutation.DataIxText3Cleared() {
+		_spec.ClearField(order.FieldDataIxText3, field.TypeString)
+	}
+	if value, ok := _u.mutation.DataIxText4(); ok {
+		_spec.SetField(order.FieldDataIxText4, field.TypeString, value)
+	}
+	if _u.mutation.DataIxText4Cleared() {
+		_spec.ClearField(order.FieldDataIxText4, field.TypeString)
+	}
+	if value, ok := _u.mutation.DataIxNumeric1(); ok {
+		_spec.SetField(order.FieldDataIxNumeric1, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedDataIxNumeric1(); ok {
+		_spec.AddField(order.FieldDataIxNumeric1, field.TypeFloat64, value)
+	}
+	if _u.mutation.DataIxNumeric1Cleared() {
+		_spec.ClearField(order.FieldDataIxNumeric1, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.DataIxNumeric2(); ok {
+		_spec.SetField(order.FieldDataIxNumeric2, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedDataIxNumeric2(); ok {
+		_spec.AddField(order.FieldDataIxNumeric2, field.TypeFloat64, value)
+	}
+	if _u.mutation.DataIxNumeric2Cleared() {
+		_spec.ClearField(order.FieldDataIxNumeric2, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.DataIxBool1(); ok {
+		_spec.SetField(order.FieldDataIxBool1, field.TypeBool, value)
+	}
+	if _u.mutation.DataIxBool1Cleared() {
+		_spec.ClearField(order.FieldDataIxBool1, field.TypeBool)
+	}
+	if value, ok := _u.mutation.DataIxBool2(); ok {
+		_spec.SetField(order.FieldDataIxBool2, field.TypeBool, value)
+	}
+	if _u.mutation.DataIxBool2Cleared() {
+		_spec.ClearField(order.FieldDataIxBool2, field.TypeBool)
+	}
+	if value, ok := _u.mutation.DataIxList1(); ok {
+		_spec.SetField(order.FieldDataIxList1, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedDataIxList1(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, order.FieldDataIxList1, value)
+		})
+	}
+	if _u.mutation.DataIxList1Cleared() {
+		_spec.ClearField(order.FieldDataIxList1, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.DataIxList2(); ok {
+		_spec.SetField(order.FieldDataIxList2, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedDataIxList2(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, order.FieldDataIxList2, value)
+		})
+	}
+	if _u.mutation.DataIxList2Cleared() {
+		_spec.ClearField(order.FieldDataIxList2, field.TypeJSON)
+	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(order.FieldUpdatedAt, field.TypeTime, value)
 	}
@@ -504,6 +791,216 @@ func (_u *OrderUpdateOne) SetData(v map[string]interface{}) *OrderUpdateOne {
 // ClearData clears the value of the "data" field.
 func (_u *OrderUpdateOne) ClearData() *OrderUpdateOne {
 	_u.mutation.ClearData()
+	return _u
+}
+
+// SetDataIxText1 sets the "data_ix_text1" field.
+func (_u *OrderUpdateOne) SetDataIxText1(v string) *OrderUpdateOne {
+	_u.mutation.SetDataIxText1(v)
+	return _u
+}
+
+// SetNillableDataIxText1 sets the "data_ix_text1" field if the given value is not nil.
+func (_u *OrderUpdateOne) SetNillableDataIxText1(v *string) *OrderUpdateOne {
+	if v != nil {
+		_u.SetDataIxText1(*v)
+	}
+	return _u
+}
+
+// ClearDataIxText1 clears the value of the "data_ix_text1" field.
+func (_u *OrderUpdateOne) ClearDataIxText1() *OrderUpdateOne {
+	_u.mutation.ClearDataIxText1()
+	return _u
+}
+
+// SetDataIxText2 sets the "data_ix_text2" field.
+func (_u *OrderUpdateOne) SetDataIxText2(v string) *OrderUpdateOne {
+	_u.mutation.SetDataIxText2(v)
+	return _u
+}
+
+// SetNillableDataIxText2 sets the "data_ix_text2" field if the given value is not nil.
+func (_u *OrderUpdateOne) SetNillableDataIxText2(v *string) *OrderUpdateOne {
+	if v != nil {
+		_u.SetDataIxText2(*v)
+	}
+	return _u
+}
+
+// ClearDataIxText2 clears the value of the "data_ix_text2" field.
+func (_u *OrderUpdateOne) ClearDataIxText2() *OrderUpdateOne {
+	_u.mutation.ClearDataIxText2()
+	return _u
+}
+
+// SetDataIxText3 sets the "data_ix_text3" field.
+func (_u *OrderUpdateOne) SetDataIxText3(v string) *OrderUpdateOne {
+	_u.mutation.SetDataIxText3(v)
+	return _u
+}
+
+// SetNillableDataIxText3 sets the "data_ix_text3" field if the given value is not nil.
+func (_u *OrderUpdateOne) SetNillableDataIxText3(v *string) *OrderUpdateOne {
+	if v != nil {
+		_u.SetDataIxText3(*v)
+	}
+	return _u
+}
+
+// ClearDataIxText3 clears the value of the "data_ix_text3" field.
+func (_u *OrderUpdateOne) ClearDataIxText3() *OrderUpdateOne {
+	_u.mutation.ClearDataIxText3()
+	return _u
+}
+
+// SetDataIxText4 sets the "data_ix_text4" field.
+func (_u *OrderUpdateOne) SetDataIxText4(v string) *OrderUpdateOne {
+	_u.mutation.SetDataIxText4(v)
+	return _u
+}
+
+// SetNillableDataIxText4 sets the "data_ix_text4" field if the given value is not nil.
+func (_u *OrderUpdateOne) SetNillableDataIxText4(v *string) *OrderUpdateOne {
+	if v != nil {
+		_u.SetDataIxText4(*v)
+	}
+	return _u
+}
+
+// ClearDataIxText4 clears the value of the "data_ix_text4" field.
+func (_u *OrderUpdateOne) ClearDataIxText4() *OrderUpdateOne {
+	_u.mutation.ClearDataIxText4()
+	return _u
+}
+
+// SetDataIxNumeric1 sets the "data_ix_numeric1" field.
+func (_u *OrderUpdateOne) SetDataIxNumeric1(v float64) *OrderUpdateOne {
+	_u.mutation.ResetDataIxNumeric1()
+	_u.mutation.SetDataIxNumeric1(v)
+	return _u
+}
+
+// SetNillableDataIxNumeric1 sets the "data_ix_numeric1" field if the given value is not nil.
+func (_u *OrderUpdateOne) SetNillableDataIxNumeric1(v *float64) *OrderUpdateOne {
+	if v != nil {
+		_u.SetDataIxNumeric1(*v)
+	}
+	return _u
+}
+
+// AddDataIxNumeric1 adds value to the "data_ix_numeric1" field.
+func (_u *OrderUpdateOne) AddDataIxNumeric1(v float64) *OrderUpdateOne {
+	_u.mutation.AddDataIxNumeric1(v)
+	return _u
+}
+
+// ClearDataIxNumeric1 clears the value of the "data_ix_numeric1" field.
+func (_u *OrderUpdateOne) ClearDataIxNumeric1() *OrderUpdateOne {
+	_u.mutation.ClearDataIxNumeric1()
+	return _u
+}
+
+// SetDataIxNumeric2 sets the "data_ix_numeric2" field.
+func (_u *OrderUpdateOne) SetDataIxNumeric2(v float64) *OrderUpdateOne {
+	_u.mutation.ResetDataIxNumeric2()
+	_u.mutation.SetDataIxNumeric2(v)
+	return _u
+}
+
+// SetNillableDataIxNumeric2 sets the "data_ix_numeric2" field if the given value is not nil.
+func (_u *OrderUpdateOne) SetNillableDataIxNumeric2(v *float64) *OrderUpdateOne {
+	if v != nil {
+		_u.SetDataIxNumeric2(*v)
+	}
+	return _u
+}
+
+// AddDataIxNumeric2 adds value to the "data_ix_numeric2" field.
+func (_u *OrderUpdateOne) AddDataIxNumeric2(v float64) *OrderUpdateOne {
+	_u.mutation.AddDataIxNumeric2(v)
+	return _u
+}
+
+// ClearDataIxNumeric2 clears the value of the "data_ix_numeric2" field.
+func (_u *OrderUpdateOne) ClearDataIxNumeric2() *OrderUpdateOne {
+	_u.mutation.ClearDataIxNumeric2()
+	return _u
+}
+
+// SetDataIxBool1 sets the "data_ix_bool1" field.
+func (_u *OrderUpdateOne) SetDataIxBool1(v bool) *OrderUpdateOne {
+	_u.mutation.SetDataIxBool1(v)
+	return _u
+}
+
+// SetNillableDataIxBool1 sets the "data_ix_bool1" field if the given value is not nil.
+func (_u *OrderUpdateOne) SetNillableDataIxBool1(v *bool) *OrderUpdateOne {
+	if v != nil {
+		_u.SetDataIxBool1(*v)
+	}
+	return _u
+}
+
+// ClearDataIxBool1 clears the value of the "data_ix_bool1" field.
+func (_u *OrderUpdateOne) ClearDataIxBool1() *OrderUpdateOne {
+	_u.mutation.ClearDataIxBool1()
+	return _u
+}
+
+// SetDataIxBool2 sets the "data_ix_bool2" field.
+func (_u *OrderUpdateOne) SetDataIxBool2(v bool) *OrderUpdateOne {
+	_u.mutation.SetDataIxBool2(v)
+	return _u
+}
+
+// SetNillableDataIxBool2 sets the "data_ix_bool2" field if the given value is not nil.
+func (_u *OrderUpdateOne) SetNillableDataIxBool2(v *bool) *OrderUpdateOne {
+	if v != nil {
+		_u.SetDataIxBool2(*v)
+	}
+	return _u
+}
+
+// ClearDataIxBool2 clears the value of the "data_ix_bool2" field.
+func (_u *OrderUpdateOne) ClearDataIxBool2() *OrderUpdateOne {
+	_u.mutation.ClearDataIxBool2()
+	return _u
+}
+
+// SetDataIxList1 sets the "data_ix_list1" field.
+func (_u *OrderUpdateOne) SetDataIxList1(v []string) *OrderUpdateOne {
+	_u.mutation.SetDataIxList1(v)
+	return _u
+}
+
+// AppendDataIxList1 appends value to the "data_ix_list1" field.
+func (_u *OrderUpdateOne) AppendDataIxList1(v []string) *OrderUpdateOne {
+	_u.mutation.AppendDataIxList1(v)
+	return _u
+}
+
+// ClearDataIxList1 clears the value of the "data_ix_list1" field.
+func (_u *OrderUpdateOne) ClearDataIxList1() *OrderUpdateOne {
+	_u.mutation.ClearDataIxList1()
+	return _u
+}
+
+// SetDataIxList2 sets the "data_ix_list2" field.
+func (_u *OrderUpdateOne) SetDataIxList2(v []string) *OrderUpdateOne {
+	_u.mutation.SetDataIxList2(v)
+	return _u
+}
+
+// AppendDataIxList2 appends value to the "data_ix_list2" field.
+func (_u *OrderUpdateOne) AppendDataIxList2(v []string) *OrderUpdateOne {
+	_u.mutation.AppendDataIxList2(v)
+	return _u
+}
+
+// ClearDataIxList2 clears the value of the "data_ix_list2" field.
+func (_u *OrderUpdateOne) ClearDataIxList2() *OrderUpdateOne {
+	_u.mutation.ClearDataIxList2()
 	return _u
 }
 
@@ -761,6 +1258,82 @@ func (_u *OrderUpdateOne) sqlSave(ctx context.Context) (_node *Order, err error)
 	}
 	if _u.mutation.DataCleared() {
 		_spec.ClearField(order.FieldData, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.DataIxText1(); ok {
+		_spec.SetField(order.FieldDataIxText1, field.TypeString, value)
+	}
+	if _u.mutation.DataIxText1Cleared() {
+		_spec.ClearField(order.FieldDataIxText1, field.TypeString)
+	}
+	if value, ok := _u.mutation.DataIxText2(); ok {
+		_spec.SetField(order.FieldDataIxText2, field.TypeString, value)
+	}
+	if _u.mutation.DataIxText2Cleared() {
+		_spec.ClearField(order.FieldDataIxText2, field.TypeString)
+	}
+	if value, ok := _u.mutation.DataIxText3(); ok {
+		_spec.SetField(order.FieldDataIxText3, field.TypeString, value)
+	}
+	if _u.mutation.DataIxText3Cleared() {
+		_spec.ClearField(order.FieldDataIxText3, field.TypeString)
+	}
+	if value, ok := _u.mutation.DataIxText4(); ok {
+		_spec.SetField(order.FieldDataIxText4, field.TypeString, value)
+	}
+	if _u.mutation.DataIxText4Cleared() {
+		_spec.ClearField(order.FieldDataIxText4, field.TypeString)
+	}
+	if value, ok := _u.mutation.DataIxNumeric1(); ok {
+		_spec.SetField(order.FieldDataIxNumeric1, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedDataIxNumeric1(); ok {
+		_spec.AddField(order.FieldDataIxNumeric1, field.TypeFloat64, value)
+	}
+	if _u.mutation.DataIxNumeric1Cleared() {
+		_spec.ClearField(order.FieldDataIxNumeric1, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.DataIxNumeric2(); ok {
+		_spec.SetField(order.FieldDataIxNumeric2, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedDataIxNumeric2(); ok {
+		_spec.AddField(order.FieldDataIxNumeric2, field.TypeFloat64, value)
+	}
+	if _u.mutation.DataIxNumeric2Cleared() {
+		_spec.ClearField(order.FieldDataIxNumeric2, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.DataIxBool1(); ok {
+		_spec.SetField(order.FieldDataIxBool1, field.TypeBool, value)
+	}
+	if _u.mutation.DataIxBool1Cleared() {
+		_spec.ClearField(order.FieldDataIxBool1, field.TypeBool)
+	}
+	if value, ok := _u.mutation.DataIxBool2(); ok {
+		_spec.SetField(order.FieldDataIxBool2, field.TypeBool, value)
+	}
+	if _u.mutation.DataIxBool2Cleared() {
+		_spec.ClearField(order.FieldDataIxBool2, field.TypeBool)
+	}
+	if value, ok := _u.mutation.DataIxList1(); ok {
+		_spec.SetField(order.FieldDataIxList1, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedDataIxList1(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, order.FieldDataIxList1, value)
+		})
+	}
+	if _u.mutation.DataIxList1Cleared() {
+		_spec.ClearField(order.FieldDataIxList1, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.DataIxList2(); ok {
+		_spec.SetField(order.FieldDataIxList2, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedDataIxList2(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, order.FieldDataIxList2, value)
+		})
+	}
+	if _u.mutation.DataIxList2Cleared() {
+		_spec.ClearField(order.FieldDataIxList2, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(order.FieldUpdatedAt, field.TypeTime, value)

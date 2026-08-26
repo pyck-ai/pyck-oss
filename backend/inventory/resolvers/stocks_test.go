@@ -248,7 +248,7 @@ func stockTestCreateCollectionMovement(
 	t.Helper()
 
 	handler := testHandler
-	qty := float64(quantity)
+	qty := int64(quantity)
 
 	// Parse UUIDs from strings
 	parsedItemID, err := uuid.Parse(itemID)
@@ -734,7 +734,7 @@ func buildItemCollectionInput(
 	parsedItemID uuid.UUID,
 	handler string,
 ) *model.CollectionMovementArrayInput {
-	qty := float64(entry.Qty)
+	qty := int64(entry.Qty)
 	return &model.CollectionMovementArrayInput{
 		Handler:  handler,
 		FromID:   entryFromID,
@@ -1020,6 +1020,11 @@ func getStockAtTime(
 // latestCreatedAt returns the maximum created_at across the latest stock
 // records for the given item in the specified repositories. This provides a
 // deterministic time boundary without relying on time.Sleep.
+//
+// Callers advance the boundary by one microsecond — the resolution of the
+// timestamp(6) created_at column — so it sits strictly after every row of the
+// phase just finished while leaving the smallest possible window for the next
+// phase's rows (written after another API round-trip) to land inside it.
 func latestCreatedAt(
 	t *testing.T,
 	ctx context.Context,
@@ -1049,7 +1054,7 @@ func latestCreatedAt(
 // =============================================================================
 
 // TestStockPlausibility runs table-driven tests for stock movements with plausibility checks
-// against the SQLite-backed Go orchestration path.
+// via the Go orchestration path (Postgres-backed, shared container).
 //
 //nolint:tparallel // Subtests execute sequentially to maintain order of movements and validations
 func TestStockPlausibility(t *testing.T) {
@@ -1058,24 +1063,19 @@ func TestStockPlausibility(t *testing.T) {
 }
 
 // TestStockPlausibilityPostgres runs the SAME table-driven stock scenarios against
-// an embedded PostgreSQL instance with all SQL migrations applied (including
+// a real PostgreSQL instance with all SQL migrations applied (including
 // inventory.create_item_movement_proc). On this path, CreateInventoryItemMovement
 // dispatches through the proc rather than the Go orchestration body, which lets us
-// observe SQLite ↔ Postgres behavioral differences and surface proc-only bugs.
+// surface proc-only bugs alongside the standard resolver path.
 //
 //nolint:tparallel // Subtests execute sequentially to maintain order of movements and validations
 func TestStockPlausibilityPostgres(t *testing.T) {
 	t.Parallel()
-	pg := startEmbeddedPostgres(t)
-	runStockPlausibilityScenarios(t, func(t *testing.T) *testEnv {
-		t.Helper()
-		return setupPostgres(t, pg)
-	})
+	runStockPlausibilityScenarios(t, setup)
 }
 
 // runStockPlausibilityScenarios is the shared body for the two TestStockPlausibility*
-// variants. setupFn is either the SQLite-backed `setup` or the embedded-Postgres
-// `setupPostgres` adapter.
+// variants. setupFn is called per subtest to obtain an isolated testEnv.
 func runStockPlausibilityScenarios(t *testing.T, setupFn func(*testing.T) *testEnv) {
 	t.Helper()
 
@@ -1312,11 +1312,11 @@ func TestStockAtTimeWithCollections(t *testing.T) {
 
 	// Capture the max created_at across all affected repos as our time boundary.
 	// Using actual DB timestamps avoids flaky time.Sleep-based approaches.
-	timeAfterSeed := latestCreatedAt(t, ctx, apiClient, itemID, shelfID, virtualID).Add(time.Nanosecond)
+	timeAfterSeed := latestCreatedAt(t, ctx, apiClient, itemID, shelfID, virtualID).Add(time.Microsecond)
 
 	// First collection: move 30 items shelf → zone-a, execute.
 	handler := testHandler
-	qty := float64(30)
+	qty := int64(30)
 	parsedItemID, _ := uuid.Parse(itemID)
 	parsedShelfID, _ := uuid.Parse(shelfID)
 	parsedZoneAID, _ := uuid.Parse(zoneAID)
@@ -1335,10 +1335,10 @@ func TestStockAtTimeWithCollections(t *testing.T) {
 
 	// Capture the max created_at across all affected repos after first collection.
 	// A single execute may create stock records at slightly different times.
-	timeAfterFirst := latestCreatedAt(t, ctx, apiClient, itemID, shelfID, zoneAID).Add(time.Nanosecond)
+	timeAfterFirst := latestCreatedAt(t, ctx, apiClient, itemID, shelfID, zoneAID).Add(time.Microsecond)
 
 	// Second collection: move 20 more items shelf → zone-a, execute.
-	qty2 := float64(20)
+	qty2 := int64(20)
 	createResult2, err := apiClient.CreateInventoryCollectionMovement(ctx, api.CreateInventoryCollectionMovementArgs{
 		Input: model.CreateCollectionMovementInput{
 			Handler: &handler,
@@ -1414,7 +1414,7 @@ func TestCollectionMultipleItems(t *testing.T) {
 
 	// Create collection with both items moving to outbound.
 	handler := testHandler
-	qty1, qty2 := float64(25), float64(15)
+	qty1, qty2 := int64(25), int64(15)
 	parsedItem1ID, _ := uuid.Parse(item1ID)
 	parsedItem2ID, _ := uuid.Parse(item2ID)
 	parsedShelfID, _ := uuid.Parse(shelfID)
@@ -1508,14 +1508,14 @@ func TestStockAtTimeAfterDeletion(t *testing.T) {
 	stockTestExecuteItemMovement(t, ctx, apiClient, seedMvID)
 
 	// Record time T1 (after seed)
-	timeT1 := latestCreatedAt(t, ctx, apiClient, itemID, shelfID).Add(time.Nanosecond)
+	timeT1 := latestCreatedAt(t, ctx, apiClient, itemID, shelfID).Add(time.Microsecond)
 
 	// Step 2: Create and execute movement shelf→outbound (30 items)
 	mv1ID := stockTestCreateItemMovement(t, ctx, apiClient, itemID, shelfID, outboundID, 30)
 	stockTestExecuteItemMovement(t, ctx, apiClient, mv1ID)
 
 	// Record time T2 (after first movement executed)
-	timeT2 := latestCreatedAt(t, ctx, apiClient, itemID, shelfID, outboundID).Add(time.Nanosecond)
+	timeT2 := latestCreatedAt(t, ctx, apiClient, itemID, shelfID, outboundID).Add(time.Microsecond)
 
 	// Step 3: Create another movement shelf→outbound (20 items), DON'T execute, then delete it
 	mv2ID := stockTestCreateItemMovement(t, ctx, apiClient, itemID, shelfID, outboundID, 20)
@@ -1579,8 +1579,8 @@ func countStocksAtTime(
 // latest before the cutoff — even when multiple stock records exist before and
 // after the cutoff.
 //
-// This validates that latestStockIDs correctly passes CreatedAtLT into the
-// DistinctOnExists NOT EXISTS subquery: the subquery must only consider rows
+// This validates that the time resolver's latestStockPredicate scopes its
+// NOT EXISTS subquery by the cutoff: the subquery must only consider rows
 // before the cutoff when checking for newer records, so that post-cutoff rows
 // do not invalidate valid "latest before cutoff" candidates.
 //
@@ -1601,13 +1601,13 @@ func TestStockAtTimeReturnsLatestBeforeCutoffOnly(t *testing.T) {
 	mv1 := stockTestCreateItemMovement(t, ctx, apiClient, itemID, virtualID, shelfID, 100)
 	stockTestExecuteItemMovement(t, ctx, apiClient, mv1)
 
-	timeAfterS1 := latestCreatedAt(t, ctx, apiClient, itemID, shelfID, virtualID).Add(time.Nanosecond)
+	timeAfterS1 := latestCreatedAt(t, ctx, apiClient, itemID, shelfID, virtualID).Add(time.Microsecond)
 
 	// ── Movement 2: move 30 from shelf → virtual (stock state S2: qty=70) ──
 	mv2 := stockTestCreateItemMovement(t, ctx, apiClient, itemID, shelfID, virtualID, 30)
 	stockTestExecuteItemMovement(t, ctx, apiClient, mv2)
 
-	timeAfterS2 := latestCreatedAt(t, ctx, apiClient, itemID, shelfID, virtualID).Add(time.Nanosecond)
+	timeAfterS2 := latestCreatedAt(t, ctx, apiClient, itemID, shelfID, virtualID).Add(time.Microsecond)
 
 	// ── Movement 3: move 20 more from shelf → virtual (stock state S3: qty=50) ──
 	mv3 := stockTestCreateItemMovement(t, ctx, apiClient, itemID, shelfID, virtualID, 20)

@@ -10,10 +10,31 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
+	"github.com/google/uuid"
+	"github.com/pyck-ai/pyck/backend/common/sqljsonpath"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
 	"github.com/pyck-ai/pyck/backend/inventory/model"
 )
+
+// CurrentStock is the resolver for the currentStock field.
+//
+// Costs one query per repository: gqltx serializes field resolvers, so the
+// loader can only dedupe repeated pairs, never batch siblings (see loaders.go).
+// Fanning over many repositories belongs in the currentStocks query.
+func (r *repositoryResolver) CurrentStock(ctx context.Context, obj *gen.Repository, itemID uuid.UUID) (*gen.Stock, error) {
+	key := stockKey{RepositoryID: obj.ID, ItemID: itemID}
+
+	if l := loadersForContext(ctx); l != nil {
+		return l.CurrentStock.Load(ctx, key)
+	}
+
+	byKey, err := loadCurrentStockRows(ctx, r.client, []stockKey{key})
+	if err != nil {
+		return nil, err
+	}
+	return byKey[key], nil
+}
 
 // Data is the resolver for the Data field.
 func (r *repositoryWhereInputResolver) Data(ctx context.Context, obj *gen.RepositoryWhereInput, data []string) error {
@@ -22,8 +43,12 @@ func (r *repositoryWhereInputResolver) Data(ctx context.Context, obj *gen.Reposi
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(repository.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueEQ(repository.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil
@@ -36,8 +61,12 @@ func (r *repositoryWhereInputResolver) DataHasKey(ctx context.Context, obj *gen.
 	}
 
 	if *data != "" {
+		jsonPath, err := sqljsonpath.DotPath(*data)
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(repository.FieldData, sqljson.DotPath(*data)))
+			s.Where(sqljson.HasKey(repository.FieldData, jsonPath))
 		})
 	}
 	return nil
@@ -54,8 +83,12 @@ func (r *repositoryWhereInputResolver) DataIn(ctx context.Context, obj *gen.Repo
 		for _, v := range data[1:] {
 			args = append(args, v)
 		}
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(repository.FieldData, args, sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueIn(repository.FieldData, args, jsonPath))
 		})
 	}
 	return nil
@@ -68,8 +101,12 @@ func (r *repositoryWhereInputResolver) DataContains(ctx context.Context, obj *ge
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(repository.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueContains(repository.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil
@@ -82,8 +119,12 @@ func (r *repositoryWhereInputResolver) DataContainsBool(ctx context.Context, obj
 	}
 
 	if data.Key != nil && data.Value != nil {
+		jsonPath, err := sqljsonpath.DotPath(*data.Key)
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(repository.FieldData, *data.Value, sqljson.DotPath(*data.Key)))
+			s.Where(sqljson.ValueContains(repository.FieldData, *data.Value, jsonPath))
 		})
 	}
 	return nil

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"io"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -47,14 +46,6 @@ func TestDeltaClassString(t *testing.T) {
 	assert.Equal(t, "LEGAL-FLAGGED", DeltaLegalFlagged.String())
 	assert.Equal(t, "ANOMALY", DeltaAnomaly.String())
 	assert.Equal(t, "CLOBBER", DeltaClobber.String())
-}
-
-// ── nextVersion ───────────────────────────────────────────────────────────────
-
-func TestNextVersion(t *testing.T) {
-	assert.Equal(t, int64(1), nextVersion(0))
-	assert.Equal(t, int64(43), nextVersion(42))
-	assert.Equal(t, int64(101), nextVersion(100))
 }
 
 // ── parseDuration ────────────────────────────────────────────────────────────
@@ -117,21 +108,38 @@ func TestResolveDBURL_AllEmpty(t *testing.T) {
 // ── checkQuiescence ──────────────────────────────────────────────────────────
 
 func TestCheckQuiescence_Stable(t *testing.T) {
-	ts := time.Now()
-	fn := func(_ context.Context) (time.Time, error) { return ts, nil }
+	mark := quiescenceMark{Rows: 42, VersionS: 108}
+	fn := func(_ context.Context) (quiescenceMark, error) { return mark, nil }
 	err := checkQuiescence(context.Background(), fn, 0, io.Discard)
 	require.NoError(t, err)
 }
 
-func TestCheckQuiescence_Moving(t *testing.T) {
+// A straggler pod with a lagging clock appends a row whose created_at is below
+// the current max — the reason the guard fingerprints the append-only counters
+// instead. Row count and version sum both move, so the write is caught.
+func TestCheckQuiescence_MovingWithoutAdvancingClock(t *testing.T) {
 	n := 0
-	t0 := time.Now()
-	fn := func(_ context.Context) (time.Time, error) {
+	fn := func(_ context.Context) (quiescenceMark, error) {
 		n++
 		if n == 1 {
-			return t0, nil
+			return quiescenceMark{Rows: 42, VersionS: 108}, nil
 		}
-		return t0.Add(time.Second), nil
+		return quiescenceMark{Rows: 43, VersionS: 111}, nil
+	}
+	err := checkQuiescence(context.Background(), fn, 0, io.Discard)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "concurrent writes")
+}
+
+// A row deleted and reinserted keeps the count level; the version sum still moves.
+func TestCheckQuiescence_MovingVersionSumOnly(t *testing.T) {
+	n := 0
+	fn := func(_ context.Context) (quiescenceMark, error) {
+		n++
+		if n == 1 {
+			return quiescenceMark{Rows: 42, VersionS: 108}, nil
+		}
+		return quiescenceMark{Rows: 42, VersionS: 109}, nil
 	}
 	err := checkQuiescence(context.Background(), fn, 0, io.Discard)
 	require.Error(t, err)
@@ -139,9 +147,8 @@ func TestCheckQuiescence_Moving(t *testing.T) {
 }
 
 func TestCheckQuiescence_ContextCancelled(t *testing.T) {
-	ts := time.Now()
-	fn := func(ctx context.Context) (time.Time, error) {
-		return ts, ctx.Err()
+	fn := func(ctx context.Context) (quiescenceMark, error) {
+		return quiescenceMark{}, ctx.Err()
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -174,7 +181,7 @@ func TestNewUUID_Unique(t *testing.T) {
 
 func TestRenderFixPlan_NoRows(t *testing.T) {
 	var sb strings.Builder
-	renderFixPlan(&sb, nil)
+	renderFixPlan(&sb, "inventory", nil)
 	assert.Contains(t, sb.String(), "FIX PLAN")
 }
 
@@ -190,7 +197,7 @@ func TestRenderFixPlan_WithRows(t *testing.T) {
 		},
 	}
 	var sb strings.Builder
-	renderFixPlan(&sb, rows)
+	renderFixPlan(&sb, "inventory", rows)
 	out := sb.String()
 	assert.Contains(t, out, "r1")
 	assert.Contains(t, out, "i2")
@@ -324,16 +331,44 @@ func TestPrintAnalysisJSON(t *testing.T) {
 	assert.Contains(t, out, "[]")
 }
 
-// ── main flag smoke test ──────────────────────────────────────────────────────
+// ── readyToCorrect ────────────────────────────────────────────────────────────
 
-func TestMain_UnknownSubcommand(t *testing.T) {
-	// Verify unknown subcommands exit cleanly (tested via os.Exit stub approach:
-	// we just confirm the dispatch table handles known strings).
-	knownSubs := []string{"analyze", "fix", "workers"}
-	for _, s := range knownSubs {
-		assert.NotEmpty(t, s) // dispatch coverage assertion
+// A parent whose child is also violated must wait: its expected quantity is the
+// sum of its children's CURRENT quantities, so it can only be priced once the
+// child carries its corrected value.
+func TestReadyToCorrect_ParentWaitsForViolatingChild(t *testing.T) {
+	const item = "item-1"
+	parents := map[string]string{"child": "parent", "parent": ""}
+	fixable := []RollupViolation{
+		{RepoID: "parent", ItemID: item},
+		{RepoID: "child", ItemID: item},
 	}
+
+	ready := readyToCorrect(fixable, parents)
+	require.Len(t, ready, 1)
+	assert.Equal(t, "child", ready[0].RepoID)
 }
 
-// Ensure the test binary itself builds (compile-time check via _ usage).
-var _ = os.DevNull
+// Violations in different items never block each other: the invariant is stated
+// per (repository, item).
+func TestReadyToCorrect_OtherItemDoesNotBlock(t *testing.T) {
+	parents := map[string]string{"child": "parent", "parent": ""}
+	fixable := []RollupViolation{
+		{RepoID: "parent", ItemID: "item-1"},
+		{RepoID: "child", ItemID: "item-2"},
+	}
+
+	ready := readyToCorrect(fixable, parents)
+	assert.Len(t, ready, 2)
+}
+
+func TestReadyToCorrect_IndependentPairsAllReady(t *testing.T) {
+	parents := map[string]string{"a": "", "b": ""}
+	fixable := []RollupViolation{
+		{RepoID: "a", ItemID: "item-1"},
+		{RepoID: "b", ItemID: "item-1"},
+	}
+
+	ready := readyToCorrect(fixable, parents)
+	assert.Len(t, ready, 2)
+}

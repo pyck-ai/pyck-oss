@@ -20,6 +20,8 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/feature"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
+
+	"github.com/pyck-ai/pyck/backend/workflow/services"
 )
 
 // mockEncodedValue implements converter.EncodedValue for testing QueryWorkflow responses.
@@ -46,6 +48,9 @@ var (
 		registerWorkflow(input: {
 			name: "{{.Name}}",
 			taskQueue: "{{.TaskQueue}}",
+			{{- if .WorkerID }}
+			workerID: "{{.WorkerID}}",
+			{{- end }}
 			{{- if .DataTypeID }}
 			dataTypeID: "{{.DataTypeID}}",
 			{{- end }}
@@ -377,7 +382,7 @@ func TestWorkflowRegister(t *testing.T) {
 			"DataTypeID": itemDataTypeID,
 			"DataName":   "testWorkflow2",
 			"DataWeight": -50,
-		}, "jsonschema:")
+		}, "jsonschema validation failed")
 
 		te.assertNoEvents(ctx)
 	})
@@ -432,9 +437,9 @@ func TestWorkflowRegister_Signals(t *testing.T) {
 
 		assert.Equal(t, wfID, data2.RegisterWorkflow.ID)
 
-		// 1 workflow update + 1 signal create (new key) + 2 signal deletes (old key + leftover)
+		// Workflow data unchanged -> no workflow event. 1 signal create (new key)
+		// + 2 signal deletes (old key + leftover).
 		te.assertEventCounts(ctx, map[string]int{
-			"workflow":       1,
 			"workflowsignal": 3,
 		})
 	})
@@ -472,11 +477,32 @@ func TestWorkflowRegister_Signals(t *testing.T) {
 			"DataWeight": 0,
 		})
 
-		// 1 workflow update + 2 signal deletes (leftovers)
+		// Workflow data unchanged -> no workflow event. 2 signal deletes (leftovers).
 		te.assertEventCounts(ctx, map[string]int{
-			"workflow":       1,
 			"workflowsignal": 2,
 		})
+	})
+
+	t.Run("changed data still emits a workflow event", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		base := map[string]any{
+			"Name":       "wf_data_change",
+			"TaskQueue":  "test-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "testWorkflow",
+			"DataWeight": 0,
+		}
+		execOK[registerWorkflowData](te, ctx, registerWorkflow, base)
+		te.clearEvents(ctx)
+
+		base["DataWeight"] = 5 // real data change
+		execOK[registerWorkflowData](te, ctx, registerWorkflow, base)
+
+		te.assertEventCounts(ctx, map[string]int{"workflow": 1})
 	})
 
 	t.Run("tenant match success with CRUD pattern", func(t *testing.T) {
@@ -636,6 +662,176 @@ func TestWorkflowRegister_Signals(t *testing.T) {
 		require.Contains(t, text, "no access to tenant id")
 		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
+}
+
+// =============================================================================
+// WORKER-SCOPED SUBSCRIPTION TESTS
+// =============================================================================
+
+func TestWorkflowRegister_WorkerScoped(t *testing.T) {
+	t.Parallel()
+
+	register := func(te *testEnv, ctx context.Context, worker string) uuid.UUID {
+		vars := map[string]any{
+			"Name":       "wf_worker_scoped",
+			"TaskQueue":  "test-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "testWorkflow",
+			"DataWeight": 0,
+			"Signals": []SignalInput{
+				{NATSTopic: natsSignalTopicAttrOp(t, &tenantA, "created"), TemporalSignal: "OrderCreated", TemporalSignalType: "intermediate", FilterRule: "true"},
+			},
+		}
+		if worker != "" {
+			vars["WorkerID"] = worker
+		}
+		return execOK[registerWorkflowData](te, ctx, registerWorkflow, vars).RegisterWorkflow.ID
+	}
+
+	t.Run("concurrent workers keep independent subscriptions", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		id1 := register(te, ctx, "worker-a")
+		id2 := register(te, ctx, "worker-b")
+		assert.Equal(t, id1, id2, "workflow identity is shared across workers")
+
+		byWorker := map[string]int{}
+		for _, s := range te.Ent.WorkflowSignal.Query().AllX(ctx) {
+			require.NotNil(t, s.WorkerID, "worker subscription must carry an owner")
+			byWorker[*s.WorkerID]++
+			require.NotNil(t, s.ExpiresAt, "worker subscription must carry an expiry")
+			assert.True(t, s.ExpiresAt.After(time.Now()), "expiry must be in the future")
+		}
+		// Neither worker deleted the other's row: one subscription each.
+		assert.Equal(t, 1, byWorker["worker-a"])
+		assert.Equal(t, 1, byWorker["worker-b"])
+	})
+
+	t.Run("rejects an over-long worker id", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		execErr(te, ctx, registerWorkflow, map[string]any{
+			"Name":       "wf_worker_scoped",
+			"TaskQueue":  "test-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "testWorkflow",
+			"DataWeight": 0,
+			"WorkerID":   strings.Repeat("w", 256),
+			"Signals": []SignalInput{
+				{NATSTopic: natsSignalTopicAttrOp(t, &tenantA, "created"), TemporalSignal: "OrderCreated", TemporalSignalType: "intermediate", FilterRule: "true"},
+			},
+		}, "invalid worker id")
+
+		assert.Empty(t, te.Ent.WorkflowSignal.Query().AllX(ctx), "rejected registration must not persist a subscription")
+	})
+
+	t.Run("accepts a worker id at the limit", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		register(te, ctx, strings.Repeat("w", 255))
+
+		sigs := te.Ent.WorkflowSignal.Query().AllX(ctx)
+		require.Len(t, sigs, 1)
+		require.NotNil(t, sigs[0].WorkerID)
+		assert.Len(t, *sigs[0].WorkerID, 255)
+	})
+
+	t.Run("legacy registration has no owner or expiry", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		register(te, ctx, "")
+
+		sigs := te.Ent.WorkflowSignal.Query().AllX(ctx)
+		require.Len(t, sigs, 1)
+		assert.Nil(t, sigs[0].WorkerID)
+		assert.Nil(t, sigs[0].ExpiresAt, "legacy subscription never expires")
+	})
+
+	t.Run("re-registration refreshes expiry without duplicating", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		register(te, ctx, "worker-a")
+		first := te.Ent.WorkflowSignal.Query().AllX(ctx)
+		require.Len(t, first, 1)
+		require.NotNil(t, first[0].ExpiresAt)
+
+		register(te, ctx, "worker-a")
+		second := te.Ent.WorkflowSignal.Query().AllX(ctx)
+		require.Len(t, second, 1, "heartbeat must not create a duplicate row")
+		require.NotNil(t, second[0].ExpiresAt)
+		assert.False(t, second[0].ExpiresAt.Before(*first[0].ExpiresAt), "expiry must be refreshed")
+	})
+}
+
+func TestSubscriptionJanitor_Sweep(t *testing.T) {
+	t.Parallel()
+	te := setup(t)
+	defer te.Close(t)
+	ctx := te.ctx(userA)
+
+	topic := natsSignalTopicAttrOp(t, &tenantA, "created")
+	reg := func(worker string) {
+		vars := map[string]any{
+			"Name":       "wf_janitor",
+			"TaskQueue":  "test-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "testWorkflow",
+			"DataWeight": 0,
+			"Signals": []SignalInput{
+				{NATSTopic: topic, TemporalSignal: "OrderCreated", TemporalSignalType: "intermediate", FilterRule: "true"},
+			},
+		}
+		if worker != "" {
+			vars["WorkerID"] = worker
+		}
+		execOK[registerWorkflowData](te, ctx, registerWorkflow, vars)
+	}
+	reg("dead-worker")
+	reg("live-worker")
+	reg("") // legacy, never expires
+
+	// Lapse the dead worker's subscription.
+	var deadID uuid.UUID
+	for _, s := range te.Ent.WorkflowSignal.Query().AllX(ctx) {
+		if s.WorkerID != nil && *s.WorkerID == "dead-worker" {
+			deadID = s.ID
+		}
+	}
+	require.NotEqual(t, uuid.Nil, deadID, "dead-worker subscription not found")
+
+	supCtx := feature.Context(ctx, feature.FEATURE_SUPPRESS_EVENTS)
+	te.Ent.WorkflowSignal.UpdateOneID(deadID).SetExpiresAt(time.Now().UTC().Add(-time.Hour)).ExecX(supCtx)
+
+	n, err := services.NewSubscriptionJanitor(te.Ent, time.Minute).Sweep(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 1, n, "only the expired subscription is reaped")
+
+	remaining := map[string]bool{}
+	for _, s := range te.Ent.WorkflowSignal.Query().AllX(ctx) {
+		if s.WorkerID == nil {
+			remaining["legacy"] = true
+		} else {
+			remaining[*s.WorkerID] = true
+		}
+	}
+	assert.False(t, remaining["dead-worker"], "expired subscription must be reaped")
+	assert.True(t, remaining["live-worker"], "live subscription must survive")
+	assert.True(t, remaining["legacy"], "legacy subscription must survive")
 }
 
 // =============================================================================

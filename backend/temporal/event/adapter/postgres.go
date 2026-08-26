@@ -18,6 +18,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/pyck-ai/pyck/backend/common/log"
+	"github.com/pyck-ai/pyck/backend/common/services/temporal"
 	"github.com/pyck-ai/pyck/backend/common/workflow"
 	"github.com/pyck-ai/pyck/backend/temporal/config"
 	"github.com/pyck-ai/pyck/backend/temporal/event"
@@ -85,13 +86,24 @@ type PostgresAdapter struct {
 	ChannelName string
 	Sqlconfig   *temporalconfig.SQL
 
-	stopCh        chan struct{}
-	wg            sync.WaitGroup
+	stopCh chan struct{}
+	wg     sync.WaitGroup
+
+	// temporalAddr is where Start dials the Temporal frontend of the server
+	// this adapter runs inside; clientFactory is built there, once the
+	// frontend is reachable, and released in Stop.
+	temporalAddr  string
 	clientFactory workflow.ClientFactory
 
 	// connection retry configuration
 	connectTimeout time.Duration
 	retryInterval  time.Duration
+
+	// Temporal client timeouts: dialTimeout bounds each frontend dial attempt
+	// in Start's retry loop, clientCreationTimeout bounds the factory's lazy
+	// per-namespace setup.
+	dialTimeout           time.Duration
+	clientCreationTimeout time.Duration
 }
 
 // WorkflowEventPayload represents the JSON payload sent via NOTIFY
@@ -289,13 +301,10 @@ func NewPostgresAdapter(
 		retryInterval:  1 * time.Second,
 	}
 
-	temporalAddr := TemporalDefaultAddr
+	a.temporalAddr = TemporalDefaultAddr
 	if v := os.Getenv("TEMPORAL_ADDRESS"); v != "" {
-		temporalAddr = v
+		a.temporalAddr = v
 	}
-
-	// connect to temporal api for workflowservice
-	a.clientFactory = workflow.NewDefaultClientFactory(temporalAddr, nil)
 
 	if a.ChannelName == "" {
 		return nil, fmt.Errorf("%w: missing channel name", ErrInvalidConfig)
@@ -304,6 +313,8 @@ func NewPostgresAdapter(
 	// override defaults from loaded environment config if present
 	a.connectTimeout = config.Config.EventAdapterPostgresConnectTimeout
 	a.retryInterval = config.Config.EventAdapterPostgresRetryInterval
+	a.dialTimeout = config.Config.EventAdapterTemporalDialTimeout
+	a.clientCreationTimeout = config.Config.EventAdapterTemporalClientCreationTimeout
 
 	return a, nil
 }
@@ -430,6 +441,22 @@ func (a *PostgresAdapter) Start(ctx context.Context) error {
 			return fmt.Errorf("%w after %s", ErrConnectionTimeout, a.connectTimeout)
 		}
 
+		// Dial the Temporal frontend and build the client factory once. The
+		// adapter runs inside the Temporal server process and starts right
+		// after the frontend, so early attempts may find it not serving yet —
+		// retry like the database steps below. ctx is the server lifecycle
+		// context: the factory and its connection live until Stop, not until
+		// any request.
+		if a.clientFactory == nil {
+			temporalClient, err := temporal.NewTemporalClient(ctx, a.temporalAddr, a.dialTimeout)
+			if err != nil {
+				logger.Info().Err(err).Msg("temporal frontend not ready yet, retrying")
+				time.Sleep(a.retryInterval)
+				continue
+			}
+			a.clientFactory = workflow.NewDefaultClientFactory(ctx, temporalClient, a.temporalAddr, a.clientCreationTimeout)
+		}
+
 		// Build database URL
 		databaseURL, err := a.BuildDatabaseURL()
 		if err != nil {
@@ -518,6 +545,11 @@ func (a *PostgresAdapter) Stop() error {
 		if err := a.DB.Close(); err != nil {
 			return fmt.Errorf("failed to close database: %w", err)
 		}
+	}
+
+	// Release the Temporal clients and their shared connection
+	if a.clientFactory != nil {
+		a.clientFactory.Close()
 	}
 
 	return nil

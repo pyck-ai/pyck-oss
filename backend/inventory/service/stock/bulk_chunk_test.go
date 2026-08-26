@@ -5,18 +5,13 @@ import (
 	"context"
 	"testing"
 
-	"entgo.io/ent/dialect"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/mattn/go-sqlite3"
-
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/request"
-	testresolver "github.com/pyck-ai/pyck/backend/common/test/resolver"
 
 	ent "github.com/pyck-ai/pyck/backend/inventory/ent/gen"
-	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/enttest"
 	entprivacy "github.com/pyck-ai/pyck/backend/inventory/ent/gen/privacy"
 	entrepository "github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
 	entstock "github.com/pyck-ai/pyck/backend/inventory/ent/gen/stock"
@@ -127,8 +122,7 @@ func TestStockBulkChunkBounds_CoversInputExactlyOnce(t *testing.T) {
 func TestStockCreateBulkChunked_NoOpForEmptyInput(t *testing.T) {
 	t.Parallel()
 
-	client := enttest.Open(t, dialect.SQLite, testresolver.DatabaseURI(t))
-	t.Cleanup(func() { _ = client.Close() })
+	client := openPGEntClient(t)
 
 	tenantID := uuid.New()
 	user := &authn.User{ID: uuid.New(), TenantID: tenantID}
@@ -148,11 +142,11 @@ func TestStockCreateBulkChunked_NoOpForEmptyInput(t *testing.T) {
 }
 
 // TestStockCreateBulkChunked_WritesEveryRowAcrossChunkBoundaries
-// exercises the full save path against a live ent client for input
-// sizes well under SQLite's per-statement variable ceiling (~32K
-// parameters in the default build of go-sqlite3 — substantially below
-// PostgreSQL's 65,535) so the wrapper can be exercised without dialect
-// crosstalk noise.
+// exercises the full save path against a live Postgres client for input
+// sizes that keep each test run fast. The chunking math is pinned
+// exhaustively by TestStockBulkChunkBounds_PartitionsCorrectly above;
+// this test is the integration cover, proving that the save loop
+// iterates over every range bound the math test returns.
 //
 // The contract pinned here: feeding the wrapper N rows must persist
 // exactly N rows in the database. The chunking math (i.e. how N is
@@ -163,7 +157,7 @@ func TestStockCreateBulkChunked_NoOpForEmptyInput(t *testing.T) {
 //
 // Production-boundary row counts (>4,500) deliberately are NOT
 // exercised here: a single Ent CreateBulk of 4,500 stocks emits ~50K
-// bound parameters which is already past SQLite's limit. The
+// bound parameters which is already past the Postgres limit. The
 // PostgreSQL-backed regression test
 // TestRebuildInventoryStock_LargeClosureChunksOverWireLimit (in
 // backend/inventory/resolvers) covers the production constant directly.
@@ -171,12 +165,11 @@ func TestStockCreateBulkChunked_NoOpForEmptyInput(t *testing.T) {
 // Each subtest uses a fresh tenant + repo + item so they remain
 // isolated even when run sequentially against the same client.
 //
-//nolint:tparallel // SQLite serializes writes; running sub-cases concurrently against one file would only add file-lock queueing.
+//nolint:tparallel // subtests share one client; each is isolated by tenant, not by parallel DB connections.
 func TestStockCreateBulkChunked_WritesEveryRowAcrossChunkBoundaries(t *testing.T) {
 	t.Parallel()
 
-	client := enttest.Open(t, dialect.SQLite, testresolver.DatabaseURI(t))
-	t.Cleanup(func() { _ = client.Close() })
+	client := openPGEntClient(t)
 
 	cases := []struct {
 		name string
@@ -184,15 +177,14 @@ func TestStockCreateBulkChunked_WritesEveryRowAcrossChunkBoundaries(t *testing.T
 	}{
 		{"single row", 1},
 		{"small batch well under limit", 10},
-		{"moderate batch under SQLite ceiling", 1000},
+		{"moderate batch", 1000},
 	}
 
 	//nolint:paralleltest // see tparallel rationale above
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Subtests are NOT run in parallel: SQLite serializes writes,
-			// so concurrent sub-cases against the same client would just
-			// queue on the file lock and produce confusing timings.
+			// Subtests share one client (isolated by tenant); keep them sequential
+			// to avoid connection-pool contention noise in timing-sensitive CI.
 
 			tenantID := uuid.New()
 			user := &authn.User{ID: uuid.New(), TenantID: tenantID}

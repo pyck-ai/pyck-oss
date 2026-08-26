@@ -41,6 +41,11 @@ type (
 		Stream      string
 		Topics      []string
 		ServiceName string
+		// OnUpdate, when set, is called after a create/update event has been
+		// applied to the cache. It runs on the consumer goroutine, so an
+		// implementation that does real work must hand it off. Optional: a
+		// service that only reads schemas leaves it nil.
+		OnUpdate func(dt DataType)
 	}
 
 	// DataTypesCache is an in-memory cache of data type definitions fetched from
@@ -50,6 +55,7 @@ type (
 		serviceName string
 		memStore    *memkv.InMemoryKVStore
 		consumer    jetstream.Consumer
+		onUpdate    func(dt DataType)
 	}
 
 	// DataType represents a cached data type definition. It is stored in the
@@ -88,14 +94,21 @@ func NewDataTypesCache(ctx context.Context, js jetstream.JetStream, options Data
 		memStore:    memkv.NewInMemoryKVStore(0),
 		consumer:    cons,
 		serviceName: options.ServiceName,
+		onUpdate:    options.OnUpdate,
 	}, nil
 }
 
-// ListenToEvents listen to the datatype topic and adds, updates and removes datatypes from the local memory cache.
+// ListenToEvents listens to the datatype topics and adds, updates and removes
+// data types from the local memory cache. It blocks until ctx is cancelled,
+// then makes a best-effort, time-bounded attempt to drain the consumer.
+// Nothing waits on this function returning, so that drain is not a
+// guarantee: the actual guarantee that in-flight messages complete comes
+// from the connection-level drain (DrainNatsClient), which drains every
+// subscription before the connection closes.
 func (dc *DataTypesCache) ListenToEvents(ctx context.Context) {
 	logger := log.ForContext(ctx)
 
-	_, err := dc.consumer.Consume(func(msg jetstream.Msg) {
+	cc, err := dc.consumer.Consume(func(msg jetstream.Msg) {
 		msgCtx := events.ContextFromJetstreamMessage(ctx, msg)
 		logger := log.ForContext(msgCtx)
 
@@ -123,6 +136,9 @@ func (dc *DataTypesCache) ListenToEvents(ctx context.Context) {
 			}
 
 			dc.Update(payload.ID, payloadData)
+			if dc.onUpdate != nil {
+				dc.onUpdate(payloadData)
+			}
 		case "delete":
 			dc.Delete(msgCtx, payload.ID)
 		default:
@@ -137,6 +153,21 @@ func (dc *DataTypesCache) ListenToEvents(ctx context.Context) {
 	if err != nil {
 		logger.Err(err).Msg("Error consuming datatypes")
 		return
+	}
+
+	<-ctx.Done()
+	cc.Drain()
+	select {
+	case <-cc.Closed():
+		logger.Info().Msg("datatypes consumer drained")
+	case <-time.After(events.DrainTimeout):
+		// Reached when the connection was closed under us before the
+		// subscription drain finished (nats.go checkDrained bails on
+		// nc.IsClosed() without firing the closed handler), so Closed()
+		// would never fire. Nothing waits on this goroutine, so the only
+		// cost of the timeout expiring is this log line.
+		logger.Warn().Dur("timeout", events.DrainTimeout).
+			Msg("datatypes consumer drain timed out; the connection drain covers any remaining messages")
 	}
 }
 
@@ -198,14 +229,15 @@ func (dc *DataTypesCache) Delete(ctx context.Context, id uuid.UUID) {
 	dc.memStore.Delete(dc.getSlugCacheKey(dt.Slug, &dt.TenantID))
 }
 
-// RetrieveJsonSchemasToCache loads all datatypes schemas over graphql from the management service
-// to the local memory cache.
-func (dc *DataTypesCache) RetrieveJsonSchemasToCache(ctx context.Context) error {
+// RetrieveJsonSchemasToCache loads all datatype schemas from the management
+// service into the local memory cache, and returns them so a caller that needs
+// the whole set at boot does not have to fetch it again.
+func (dc *DataTypesCache) RetrieveJsonSchemasToCache(ctx context.Context) ([]DataType, error) {
 	logger := log.ForContext(ctx)
 
 	dataTypes, err := dc.fetcher.GetDataTypes(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	logger.Info().Msg("Adding schemas to memory...")
@@ -214,7 +246,7 @@ func (dc *DataTypesCache) RetrieveJsonSchemasToCache(ctx context.Context) error 
 	}
 	logger.Info().Int("count", len(dataTypes)).Msg("Schemas successfully added to memory")
 
-	return nil
+	return dataTypes, nil
 }
 
 func (dc *DataTypesCache) getSlugCacheKey(slug string, tenantID *uuid.UUID) string {

@@ -23,6 +23,7 @@ type frontendSettings struct {
 	OtelURL           string          `json:"otelUrl,omitempty"`
 	OtelIngestKey     string          `json:"otelIngestKey,omitempty"`
 	FeedbackEndpoint  string          `json:"feedbackEndpoint,omitempty"`
+	BarcodeApiURL     string          `json:"barcodeApiUrl,omitempty"`
 }
 
 // NewSettingsHandler returns an http.Handler that serves the frontend settings JSON.
@@ -46,6 +47,7 @@ func NewSettingsHandler(cfg core.FrontendConfig) http.Handler {
 		OtelURL:           cfg.OtelURL,
 		OtelIngestKey:     cfg.OtelKey,
 		FeedbackEndpoint:  cfg.FeedbackEndpoint,
+		BarcodeApiURL:     cfg.BarcodeApiURL,
 	}
 
 	body, err := json.Marshal(settings)

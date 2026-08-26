@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"go.temporal.io/api/enums/v1"
-	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
+
+	commonwf "github.com/pyck-ai/pyck/backend/common/workflow"
 )
 
 const (
@@ -205,6 +206,15 @@ func TenantSyncWorkflow(ctx workflow.Context, input TenantSyncWorkflowInput) err
 	var zitadelUsers []User
 	if err := workflow.ExecuteActivity(ctx, "FetchZitadelUsersActivity", FetchZitadelUsersActivityInput{TenantID: input.TenantID}).
 		Get(ctx, &zitadelUsers); err != nil {
+		var appErr *temporal.ApplicationError
+		if errors.As(err, &appErr) && appErr.Type() == ErrZitadelOrgNotFound {
+			// Org was deleted mid-cycle. Skip user sync rather than soft-
+			// deleting every user on a transient race; the tenant-level
+			// reconcile will soft-delete the orphaned tenant on its next pass.
+			logger.Info("tenant org no longer exists; skipping user sync",
+				"tenant_id", input.TenantID)
+			return nil
+		}
 		logger.Error("fetch Zitadel users failed", "err", err)
 		return err
 	}
@@ -229,53 +239,17 @@ func TenantSyncWorkflow(ctx workflow.Context, input TenantSyncWorkflowInput) err
 	return nil
 }
 
-// EnsureOrchestratorSchedule creates/updates the top-level orchestrator Schedule.
+// EnsureOrchestratorSchedule installs the top-level orchestrator
+// schedule. BUFFER_ONE so a single replay queues behind a running
+// orchestrator — both would touch the same per-tenant children.
 func EnsureOrchestratorSchedule(ctx context.Context, temporalClient client.Client, taskQueue string, every time.Duration) error {
-	sc := temporalClient.ScheduleClient()
-
-	spec := client.ScheduleSpec{
-		Intervals: []client.ScheduleIntervalSpec{{Every: every}},
-	}
-
-	const schedID = "sched-zitadel-orchestrator"
-	const wfID = "zitadel-tenant-schedules"
-
-	action := &client.ScheduleWorkflowAction{
-		ID:        wfID,
-		TaskQueue: taskQueue,
-		Workflow:  ZitadelSyncWorkflow,
-		Args:      []any{ZitadelSyncWorkflowInput{Period: every}},
-	}
-
-	overlap := enums.SCHEDULE_OVERLAP_POLICY_BUFFER_ONE
-
-	h := sc.GetHandle(ctx, schedID)
-	if _, err := h.Describe(ctx); err != nil {
-		var notFound *serviceerror.NotFound
-		if errors.As(err, &notFound) {
-			_, err = sc.Create(ctx, client.ScheduleOptions{
-				ID:            schedID,
-				Spec:          spec,
-				Action:        action,
-				Overlap:       overlap,
-				CatchupWindow: every,
-			})
-			return err
-		}
-		return err
-	}
-
-	return h.Update(ctx, client.ScheduleUpdateOptions{
-		DoUpdate: func(inU client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
-			s := inU.Description.Schedule
-			s.Spec = &spec
-			s.Action = action
-			if s.Policy == nil {
-				s.Policy = &client.SchedulePolicies{}
-			}
-			s.Policy.Overlap = overlap
-			s.Policy.CatchupWindow = every
-			return &client.ScheduleUpdate{Schedule: &s}, nil
-		},
+	return commonwf.EnsureSchedule(ctx, temporalClient, commonwf.EnsureScheduleOptions{
+		ScheduleID: "sched-zitadel-orchestrator",
+		WorkflowID: "zitadel-tenant-schedules",
+		TaskQueue:  taskQueue,
+		Workflow:   ZitadelSyncWorkflow,
+		Args:       []any{ZitadelSyncWorkflowInput{Period: every}},
+		Every:      every,
+		Overlap:    enums.SCHEDULE_OVERLAP_POLICY_BUFFER_ONE,
 	})
 }

@@ -16,10 +16,10 @@ func cmdAnalyze(args []string) int {
 	var g globalFlags
 	addGlobal(fs, &g)
 	var (
-		repoID  string
-		itemID  string
-		sinceS  string
-		asJSON  bool
+		repoID string
+		itemID string
+		sinceS string
+		asJSON bool
 	)
 	fs.StringVar(&repoID, "repo", "", "Specific repository UUID for ledger anomaly scan (requires --item)")
 	fs.StringVar(&itemID, "item", "", "Specific item UUID for ledger anomaly scan (requires --repo)")

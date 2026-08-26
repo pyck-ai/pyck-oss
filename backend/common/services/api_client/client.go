@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/brianvoe/gofakeit/v6"
+	"github.com/brianvoe/gofakeit/v7"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/datatype"
 	"github.com/pyck-ai/pyck/backend/common/std"

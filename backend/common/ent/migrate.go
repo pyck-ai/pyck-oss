@@ -21,7 +21,13 @@ type MigrateOptions struct {
 }
 
 func Migrate(ctx context.Context, opts MigrateOptions) {
-	logger := log.ForContext(ctx).With().
+	// Use the default stderr logger rather than log.ForContext(ctx): the
+	// migration generator is a standalone CLI invoked with a bare
+	// context.Background(), for which log.ForContext returns zerolog's
+	// disabled logger — silently swallowing every Fatal. Without this the
+	// generator (and the CI drift check that runs it) fails with no
+	// diagnostic beyond "exit status 1".
+	logger := log.DefaultLogger().With().
 		Str("component", "ent-migrate").
 		Logger()
 

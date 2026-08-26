@@ -250,15 +250,17 @@ func TestRepository_Create(t *testing.T) {
 		defer te.Close(t)
 		ctx := te.ctx(userA)
 
-		// Create first repository with unique name
-		te.newRepository(ctx, userA).
-			Name("unique-name-1").
-			TypeDynamic().
-			DataTypeID(itemDataTypeIDUniqueName).
-			Create()
+		// Create first repository with a unique meta.name under the
+		// unique-name DataType.
+		execOK[createRepositoryData](te, ctx, createRepository, map[string]any{
+			"DataTypeID": itemDataTypeIDUniqueName,
+			"Name":       "unique-name-1",
+			"Type":       "static",
+			"Data":       testRepositoryDataGQL,
+		})
 		te.clearEvents(ctx)
 
-		// Try to create another with same unique field
+		// A second repository carrying the same meta.name must be rejected.
 		execErr(te, ctx, createRepository, map[string]any{
 			"DataTypeID": itemDataTypeIDUniqueName,
 			"Name":       "test-repository-6",

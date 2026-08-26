@@ -2,18 +2,13 @@ package model
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	historypb "go.temporal.io/api/history/v1"
 	workflowpb "go.temporal.io/api/workflow/v1"
 	"go.temporal.io/sdk/converter"
 )
-
-// ErrEventIDOverflow is returned when a Temporal event ID exceeds the GraphQL Int range.
-var ErrEventIDOverflow = errors.New("event ID exceeds GraphQL Int range")
 
 // HistoryFromProto converts Temporal protobuf history events to GraphQL WorkflowEvent types.
 func HistoryFromProto(hist []*historypb.HistoryEvent) ([]*WorkflowEvent, error) {
@@ -33,14 +28,8 @@ func HistoryFromProto(hist []*historypb.HistoryEvent) ([]*WorkflowEvent, error) 
 			return nil, fmt.Errorf("failed to unmarshal event attributes: %w", err)
 		}
 
-		// Bounds check: GraphQL Int is 32-bit signed, Temporal EventId is int64
-		eventID := event.GetEventId()
-		if eventID > math.MaxInt32 || eventID < math.MinInt32 {
-			return nil, fmt.Errorf("%w: %d", ErrEventIDOverflow, eventID)
-		}
-
 		events = append(events, &WorkflowEvent{
-			EventID:   int(eventID),
+			EventID:   event.GetEventId(),
 			EventType: event.GetEventType().String(),
 			EventTime: event.GetEventTime().AsTime().Format(time.RFC3339),
 			Extra:     attribs,
@@ -70,10 +59,10 @@ func (info *WorkflowExecutionInfo) FromProto(
 		},
 		StartTime:            proto.GetStartTime().AsTime().Format(time.RFC3339),
 		Status:               proto.GetStatus().String(),
-		HistoryLength:        int(proto.GetHistoryLength()),
+		HistoryLength:        proto.GetHistoryLength(),
 		TaskQueue:            proto.GetTaskQueue(),
-		StateTransitionCount: int(proto.GetStateTransitionCount()),
-		HistorySizeBytes:     int(proto.GetHistorySizeBytes()),
+		StateTransitionCount: proto.GetStateTransitionCount(),
+		HistorySizeBytes:     proto.GetHistorySizeBytes(),
 		SearchAttributes:     make([]*TemporalMetadata, 0),
 	}
 

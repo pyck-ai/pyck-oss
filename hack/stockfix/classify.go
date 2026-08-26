@@ -7,9 +7,9 @@ type DeltaClass int
 
 const (
 	DeltaLegal        DeltaClass = iota // matches one of the four expected movement patterns
-	DeltaLegalFlagged                    // combined repo-exit + mark-release; legal but flag for manual review
-	DeltaAnomaly                         // does not match any known pattern
-	DeltaClobber                         // anomaly on an item-movement create-mark row (definitive write-path bug)
+	DeltaLegalFlagged                   // combined repo-exit + mark-release; legal but flag for manual review
+	DeltaAnomaly                        // does not match any known pattern
+	DeltaClobber                        // anomaly on an item-movement create-mark row (definitive write-path bug)
 )
 
 func (d DeltaClass) String() string {
@@ -60,6 +60,3 @@ func classifyDelta(dq, dinc, doutg int64, movKind string) DeltaClass {
 		return DeltaAnomaly
 	}
 }
-
-// nextVersion returns maxVersion + 1 for a corrective stock row.
-func nextVersion(maxVersion int64) int64 { return maxVersion + 1 }

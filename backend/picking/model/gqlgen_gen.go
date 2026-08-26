@@ -14,7 +14,7 @@ type CreatePickingOrderItemsInput struct {
 	DataTypeSlug *string        `json:"dataTypeSlug,omitempty"`
 	Data         map[string]any `json:"data,omitempty"`
 	Sku          string         `json:"sku"`
-	Quantity     int            `json:"quantity"`
+	Quantity     int64          `json:"quantity"`
 }
 
 type CreatePickingOrderWithItemsInput struct {
@@ -23,6 +23,28 @@ type CreatePickingOrderWithItemsInput struct {
 	Data         map[string]any                  `json:"data,omitempty"`
 	CustomerID   *uuid.UUID                      `json:"customerID,omitempty"`
 	OrderItems   []*CreatePickingOrderItemsInput `json:"orderItems,omitempty"`
+}
+
+// Filters on an indexed data key. The caller names the index declared in the
+// datatype's x-indices block; the slot column backing it stays server-side.
+type DataIndexWhereInput struct {
+	// Datatype declaring the index, by slug.
+	DataType string `json:"dataType"`
+	// Index name from the datatype's x-indices block, e.g. "serialNumbers".
+	Field     string   `json:"field"`
+	Eq        *string  `json:"eq,omitempty"`
+	Neq       *string  `json:"neq,omitempty"`
+	In        []string `json:"in,omitempty"`
+	NotIn     []string `json:"notIn,omitempty"`
+	Gt        *string  `json:"gt,omitempty"`
+	Gte       *string  `json:"gte,omitempty"`
+	Lt        *string  `json:"lt,omitempty"`
+	Lte       *string  `json:"lte,omitempty"`
+	Contains  *string  `json:"contains,omitempty"`
+	HasPrefix *string  `json:"hasPrefix,omitempty"`
+	HasSuffix *string  `json:"hasSuffix,omitempty"`
+	// Matches rows whose list slot holds any of these values.
+	Overlaps []string `json:"overlaps,omitempty"`
 }
 
 type PickingOrderDeletePayload struct {

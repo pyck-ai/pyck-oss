@@ -72,7 +72,9 @@ func (r *Resolver) PickingOutboundShipmentNotificationWhereInput() exec.PickingO
 	return &pickingOutboundShipmentNotificationWhereInputResolver{r}
 }
 
-type queryResolver struct{ *Resolver }
-type pickingOrderItemWhereInputResolver struct{ *Resolver }
-type pickingOrderWhereInputResolver struct{ *Resolver }
-type pickingOutboundShipmentNotificationWhereInputResolver struct{ *Resolver }
+type (
+	queryResolver                                         struct{ *Resolver }
+	pickingOrderItemWhereInputResolver                    struct{ *Resolver }
+	pickingOrderWhereInputResolver                        struct{ *Resolver }
+	pickingOutboundShipmentNotificationWhereInputResolver struct{ *Resolver }
+)

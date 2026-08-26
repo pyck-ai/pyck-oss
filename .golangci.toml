@@ -56,6 +56,7 @@ enable = [
   "errcheck",                  # Checks for unchecked errors
   "errchkjson",                # Checks JSON encoding types
   "errorlint",                 # Finds error wrapping problems
+  "forbidigo",                 # Forbids identifiers
   "forcetypeassert",           # Finds forced type assertions
   "gosec",                     # Inspects security problems
   "govet",                     # Reports suspicious constructs
@@ -143,7 +144,6 @@ enable = [
   # "dupword",                   # Checks duplicate words
   # "embeddedstructfieldcheck",  # Checks embedded field positioning
   # "exhaustive",                # Checks enum switch exhaustiveness
-  # "forbidigo",                 # Forbids identifiers
   # "gocheckcompilerdirectives", # Validates go compiler directives
   # "gochecknoglobals",          # Checks for global variables
   # "gocritic",                  # Provides performance/style diagnostics
@@ -165,6 +165,27 @@ enable = [
   # "wrapcheck",                 # Checks external error wrapping
   # "wsl_v5",                    # Manages empty lines
 ]
+
+[linters.settings.errcheck]
+# Flag `_ = f()` on error-returning calls: discarding an error silently is
+# never acceptable — handle it or at least log it (see go-standards-agent.md).
+check-blank = true
+
+[linters.settings.forbidigo]
+# Resolve selectors through type information rather than matching raw source
+# text, so an aliased or dot-imported sqljson cannot slip past the pattern.
+analyze-types = true
+
+  # ent's sqljson.DotPath concatenates each path segment into raw SQL wrapped
+  # in single quotes without escaping it, so a client-supplied path containing
+  # a quote breaks out of the literal and injects SQL (#1382). Reaching it only
+  # through backend/common/sqljsonpath.DotPath — which validates first and
+  # returns an error — makes that impossible to get wrong by forgetting a
+  # guard, instead of merely conventional.
+  [[linters.settings.forbidigo.forbid]]
+  pattern = "^sqljson\\.DotPath$"
+  pkg = "^entgo\\.io/ent/dialect/sql/sqljson$"
+  msg = "use backend/common/sqljsonpath.DotPath: ent's sqljson.DotPath interpolates the path into raw SQL unescaped (#1382)"
 
 [linters.settings.ireturn]
 allow = [
@@ -223,34 +244,15 @@ no-unaliased = true
 
 [linters.exclusions]
 generated = "lax"
+# NOTE: the "std-error-handling" preset is deliberately NOT enabled — it
+# suppresses every errcheck finding on `Close`/`Flush`/`print*` calls, which
+# let silently swallowed connection-close errors through review (PR #1350).
 presets = [
   "comments",
   "common-false-positives",
-  "legacy",
-  "std-error-handling"
+  "legacy"
 ]
-paths = [
-  "third_party$",
-  "builtin$",
-  "examples$",
-  # v0.23.1 hotfix branch only: main has since deleted these management
-  # files (RBAC rework, event-registry removal), so the diff-gated
-  # reporter (new-from-rev = "origin/main") no longer suppresses their
-  # pre-existing findings, and every newer golangci-lint in the CI
-  # baseimage surfaces a fresh batch. Exclude them entirely rather than
-  # chasing findings in code that no longer exists upstream.
-  "backend/management/service/event_registry(_test)?\\.go$",
-  "backend/management/utils/(tenant_onboarding|role)\\.go$",
-  "backend/management/ent/schema/(accesspolicy|group|role)_policy\\.go$",
-]
-
-  [[linters.exclusions.rules]]
-  path = "(.+)_test\\.go$"
-  text = "SA1019: handler.NewDefaultServer is deprecated: This was and is just an example."
-
-  [[linters.exclusions.rules]]
-  path = "main\\.go$"
-  text = "SA1019: handler.NewDefaultServer is deprecated: This was and is just an example."
+paths = [ "third_party$", "builtin$", "examples$" ]
 
   [[linters.exclusions.rules]]
   path = "/core/config.go$"
@@ -288,3 +290,12 @@ paths = [
   path = "backend/(.+)/api/client\\.go"
   linters = [ "contextcheck", "ireturn", "errname" ]
 
+  # sqljsonpath is the sanctioned wrapper around ent's unescaped path builder:
+  # it is the one place that may call sqljson.DotPath, and it does so only
+  # after Validate has accepted the path. Everywhere else the forbidigo rule
+  # above rejects the raw call. The package's own test is covered too — its
+  # emitPG helper deliberately drives the raw sink so it can assert what SQL
+  # ent emits for paths the wrapper REJECTS, which the wrapper cannot express.
+  [[linters.exclusions.rules]]
+  path = "backend/common/sqljsonpath/[^/]+\\.go$"
+  linters = [ "forbidigo" ]

@@ -27,6 +27,26 @@ type Order struct {
 	DataTypeSlug string `json:"data_type_slug,omitempty"`
 	// Data holds the value of the "data" field.
 	Data map[string]interface{} `json:"data,omitempty"`
+	// DataIxText1 holds the value of the "data_ix_text1" field.
+	DataIxText1 *string `json:"data_ix_text1,omitempty"`
+	// DataIxText2 holds the value of the "data_ix_text2" field.
+	DataIxText2 *string `json:"data_ix_text2,omitempty"`
+	// DataIxText3 holds the value of the "data_ix_text3" field.
+	DataIxText3 *string `json:"data_ix_text3,omitempty"`
+	// DataIxText4 holds the value of the "data_ix_text4" field.
+	DataIxText4 *string `json:"data_ix_text4,omitempty"`
+	// DataIxNumeric1 holds the value of the "data_ix_numeric1" field.
+	DataIxNumeric1 *float64 `json:"data_ix_numeric1,omitempty"`
+	// DataIxNumeric2 holds the value of the "data_ix_numeric2" field.
+	DataIxNumeric2 *float64 `json:"data_ix_numeric2,omitempty"`
+	// DataIxBool1 holds the value of the "data_ix_bool1" field.
+	DataIxBool1 *bool `json:"data_ix_bool1,omitempty"`
+	// DataIxBool2 holds the value of the "data_ix_bool2" field.
+	DataIxBool2 *bool `json:"data_ix_bool2,omitempty"`
+	// DataIxList1 holds the value of the "data_ix_list1" field.
+	DataIxList1 []string `json:"data_ix_list1,omitempty"`
+	// DataIxList2 holds the value of the "data_ix_list2" field.
+	DataIxList2 []string `json:"data_ix_list2,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// CreatedBy holds the value of the "created_by" field.
@@ -86,9 +106,13 @@ func (*Order) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case order.FieldData:
+		case order.FieldData, order.FieldDataIxList1, order.FieldDataIxList2:
 			values[i] = new([]byte)
-		case order.FieldDataTypeSlug:
+		case order.FieldDataIxBool1, order.FieldDataIxBool2:
+			values[i] = new(sql.NullBool)
+		case order.FieldDataIxNumeric1, order.FieldDataIxNumeric2:
+			values[i] = new(sql.NullFloat64)
+		case order.FieldDataTypeSlug, order.FieldDataIxText1, order.FieldDataIxText2, order.FieldDataIxText3, order.FieldDataIxText4:
 			values[i] = new(sql.NullString)
 		case order.FieldCreatedAt, order.FieldUpdatedAt, order.FieldDeletedAt:
 			values[i] = new(sql.NullTime)
@@ -139,6 +163,78 @@ func (_m *Order) assignValues(columns []string, values []any) error {
 			} else if value != nil && len(*value) > 0 {
 				if err := json.Unmarshal(*value, &_m.Data); err != nil {
 					return fmt.Errorf("unmarshal field data: %w", err)
+				}
+			}
+		case order.FieldDataIxText1:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field data_ix_text1", values[i])
+			} else if value.Valid {
+				_m.DataIxText1 = new(string)
+				*_m.DataIxText1 = value.String
+			}
+		case order.FieldDataIxText2:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field data_ix_text2", values[i])
+			} else if value.Valid {
+				_m.DataIxText2 = new(string)
+				*_m.DataIxText2 = value.String
+			}
+		case order.FieldDataIxText3:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field data_ix_text3", values[i])
+			} else if value.Valid {
+				_m.DataIxText3 = new(string)
+				*_m.DataIxText3 = value.String
+			}
+		case order.FieldDataIxText4:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field data_ix_text4", values[i])
+			} else if value.Valid {
+				_m.DataIxText4 = new(string)
+				*_m.DataIxText4 = value.String
+			}
+		case order.FieldDataIxNumeric1:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field data_ix_numeric1", values[i])
+			} else if value.Valid {
+				_m.DataIxNumeric1 = new(float64)
+				*_m.DataIxNumeric1 = value.Float64
+			}
+		case order.FieldDataIxNumeric2:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field data_ix_numeric2", values[i])
+			} else if value.Valid {
+				_m.DataIxNumeric2 = new(float64)
+				*_m.DataIxNumeric2 = value.Float64
+			}
+		case order.FieldDataIxBool1:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field data_ix_bool1", values[i])
+			} else if value.Valid {
+				_m.DataIxBool1 = new(bool)
+				*_m.DataIxBool1 = value.Bool
+			}
+		case order.FieldDataIxBool2:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field data_ix_bool2", values[i])
+			} else if value.Valid {
+				_m.DataIxBool2 = new(bool)
+				*_m.DataIxBool2 = value.Bool
+			}
+		case order.FieldDataIxList1:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field data_ix_list1", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.DataIxList1); err != nil {
+					return fmt.Errorf("unmarshal field data_ix_list1: %w", err)
+				}
+			}
+		case order.FieldDataIxList2:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field data_ix_list2", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.DataIxList2); err != nil {
+					return fmt.Errorf("unmarshal field data_ix_list2: %w", err)
 				}
 			}
 		case order.FieldCreatedAt:
@@ -240,6 +336,52 @@ func (_m *Order) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("data=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Data))
+	builder.WriteString(", ")
+	if v := _m.DataIxText1; v != nil {
+		builder.WriteString("data_ix_text1=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.DataIxText2; v != nil {
+		builder.WriteString("data_ix_text2=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.DataIxText3; v != nil {
+		builder.WriteString("data_ix_text3=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.DataIxText4; v != nil {
+		builder.WriteString("data_ix_text4=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.DataIxNumeric1; v != nil {
+		builder.WriteString("data_ix_numeric1=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.DataIxNumeric2; v != nil {
+		builder.WriteString("data_ix_numeric2=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.DataIxBool1; v != nil {
+		builder.WriteString("data_ix_bool1=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.DataIxBool2; v != nil {
+		builder.WriteString("data_ix_bool2=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("data_ix_list1=")
+	builder.WriteString(fmt.Sprintf("%v", _m.DataIxList1))
+	builder.WriteString(", ")
+	builder.WriteString("data_ix_list2=")
+	builder.WriteString(fmt.Sprintf("%v", _m.DataIxList2))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

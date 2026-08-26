@@ -66,6 +66,130 @@ func (_c *OrderCreate) SetData(v map[string]interface{}) *OrderCreate {
 	return _c
 }
 
+// SetDataIxText1 sets the "data_ix_text1" field.
+func (_c *OrderCreate) SetDataIxText1(v string) *OrderCreate {
+	_c.mutation.SetDataIxText1(v)
+	return _c
+}
+
+// SetNillableDataIxText1 sets the "data_ix_text1" field if the given value is not nil.
+func (_c *OrderCreate) SetNillableDataIxText1(v *string) *OrderCreate {
+	if v != nil {
+		_c.SetDataIxText1(*v)
+	}
+	return _c
+}
+
+// SetDataIxText2 sets the "data_ix_text2" field.
+func (_c *OrderCreate) SetDataIxText2(v string) *OrderCreate {
+	_c.mutation.SetDataIxText2(v)
+	return _c
+}
+
+// SetNillableDataIxText2 sets the "data_ix_text2" field if the given value is not nil.
+func (_c *OrderCreate) SetNillableDataIxText2(v *string) *OrderCreate {
+	if v != nil {
+		_c.SetDataIxText2(*v)
+	}
+	return _c
+}
+
+// SetDataIxText3 sets the "data_ix_text3" field.
+func (_c *OrderCreate) SetDataIxText3(v string) *OrderCreate {
+	_c.mutation.SetDataIxText3(v)
+	return _c
+}
+
+// SetNillableDataIxText3 sets the "data_ix_text3" field if the given value is not nil.
+func (_c *OrderCreate) SetNillableDataIxText3(v *string) *OrderCreate {
+	if v != nil {
+		_c.SetDataIxText3(*v)
+	}
+	return _c
+}
+
+// SetDataIxText4 sets the "data_ix_text4" field.
+func (_c *OrderCreate) SetDataIxText4(v string) *OrderCreate {
+	_c.mutation.SetDataIxText4(v)
+	return _c
+}
+
+// SetNillableDataIxText4 sets the "data_ix_text4" field if the given value is not nil.
+func (_c *OrderCreate) SetNillableDataIxText4(v *string) *OrderCreate {
+	if v != nil {
+		_c.SetDataIxText4(*v)
+	}
+	return _c
+}
+
+// SetDataIxNumeric1 sets the "data_ix_numeric1" field.
+func (_c *OrderCreate) SetDataIxNumeric1(v float64) *OrderCreate {
+	_c.mutation.SetDataIxNumeric1(v)
+	return _c
+}
+
+// SetNillableDataIxNumeric1 sets the "data_ix_numeric1" field if the given value is not nil.
+func (_c *OrderCreate) SetNillableDataIxNumeric1(v *float64) *OrderCreate {
+	if v != nil {
+		_c.SetDataIxNumeric1(*v)
+	}
+	return _c
+}
+
+// SetDataIxNumeric2 sets the "data_ix_numeric2" field.
+func (_c *OrderCreate) SetDataIxNumeric2(v float64) *OrderCreate {
+	_c.mutation.SetDataIxNumeric2(v)
+	return _c
+}
+
+// SetNillableDataIxNumeric2 sets the "data_ix_numeric2" field if the given value is not nil.
+func (_c *OrderCreate) SetNillableDataIxNumeric2(v *float64) *OrderCreate {
+	if v != nil {
+		_c.SetDataIxNumeric2(*v)
+	}
+	return _c
+}
+
+// SetDataIxBool1 sets the "data_ix_bool1" field.
+func (_c *OrderCreate) SetDataIxBool1(v bool) *OrderCreate {
+	_c.mutation.SetDataIxBool1(v)
+	return _c
+}
+
+// SetNillableDataIxBool1 sets the "data_ix_bool1" field if the given value is not nil.
+func (_c *OrderCreate) SetNillableDataIxBool1(v *bool) *OrderCreate {
+	if v != nil {
+		_c.SetDataIxBool1(*v)
+	}
+	return _c
+}
+
+// SetDataIxBool2 sets the "data_ix_bool2" field.
+func (_c *OrderCreate) SetDataIxBool2(v bool) *OrderCreate {
+	_c.mutation.SetDataIxBool2(v)
+	return _c
+}
+
+// SetNillableDataIxBool2 sets the "data_ix_bool2" field if the given value is not nil.
+func (_c *OrderCreate) SetNillableDataIxBool2(v *bool) *OrderCreate {
+	if v != nil {
+		_c.SetDataIxBool2(*v)
+	}
+	return _c
+}
+
+// SetDataIxList1 sets the "data_ix_list1" field.
+func (_c *OrderCreate) SetDataIxList1(v []string) *OrderCreate {
+	_c.mutation.SetDataIxList1(v)
+	return _c
+}
+
+// SetDataIxList2 sets the "data_ix_list2" field.
+func (_c *OrderCreate) SetDataIxList2(v []string) *OrderCreate {
+	_c.mutation.SetDataIxList2(v)
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *OrderCreate) SetCreatedAt(v time.Time) *OrderCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -313,6 +437,46 @@ func (_c *OrderCreate) createSpec() (*Order, *sqlgraph.CreateSpec) {
 		_spec.SetField(order.FieldData, field.TypeJSON, value)
 		_node.Data = value
 	}
+	if value, ok := _c.mutation.DataIxText1(); ok {
+		_spec.SetField(order.FieldDataIxText1, field.TypeString, value)
+		_node.DataIxText1 = &value
+	}
+	if value, ok := _c.mutation.DataIxText2(); ok {
+		_spec.SetField(order.FieldDataIxText2, field.TypeString, value)
+		_node.DataIxText2 = &value
+	}
+	if value, ok := _c.mutation.DataIxText3(); ok {
+		_spec.SetField(order.FieldDataIxText3, field.TypeString, value)
+		_node.DataIxText3 = &value
+	}
+	if value, ok := _c.mutation.DataIxText4(); ok {
+		_spec.SetField(order.FieldDataIxText4, field.TypeString, value)
+		_node.DataIxText4 = &value
+	}
+	if value, ok := _c.mutation.DataIxNumeric1(); ok {
+		_spec.SetField(order.FieldDataIxNumeric1, field.TypeFloat64, value)
+		_node.DataIxNumeric1 = &value
+	}
+	if value, ok := _c.mutation.DataIxNumeric2(); ok {
+		_spec.SetField(order.FieldDataIxNumeric2, field.TypeFloat64, value)
+		_node.DataIxNumeric2 = &value
+	}
+	if value, ok := _c.mutation.DataIxBool1(); ok {
+		_spec.SetField(order.FieldDataIxBool1, field.TypeBool, value)
+		_node.DataIxBool1 = &value
+	}
+	if value, ok := _c.mutation.DataIxBool2(); ok {
+		_spec.SetField(order.FieldDataIxBool2, field.TypeBool, value)
+		_node.DataIxBool2 = &value
+	}
+	if value, ok := _c.mutation.DataIxList1(); ok {
+		_spec.SetField(order.FieldDataIxList1, field.TypeJSON, value)
+		_node.DataIxList1 = value
+	}
+	if value, ok := _c.mutation.DataIxList2(); ok {
+		_spec.SetField(order.FieldDataIxList2, field.TypeJSON, value)
+		_node.DataIxList2 = value
+	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(order.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
@@ -478,6 +642,198 @@ func (u *OrderUpsert) UpdateData() *OrderUpsert {
 // ClearData clears the value of the "data" field.
 func (u *OrderUpsert) ClearData() *OrderUpsert {
 	u.SetNull(order.FieldData)
+	return u
+}
+
+// SetDataIxText1 sets the "data_ix_text1" field.
+func (u *OrderUpsert) SetDataIxText1(v string) *OrderUpsert {
+	u.Set(order.FieldDataIxText1, v)
+	return u
+}
+
+// UpdateDataIxText1 sets the "data_ix_text1" field to the value that was provided on create.
+func (u *OrderUpsert) UpdateDataIxText1() *OrderUpsert {
+	u.SetExcluded(order.FieldDataIxText1)
+	return u
+}
+
+// ClearDataIxText1 clears the value of the "data_ix_text1" field.
+func (u *OrderUpsert) ClearDataIxText1() *OrderUpsert {
+	u.SetNull(order.FieldDataIxText1)
+	return u
+}
+
+// SetDataIxText2 sets the "data_ix_text2" field.
+func (u *OrderUpsert) SetDataIxText2(v string) *OrderUpsert {
+	u.Set(order.FieldDataIxText2, v)
+	return u
+}
+
+// UpdateDataIxText2 sets the "data_ix_text2" field to the value that was provided on create.
+func (u *OrderUpsert) UpdateDataIxText2() *OrderUpsert {
+	u.SetExcluded(order.FieldDataIxText2)
+	return u
+}
+
+// ClearDataIxText2 clears the value of the "data_ix_text2" field.
+func (u *OrderUpsert) ClearDataIxText2() *OrderUpsert {
+	u.SetNull(order.FieldDataIxText2)
+	return u
+}
+
+// SetDataIxText3 sets the "data_ix_text3" field.
+func (u *OrderUpsert) SetDataIxText3(v string) *OrderUpsert {
+	u.Set(order.FieldDataIxText3, v)
+	return u
+}
+
+// UpdateDataIxText3 sets the "data_ix_text3" field to the value that was provided on create.
+func (u *OrderUpsert) UpdateDataIxText3() *OrderUpsert {
+	u.SetExcluded(order.FieldDataIxText3)
+	return u
+}
+
+// ClearDataIxText3 clears the value of the "data_ix_text3" field.
+func (u *OrderUpsert) ClearDataIxText3() *OrderUpsert {
+	u.SetNull(order.FieldDataIxText3)
+	return u
+}
+
+// SetDataIxText4 sets the "data_ix_text4" field.
+func (u *OrderUpsert) SetDataIxText4(v string) *OrderUpsert {
+	u.Set(order.FieldDataIxText4, v)
+	return u
+}
+
+// UpdateDataIxText4 sets the "data_ix_text4" field to the value that was provided on create.
+func (u *OrderUpsert) UpdateDataIxText4() *OrderUpsert {
+	u.SetExcluded(order.FieldDataIxText4)
+	return u
+}
+
+// ClearDataIxText4 clears the value of the "data_ix_text4" field.
+func (u *OrderUpsert) ClearDataIxText4() *OrderUpsert {
+	u.SetNull(order.FieldDataIxText4)
+	return u
+}
+
+// SetDataIxNumeric1 sets the "data_ix_numeric1" field.
+func (u *OrderUpsert) SetDataIxNumeric1(v float64) *OrderUpsert {
+	u.Set(order.FieldDataIxNumeric1, v)
+	return u
+}
+
+// UpdateDataIxNumeric1 sets the "data_ix_numeric1" field to the value that was provided on create.
+func (u *OrderUpsert) UpdateDataIxNumeric1() *OrderUpsert {
+	u.SetExcluded(order.FieldDataIxNumeric1)
+	return u
+}
+
+// AddDataIxNumeric1 adds v to the "data_ix_numeric1" field.
+func (u *OrderUpsert) AddDataIxNumeric1(v float64) *OrderUpsert {
+	u.Add(order.FieldDataIxNumeric1, v)
+	return u
+}
+
+// ClearDataIxNumeric1 clears the value of the "data_ix_numeric1" field.
+func (u *OrderUpsert) ClearDataIxNumeric1() *OrderUpsert {
+	u.SetNull(order.FieldDataIxNumeric1)
+	return u
+}
+
+// SetDataIxNumeric2 sets the "data_ix_numeric2" field.
+func (u *OrderUpsert) SetDataIxNumeric2(v float64) *OrderUpsert {
+	u.Set(order.FieldDataIxNumeric2, v)
+	return u
+}
+
+// UpdateDataIxNumeric2 sets the "data_ix_numeric2" field to the value that was provided on create.
+func (u *OrderUpsert) UpdateDataIxNumeric2() *OrderUpsert {
+	u.SetExcluded(order.FieldDataIxNumeric2)
+	return u
+}
+
+// AddDataIxNumeric2 adds v to the "data_ix_numeric2" field.
+func (u *OrderUpsert) AddDataIxNumeric2(v float64) *OrderUpsert {
+	u.Add(order.FieldDataIxNumeric2, v)
+	return u
+}
+
+// ClearDataIxNumeric2 clears the value of the "data_ix_numeric2" field.
+func (u *OrderUpsert) ClearDataIxNumeric2() *OrderUpsert {
+	u.SetNull(order.FieldDataIxNumeric2)
+	return u
+}
+
+// SetDataIxBool1 sets the "data_ix_bool1" field.
+func (u *OrderUpsert) SetDataIxBool1(v bool) *OrderUpsert {
+	u.Set(order.FieldDataIxBool1, v)
+	return u
+}
+
+// UpdateDataIxBool1 sets the "data_ix_bool1" field to the value that was provided on create.
+func (u *OrderUpsert) UpdateDataIxBool1() *OrderUpsert {
+	u.SetExcluded(order.FieldDataIxBool1)
+	return u
+}
+
+// ClearDataIxBool1 clears the value of the "data_ix_bool1" field.
+func (u *OrderUpsert) ClearDataIxBool1() *OrderUpsert {
+	u.SetNull(order.FieldDataIxBool1)
+	return u
+}
+
+// SetDataIxBool2 sets the "data_ix_bool2" field.
+func (u *OrderUpsert) SetDataIxBool2(v bool) *OrderUpsert {
+	u.Set(order.FieldDataIxBool2, v)
+	return u
+}
+
+// UpdateDataIxBool2 sets the "data_ix_bool2" field to the value that was provided on create.
+func (u *OrderUpsert) UpdateDataIxBool2() *OrderUpsert {
+	u.SetExcluded(order.FieldDataIxBool2)
+	return u
+}
+
+// ClearDataIxBool2 clears the value of the "data_ix_bool2" field.
+func (u *OrderUpsert) ClearDataIxBool2() *OrderUpsert {
+	u.SetNull(order.FieldDataIxBool2)
+	return u
+}
+
+// SetDataIxList1 sets the "data_ix_list1" field.
+func (u *OrderUpsert) SetDataIxList1(v []string) *OrderUpsert {
+	u.Set(order.FieldDataIxList1, v)
+	return u
+}
+
+// UpdateDataIxList1 sets the "data_ix_list1" field to the value that was provided on create.
+func (u *OrderUpsert) UpdateDataIxList1() *OrderUpsert {
+	u.SetExcluded(order.FieldDataIxList1)
+	return u
+}
+
+// ClearDataIxList1 clears the value of the "data_ix_list1" field.
+func (u *OrderUpsert) ClearDataIxList1() *OrderUpsert {
+	u.SetNull(order.FieldDataIxList1)
+	return u
+}
+
+// SetDataIxList2 sets the "data_ix_list2" field.
+func (u *OrderUpsert) SetDataIxList2(v []string) *OrderUpsert {
+	u.Set(order.FieldDataIxList2, v)
+	return u
+}
+
+// UpdateDataIxList2 sets the "data_ix_list2" field to the value that was provided on create.
+func (u *OrderUpsert) UpdateDataIxList2() *OrderUpsert {
+	u.SetExcluded(order.FieldDataIxList2)
+	return u
+}
+
+// ClearDataIxList2 clears the value of the "data_ix_list2" field.
+func (u *OrderUpsert) ClearDataIxList2() *OrderUpsert {
+	u.SetNull(order.FieldDataIxList2)
 	return u
 }
 
@@ -682,6 +1038,230 @@ func (u *OrderUpsertOne) UpdateData() *OrderUpsertOne {
 func (u *OrderUpsertOne) ClearData() *OrderUpsertOne {
 	return u.Update(func(s *OrderUpsert) {
 		s.ClearData()
+	})
+}
+
+// SetDataIxText1 sets the "data_ix_text1" field.
+func (u *OrderUpsertOne) SetDataIxText1(v string) *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxText1(v)
+	})
+}
+
+// UpdateDataIxText1 sets the "data_ix_text1" field to the value that was provided on create.
+func (u *OrderUpsertOne) UpdateDataIxText1() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxText1()
+	})
+}
+
+// ClearDataIxText1 clears the value of the "data_ix_text1" field.
+func (u *OrderUpsertOne) ClearDataIxText1() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxText1()
+	})
+}
+
+// SetDataIxText2 sets the "data_ix_text2" field.
+func (u *OrderUpsertOne) SetDataIxText2(v string) *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxText2(v)
+	})
+}
+
+// UpdateDataIxText2 sets the "data_ix_text2" field to the value that was provided on create.
+func (u *OrderUpsertOne) UpdateDataIxText2() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxText2()
+	})
+}
+
+// ClearDataIxText2 clears the value of the "data_ix_text2" field.
+func (u *OrderUpsertOne) ClearDataIxText2() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxText2()
+	})
+}
+
+// SetDataIxText3 sets the "data_ix_text3" field.
+func (u *OrderUpsertOne) SetDataIxText3(v string) *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxText3(v)
+	})
+}
+
+// UpdateDataIxText3 sets the "data_ix_text3" field to the value that was provided on create.
+func (u *OrderUpsertOne) UpdateDataIxText3() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxText3()
+	})
+}
+
+// ClearDataIxText3 clears the value of the "data_ix_text3" field.
+func (u *OrderUpsertOne) ClearDataIxText3() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxText3()
+	})
+}
+
+// SetDataIxText4 sets the "data_ix_text4" field.
+func (u *OrderUpsertOne) SetDataIxText4(v string) *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxText4(v)
+	})
+}
+
+// UpdateDataIxText4 sets the "data_ix_text4" field to the value that was provided on create.
+func (u *OrderUpsertOne) UpdateDataIxText4() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxText4()
+	})
+}
+
+// ClearDataIxText4 clears the value of the "data_ix_text4" field.
+func (u *OrderUpsertOne) ClearDataIxText4() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxText4()
+	})
+}
+
+// SetDataIxNumeric1 sets the "data_ix_numeric1" field.
+func (u *OrderUpsertOne) SetDataIxNumeric1(v float64) *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxNumeric1(v)
+	})
+}
+
+// AddDataIxNumeric1 adds v to the "data_ix_numeric1" field.
+func (u *OrderUpsertOne) AddDataIxNumeric1(v float64) *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.AddDataIxNumeric1(v)
+	})
+}
+
+// UpdateDataIxNumeric1 sets the "data_ix_numeric1" field to the value that was provided on create.
+func (u *OrderUpsertOne) UpdateDataIxNumeric1() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxNumeric1()
+	})
+}
+
+// ClearDataIxNumeric1 clears the value of the "data_ix_numeric1" field.
+func (u *OrderUpsertOne) ClearDataIxNumeric1() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxNumeric1()
+	})
+}
+
+// SetDataIxNumeric2 sets the "data_ix_numeric2" field.
+func (u *OrderUpsertOne) SetDataIxNumeric2(v float64) *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxNumeric2(v)
+	})
+}
+
+// AddDataIxNumeric2 adds v to the "data_ix_numeric2" field.
+func (u *OrderUpsertOne) AddDataIxNumeric2(v float64) *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.AddDataIxNumeric2(v)
+	})
+}
+
+// UpdateDataIxNumeric2 sets the "data_ix_numeric2" field to the value that was provided on create.
+func (u *OrderUpsertOne) UpdateDataIxNumeric2() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxNumeric2()
+	})
+}
+
+// ClearDataIxNumeric2 clears the value of the "data_ix_numeric2" field.
+func (u *OrderUpsertOne) ClearDataIxNumeric2() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxNumeric2()
+	})
+}
+
+// SetDataIxBool1 sets the "data_ix_bool1" field.
+func (u *OrderUpsertOne) SetDataIxBool1(v bool) *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxBool1(v)
+	})
+}
+
+// UpdateDataIxBool1 sets the "data_ix_bool1" field to the value that was provided on create.
+func (u *OrderUpsertOne) UpdateDataIxBool1() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxBool1()
+	})
+}
+
+// ClearDataIxBool1 clears the value of the "data_ix_bool1" field.
+func (u *OrderUpsertOne) ClearDataIxBool1() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxBool1()
+	})
+}
+
+// SetDataIxBool2 sets the "data_ix_bool2" field.
+func (u *OrderUpsertOne) SetDataIxBool2(v bool) *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxBool2(v)
+	})
+}
+
+// UpdateDataIxBool2 sets the "data_ix_bool2" field to the value that was provided on create.
+func (u *OrderUpsertOne) UpdateDataIxBool2() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxBool2()
+	})
+}
+
+// ClearDataIxBool2 clears the value of the "data_ix_bool2" field.
+func (u *OrderUpsertOne) ClearDataIxBool2() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxBool2()
+	})
+}
+
+// SetDataIxList1 sets the "data_ix_list1" field.
+func (u *OrderUpsertOne) SetDataIxList1(v []string) *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxList1(v)
+	})
+}
+
+// UpdateDataIxList1 sets the "data_ix_list1" field to the value that was provided on create.
+func (u *OrderUpsertOne) UpdateDataIxList1() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxList1()
+	})
+}
+
+// ClearDataIxList1 clears the value of the "data_ix_list1" field.
+func (u *OrderUpsertOne) ClearDataIxList1() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxList1()
+	})
+}
+
+// SetDataIxList2 sets the "data_ix_list2" field.
+func (u *OrderUpsertOne) SetDataIxList2(v []string) *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxList2(v)
+	})
+}
+
+// UpdateDataIxList2 sets the "data_ix_list2" field to the value that was provided on create.
+func (u *OrderUpsertOne) UpdateDataIxList2() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxList2()
+	})
+}
+
+// ClearDataIxList2 clears the value of the "data_ix_list2" field.
+func (u *OrderUpsertOne) ClearDataIxList2() *OrderUpsertOne {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxList2()
 	})
 }
 
@@ -1067,6 +1647,230 @@ func (u *OrderUpsertBulk) UpdateData() *OrderUpsertBulk {
 func (u *OrderUpsertBulk) ClearData() *OrderUpsertBulk {
 	return u.Update(func(s *OrderUpsert) {
 		s.ClearData()
+	})
+}
+
+// SetDataIxText1 sets the "data_ix_text1" field.
+func (u *OrderUpsertBulk) SetDataIxText1(v string) *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxText1(v)
+	})
+}
+
+// UpdateDataIxText1 sets the "data_ix_text1" field to the value that was provided on create.
+func (u *OrderUpsertBulk) UpdateDataIxText1() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxText1()
+	})
+}
+
+// ClearDataIxText1 clears the value of the "data_ix_text1" field.
+func (u *OrderUpsertBulk) ClearDataIxText1() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxText1()
+	})
+}
+
+// SetDataIxText2 sets the "data_ix_text2" field.
+func (u *OrderUpsertBulk) SetDataIxText2(v string) *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxText2(v)
+	})
+}
+
+// UpdateDataIxText2 sets the "data_ix_text2" field to the value that was provided on create.
+func (u *OrderUpsertBulk) UpdateDataIxText2() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxText2()
+	})
+}
+
+// ClearDataIxText2 clears the value of the "data_ix_text2" field.
+func (u *OrderUpsertBulk) ClearDataIxText2() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxText2()
+	})
+}
+
+// SetDataIxText3 sets the "data_ix_text3" field.
+func (u *OrderUpsertBulk) SetDataIxText3(v string) *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxText3(v)
+	})
+}
+
+// UpdateDataIxText3 sets the "data_ix_text3" field to the value that was provided on create.
+func (u *OrderUpsertBulk) UpdateDataIxText3() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxText3()
+	})
+}
+
+// ClearDataIxText3 clears the value of the "data_ix_text3" field.
+func (u *OrderUpsertBulk) ClearDataIxText3() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxText3()
+	})
+}
+
+// SetDataIxText4 sets the "data_ix_text4" field.
+func (u *OrderUpsertBulk) SetDataIxText4(v string) *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxText4(v)
+	})
+}
+
+// UpdateDataIxText4 sets the "data_ix_text4" field to the value that was provided on create.
+func (u *OrderUpsertBulk) UpdateDataIxText4() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxText4()
+	})
+}
+
+// ClearDataIxText4 clears the value of the "data_ix_text4" field.
+func (u *OrderUpsertBulk) ClearDataIxText4() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxText4()
+	})
+}
+
+// SetDataIxNumeric1 sets the "data_ix_numeric1" field.
+func (u *OrderUpsertBulk) SetDataIxNumeric1(v float64) *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxNumeric1(v)
+	})
+}
+
+// AddDataIxNumeric1 adds v to the "data_ix_numeric1" field.
+func (u *OrderUpsertBulk) AddDataIxNumeric1(v float64) *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.AddDataIxNumeric1(v)
+	})
+}
+
+// UpdateDataIxNumeric1 sets the "data_ix_numeric1" field to the value that was provided on create.
+func (u *OrderUpsertBulk) UpdateDataIxNumeric1() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxNumeric1()
+	})
+}
+
+// ClearDataIxNumeric1 clears the value of the "data_ix_numeric1" field.
+func (u *OrderUpsertBulk) ClearDataIxNumeric1() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxNumeric1()
+	})
+}
+
+// SetDataIxNumeric2 sets the "data_ix_numeric2" field.
+func (u *OrderUpsertBulk) SetDataIxNumeric2(v float64) *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxNumeric2(v)
+	})
+}
+
+// AddDataIxNumeric2 adds v to the "data_ix_numeric2" field.
+func (u *OrderUpsertBulk) AddDataIxNumeric2(v float64) *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.AddDataIxNumeric2(v)
+	})
+}
+
+// UpdateDataIxNumeric2 sets the "data_ix_numeric2" field to the value that was provided on create.
+func (u *OrderUpsertBulk) UpdateDataIxNumeric2() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxNumeric2()
+	})
+}
+
+// ClearDataIxNumeric2 clears the value of the "data_ix_numeric2" field.
+func (u *OrderUpsertBulk) ClearDataIxNumeric2() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxNumeric2()
+	})
+}
+
+// SetDataIxBool1 sets the "data_ix_bool1" field.
+func (u *OrderUpsertBulk) SetDataIxBool1(v bool) *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxBool1(v)
+	})
+}
+
+// UpdateDataIxBool1 sets the "data_ix_bool1" field to the value that was provided on create.
+func (u *OrderUpsertBulk) UpdateDataIxBool1() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxBool1()
+	})
+}
+
+// ClearDataIxBool1 clears the value of the "data_ix_bool1" field.
+func (u *OrderUpsertBulk) ClearDataIxBool1() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxBool1()
+	})
+}
+
+// SetDataIxBool2 sets the "data_ix_bool2" field.
+func (u *OrderUpsertBulk) SetDataIxBool2(v bool) *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxBool2(v)
+	})
+}
+
+// UpdateDataIxBool2 sets the "data_ix_bool2" field to the value that was provided on create.
+func (u *OrderUpsertBulk) UpdateDataIxBool2() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxBool2()
+	})
+}
+
+// ClearDataIxBool2 clears the value of the "data_ix_bool2" field.
+func (u *OrderUpsertBulk) ClearDataIxBool2() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxBool2()
+	})
+}
+
+// SetDataIxList1 sets the "data_ix_list1" field.
+func (u *OrderUpsertBulk) SetDataIxList1(v []string) *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxList1(v)
+	})
+}
+
+// UpdateDataIxList1 sets the "data_ix_list1" field to the value that was provided on create.
+func (u *OrderUpsertBulk) UpdateDataIxList1() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxList1()
+	})
+}
+
+// ClearDataIxList1 clears the value of the "data_ix_list1" field.
+func (u *OrderUpsertBulk) ClearDataIxList1() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxList1()
+	})
+}
+
+// SetDataIxList2 sets the "data_ix_list2" field.
+func (u *OrderUpsertBulk) SetDataIxList2(v []string) *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.SetDataIxList2(v)
+	})
+}
+
+// UpdateDataIxList2 sets the "data_ix_list2" field to the value that was provided on create.
+func (u *OrderUpsertBulk) UpdateDataIxList2() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.UpdateDataIxList2()
+	})
+}
+
+// ClearDataIxList2 clears the value of the "data_ix_list2" field.
+func (u *OrderUpsertBulk) ClearDataIxList2() *OrderUpsertBulk {
+	return u.Update(func(s *OrderUpsert) {
+		s.ClearDataIxList2()
 	})
 }
 

@@ -12,7 +12,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/pyck-ai/pyck/backend/common/log"
 	"github.com/pyck-ai/pyck/backend/common/services/zitadel"
 )
 
@@ -20,6 +19,13 @@ import (
 // called without a Zitadel user ID — a caller bug, not a token-revocation
 // signal. Typed so unit tests can assert it instead of string-matching.
 var ErrResolveOrganizationEmptySub = errors.New("ResolveOrganization: empty sub")
+
+// ErrResolveOrganizationNoResourceOwner is returned when GetUserByID
+// succeeded but Details.ResourceOwner is empty. The chained nil-safe
+// getters coalesce any intermediate nil, so surfacing as error (not
+// Active=false) prevents an SDK regression or anonymized sub from
+// silently revoking every healthy tenant.
+var ErrResolveOrganizationNoResourceOwner = errors.New("ResolveOrganization: user has no resource_owner")
 
 // userByIDClient is the slice of [user_v2.UserServiceClient] this package
 // needs. Narrow interface so tests can inject a fake without stubbing
@@ -105,16 +111,10 @@ func resolveOrganization(ctx context.Context, userClient userByIDClient, orgClie
 	}
 	orgID := userResp.GetUser().GetDetails().GetResourceOwner()
 	if orgID == "" {
-		// Shouldn't happen — every Zitadel user belongs to an org, and
-		// Details.ResourceOwner is the org id. Logged at Warn so a
-		// regression in Zitadel or a malformed user row surfaces in the
-		// management logs instead of silently rejecting the token.
-		log.ForContext(ctx).Warn().
-			Str("sub", sub).
-			Msg("ResolveOrganization: user has no resource_owner; treating as inactive")
-		return &zitadel.OrganizationResult{
-			Active: false,
-		}, nil
+		// Every Zitadel user belongs to an org; surface as error so
+		// authn keeps any cached decision rather than treating the
+		// nil-coalesced empty string as a definitive revocation.
+		return nil, fmt.Errorf("%w: sub=%s", ErrResolveOrganizationNoResourceOwner, sub)
 	}
 
 	orgResp, err := orgClient.ListOrganizations(ctx, &org_v2.ListOrganizationsRequest{

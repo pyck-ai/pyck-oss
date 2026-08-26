@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pyck-ai/pyck/backend/picking/model"
 )
 
 // CreatePickingOrderItemInput is used for create PickingOrderItem object.
@@ -325,6 +326,7 @@ type PickingOrderWhereInput struct {
 	// outboundShipmentNotifications edge predicates
 	HasOutboundShipmentNotifications     *bool                                            `json:"hasOutboundShipmentNotifications,omitempty"`
 	HasOutboundShipmentNotificationsWith []*PickingOutboundShipmentNotificationWhereInput `json:"hasOutboundShipmentNotificationsWith,omitempty"`
+	DataIndex                            *model.DataIndexWhereInput                       `json:"dataIndex,omitempty"`
 	Data                                 []string                                         `json:"Data,omitempty"`
 	DataHasKey                           *string                                          `json:"DataHasKey,omitempty"`
 	DataIn                               []string                                         `json:"DataIn,omitempty"`

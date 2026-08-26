@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"strings"
 
+	jsonpatchlib "github.com/evanphx/json-patch/v5"
 	"github.com/google/uuid"
-	jsonpatchlib "gopkg.in/evanphx/json-patch.v4"
 
 	"github.com/pyck-ai/pyck/backend/common/validator"
 )

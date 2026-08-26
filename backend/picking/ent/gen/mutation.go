@@ -2184,6 +2184,20 @@ type OrderMutation struct {
 	data_type_id                         *uuid.UUID
 	data_type_slug                       *string
 	data                                 *map[string]interface{}
+	data_ix_text1                        *string
+	data_ix_text2                        *string
+	data_ix_text3                        *string
+	data_ix_text4                        *string
+	data_ix_numeric1                     *float64
+	adddata_ix_numeric1                  *float64
+	data_ix_numeric2                     *float64
+	adddata_ix_numeric2                  *float64
+	data_ix_bool1                        *bool
+	data_ix_bool2                        *bool
+	data_ix_list1                        *[]string
+	appenddata_ix_list1                  []string
+	data_ix_list2                        *[]string
+	appenddata_ix_list2                  []string
 	created_at                           *time.Time
 	created_by                           *uuid.UUID
 	updated_at                           *time.Time
@@ -2488,6 +2502,570 @@ func (m *OrderMutation) DataCleared() bool {
 func (m *OrderMutation) ResetData() {
 	m.data = nil
 	delete(m.clearedFields, order.FieldData)
+}
+
+// SetDataIxText1 sets the "data_ix_text1" field.
+func (m *OrderMutation) SetDataIxText1(s string) {
+	m.data_ix_text1 = &s
+}
+
+// DataIxText1 returns the value of the "data_ix_text1" field in the mutation.
+func (m *OrderMutation) DataIxText1() (r string, exists bool) {
+	v := m.data_ix_text1
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDataIxText1 returns the old "data_ix_text1" field's value of the Order entity.
+// If the Order object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrderMutation) OldDataIxText1(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDataIxText1 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDataIxText1 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDataIxText1: %w", err)
+	}
+	return oldValue.DataIxText1, nil
+}
+
+// ClearDataIxText1 clears the value of the "data_ix_text1" field.
+func (m *OrderMutation) ClearDataIxText1() {
+	m.data_ix_text1 = nil
+	m.clearedFields[order.FieldDataIxText1] = struct{}{}
+}
+
+// DataIxText1Cleared returns if the "data_ix_text1" field was cleared in this mutation.
+func (m *OrderMutation) DataIxText1Cleared() bool {
+	_, ok := m.clearedFields[order.FieldDataIxText1]
+	return ok
+}
+
+// ResetDataIxText1 resets all changes to the "data_ix_text1" field.
+func (m *OrderMutation) ResetDataIxText1() {
+	m.data_ix_text1 = nil
+	delete(m.clearedFields, order.FieldDataIxText1)
+}
+
+// SetDataIxText2 sets the "data_ix_text2" field.
+func (m *OrderMutation) SetDataIxText2(s string) {
+	m.data_ix_text2 = &s
+}
+
+// DataIxText2 returns the value of the "data_ix_text2" field in the mutation.
+func (m *OrderMutation) DataIxText2() (r string, exists bool) {
+	v := m.data_ix_text2
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDataIxText2 returns the old "data_ix_text2" field's value of the Order entity.
+// If the Order object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrderMutation) OldDataIxText2(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDataIxText2 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDataIxText2 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDataIxText2: %w", err)
+	}
+	return oldValue.DataIxText2, nil
+}
+
+// ClearDataIxText2 clears the value of the "data_ix_text2" field.
+func (m *OrderMutation) ClearDataIxText2() {
+	m.data_ix_text2 = nil
+	m.clearedFields[order.FieldDataIxText2] = struct{}{}
+}
+
+// DataIxText2Cleared returns if the "data_ix_text2" field was cleared in this mutation.
+func (m *OrderMutation) DataIxText2Cleared() bool {
+	_, ok := m.clearedFields[order.FieldDataIxText2]
+	return ok
+}
+
+// ResetDataIxText2 resets all changes to the "data_ix_text2" field.
+func (m *OrderMutation) ResetDataIxText2() {
+	m.data_ix_text2 = nil
+	delete(m.clearedFields, order.FieldDataIxText2)
+}
+
+// SetDataIxText3 sets the "data_ix_text3" field.
+func (m *OrderMutation) SetDataIxText3(s string) {
+	m.data_ix_text3 = &s
+}
+
+// DataIxText3 returns the value of the "data_ix_text3" field in the mutation.
+func (m *OrderMutation) DataIxText3() (r string, exists bool) {
+	v := m.data_ix_text3
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDataIxText3 returns the old "data_ix_text3" field's value of the Order entity.
+// If the Order object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrderMutation) OldDataIxText3(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDataIxText3 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDataIxText3 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDataIxText3: %w", err)
+	}
+	return oldValue.DataIxText3, nil
+}
+
+// ClearDataIxText3 clears the value of the "data_ix_text3" field.
+func (m *OrderMutation) ClearDataIxText3() {
+	m.data_ix_text3 = nil
+	m.clearedFields[order.FieldDataIxText3] = struct{}{}
+}
+
+// DataIxText3Cleared returns if the "data_ix_text3" field was cleared in this mutation.
+func (m *OrderMutation) DataIxText3Cleared() bool {
+	_, ok := m.clearedFields[order.FieldDataIxText3]
+	return ok
+}
+
+// ResetDataIxText3 resets all changes to the "data_ix_text3" field.
+func (m *OrderMutation) ResetDataIxText3() {
+	m.data_ix_text3 = nil
+	delete(m.clearedFields, order.FieldDataIxText3)
+}
+
+// SetDataIxText4 sets the "data_ix_text4" field.
+func (m *OrderMutation) SetDataIxText4(s string) {
+	m.data_ix_text4 = &s
+}
+
+// DataIxText4 returns the value of the "data_ix_text4" field in the mutation.
+func (m *OrderMutation) DataIxText4() (r string, exists bool) {
+	v := m.data_ix_text4
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDataIxText4 returns the old "data_ix_text4" field's value of the Order entity.
+// If the Order object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrderMutation) OldDataIxText4(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDataIxText4 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDataIxText4 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDataIxText4: %w", err)
+	}
+	return oldValue.DataIxText4, nil
+}
+
+// ClearDataIxText4 clears the value of the "data_ix_text4" field.
+func (m *OrderMutation) ClearDataIxText4() {
+	m.data_ix_text4 = nil
+	m.clearedFields[order.FieldDataIxText4] = struct{}{}
+}
+
+// DataIxText4Cleared returns if the "data_ix_text4" field was cleared in this mutation.
+func (m *OrderMutation) DataIxText4Cleared() bool {
+	_, ok := m.clearedFields[order.FieldDataIxText4]
+	return ok
+}
+
+// ResetDataIxText4 resets all changes to the "data_ix_text4" field.
+func (m *OrderMutation) ResetDataIxText4() {
+	m.data_ix_text4 = nil
+	delete(m.clearedFields, order.FieldDataIxText4)
+}
+
+// SetDataIxNumeric1 sets the "data_ix_numeric1" field.
+func (m *OrderMutation) SetDataIxNumeric1(f float64) {
+	m.data_ix_numeric1 = &f
+	m.adddata_ix_numeric1 = nil
+}
+
+// DataIxNumeric1 returns the value of the "data_ix_numeric1" field in the mutation.
+func (m *OrderMutation) DataIxNumeric1() (r float64, exists bool) {
+	v := m.data_ix_numeric1
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDataIxNumeric1 returns the old "data_ix_numeric1" field's value of the Order entity.
+// If the Order object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrderMutation) OldDataIxNumeric1(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDataIxNumeric1 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDataIxNumeric1 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDataIxNumeric1: %w", err)
+	}
+	return oldValue.DataIxNumeric1, nil
+}
+
+// AddDataIxNumeric1 adds f to the "data_ix_numeric1" field.
+func (m *OrderMutation) AddDataIxNumeric1(f float64) {
+	if m.adddata_ix_numeric1 != nil {
+		*m.adddata_ix_numeric1 += f
+	} else {
+		m.adddata_ix_numeric1 = &f
+	}
+}
+
+// AddedDataIxNumeric1 returns the value that was added to the "data_ix_numeric1" field in this mutation.
+func (m *OrderMutation) AddedDataIxNumeric1() (r float64, exists bool) {
+	v := m.adddata_ix_numeric1
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearDataIxNumeric1 clears the value of the "data_ix_numeric1" field.
+func (m *OrderMutation) ClearDataIxNumeric1() {
+	m.data_ix_numeric1 = nil
+	m.adddata_ix_numeric1 = nil
+	m.clearedFields[order.FieldDataIxNumeric1] = struct{}{}
+}
+
+// DataIxNumeric1Cleared returns if the "data_ix_numeric1" field was cleared in this mutation.
+func (m *OrderMutation) DataIxNumeric1Cleared() bool {
+	_, ok := m.clearedFields[order.FieldDataIxNumeric1]
+	return ok
+}
+
+// ResetDataIxNumeric1 resets all changes to the "data_ix_numeric1" field.
+func (m *OrderMutation) ResetDataIxNumeric1() {
+	m.data_ix_numeric1 = nil
+	m.adddata_ix_numeric1 = nil
+	delete(m.clearedFields, order.FieldDataIxNumeric1)
+}
+
+// SetDataIxNumeric2 sets the "data_ix_numeric2" field.
+func (m *OrderMutation) SetDataIxNumeric2(f float64) {
+	m.data_ix_numeric2 = &f
+	m.adddata_ix_numeric2 = nil
+}
+
+// DataIxNumeric2 returns the value of the "data_ix_numeric2" field in the mutation.
+func (m *OrderMutation) DataIxNumeric2() (r float64, exists bool) {
+	v := m.data_ix_numeric2
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDataIxNumeric2 returns the old "data_ix_numeric2" field's value of the Order entity.
+// If the Order object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrderMutation) OldDataIxNumeric2(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDataIxNumeric2 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDataIxNumeric2 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDataIxNumeric2: %w", err)
+	}
+	return oldValue.DataIxNumeric2, nil
+}
+
+// AddDataIxNumeric2 adds f to the "data_ix_numeric2" field.
+func (m *OrderMutation) AddDataIxNumeric2(f float64) {
+	if m.adddata_ix_numeric2 != nil {
+		*m.adddata_ix_numeric2 += f
+	} else {
+		m.adddata_ix_numeric2 = &f
+	}
+}
+
+// AddedDataIxNumeric2 returns the value that was added to the "data_ix_numeric2" field in this mutation.
+func (m *OrderMutation) AddedDataIxNumeric2() (r float64, exists bool) {
+	v := m.adddata_ix_numeric2
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearDataIxNumeric2 clears the value of the "data_ix_numeric2" field.
+func (m *OrderMutation) ClearDataIxNumeric2() {
+	m.data_ix_numeric2 = nil
+	m.adddata_ix_numeric2 = nil
+	m.clearedFields[order.FieldDataIxNumeric2] = struct{}{}
+}
+
+// DataIxNumeric2Cleared returns if the "data_ix_numeric2" field was cleared in this mutation.
+func (m *OrderMutation) DataIxNumeric2Cleared() bool {
+	_, ok := m.clearedFields[order.FieldDataIxNumeric2]
+	return ok
+}
+
+// ResetDataIxNumeric2 resets all changes to the "data_ix_numeric2" field.
+func (m *OrderMutation) ResetDataIxNumeric2() {
+	m.data_ix_numeric2 = nil
+	m.adddata_ix_numeric2 = nil
+	delete(m.clearedFields, order.FieldDataIxNumeric2)
+}
+
+// SetDataIxBool1 sets the "data_ix_bool1" field.
+func (m *OrderMutation) SetDataIxBool1(b bool) {
+	m.data_ix_bool1 = &b
+}
+
+// DataIxBool1 returns the value of the "data_ix_bool1" field in the mutation.
+func (m *OrderMutation) DataIxBool1() (r bool, exists bool) {
+	v := m.data_ix_bool1
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDataIxBool1 returns the old "data_ix_bool1" field's value of the Order entity.
+// If the Order object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrderMutation) OldDataIxBool1(ctx context.Context) (v *bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDataIxBool1 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDataIxBool1 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDataIxBool1: %w", err)
+	}
+	return oldValue.DataIxBool1, nil
+}
+
+// ClearDataIxBool1 clears the value of the "data_ix_bool1" field.
+func (m *OrderMutation) ClearDataIxBool1() {
+	m.data_ix_bool1 = nil
+	m.clearedFields[order.FieldDataIxBool1] = struct{}{}
+}
+
+// DataIxBool1Cleared returns if the "data_ix_bool1" field was cleared in this mutation.
+func (m *OrderMutation) DataIxBool1Cleared() bool {
+	_, ok := m.clearedFields[order.FieldDataIxBool1]
+	return ok
+}
+
+// ResetDataIxBool1 resets all changes to the "data_ix_bool1" field.
+func (m *OrderMutation) ResetDataIxBool1() {
+	m.data_ix_bool1 = nil
+	delete(m.clearedFields, order.FieldDataIxBool1)
+}
+
+// SetDataIxBool2 sets the "data_ix_bool2" field.
+func (m *OrderMutation) SetDataIxBool2(b bool) {
+	m.data_ix_bool2 = &b
+}
+
+// DataIxBool2 returns the value of the "data_ix_bool2" field in the mutation.
+func (m *OrderMutation) DataIxBool2() (r bool, exists bool) {
+	v := m.data_ix_bool2
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDataIxBool2 returns the old "data_ix_bool2" field's value of the Order entity.
+// If the Order object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrderMutation) OldDataIxBool2(ctx context.Context) (v *bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDataIxBool2 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDataIxBool2 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDataIxBool2: %w", err)
+	}
+	return oldValue.DataIxBool2, nil
+}
+
+// ClearDataIxBool2 clears the value of the "data_ix_bool2" field.
+func (m *OrderMutation) ClearDataIxBool2() {
+	m.data_ix_bool2 = nil
+	m.clearedFields[order.FieldDataIxBool2] = struct{}{}
+}
+
+// DataIxBool2Cleared returns if the "data_ix_bool2" field was cleared in this mutation.
+func (m *OrderMutation) DataIxBool2Cleared() bool {
+	_, ok := m.clearedFields[order.FieldDataIxBool2]
+	return ok
+}
+
+// ResetDataIxBool2 resets all changes to the "data_ix_bool2" field.
+func (m *OrderMutation) ResetDataIxBool2() {
+	m.data_ix_bool2 = nil
+	delete(m.clearedFields, order.FieldDataIxBool2)
+}
+
+// SetDataIxList1 sets the "data_ix_list1" field.
+func (m *OrderMutation) SetDataIxList1(s []string) {
+	m.data_ix_list1 = &s
+	m.appenddata_ix_list1 = nil
+}
+
+// DataIxList1 returns the value of the "data_ix_list1" field in the mutation.
+func (m *OrderMutation) DataIxList1() (r []string, exists bool) {
+	v := m.data_ix_list1
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDataIxList1 returns the old "data_ix_list1" field's value of the Order entity.
+// If the Order object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrderMutation) OldDataIxList1(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDataIxList1 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDataIxList1 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDataIxList1: %w", err)
+	}
+	return oldValue.DataIxList1, nil
+}
+
+// AppendDataIxList1 adds s to the "data_ix_list1" field.
+func (m *OrderMutation) AppendDataIxList1(s []string) {
+	m.appenddata_ix_list1 = append(m.appenddata_ix_list1, s...)
+}
+
+// AppendedDataIxList1 returns the list of values that were appended to the "data_ix_list1" field in this mutation.
+func (m *OrderMutation) AppendedDataIxList1() ([]string, bool) {
+	if len(m.appenddata_ix_list1) == 0 {
+		return nil, false
+	}
+	return m.appenddata_ix_list1, true
+}
+
+// ClearDataIxList1 clears the value of the "data_ix_list1" field.
+func (m *OrderMutation) ClearDataIxList1() {
+	m.data_ix_list1 = nil
+	m.appenddata_ix_list1 = nil
+	m.clearedFields[order.FieldDataIxList1] = struct{}{}
+}
+
+// DataIxList1Cleared returns if the "data_ix_list1" field was cleared in this mutation.
+func (m *OrderMutation) DataIxList1Cleared() bool {
+	_, ok := m.clearedFields[order.FieldDataIxList1]
+	return ok
+}
+
+// ResetDataIxList1 resets all changes to the "data_ix_list1" field.
+func (m *OrderMutation) ResetDataIxList1() {
+	m.data_ix_list1 = nil
+	m.appenddata_ix_list1 = nil
+	delete(m.clearedFields, order.FieldDataIxList1)
+}
+
+// SetDataIxList2 sets the "data_ix_list2" field.
+func (m *OrderMutation) SetDataIxList2(s []string) {
+	m.data_ix_list2 = &s
+	m.appenddata_ix_list2 = nil
+}
+
+// DataIxList2 returns the value of the "data_ix_list2" field in the mutation.
+func (m *OrderMutation) DataIxList2() (r []string, exists bool) {
+	v := m.data_ix_list2
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDataIxList2 returns the old "data_ix_list2" field's value of the Order entity.
+// If the Order object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrderMutation) OldDataIxList2(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDataIxList2 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDataIxList2 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDataIxList2: %w", err)
+	}
+	return oldValue.DataIxList2, nil
+}
+
+// AppendDataIxList2 adds s to the "data_ix_list2" field.
+func (m *OrderMutation) AppendDataIxList2(s []string) {
+	m.appenddata_ix_list2 = append(m.appenddata_ix_list2, s...)
+}
+
+// AppendedDataIxList2 returns the list of values that were appended to the "data_ix_list2" field in this mutation.
+func (m *OrderMutation) AppendedDataIxList2() ([]string, bool) {
+	if len(m.appenddata_ix_list2) == 0 {
+		return nil, false
+	}
+	return m.appenddata_ix_list2, true
+}
+
+// ClearDataIxList2 clears the value of the "data_ix_list2" field.
+func (m *OrderMutation) ClearDataIxList2() {
+	m.data_ix_list2 = nil
+	m.appenddata_ix_list2 = nil
+	m.clearedFields[order.FieldDataIxList2] = struct{}{}
+}
+
+// DataIxList2Cleared returns if the "data_ix_list2" field was cleared in this mutation.
+func (m *OrderMutation) DataIxList2Cleared() bool {
+	_, ok := m.clearedFields[order.FieldDataIxList2]
+	return ok
+}
+
+// ResetDataIxList2 resets all changes to the "data_ix_list2" field.
+func (m *OrderMutation) ResetDataIxList2() {
+	m.data_ix_list2 = nil
+	m.appenddata_ix_list2 = nil
+	delete(m.clearedFields, order.FieldDataIxList2)
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -2936,7 +3514,7 @@ func (m *OrderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *OrderMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 21)
 	if m.tenant_id != nil {
 		fields = append(fields, order.FieldTenantID)
 	}
@@ -2948,6 +3526,36 @@ func (m *OrderMutation) Fields() []string {
 	}
 	if m.data != nil {
 		fields = append(fields, order.FieldData)
+	}
+	if m.data_ix_text1 != nil {
+		fields = append(fields, order.FieldDataIxText1)
+	}
+	if m.data_ix_text2 != nil {
+		fields = append(fields, order.FieldDataIxText2)
+	}
+	if m.data_ix_text3 != nil {
+		fields = append(fields, order.FieldDataIxText3)
+	}
+	if m.data_ix_text4 != nil {
+		fields = append(fields, order.FieldDataIxText4)
+	}
+	if m.data_ix_numeric1 != nil {
+		fields = append(fields, order.FieldDataIxNumeric1)
+	}
+	if m.data_ix_numeric2 != nil {
+		fields = append(fields, order.FieldDataIxNumeric2)
+	}
+	if m.data_ix_bool1 != nil {
+		fields = append(fields, order.FieldDataIxBool1)
+	}
+	if m.data_ix_bool2 != nil {
+		fields = append(fields, order.FieldDataIxBool2)
+	}
+	if m.data_ix_list1 != nil {
+		fields = append(fields, order.FieldDataIxList1)
+	}
+	if m.data_ix_list2 != nil {
+		fields = append(fields, order.FieldDataIxList2)
 	}
 	if m.created_at != nil {
 		fields = append(fields, order.FieldCreatedAt)
@@ -2986,6 +3594,26 @@ func (m *OrderMutation) Field(name string) (ent.Value, bool) {
 		return m.DataTypeSlug()
 	case order.FieldData:
 		return m.Data()
+	case order.FieldDataIxText1:
+		return m.DataIxText1()
+	case order.FieldDataIxText2:
+		return m.DataIxText2()
+	case order.FieldDataIxText3:
+		return m.DataIxText3()
+	case order.FieldDataIxText4:
+		return m.DataIxText4()
+	case order.FieldDataIxNumeric1:
+		return m.DataIxNumeric1()
+	case order.FieldDataIxNumeric2:
+		return m.DataIxNumeric2()
+	case order.FieldDataIxBool1:
+		return m.DataIxBool1()
+	case order.FieldDataIxBool2:
+		return m.DataIxBool2()
+	case order.FieldDataIxList1:
+		return m.DataIxList1()
+	case order.FieldDataIxList2:
+		return m.DataIxList2()
 	case order.FieldCreatedAt:
 		return m.CreatedAt()
 	case order.FieldCreatedBy:
@@ -3017,6 +3645,26 @@ func (m *OrderMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldDataTypeSlug(ctx)
 	case order.FieldData:
 		return m.OldData(ctx)
+	case order.FieldDataIxText1:
+		return m.OldDataIxText1(ctx)
+	case order.FieldDataIxText2:
+		return m.OldDataIxText2(ctx)
+	case order.FieldDataIxText3:
+		return m.OldDataIxText3(ctx)
+	case order.FieldDataIxText4:
+		return m.OldDataIxText4(ctx)
+	case order.FieldDataIxNumeric1:
+		return m.OldDataIxNumeric1(ctx)
+	case order.FieldDataIxNumeric2:
+		return m.OldDataIxNumeric2(ctx)
+	case order.FieldDataIxBool1:
+		return m.OldDataIxBool1(ctx)
+	case order.FieldDataIxBool2:
+		return m.OldDataIxBool2(ctx)
+	case order.FieldDataIxList1:
+		return m.OldDataIxList1(ctx)
+	case order.FieldDataIxList2:
+		return m.OldDataIxList2(ctx)
 	case order.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	case order.FieldCreatedBy:
@@ -3067,6 +3715,76 @@ func (m *OrderMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetData(v)
+		return nil
+	case order.FieldDataIxText1:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDataIxText1(v)
+		return nil
+	case order.FieldDataIxText2:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDataIxText2(v)
+		return nil
+	case order.FieldDataIxText3:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDataIxText3(v)
+		return nil
+	case order.FieldDataIxText4:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDataIxText4(v)
+		return nil
+	case order.FieldDataIxNumeric1:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDataIxNumeric1(v)
+		return nil
+	case order.FieldDataIxNumeric2:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDataIxNumeric2(v)
+		return nil
+	case order.FieldDataIxBool1:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDataIxBool1(v)
+		return nil
+	case order.FieldDataIxBool2:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDataIxBool2(v)
+		return nil
+	case order.FieldDataIxList1:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDataIxList1(v)
+		return nil
+	case order.FieldDataIxList2:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDataIxList2(v)
 		return nil
 	case order.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -3124,13 +3842,26 @@ func (m *OrderMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *OrderMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.adddata_ix_numeric1 != nil {
+		fields = append(fields, order.FieldDataIxNumeric1)
+	}
+	if m.adddata_ix_numeric2 != nil {
+		fields = append(fields, order.FieldDataIxNumeric2)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *OrderMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case order.FieldDataIxNumeric1:
+		return m.AddedDataIxNumeric1()
+	case order.FieldDataIxNumeric2:
+		return m.AddedDataIxNumeric2()
+	}
 	return nil, false
 }
 
@@ -3139,6 +3870,20 @@ func (m *OrderMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *OrderMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case order.FieldDataIxNumeric1:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDataIxNumeric1(v)
+		return nil
+	case order.FieldDataIxNumeric2:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDataIxNumeric2(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Order numeric field %s", name)
 }
@@ -3155,6 +3900,36 @@ func (m *OrderMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(order.FieldData) {
 		fields = append(fields, order.FieldData)
+	}
+	if m.FieldCleared(order.FieldDataIxText1) {
+		fields = append(fields, order.FieldDataIxText1)
+	}
+	if m.FieldCleared(order.FieldDataIxText2) {
+		fields = append(fields, order.FieldDataIxText2)
+	}
+	if m.FieldCleared(order.FieldDataIxText3) {
+		fields = append(fields, order.FieldDataIxText3)
+	}
+	if m.FieldCleared(order.FieldDataIxText4) {
+		fields = append(fields, order.FieldDataIxText4)
+	}
+	if m.FieldCleared(order.FieldDataIxNumeric1) {
+		fields = append(fields, order.FieldDataIxNumeric1)
+	}
+	if m.FieldCleared(order.FieldDataIxNumeric2) {
+		fields = append(fields, order.FieldDataIxNumeric2)
+	}
+	if m.FieldCleared(order.FieldDataIxBool1) {
+		fields = append(fields, order.FieldDataIxBool1)
+	}
+	if m.FieldCleared(order.FieldDataIxBool2) {
+		fields = append(fields, order.FieldDataIxBool2)
+	}
+	if m.FieldCleared(order.FieldDataIxList1) {
+		fields = append(fields, order.FieldDataIxList1)
+	}
+	if m.FieldCleared(order.FieldDataIxList2) {
+		fields = append(fields, order.FieldDataIxList2)
 	}
 	if m.FieldCleared(order.FieldUpdatedAt) {
 		fields = append(fields, order.FieldUpdatedAt)
@@ -3191,6 +3966,36 @@ func (m *OrderMutation) ClearField(name string) error {
 	case order.FieldData:
 		m.ClearData()
 		return nil
+	case order.FieldDataIxText1:
+		m.ClearDataIxText1()
+		return nil
+	case order.FieldDataIxText2:
+		m.ClearDataIxText2()
+		return nil
+	case order.FieldDataIxText3:
+		m.ClearDataIxText3()
+		return nil
+	case order.FieldDataIxText4:
+		m.ClearDataIxText4()
+		return nil
+	case order.FieldDataIxNumeric1:
+		m.ClearDataIxNumeric1()
+		return nil
+	case order.FieldDataIxNumeric2:
+		m.ClearDataIxNumeric2()
+		return nil
+	case order.FieldDataIxBool1:
+		m.ClearDataIxBool1()
+		return nil
+	case order.FieldDataIxBool2:
+		m.ClearDataIxBool2()
+		return nil
+	case order.FieldDataIxList1:
+		m.ClearDataIxList1()
+		return nil
+	case order.FieldDataIxList2:
+		m.ClearDataIxList2()
+		return nil
 	case order.FieldUpdatedAt:
 		m.ClearUpdatedAt()
 		return nil
@@ -3222,6 +4027,36 @@ func (m *OrderMutation) ResetField(name string) error {
 		return nil
 	case order.FieldData:
 		m.ResetData()
+		return nil
+	case order.FieldDataIxText1:
+		m.ResetDataIxText1()
+		return nil
+	case order.FieldDataIxText2:
+		m.ResetDataIxText2()
+		return nil
+	case order.FieldDataIxText3:
+		m.ResetDataIxText3()
+		return nil
+	case order.FieldDataIxText4:
+		m.ResetDataIxText4()
+		return nil
+	case order.FieldDataIxNumeric1:
+		m.ResetDataIxNumeric1()
+		return nil
+	case order.FieldDataIxNumeric2:
+		m.ResetDataIxNumeric2()
+		return nil
+	case order.FieldDataIxBool1:
+		m.ResetDataIxBool1()
+		return nil
+	case order.FieldDataIxBool2:
+		m.ResetDataIxBool2()
+		return nil
+	case order.FieldDataIxList1:
+		m.ResetDataIxList1()
+		return nil
+	case order.FieldDataIxList2:
+		m.ResetDataIxList2()
 		return nil
 	case order.FieldCreatedAt:
 		m.ResetCreatedAt()

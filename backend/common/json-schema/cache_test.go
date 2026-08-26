@@ -51,7 +51,7 @@ func TestRetrieveJsonSchemasToCache_SinglePage(t *testing.T) {
 	}
 
 	cache := newTestCache(t, fetcher)
-	err := cache.RetrieveJsonSchemasToCache(context.Background())
+	_, err := cache.RetrieveJsonSchemasToCache(context.Background())
 	require.NoError(t, err)
 
 	dt1, err := cache.ReadByID(context.Background(), id1)
@@ -76,7 +76,7 @@ func TestRetrieveJsonSchemasToCache_Error(t *testing.T) {
 	}
 
 	cache := newTestCache(t, fetcher)
-	err := cache.RetrieveJsonSchemasToCache(context.Background())
+	_, err := cache.RetrieveJsonSchemasToCache(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "connection refused")
 }
@@ -91,7 +91,7 @@ func TestRetrieveJsonSchemasToCache_EmptyResult(t *testing.T) {
 	}
 
 	cache := newTestCache(t, fetcher)
-	err := cache.RetrieveJsonSchemasToCache(context.Background())
+	_, err := cache.RetrieveJsonSchemasToCache(context.Background())
 	require.NoError(t, err)
 
 	_, err = cache.ReadByID(context.Background(), uuid.New())

@@ -111,7 +111,7 @@ checks:
       to: beta/warehouse
       quantity: 10
       handler: test-handler
-    expectError: "not found"
+    expectError: "NOT_FOUND"
 
   - type: query
     entity: itemMovement

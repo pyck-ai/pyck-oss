@@ -8,18 +8,19 @@ import (
 	"os"
 	"time"
 
-	_ "embed"
+	"gopkg.in/yaml.v3"
 
+	_ "embed"
 	_ "github.com/lib/pq"
-	"gopkg.in/yaml.v2"
+
+	"github.com/pyck-ai/pyck/backend/common/env"
+	envconfig "github.com/pyck-ai/pyck/backend/common/env/config"
+	"github.com/pyck-ai/pyck/backend/common/log"
 
 	"github.com/pyck-ai/pyck/backend/bootstrap/internal/database"
 	"github.com/pyck-ai/pyck/backend/bootstrap/internal/minio"
 	"github.com/pyck-ai/pyck/backend/bootstrap/internal/temporal"
 	"github.com/pyck-ai/pyck/backend/bootstrap/internal/zitadel"
-	"github.com/pyck-ai/pyck/backend/common/env"
-	envconfig "github.com/pyck-ai/pyck/backend/common/env/config"
-	"github.com/pyck-ai/pyck/backend/common/log"
 )
 
 const (

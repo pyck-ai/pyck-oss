@@ -77,15 +77,15 @@ var (
 	// IdempotencyKeysColumns holds the columns for the "idempotency_keys" table.
 	IdempotencyKeysColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
-		{Name: "key", Type: field.TypeString, Size: 255},
+		{Name: "key", Type: field.TypeString, Size: 255, SchemaType: map[string]string{"postgres": "varchar(255)"}},
 		{Name: "tenant_id", Type: field.TypeUUID},
 		{Name: "user_id", Type: field.TypeUUID},
 		{Name: "operation_name", Type: field.TypeString},
 		{Name: "operation_checksum", Type: field.TypeBytes, Size: 32},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"in_flight", "committed"}, Default: "in_flight"},
 		{Name: "response", Type: field.TypeBytes, Nullable: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "created_at", Type: field.TypeTime, Default: schema.Expr("now()")},
+		{Name: "updated_at", Type: field.TypeTime, Default: schema.Expr("now()")},
 	}
 	// IdempotencyKeysTable holds the schema information for the "idempotency_keys" table.
 	IdempotencyKeysTable = &schema.Table{
@@ -94,12 +94,12 @@ var (
 		PrimaryKey: []*schema.Column{IdempotencyKeysColumns[0]},
 		Indexes: []*schema.Index{
 			{
-				Name:    "idempotencykey_tenant_id_user_id_key",
+				Name:    "idempotency_keys_tenant_user_key",
 				Unique:  true,
 				Columns: []*schema.Column{IdempotencyKeysColumns[2], IdempotencyKeysColumns[3], IdempotencyKeysColumns[1]},
 			},
 			{
-				Name:    "idempotencykey_created_at",
+				Name:    "idempotency_keys_committed_created",
 				Unique:  false,
 				Columns: []*schema.Column{IdempotencyKeysColumns[8]},
 				Annotation: &entsql.IndexAnnotation{
@@ -115,6 +115,16 @@ var (
 		{Name: "data_type_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "data_type_slug", Type: field.TypeString, Nullable: true},
 		{Name: "data", Type: field.TypeJSON, Nullable: true},
+		{Name: "data_ix_text1", Type: field.TypeString, Nullable: true},
+		{Name: "data_ix_text2", Type: field.TypeString, Nullable: true},
+		{Name: "data_ix_text3", Type: field.TypeString, Nullable: true},
+		{Name: "data_ix_text4", Type: field.TypeString, Nullable: true},
+		{Name: "data_ix_numeric1", Type: field.TypeFloat64, Nullable: true},
+		{Name: "data_ix_numeric2", Type: field.TypeFloat64, Nullable: true},
+		{Name: "data_ix_bool1", Type: field.TypeBool, Nullable: true},
+		{Name: "data_ix_bool2", Type: field.TypeBool, Nullable: true},
+		{Name: "data_ix_list1", Type: field.TypeJSON, Nullable: true},
+		{Name: "data_ix_list2", Type: field.TypeJSON, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "created_by", Type: field.TypeUUID},
 		{Name: "updated_at", Type: field.TypeTime, Nullable: true},
@@ -128,6 +138,107 @@ var (
 		Name:       "orders",
 		Columns:    OrdersColumns,
 		PrimaryKey: []*schema.Column{OrdersColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "order_tenant_id_data_ix_text1",
+				Unique:  false,
+				Columns: []*schema.Column{OrdersColumns[1], OrdersColumns[5]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "data_ix_text1 IS NOT NULL",
+				},
+			},
+			{
+				Name:    "order_tenant_id_data_ix_text2",
+				Unique:  false,
+				Columns: []*schema.Column{OrdersColumns[1], OrdersColumns[6]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "data_ix_text2 IS NOT NULL",
+				},
+			},
+			{
+				Name:    "order_tenant_id_data_ix_text3",
+				Unique:  false,
+				Columns: []*schema.Column{OrdersColumns[1], OrdersColumns[7]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "data_ix_text3 IS NOT NULL",
+				},
+			},
+			{
+				Name:    "order_tenant_id_data_ix_text4",
+				Unique:  false,
+				Columns: []*schema.Column{OrdersColumns[1], OrdersColumns[8]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "data_ix_text4 IS NOT NULL",
+				},
+			},
+			{
+				Name:    "order_tenant_id_data_ix_numeric1",
+				Unique:  false,
+				Columns: []*schema.Column{OrdersColumns[1], OrdersColumns[9]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "data_ix_numeric1 IS NOT NULL",
+				},
+			},
+			{
+				Name:    "order_tenant_id_data_ix_numeric2",
+				Unique:  false,
+				Columns: []*schema.Column{OrdersColumns[1], OrdersColumns[10]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "data_ix_numeric2 IS NOT NULL",
+				},
+			},
+			{
+				Name:    "order_tenant_id_data_ix_bool1",
+				Unique:  false,
+				Columns: []*schema.Column{OrdersColumns[1], OrdersColumns[11]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "data_ix_bool1 IS NOT NULL",
+				},
+			},
+			{
+				Name:    "order_tenant_id_data_ix_bool2",
+				Unique:  false,
+				Columns: []*schema.Column{OrdersColumns[1], OrdersColumns[12]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "data_ix_bool2 IS NOT NULL",
+				},
+			},
+			{
+				Name:    "order_data_ix_list1",
+				Unique:  false,
+				Columns: []*schema.Column{OrdersColumns[13]},
+				Annotation: &entsql.IndexAnnotation{
+					Types: map[string]string{
+						"postgres": "GIN",
+					},
+				},
+			},
+			{
+				Name:    "order_data_ix_list2",
+				Unique:  false,
+				Columns: []*schema.Column{OrdersColumns[14]},
+				Annotation: &entsql.IndexAnnotation{
+					Types: map[string]string{
+						"postgres": "GIN",
+					},
+				},
+			},
+			{
+				Name:    "order_data",
+				Unique:  false,
+				Columns: []*schema.Column{OrdersColumns[4]},
+				Annotation: &entsql.IndexAnnotation{
+					Types: map[string]string{
+						"postgres": "GIN",
+					},
+				},
+			},
+			{
+				Name:    "order_tenant_id_data_type_slug",
+				Unique:  false,
+				Columns: []*schema.Column{OrdersColumns[1], OrdersColumns[3]},
+			},
+		},
 	}
 	// OrderItemsColumns holds the columns for the "order-items" table.
 	OrderItemsColumns = []*schema.Column{
@@ -157,6 +268,16 @@ var (
 				Columns:    []*schema.Column{OrderItemsColumns[13]},
 				RefColumns: []*schema.Column{OrdersColumns[0]},
 				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "orderitems_order_id",
+				Unique:  false,
+				Columns: []*schema.Column{OrderItemsColumns[13]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "deleted_at IS NULL",
+				},
 			},
 		},
 	}
@@ -217,6 +338,10 @@ func init() {
 	}
 	IdempotencyKeysTable.Annotation = &entsql.Annotation{
 		Table: "idempotency_keys",
+	}
+	IdempotencyKeysTable.Annotation.Checks = map[string]string{
+		"idempotency_keys_checksum_len_check": "octet_length(operation_checksum) = 32",
+		"idempotency_keys_status_check":       "status IN ('in_flight', 'committed')",
 	}
 	OrdersTable.Annotation = &entsql.Annotation{
 		Table: "orders",

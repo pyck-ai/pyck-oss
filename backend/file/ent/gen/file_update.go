@@ -211,20 +211,6 @@ func (_u *FileUpdate) ClearDescription() *FileUpdate {
 	return _u
 }
 
-// SetName sets the "name" field.
-func (_u *FileUpdate) SetName(v string) *FileUpdate {
-	_u.mutation.SetName(v)
-	return _u
-}
-
-// SetNillableName sets the "name" field if the given value is not nil.
-func (_u *FileUpdate) SetNillableName(v *string) *FileUpdate {
-	if v != nil {
-		_u.SetName(*v)
-	}
-	return _u
-}
-
 // SetSize sets the "size" field.
 func (_u *FileUpdate) SetSize(v int64) *FileUpdate {
 	_u.mutation.ResetSize()
@@ -249,20 +235,6 @@ func (_u *FileUpdate) AddSize(v int64) *FileUpdate {
 // ClearSize clears the value of the "size" field.
 func (_u *FileUpdate) ClearSize() *FileUpdate {
 	_u.mutation.ClearSize()
-	return _u
-}
-
-// SetContentType sets the "content_type" field.
-func (_u *FileUpdate) SetContentType(v string) *FileUpdate {
-	_u.mutation.SetContentType(v)
-	return _u
-}
-
-// SetNillableContentType sets the "content_type" field if the given value is not nil.
-func (_u *FileUpdate) SetNillableContentType(v *string) *FileUpdate {
-	if v != nil {
-		_u.SetContentType(*v)
-	}
 	return _u
 }
 
@@ -325,19 +297,9 @@ func (_u *FileUpdate) check() error {
 			return &ValidationError{Name: "reftype", err: fmt.Errorf(`gen: validator failed for field "File.reftype": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.Name(); ok {
-		if err := file.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`gen: validator failed for field "File.name": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.Size(); ok {
 		if err := file.SizeValidator(v); err != nil {
 			return &ValidationError{Name: "size", err: fmt.Errorf(`gen: validator failed for field "File.size": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.ContentType(); ok {
-		if err := file.ContentTypeValidator(v); err != nil {
-			return &ValidationError{Name: "content_type", err: fmt.Errorf(`gen: validator failed for field "File.content_type": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.PublicAlias(); ok {
@@ -414,9 +376,6 @@ func (_u *FileUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.DescriptionCleared() {
 		_spec.ClearField(file.FieldDescription, field.TypeString)
 	}
-	if value, ok := _u.mutation.Name(); ok {
-		_spec.SetField(file.FieldName, field.TypeString, value)
-	}
 	if value, ok := _u.mutation.Size(); ok {
 		_spec.SetField(file.FieldSize, field.TypeInt64, value)
 	}
@@ -425,9 +384,6 @@ func (_u *FileUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.SizeCleared() {
 		_spec.ClearField(file.FieldSize, field.TypeInt64)
-	}
-	if value, ok := _u.mutation.ContentType(); ok {
-		_spec.SetField(file.FieldContentType, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.PublicAlias(); ok {
 		_spec.SetField(file.FieldPublicAlias, field.TypeString, value)
@@ -637,20 +593,6 @@ func (_u *FileUpdateOne) ClearDescription() *FileUpdateOne {
 	return _u
 }
 
-// SetName sets the "name" field.
-func (_u *FileUpdateOne) SetName(v string) *FileUpdateOne {
-	_u.mutation.SetName(v)
-	return _u
-}
-
-// SetNillableName sets the "name" field if the given value is not nil.
-func (_u *FileUpdateOne) SetNillableName(v *string) *FileUpdateOne {
-	if v != nil {
-		_u.SetName(*v)
-	}
-	return _u
-}
-
 // SetSize sets the "size" field.
 func (_u *FileUpdateOne) SetSize(v int64) *FileUpdateOne {
 	_u.mutation.ResetSize()
@@ -675,20 +617,6 @@ func (_u *FileUpdateOne) AddSize(v int64) *FileUpdateOne {
 // ClearSize clears the value of the "size" field.
 func (_u *FileUpdateOne) ClearSize() *FileUpdateOne {
 	_u.mutation.ClearSize()
-	return _u
-}
-
-// SetContentType sets the "content_type" field.
-func (_u *FileUpdateOne) SetContentType(v string) *FileUpdateOne {
-	_u.mutation.SetContentType(v)
-	return _u
-}
-
-// SetNillableContentType sets the "content_type" field if the given value is not nil.
-func (_u *FileUpdateOne) SetNillableContentType(v *string) *FileUpdateOne {
-	if v != nil {
-		_u.SetContentType(*v)
-	}
 	return _u
 }
 
@@ -764,19 +692,9 @@ func (_u *FileUpdateOne) check() error {
 			return &ValidationError{Name: "reftype", err: fmt.Errorf(`gen: validator failed for field "File.reftype": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.Name(); ok {
-		if err := file.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`gen: validator failed for field "File.name": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.Size(); ok {
 		if err := file.SizeValidator(v); err != nil {
 			return &ValidationError{Name: "size", err: fmt.Errorf(`gen: validator failed for field "File.size": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.ContentType(); ok {
-		if err := file.ContentTypeValidator(v); err != nil {
-			return &ValidationError{Name: "content_type", err: fmt.Errorf(`gen: validator failed for field "File.content_type": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.PublicAlias(); ok {
@@ -870,9 +788,6 @@ func (_u *FileUpdateOne) sqlSave(ctx context.Context) (_node *File, err error) {
 	if _u.mutation.DescriptionCleared() {
 		_spec.ClearField(file.FieldDescription, field.TypeString)
 	}
-	if value, ok := _u.mutation.Name(); ok {
-		_spec.SetField(file.FieldName, field.TypeString, value)
-	}
 	if value, ok := _u.mutation.Size(); ok {
 		_spec.SetField(file.FieldSize, field.TypeInt64, value)
 	}
@@ -881,9 +796,6 @@ func (_u *FileUpdateOne) sqlSave(ctx context.Context) (_node *File, err error) {
 	}
 	if _u.mutation.SizeCleared() {
 		_spec.ClearField(file.FieldSize, field.TypeInt64)
-	}
-	if value, ok := _u.mutation.ContentType(); ok {
-		_spec.SetField(file.FieldContentType, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.PublicAlias(); ok {
 		_spec.SetField(file.FieldPublicAlias, field.TypeString, value)

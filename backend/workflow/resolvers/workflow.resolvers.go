@@ -19,8 +19,10 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/events"
+	"github.com/pyck-ai/pyck/backend/common/feature"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
 	"github.com/pyck-ai/pyck/backend/common/request"
+	"github.com/pyck-ai/pyck/backend/common/sqljsonpath"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 	"github.com/pyck-ai/pyck/backend/workflow/core"
 	ent "github.com/pyck-ai/pyck/backend/workflow/ent/gen"
@@ -50,6 +52,26 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 		return nil, ErrInvalidTaskQueue
 	}
 
+	// worker_id scopes subscriptions to the calling worker so concurrent
+	// registrations no longer contend on each other's rows. Legacy workers omit
+	// it (nil) and keep sharing a single, non-expiring subscription set.
+	workerID := ""
+	if input.WorkerID != nil {
+		workerID = strings.TrimSpace(*input.WorkerID)
+	}
+	if len(workerID) > maxWorkerIDLen {
+		return nil, ErrWorkerIDTooLong
+	}
+	var (
+		workerIDPtr *string
+		expiresAt   *time.Time
+	)
+	if workerID != "" {
+		workerIDPtr = &workerID
+		t := time.Now().UTC().Add(core.Config.SubscriptionTTL)
+		expiresAt = &t
+	}
+
 	// Find existing workflow
 	wf, err := tx.Workflow.Query().
 		Where(
@@ -69,6 +91,24 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 	}
 	mixin.PatchDataTypeIdSlugInput(&input, wfDT)
 
+	// Validate Data uniqueness before the write. On update we exclude the row
+	// being changed so its own current value is not counted as a collision;
+	// validating after the write would always count the freshly written row.
+	var excludeID *uuid.UUID
+	if wf != nil {
+		excludeID = &wf.ID
+	}
+	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+		Input:     input.Data,
+		DataType:  wfDT,
+		TableName: entworkflow.Table,
+		FieldName: entworkflow.FieldData,
+		DbDriver:  core.Config.DbDriver,
+		ExcludeID: excludeID,
+	}); err != nil {
+		return nil, err
+	}
+
 	// Create / Update workflow
 	// MutationEventHook captures the mutation automatically.
 	if wf == nil {
@@ -82,7 +122,10 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 		if err != nil {
 			return nil, err
 		}
-	} else {
+	} else if workflowDataChanged(wf, input) {
+		// Only write the shared workflow row when its data actually changed. A
+		// no-op re-registration (a worker heartbeat) must not touch it — that
+		// would re-introduce write contention and emit a spurious CRUD event.
 		wf, err = tx.Workflow.UpdateOneID(wf.ID).SetInput(ent.UpdateWorkflowInput{
 			DataTypeID:   input.DataTypeID,
 			DataTypeSlug: input.DataTypeSlug,
@@ -93,31 +136,25 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 		}
 	}
 
-	// Optional uniqueness for workflow.Data
-	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
-		Input:     input.Data,
-		DataType:  wfDT,
-		TableName: entworkflow.Table,
-		FieldName: entworkflow.FieldData,
-		DbDriver:  core.Config.DbDriver,
-	}); err != nil {
-		return nil, err
-	}
-
-	// Map existing active signals by uniqueness key:
-	// - For INTERMEDIATE signals => (topic, type, &signal)
-	// - For non-INTERMEDIATE     => (topic, type, nil)
-	// Using pointer allows distinguishing "no signal" from "empty signal"
+	// Uniqueness key for a signal. signal is only meaningful for INTERMEDIATE
+	// (empty otherwise); typ keeps the two apart, so a plain string compares by
+	// value in the map — a *string would compare by identity and never match.
 	type key struct {
 		topic  string
 		typ    string
-		signal *string
+		signal string
 	}
 
-	// Load existing active signals for this workflow.
+	// Load this worker's existing active signals for the workflow (legacy
+	// registrations own the nil-worker set).
+	workerScope := entworkflowsignal.WorkerIDIsNil()
+	if workerIDPtr != nil {
+		workerScope = entworkflowsignal.WorkerIDEQ(*workerIDPtr)
+	}
 	existingSignalList, err := tx.WorkflowSignal.Query().Where(
 		entworkflowsignal.TenantIDEQ(req.MutationTenantID()),
 		entworkflowsignal.WorkflowIDEQ(wf.ID),
+		workerScope,
 		entworkflowsignal.DeletedAtIsNil(),
 	).AllPages(ctx, mixin.Limit)
 	if err != nil {
@@ -128,13 +165,11 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 	existing := make(map[key]*ent.WorkflowSignal, len(existingSignalList))
 	for _, es := range existingSignalList {
 		k := key{
-			topic:  strings.TrimSpace(es.NatsTopic),
-			typ:    es.TemporalSignalType.String(),
-			signal: nil,
+			topic: strings.TrimSpace(es.NatsTopic),
+			typ:   es.TemporalSignalType.String(),
 		}
 		if es.TemporalSignalType == entworkflowsignal.TemporalSignalTypeIntermediate {
-			sig := strings.TrimSpace(es.TemporalSignal)
-			k.signal = &sig
+			k.signal = strings.TrimSpace(es.TemporalSignal)
 		}
 		existing[k] = es
 	}
@@ -236,12 +271,9 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 
 		// Process each expanded topic (one for concrete, multiple for wildcards)
 		for _, expandedTopic := range expandedTopics {
-			// Build uniqueness key:
-			// - INTERMEDIATE uses (topic, type, &signal)
-			// - others use (topic, type, nil)
-			k := key{topic: expandedTopic, typ: sType.String(), signal: nil}
+			k := key{topic: expandedTopic, typ: sType.String()}
 			if sType == entworkflowsignal.TemporalSignalTypeIntermediate {
-				k.signal = &temporalSignal
+				k.signal = temporalSignal
 			}
 
 			// Enforce uniqueness per key in the input batch
@@ -268,6 +300,9 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 					es.TemporalSignal != temporalSignal ||
 					es.FilterRule != filterRule
 
+				// Persist content changes, and always refresh the TTL so an
+				// unchanged re-registration (a worker heartbeat) keeps the
+				// subscription alive.
 				if changed {
 					updateInput := ent.UpdateWorkflowSignalInput{
 						NatsTopic:          &expandedTopic,
@@ -275,8 +310,19 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 						TemporalSignalType: &sType,
 						FilterRule:         &filterRule,
 					}
-					_, err := tx.WorkflowSignal.UpdateOneID(es.ID).SetInput(updateInput).Save(ctx)
-					if err != nil {
+					if _, err := tx.WorkflowSignal.UpdateOneID(es.ID).
+						SetInput(updateInput).
+						SetNillableExpiresAt(expiresAt).
+						Save(ctx); err != nil {
+						return nil, err
+					}
+				} else if expiresAt != nil {
+					// TTL-only refresh (a heartbeat): nothing business-visible
+					// changed, so suppress the CRUD event to spare the outbox.
+					refreshCtx := feature.Context(ctx, feature.FEATURE_SUPPRESS_EVENTS)
+					if _, err := tx.WorkflowSignal.UpdateOneID(es.ID).
+						SetExpiresAt(*expiresAt).
+						Save(refreshCtx); err != nil {
 						return nil, err
 					}
 				}
@@ -291,8 +337,11 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 					TemporalSignalType: sType,
 					FilterRule:         &filterRule,
 				}
-				_, err := tx.WorkflowSignal.Create().SetInput(createInput).Save(ctx)
-				if err != nil {
+				if _, err := tx.WorkflowSignal.Create().
+					SetInput(createInput).
+					SetNillableWorkerID(workerIDPtr).
+					SetNillableExpiresAt(expiresAt).
+					Save(ctx); err != nil {
 					return nil, err
 				}
 			}
@@ -483,8 +532,12 @@ func (r *workflowWhereInputResolver) Data(ctx context.Context, obj *ent.Workflow
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(entworkflow.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueEQ(entworkflow.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil
@@ -497,8 +550,12 @@ func (r *workflowWhereInputResolver) DataHasKey(ctx context.Context, obj *ent.Wo
 	}
 
 	if *data != "" {
+		jsonPath, err := sqljsonpath.DotPath(*data)
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(entworkflow.FieldData, sqljson.DotPath(*data)))
+			s.Where(sqljson.HasKey(entworkflow.FieldData, jsonPath))
 		})
 	}
 	return nil
@@ -515,8 +572,12 @@ func (r *workflowWhereInputResolver) DataIn(ctx context.Context, obj *ent.Workfl
 		for _, v := range data[1:] {
 			args = append(args, v)
 		}
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(entworkflow.FieldData, args, sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueIn(entworkflow.FieldData, args, jsonPath))
 		})
 	}
 	return nil
@@ -529,8 +590,12 @@ func (r *workflowWhereInputResolver) DataContains(ctx context.Context, obj *ent.
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(entworkflow.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueContains(entworkflow.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil

@@ -221,7 +221,7 @@ func TestInboundItem_Create(t *testing.T) {
 			"Sku":        "SKU-X",
 			"DataTypeID": itemDataTypeID,
 			"Sum":        -10,
-		}, "'/sum' does not validate")
+		}, "at '/sum'")
 
 		te.assertNoEvents(ctx)
 	})
@@ -240,7 +240,7 @@ func TestInboundItem_Create(t *testing.T) {
 			"Sku":        "SKU-X",
 			"DataTypeID": itemDataTypeID,
 			"Weight":     -50,
-		}, "'/meta/weight' does not validate")
+		}, "at '/meta/weight'")
 
 		te.assertNoEvents(ctx)
 	})
@@ -371,7 +371,7 @@ func TestInboundItem_Update(t *testing.T) {
 			"DataTypeID": itemDataTypeID,
 			"Data":       true,
 			"Sum":        -100,
-		}, "'/sum' does not validate")
+		}, "at '/sum'")
 
 		te.assertNoEvents(ctx)
 	})

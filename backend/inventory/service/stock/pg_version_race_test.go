@@ -12,19 +12,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
+
+	"github.com/pyck-ai/pyck/backend/common/test/pgtest"
 )
 
-// TestPG_TwoGoroutineVersionRace is an unconditional Postgres-backed port of
-// TestSourceRowOCCConflict_TwoGoroutinesRace. The original skips unless
-// PYCK_DATABASE_MASTER_URL is set; this variant uses the testcontainer started
-// by TestMain and always runs as part of the TestPG_ suite.
-//
-// Two goroutines race to insert the same (tenant, repository, item, version) into
-// a mirror table that carries the production unique index name. Exactly one must
-// commit; the other must observe errOCCConflict.
+// TestPG_TwoGoroutineVersionRace races two goroutines to insert the same
+// (tenant, repository, item, version) into a mirror table carrying the
+// production unique index name: exactly one commits, the other must see
+// errOCCConflict. Unlike TestSourceRowOCCConflict_TwoGoroutinesRace it never
+// skips — it runs on the testcontainer started by TestMain.
 func TestPG_TwoGoroutineVersionRace(t *testing.T) {
 	t.Parallel()
-	requirePG(t)
+	pgtest.Require(t, pkgPG)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -32,11 +31,15 @@ func TestPG_TwoGoroutineVersionRace(t *testing.T) {
 	// Use the bootstrap "postgres" database for DDL; the mirror table lives in
 	// the public schema so it cannot collide with the production index in the
 	// inventory schema.
-	adminDSN := pkgPG.adminDSN()
+	adminDSN := pkgPG.AdminDSN()
 
 	setupConn, err := pgx.Connect(ctx, adminDSN)
 	require.NoError(t, err)
-	defer func() { _ = setupConn.Close(ctx) }()
+	defer func() {
+		if cerr := setupConn.Close(ctx); cerr != nil {
+			t.Logf("close setup conn: %v", cerr)
+		}
+	}()
 
 	tableName := "public.stocks_occ_race_" + sanitizeUUIDForIdent(uuid.NewString())
 
@@ -68,7 +71,9 @@ func TestPG_TwoGoroutineVersionRace(t *testing.T) {
 	t.Cleanup(func() {
 		dropCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_, _ = setupConn.Exec(dropCtx, "DROP TABLE IF EXISTS "+tableName+" CASCADE")
+		if _, derr := setupConn.Exec(dropCtx, "DROP TABLE IF EXISTS "+tableName+" CASCADE"); derr != nil {
+			t.Logf("drop mirror table: %v", derr)
+		}
 	})
 
 	// The index carries the production name: wrapOCCConflict matches on exactly
@@ -98,14 +103,22 @@ func TestPG_TwoGoroutineVersionRace(t *testing.T) {
 				results[idx] = connErr
 				return
 			}
-			defer func() { _ = workerConn.Close(ctx) }()
+			defer func() {
+				if cerr := workerConn.Close(ctx); cerr != nil {
+					t.Logf("close worker conn: %v", cerr)
+				}
+			}()
 
 			tx, txErr := workerConn.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 			if txErr != nil {
 				results[idx] = txErr
 				return
 			}
-			defer func() { _ = tx.Rollback(ctx) }()
+			defer func() {
+				if rerr := tx.Rollback(ctx); rerr != nil && !errors.Is(rerr, pgx.ErrTxClosed) {
+					t.Logf("rollback worker tx: %v", rerr)
+				}
+			}()
 
 			ready <- struct{}{}
 			<-start

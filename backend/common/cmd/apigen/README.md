@@ -13,6 +13,24 @@ Instead of manually maintaining client API query files, `apigen` automates the p
 - Recursively expanding nested object types (up to 3 levels deep)
 - Handling circular references and preventing infinite loops
 
+## Hand-written operations
+
+apigen auto-generates only root-field operations and intentionally skips
+entity→entity edges (expanding unbounded relations bloated responses). That
+leaves no auto-generated operation for **federated cross-service relations** —
+e.g. `PickingOrder.customer`, which the picking subgraph roots but the main-data
+subgraph resolves. Such a selection is only valid against the composed
+supergraph, not any single subgraph schema.
+
+For these, drop a hand-written operation file in `api/operations/*.graphql`
+(configurable via `--operations`). apigen syntax-checks each file and
+concatenates them into a generated `api/operations_gen.graphql`. That file lives
+*outside* the `api/graph/*.graphql` glob on purpose: the gqlgenc/apigenc clients
+(validated against the local subgraph schema, which lacks the cross-service
+field) never see it, while `brunogen` — which runs operations through the
+federated gateway — reads it alongside `apigen_gen.graphql`. A missing/empty
+`api/operations/` directory is a no-op and removes any stale generated file.
+
 ## Usage
 
 ### As a go:generate Directive

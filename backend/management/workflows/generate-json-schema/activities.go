@@ -3,8 +3,8 @@ package generatejsonschema
 import (
 	"context"
 
+	jsonschema "github.com/pyck-ai/pyck/backend/common/json-schema"
 	openai "github.com/pyck-ai/pyck/backend/common/services/open-ai"
-	"github.com/santhosh-tekuri/jsonschema/v5"
 )
 
 func GenerateJSONSchemaActivity(ctx context.Context, input generateSchemaInput) (*generateSchemaOutput, error) {

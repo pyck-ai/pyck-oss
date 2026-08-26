@@ -7,7 +7,9 @@ import (
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
+
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 	"github.com/pyck-ai/pyck/backend/common/workflow"
@@ -61,6 +63,21 @@ func (WorkflowSignal) Fields() []ent.Field {
 			Annotations(
 				entgql.OrderField("FILTER_RULE"),
 			),
+		// worker_id identifies the worker process that owns this subscription.
+		// Nil means a legacy shared subscription (no owning worker), which also
+		// keeps existing rows valid after migration. Internal bookkeeping only,
+		// so it is hidden from the GraphQL API.
+		field.String("worker_id").
+			Optional().
+			Nillable().
+			Immutable().
+			Annotations(entgql.Skip()),
+		// expires_at is when a worker-owned subscription goes stale absent a
+		// refresh. Nil means it never expires (legacy shared subscription).
+		field.Time("expires_at").
+			Optional().
+			Nillable().
+			Annotations(entgql.Skip()),
 	}
 }
 
@@ -75,7 +92,16 @@ func (WorkflowSignal) Edges() []ent.Edge {
 }
 
 func (WorkflowSignal) Indexes() []ent.Index {
-	return []ent.Index{}
+	return []ent.Index{
+		// One live subscription per worker and signal identity. worker_id scopes
+		// the key so concurrent workers registering the same workflow no longer
+		// contend on each other's rows.
+		index.Fields("tenant_id", "workflow_id", "worker_id", "nats_topic", "temporal_signal_type", "temporal_signal").
+			Unique().
+			Annotations(mixin.HistoryMixinNotDeletedIndexAnnotation()),
+		// Supports the janitor's sweep of expired subscriptions.
+		index.Fields("expires_at"),
+	}
 }
 
 func (WorkflowSignal) Mixin() []ent.Mixin {

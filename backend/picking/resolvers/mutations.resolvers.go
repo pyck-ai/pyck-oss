@@ -97,7 +97,7 @@ func (r *mutationResolver) CreatePickingOrder(ctx context.Context, input model.C
 			DataTypeSlug: item.DataTypeSlug,
 			Data:         item.Data,
 			Sku:          item.Sku,
-			Quantity:     int64(item.Quantity),
+			Quantity:     item.Quantity,
 			OrderID:      createdOrder.ID,
 		}
 		bulk = append(bulk, tx.OrderItems.Create().SetInput(createInput))

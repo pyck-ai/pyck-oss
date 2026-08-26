@@ -1,0 +1,11 @@
+info:
+  name: Cross - Picking Order Customer Relation
+  type: folder
+  seq: 1
+
+docs: |-
+  Verifies the federated PickingOrder.customer relation (resolved by the main-data subgraph, issue #1202). Creates a customer and a picking order that references it, confirms `customer` resolves to that customer through the gateway, then soft-deletes the customer and confirms `customer` reads as null while the order keeps its customerID pointer. Cleans up the order.
+
+
+request:
+  auth: inherit

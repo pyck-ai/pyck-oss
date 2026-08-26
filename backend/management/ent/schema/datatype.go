@@ -78,6 +78,10 @@ func (dt DataType) Fields() []ent.Field {
 			),
 		field.String("entity").
 			NotEmpty().
+			// The entity picks the slot pool a datatype's indices are validated
+			// against; changing it would leave the bindings naming slots the new
+			// entity lacks, so it is fixed at creation.
+			Immutable().
 			Annotations(
 				entgql.OrderField("ENTITY"),
 			),

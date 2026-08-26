@@ -26,6 +26,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/validator"
 	"github.com/pyck-ai/pyck/backend/common/workflow"
 
+	"github.com/pyck-ai/pyck/backend/workflow/core"
 	ent "github.com/pyck-ai/pyck/backend/workflow/ent/gen"
 	"github.com/pyck-ai/pyck/backend/workflow/ent/gen/entityeventsoutbox"
 	"github.com/pyck-ai/pyck/backend/workflow/ent/gen/enttest"
@@ -40,6 +41,8 @@ import (
 func TestMain(m *testing.M) {
 	cleanup := resolver.MustSetupTestTracer("workflow")
 	defer cleanup()
+	// Worker-scoped subscriptions need a positive TTL to stamp expires_at.
+	core.Config.SubscriptionTTL = 15 * time.Minute
 	os.Exit(m.Run())
 }
 
@@ -102,11 +105,11 @@ func setup(t *testing.T) *testEnv {
 	}))
 
 	workflowRouter := services.NewSignalRouter(client, services.SignalRouterConfig{
-		TemporalURL: "",
+		ClientFactory: newMockClientFactory(),
 	})
 
 	v := validator.NewValidator(te.DataTypeProvider)
-	r := resolvers.NewResolver("workflow", client, v, workflowRouter)
+	r := resolvers.NewResolver("workflow", client, v, workflowRouter, nil, resolvers.RemoteUIDefaults{})
 	schema := resolvers.NewSchema(r)
 
 	te.Init(client, schema, func(s *handler.Server) {
@@ -148,12 +151,11 @@ func setupWithMockWorkflow(t *testing.T) *testEnv {
 	mockFactory := newMockClientFactory()
 
 	workflowRouter := services.NewSignalRouter(client, services.SignalRouterConfig{
-		TemporalURL:   "",
 		ClientFactory: mockFactory,
 	})
 
 	v := validator.NewValidator(te.DataTypeProvider)
-	r := resolvers.NewResolver("workflow", client, v, workflowRouter)
+	r := resolvers.NewResolver("workflow", client, v, workflowRouter, nil, resolvers.RemoteUIDefaults{})
 	schema := resolvers.NewSchema(r)
 
 	te.Init(client, schema, func(s *handler.Server) {

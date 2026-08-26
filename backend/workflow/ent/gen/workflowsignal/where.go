@@ -113,6 +113,16 @@ func FilterRule(v string) predicate.WorkflowSignal {
 	return predicate.WorkflowSignal(sql.FieldEQ(FieldFilterRule, v))
 }
 
+// WorkerID applies equality check predicate on the "worker_id" field. It's identical to WorkerIDEQ.
+func WorkerID(v string) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldEQ(FieldWorkerID, v))
+}
+
+// ExpiresAt applies equality check predicate on the "expires_at" field. It's identical to ExpiresAtEQ.
+func ExpiresAt(v time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldEQ(FieldExpiresAt, v))
+}
+
 // TenantIDEQ applies the EQ predicate on the "tenant_id" field.
 func TenantIDEQ(v uuid.UUID) predicate.WorkflowSignal {
 	return predicate.WorkflowSignal(sql.FieldEQ(FieldTenantID, v))
@@ -686,6 +696,131 @@ func FilterRuleEqualFold(v string) predicate.WorkflowSignal {
 // FilterRuleContainsFold applies the ContainsFold predicate on the "filter_rule" field.
 func FilterRuleContainsFold(v string) predicate.WorkflowSignal {
 	return predicate.WorkflowSignal(sql.FieldContainsFold(FieldFilterRule, v))
+}
+
+// WorkerIDEQ applies the EQ predicate on the "worker_id" field.
+func WorkerIDEQ(v string) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldEQ(FieldWorkerID, v))
+}
+
+// WorkerIDNEQ applies the NEQ predicate on the "worker_id" field.
+func WorkerIDNEQ(v string) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldNEQ(FieldWorkerID, v))
+}
+
+// WorkerIDIn applies the In predicate on the "worker_id" field.
+func WorkerIDIn(vs ...string) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldIn(FieldWorkerID, vs...))
+}
+
+// WorkerIDNotIn applies the NotIn predicate on the "worker_id" field.
+func WorkerIDNotIn(vs ...string) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldNotIn(FieldWorkerID, vs...))
+}
+
+// WorkerIDGT applies the GT predicate on the "worker_id" field.
+func WorkerIDGT(v string) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldGT(FieldWorkerID, v))
+}
+
+// WorkerIDGTE applies the GTE predicate on the "worker_id" field.
+func WorkerIDGTE(v string) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldGTE(FieldWorkerID, v))
+}
+
+// WorkerIDLT applies the LT predicate on the "worker_id" field.
+func WorkerIDLT(v string) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldLT(FieldWorkerID, v))
+}
+
+// WorkerIDLTE applies the LTE predicate on the "worker_id" field.
+func WorkerIDLTE(v string) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldLTE(FieldWorkerID, v))
+}
+
+// WorkerIDContains applies the Contains predicate on the "worker_id" field.
+func WorkerIDContains(v string) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldContains(FieldWorkerID, v))
+}
+
+// WorkerIDHasPrefix applies the HasPrefix predicate on the "worker_id" field.
+func WorkerIDHasPrefix(v string) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldHasPrefix(FieldWorkerID, v))
+}
+
+// WorkerIDHasSuffix applies the HasSuffix predicate on the "worker_id" field.
+func WorkerIDHasSuffix(v string) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldHasSuffix(FieldWorkerID, v))
+}
+
+// WorkerIDIsNil applies the IsNil predicate on the "worker_id" field.
+func WorkerIDIsNil() predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldIsNull(FieldWorkerID))
+}
+
+// WorkerIDNotNil applies the NotNil predicate on the "worker_id" field.
+func WorkerIDNotNil() predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldNotNull(FieldWorkerID))
+}
+
+// WorkerIDEqualFold applies the EqualFold predicate on the "worker_id" field.
+func WorkerIDEqualFold(v string) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldEqualFold(FieldWorkerID, v))
+}
+
+// WorkerIDContainsFold applies the ContainsFold predicate on the "worker_id" field.
+func WorkerIDContainsFold(v string) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldContainsFold(FieldWorkerID, v))
+}
+
+// ExpiresAtEQ applies the EQ predicate on the "expires_at" field.
+func ExpiresAtEQ(v time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldEQ(FieldExpiresAt, v))
+}
+
+// ExpiresAtNEQ applies the NEQ predicate on the "expires_at" field.
+func ExpiresAtNEQ(v time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldNEQ(FieldExpiresAt, v))
+}
+
+// ExpiresAtIn applies the In predicate on the "expires_at" field.
+func ExpiresAtIn(vs ...time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldIn(FieldExpiresAt, vs...))
+}
+
+// ExpiresAtNotIn applies the NotIn predicate on the "expires_at" field.
+func ExpiresAtNotIn(vs ...time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldNotIn(FieldExpiresAt, vs...))
+}
+
+// ExpiresAtGT applies the GT predicate on the "expires_at" field.
+func ExpiresAtGT(v time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldGT(FieldExpiresAt, v))
+}
+
+// ExpiresAtGTE applies the GTE predicate on the "expires_at" field.
+func ExpiresAtGTE(v time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldGTE(FieldExpiresAt, v))
+}
+
+// ExpiresAtLT applies the LT predicate on the "expires_at" field.
+func ExpiresAtLT(v time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldLT(FieldExpiresAt, v))
+}
+
+// ExpiresAtLTE applies the LTE predicate on the "expires_at" field.
+func ExpiresAtLTE(v time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldLTE(FieldExpiresAt, v))
+}
+
+// ExpiresAtIsNil applies the IsNil predicate on the "expires_at" field.
+func ExpiresAtIsNil() predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldIsNull(FieldExpiresAt))
+}
+
+// ExpiresAtNotNil applies the NotNil predicate on the "expires_at" field.
+func ExpiresAtNotNil() predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldNotNull(FieldExpiresAt))
 }
 
 // HasWorkflow applies the HasEdge predicate on the "workflow" edge.

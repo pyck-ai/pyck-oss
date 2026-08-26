@@ -1,0 +1,184 @@
+---
+name: "Cross - Customer Unique Field Update"
+description: >
+  Regression test for #1142. When a customer's DataType schema marks a field
+  "unique": true, updateCustomer must exclude the entity's own row from the
+  uniqueness check and run the check before persisting. Verifies that updating
+  with the same unique value, or to a new genuinely-unique value, succeeds —
+  while updating to a value already owned by a different customer is still
+  rejected.
+steps:
+  - id: createDT
+    name: "Create data type with a unique field"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Unique Customer Schema"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"name":{"type":"string","minLength":1},"taxId":{"type":"string","unique":true}},"required":["name","taxId"],"additionalProperties":false}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: createA
+    name: "Create customer A with unique taxId"
+    operation: main-data.createCustomer
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          name: "Customer A"
+          taxId: {$fake: "{{loremslug}}-{{nonce}}-aaa"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Customer A created"
+        assertions:
+          - ref: res.body.data.createCustomer.id
+            nil: false
+
+  - id: createB
+    name: "Create customer B with a different unique taxId"
+    operation: main-data.createCustomer
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          name: "Customer B"
+          taxId: {$fake: "{{loremslug}}-{{nonce}}-bbb"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Customer B created"
+        assertions:
+          - ref: res.body.data.createCustomer.id
+            nil: false
+
+  # The bug: before the fix this failed because the check counted A's own row
+  # (already updated, not excluded) and reported a constraint violation.
+  - name: "Update A keeping the same taxId succeeds"
+    operation: main-data.updateCustomer
+    vars:
+      id: {$ref: "res[createA].body.data.createCustomer.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          name: "Customer A renamed"
+          taxId: {$ref: "res[createA].body.data.createCustomer.data.taxId"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors (self is excluded from uniqueness check)"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Name updated"
+        assertions:
+          - ref: res.body.data.updateCustomer.data.name
+            equal: "Customer A renamed"
+
+  - name: "Update A to a new genuinely-unique taxId succeeds"
+    operation: main-data.updateCustomer
+    vars:
+      id: {$ref: "res[createA].body.data.createCustomer.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          name: "Customer A renamed"
+          taxId: {$fake: "{{loremslug}}-{{nonce}}-ccc"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  # The guard: a real collision with a different row must still be rejected.
+  - name: "Update A to B's taxId is rejected"
+    operation: main-data.updateCustomer
+    vars:
+      id: {$ref: "res[createA].body.data.createCustomer.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          name: "Customer A renamed"
+          taxId: {$ref: "res[createB].body.data.createCustomer.data.taxId"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (collides with customer B)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Cleanup - delete customer A"
+    operation: main-data.deleteCustomer
+    vars:
+      id: {$ref: "res[createA].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete customer B"
+    operation: main-data.deleteCustomer
+    vars:
+      id: {$ref: "res[createB].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

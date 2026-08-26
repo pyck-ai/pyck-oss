@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -13,7 +14,7 @@ import (
 	"entgo.io/ent/entc"
 	ent "entgo.io/ent/entc/gen"
 	"github.com/goccy/go-yaml"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var (
@@ -247,7 +248,7 @@ func tryLastStageOnly(allStages []func() error, verbose bool) error {
 }
 
 func main() {
-	app := &cli.App{
+	app := &cli.Command{
 		Name:  "codegen",
 		Usage: "Generate Ent code with GraphQL extensions",
 		Flags: []cli.Flag{
@@ -277,7 +278,7 @@ func main() {
 			},
 			&cli.StringSliceFlag{
 				Name:  "template-dir",
-				Value: cli.NewStringSlice(defaultConfig.EntTemplatePaths...),
+				Value: defaultConfig.EntTemplatePaths,
 				Usage: "Paths to custom template directories",
 			},
 			&cli.BoolFlag{
@@ -298,13 +299,13 @@ func main() {
 				Usage: "Validate configuration without generating code",
 			},
 		},
-		Action: func(c *cli.Context) error {
+		Action: func(ctx context.Context, cmd *cli.Command) error {
 			config := defaultConfig
 
 			// Determine config file
 			var configFile string
-			if c.IsSet("config") {
-				configFile = c.String("config")
+			if cmd.IsSet("config") {
+				configFile = cmd.String("config")
 				if _, err := os.Stat(configFile); os.IsNotExist(err) {
 					return fmt.Errorf("%w: %s", ErrConfigFileNotExist, configFile)
 				}
@@ -326,14 +327,14 @@ func main() {
 			}
 
 			// Override with CLI flags
-			config.EntTemplatePaths = c.StringSlice("template-dir")
-			config.EntTargetPath = c.String("ent-target")
-			config.EntSchemaPath = c.String("ent-schema")
-			config.GqlConfigPath = c.String("gql-config")
-			config.GqlSchemaPath = c.String("gql-schema")
-			config.Verbose = c.Bool("verbose")
-			config.Force = c.Bool("force")
-			config.DryRun = c.Bool("dry-run")
+			config.EntTemplatePaths = cmd.StringSlice("template-dir")
+			config.EntTargetPath = cmd.String("ent-target")
+			config.EntSchemaPath = cmd.String("ent-schema")
+			config.GqlConfigPath = cmd.String("gql-config")
+			config.GqlSchemaPath = cmd.String("gql-schema")
+			config.Verbose = cmd.Bool("verbose")
+			config.Force = cmd.Bool("force")
+			config.DryRun = cmd.Bool("dry-run")
 
 			// Configure logger
 			log.SetFlags(0) // Drop date/time
@@ -344,10 +345,10 @@ func main() {
 			}
 
 			// Get the module name using go list .
-			cmd := exec.CommandContext(c.Context, "go", "list", ".")
+			listCmd := exec.CommandContext(ctx, "go", "list", ".")
 			var out bytes.Buffer
-			cmd.Stdout = &out
-			if err := cmd.Run(); err != nil {
+			listCmd.Stdout = &out
+			if err := listCmd.Run(); err != nil {
 				return fmt.Errorf("failed to run 'go list .': %w", err)
 			}
 			pkgname := strings.TrimSpace(out.String())
@@ -360,7 +361,7 @@ func main() {
 		},
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatalf("Error: %v", err)
 	}
 }

@@ -1,12 +1,13 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
 	"os"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	importgenapi "github.com/pyck-ai/pyck/backend/common/cmd/importgen/api"
 	"github.com/pyck-ai/pyck/backend/common/cmd/importgen/internal"
@@ -29,7 +30,7 @@ func main() {
 	log.SetFlags(0)
 	log.SetPrefix(logPrefix)
 
-	app := &cli.App{
+	app := &cli.Command{
 		Name:  "importgen",
 		Usage: "Generate import/export registry from @pyckImportable directives and API client",
 		Flags: []cli.Flag{
@@ -46,17 +47,17 @@ func main() {
 		Action: run,
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatalf("%v", err)
 	}
 }
 
-func run(c *cli.Context) error {
-	verbose = c.Bool("verbose")
-	dryRun = c.Bool("dry-run")
+func run(ctx context.Context, cmd *cli.Command) error {
+	verbose = cmd.Bool("verbose")
+	dryRun = cmd.Bool("dry-run")
 
 	// Auto-detect service name and module base from current directory.
-	detected, err := importgenapi.DetectServiceInfo(c.Context)
+	detected, err := importgenapi.DetectServiceInfo(ctx)
 	if err != nil {
 		return fmt.Errorf("detect service info: %w", err)
 	}

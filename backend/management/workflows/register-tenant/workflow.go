@@ -1,21 +1,32 @@
 package registertenant
 
 import (
-	"errors"
-	"fmt"
 	"time"
 
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 
+	"github.com/pyck-ai/pyck/backend/common/serviceroles"
 	"github.com/pyck-ai/pyck/backend/common/services/zitadel/sdk"
 
 	"github.com/pyck-ai/pyck/backend/management/core"
 )
 
-var (
-	activities                  Activities
-	errWorkerImageNotConfigured = errors.New("PYCK_FLAVOUR_GO_WORKER_IMAGE is not set")
+var activities Activities
+
+const (
+	// pyckGoFlavour is the tenant-data flavour that gets a platform-managed
+	// worker; pyckGoExtension is what worker-api knows that worker as.
+	pyckGoFlavour   = "pyck-go"
+	pyckGoExtension = "pyckGo"
+	// pyckGoDeploymentPrefix names the deployment. Deliberately not derived
+	// from pyckGoExtension: a deployment name is a DNS-1123 subdomain, which
+	// forbids the capital in "pyckGo".
+	pyckGoDeploymentPrefix = "pyck-go"
+
+	// workerTemporalAPIKeySecret is the tenant secret worker-api projects into
+	// the worker's Connection.
+	workerTemporalAPIKeySecret = "TEMPORAL_API_KEY" //nolint:gosec // a secret KEY NAME, not a credential
 )
 
 func RegisterTenantWorkflow(context workflow.Context, input RegisterTenantWorkflowInput) (*RegisterTenantWorkflowOutput, error) {
@@ -85,7 +96,7 @@ func RegisterTenantWorkflow(context workflow.Context, input RegisterTenantWorkfl
 	projectGrantInput := addProjectGrantsInput{
 		ProjectID:      core.Config.ZitadelProjectId,
 		OrganizationID: organizationOutput.OrganizationID,
-		Roles:          []string{sdk.ProjectRoleReader, sdk.ProjectRoleWriter},
+		Roles:          append([]string{sdk.ProjectRoleReader, sdk.ProjectRoleWriter}, serviceroles.ServiceRoleStrings()...),
 	}
 	var grantOutput Grant
 	err = workflow.ExecuteActivity(ctx, activities.AddProjectGrantActivity, projectGrantInput).Get(ctx, &grantOutput)
@@ -133,9 +144,10 @@ func RegisterTenantWorkflow(context workflow.Context, input RegisterTenantWorkfl
 		return nil, err
 	}
 
-	// Deploy Tenant Worker via temporal-worker-controller (only for pyck-go tenants)
-	if core.DetectFlavour(input.Data) == "pyck-go" {
-		if err := deployTenantWorker(ctx, input, organizationOutput, grantOutput); err != nil {
+	// Only pyck-go tenants get a platform-managed worker; a plain tenant brings
+	// its own via `pyck deploy`.
+	if core.DetectFlavour(input.Data) == pyckGoFlavour {
+		if err := deployTenantWorker(ctx, organizationOutput, grantOutput); err != nil {
 			rollback(ctx, organizationOutput.OrganizationID, true)
 			return nil, err
 		}
@@ -175,34 +187,21 @@ func RegisterTenantWorkflow(context workflow.Context, input RegisterTenantWorkfl
 	}, nil
 }
 
-func deployTenantWorker(ctx workflow.Context, input RegisterTenantWorkflowInput, orgOutput CreateTenantActivityOutput, grantOutput Grant) error {
-	if input.WorkerImage == "" {
-		return errWorkerImageNotConfigured
-	}
-
-	workersNamespace := "pyck-" + core.Config.EnvironmentName + "-workers"
-	connectionName := fmt.Sprintf("pyck-go-%s", orgOutput.TemporalNamespace)
-	secretName := fmt.Sprintf("temporal-api-key-%s", orgOutput.TemporalNamespace)
-
-	// 1. Upsert shared workers namespace
-	err := workflow.ExecuteActivity(ctx, activities.UpsertK8sWorkersNamespaceActivity, upsertK8sWorkersNamespaceInput{
-		Namespace:   workersNamespace,
-		IsInCluster: true,
-	}).Get(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	// 2. Create dedicated Zitadel service user and API key for tenant worker
+// deployTenantWorker gives a pyck-go tenant its worker. Everything on the
+// worker cluster — namespace, Connection, secrets, the WorkerDeployment CRD —
+// belongs to worker-api, which is the only component holding write credentials
+// there; management mints the tenant's Zitadel credential and hands it over.
+func deployTenantWorker(ctx workflow.Context, orgOutput CreateTenantActivityOutput, grantOutput Grant) error {
+	// The worker's own Zitadel identity, minted here rather than in worker-api
+	// so Zitadel write credentials stay in one place.
 	var serviceUserOutput CreateTenantServiceUserOutput
-	err = workflow.ExecuteActivity(ctx, activities.CreateTenantServiceUserActivity, createTenantServiceUserInput{
+	err := workflow.ExecuteActivity(ctx, activities.CreateTenantServiceUserActivity, createTenantServiceUserInput{
 		OrganizationID: orgOutput.OrganizationID,
 	}).Get(ctx, &serviceUserOutput)
 	if err != nil {
 		return err
 	}
 
-	// 2b. Grant writer role to service user on PYCK project
 	err = workflow.ExecuteActivity(ctx, activities.AddUserGrantActivity, addUserGrantInput{
 		OrganizationID: orgOutput.OrganizationID,
 		ProjectID:      core.Config.ZitadelProjectId,
@@ -214,43 +213,22 @@ func deployTenantWorker(ctx workflow.Context, input RegisterTenantWorkflowInput,
 		return err
 	}
 
-	// 3. Store the API key as a K8s secret in the workers namespace
-	err = workflow.ExecuteActivity(ctx, activities.CreateK8sTenantSecretActivity, createK8sTenantSecretInput{
-		Namespace:   workersNamespace,
-		SecretName:  secretName,
-		SecretKey:   "api-key",
-		Token:       serviceUserOutput.Token,
-		IsInCluster: true,
+	// The credential has to land before the deployment: worker-api fails closed
+	// on one whose TEMPORAL_API_KEY is missing.
+	err = workflow.ExecuteActivity(ctx, activities.StoreTenantWorkerSecretActivity, storeTenantWorkerSecretInput{
+		TenantID: orgOutput.TenantID,
+		Key:      workerTemporalAPIKeySecret,
+		Value:    serviceUserOutput.Token,
 	}).Get(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	// 4. Create temporal Connection per tenant
-	err = workflow.ExecuteActivity(ctx, activities.CreateK8sTemporalConnectionActivity, createK8sTemporalConnectionInput{
-		Namespace:   workersNamespace,
-		Name:        connectionName,
-		HostPort:    input.WorkerEnvVars["TEMPORAL_ADDRESS"],
-		IsInCluster: true,
-	}).Get(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	// 5. Create WorkerDeployment for this tenant
-	return workflow.ExecuteActivity(ctx, activities.CreateK8sWorkerDeploymentActivity, createK8sWorkerDeploymentInput{
-		Namespace:           workersNamespace,
-		Name:                connectionName,
-		ConnectionName:      connectionName,
-		TemporalNamespace:   orgOutput.TemporalNamespace,
-		Image:               input.WorkerImage,
-		TenantID:            orgOutput.TenantID.String(),
-		Replicas:            input.WorkerReplicas,
-		EnvVars:             input.WorkerEnvVars,
-		ImagePullSecretName: input.WorkerEnvVars["IMAGE_PULL_SECRET_NAME"],
-		APIKeySecretName:    secretName,
-		APIKeySecretKey:     "api-key",
-		IsInCluster:         true,
+	return workflow.ExecuteActivity(ctx, activities.CreateTenantWorkerDeploymentActivity, CreateTenantWorkerDeploymentInput{
+		Name:              pyckGoDeploymentPrefix + "-" + orgOutput.TemporalNamespace,
+		TenantID:          orgOutput.TenantID,
+		TemporalNamespace: orgOutput.TemporalNamespace,
+		Extension:         pyckGoExtension,
 	}).Get(ctx, nil)
 }
 

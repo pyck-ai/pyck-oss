@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -47,8 +48,18 @@ func (wb workerBackend) printStartCmds(w io.Writer) {
 }
 
 // stop stops all running workers, persisting state for later start.
-func (wb workerBackend) stop(ctx context.Context, dryRun bool, w io.Writer) error {
+//
+// State is saved on every exit, not just the happy one: a stop that fails
+// halfway has already stopped machines, and losing their IDs would leave
+// "stockfix workers start" with nothing to restore.
+func (wb workerBackend) stop(ctx context.Context, dryRun bool, w io.Writer) (err error) {
 	state := loadState()
+	defer func() {
+		if serr := saveState(state); serr != nil && err == nil {
+			err = serr
+		}
+	}()
+
 	if wb.flyApp != "" {
 		if err := wb.flyStop(ctx, dryRun, w, state); err != nil {
 			return err
@@ -59,7 +70,7 @@ func (wb workerBackend) stop(ctx context.Context, dryRun bool, w io.Writer) erro
 			return err
 		}
 	}
-	return saveState(state)
+	return nil
 }
 
 // start restores workers from persisted state.
@@ -179,11 +190,26 @@ func (wb workerBackend) k8sStop(ctx context.Context, dryRun bool, w io.Writer, s
 		return fmt.Errorf("kubectl get replicas: %w", err)
 	}
 	var replicas int
-	fmt.Sscanf(strings.TrimSpace(replicaStr), "%d", &replicas)
+	if _, serr := fmt.Sscanf(strings.TrimSpace(replicaStr), "%d", &replicas); serr != nil {
+		// Swallowing this would record 0 and make the later start "restore"
+		// the deployment to zero replicas — workers down, tool reporting success.
+		return fmt.Errorf("parse replica count %q for %s: %w", replicaStr, wb.k8sDeploy, serr)
+	}
 	if state.K8sReplicas == nil {
 		state.K8sReplicas = make(map[string]int)
 	}
-	state.K8sReplicas[wb.k8sDeploy] = replicas
+	// Never overwrite a saved count with the current one: on a second stop the
+	// deployment is already at 0, and recording that would lose the number the
+	// first stop captured. Same reason a 0 read is not worth saving.
+	if _, saved := state.K8sReplicas[wb.k8sDeploy]; saved {
+		fmt.Fprintf(w, "  %s: replica count already recorded (%d); keeping it\n",
+			wb.k8sDeploy, state.K8sReplicas[wb.k8sDeploy])
+	} else if replicas == 0 {
+		fmt.Fprintf(w, "  %s: already scaled to 0; nothing to record or stop\n", wb.k8sDeploy)
+		return nil
+	} else {
+		state.K8sReplicas[wb.k8sDeploy] = replicas
+	}
 
 	scaleArgs := []string{"scale", "deploy/" + deploy, "-n", ns, "--replicas=0"}
 	if dryRun {
@@ -254,12 +280,19 @@ func runCmd(ctx context.Context, w io.Writer, name string, args ...string) error
 	return cmd.Run()
 }
 
-// runCmdOutput runs a command and returns its combined stdout as a string.
+// runCmdOutput runs a command and returns its stdout as a string. A failure
+// carries the command's stderr: flyctl and kubectl explain themselves there,
+// and "exit status 1" on its own is not diagnosable from a maintenance window.
 func runCmdOutput(ctx context.Context, name string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	out, err := cmd.Output()
 	if err != nil {
-		return "", err
+		var ee *exec.ExitError
+		if errors.As(err, &ee) && len(ee.Stderr) > 0 {
+			return "", fmt.Errorf("%s %s: %w: %s",
+				name, strings.Join(args, " "), err, strings.TrimSpace(string(ee.Stderr)))
+		}
+		return "", fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
 	}
 	return string(out), nil
 }

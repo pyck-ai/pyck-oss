@@ -15,14 +15,8 @@ import (
 )
 
 const (
-	revocationManagementService = "management"
-	revocationTenantSchema      = "tenant"
-	revocationConsumerInactive  = 10 * time.Minute
+	revocationConsumerInactive = 10 * time.Minute
 )
-
-// revocationZeroTime mirrors Ent's JSON encoding of Go's zero time so the
-// "not deleted" sentinel is detected consistently with the outbox payload.
-var revocationZeroTime = time.Time{}.Format(time.RFC3339)
 
 // DisabledFunc is invoked when a tenant transitions to soft-deleted.
 // [ZitadelAuthProvider.OnTenantDisabled] satisfies this type directly.
@@ -61,14 +55,14 @@ func SubscribeRevocations(
 	subjects := []string{
 		topic.MutationEventTopic{
 			StreamName:    streamName,
-			ServiceName:   revocationManagementService,
-			SchemaName:    revocationTenantSchema,
+			ServiceName:   topic.ManagementService,
+			SchemaName:    topic.TenantSchema,
 			OperationName: topic.OpUpdate,
 		}.String(),
 		topic.MutationEventTopic{
 			StreamName:    streamName,
-			ServiceName:   revocationManagementService,
-			SchemaName:    revocationTenantSchema,
+			ServiceName:   topic.ManagementService,
+			SchemaName:    topic.TenantSchema,
 			OperationName: topic.OpDelete,
 		}.String(),
 	}
@@ -105,7 +99,7 @@ func handleRevocationMessage(ctx context.Context, msg jetstream.Msg, onDisabled 
 		return
 	}
 
-	if event.Service != revocationManagementService || !strings.EqualFold(event.Schema, revocationTenantSchema) {
+	if event.Service != topic.ManagementService || !strings.EqualFold(event.Schema, topic.TenantSchema) {
 		_ = msg.Ack()
 		return
 	}
@@ -114,11 +108,27 @@ func handleRevocationMessage(ctx context.Context, msg jetstream.Msg, onDisabled 
 		return
 	}
 
-	dataAfter, _ := event.DataAfter.(map[string]any)
-	dataBefore, _ := event.DataBefore.(map[string]any)
+	// DeliverNewPolicy + ephemeral consumer = no replay. A silently
+	// dropped malformed payload is lost forever, so a structural
+	// mismatch must be Error-logged. Ack rather than Nak — retry can't
+	// fix a shape mismatch.
+	dataAfter, ok := event.DataAfter.(map[string]any)
+	if !ok && event.DataAfter != nil {
+		logger.Error().Interface("data_after", event.DataAfter).
+			Msg("DataAfter is not a map; cannot evaluate revocation transition")
+		_ = msg.Ack()
+		return
+	}
+	dataBefore, ok := event.DataBefore.(map[string]any)
+	if !ok && event.DataBefore != nil {
+		logger.Error().Interface("data_before", event.DataBefore).
+			Msg("DataBefore is not a map; cannot evaluate revocation transition")
+		_ = msg.Ack()
+		return
+	}
 
-	deletedAfter := revocationIsDeletedAt(dataAfter["deleted_at"])
-	deletedBefore := revocationIsDeletedAt(dataBefore["deleted_at"])
+	deletedAfter := topic.IsDeletedAt(dataAfter["deleted_at"])
+	deletedBefore := topic.IsDeletedAt(dataBefore["deleted_at"])
 
 	// Only react to the disable transition: nil → set. Restores are a no-op
 	// (re-introspection against a reactivated org succeeds naturally).
@@ -131,12 +141,3 @@ func handleRevocationMessage(ctx context.Context, msg jetstream.Msg, onDisabled 
 	_ = msg.Ack()
 }
 
-// revocationIsDeletedAt reports whether the deleted_at value represents an
-// actual deletion timestamp. nil and Go's zero time both mean "not deleted".
-func revocationIsDeletedAt(v any) bool {
-	if v == nil {
-		return false
-	}
-	s, ok := v.(string)
-	return !ok || s != revocationZeroTime
-}

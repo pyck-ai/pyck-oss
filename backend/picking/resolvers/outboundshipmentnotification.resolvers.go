@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
+	"github.com/pyck-ai/pyck/backend/common/sqljsonpath"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen"
 	"github.com/pyck-ai/pyck/backend/picking/ent/gen/outboundshipmentnotification"
 )
@@ -21,8 +22,12 @@ func (r *pickingOutboundShipmentNotificationWhereInputResolver) Data(ctx context
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(outboundshipmentnotification.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueEQ(outboundshipmentnotification.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil
@@ -35,8 +40,12 @@ func (r *pickingOutboundShipmentNotificationWhereInputResolver) DataHasKey(ctx c
 	}
 
 	if *data != "" {
+		jsonPath, err := sqljsonpath.DotPath(*data)
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(outboundshipmentnotification.FieldData, sqljson.DotPath(*data)))
+			s.Where(sqljson.HasKey(outboundshipmentnotification.FieldData, jsonPath))
 		})
 	}
 	return nil
@@ -53,8 +62,12 @@ func (r *pickingOutboundShipmentNotificationWhereInputResolver) DataIn(ctx conte
 		for _, v := range data[1:] {
 			args = append(args, v)
 		}
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(outboundshipmentnotification.FieldData, args, sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueIn(outboundshipmentnotification.FieldData, args, jsonPath))
 		})
 	}
 	return nil
@@ -67,8 +80,12 @@ func (r *pickingOutboundShipmentNotificationWhereInputResolver) DataContains(ctx
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(outboundshipmentnotification.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueContains(outboundshipmentnotification.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil

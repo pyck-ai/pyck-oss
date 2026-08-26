@@ -117,6 +117,8 @@ var schemaGraph = func() *sqlgraph.Schema {
 			workflowsignal.FieldTemporalSignal:     {Type: field.TypeString, Column: workflowsignal.FieldTemporalSignal},
 			workflowsignal.FieldTemporalSignalType: {Type: field.TypeEnum, Column: workflowsignal.FieldTemporalSignalType},
 			workflowsignal.FieldFilterRule:         {Type: field.TypeString, Column: workflowsignal.FieldFilterRule},
+			workflowsignal.FieldWorkerID:           {Type: field.TypeString, Column: workflowsignal.FieldWorkerID},
+			workflowsignal.FieldExpiresAt:          {Type: field.TypeTime, Column: workflowsignal.FieldExpiresAt},
 		},
 	}
 	graph.MustAddE(
@@ -569,6 +571,16 @@ func (f *WorkflowSignalFilter) WhereTemporalSignalType(p entql.StringP) {
 // WhereFilterRule applies the entql string predicate on the filter_rule field.
 func (f *WorkflowSignalFilter) WhereFilterRule(p entql.StringP) {
 	f.Where(p.Field(workflowsignal.FieldFilterRule))
+}
+
+// WhereWorkerID applies the entql string predicate on the worker_id field.
+func (f *WorkflowSignalFilter) WhereWorkerID(p entql.StringP) {
+	f.Where(p.Field(workflowsignal.FieldWorkerID))
+}
+
+// WhereExpiresAt applies the entql time.Time predicate on the expires_at field.
+func (f *WorkflowSignalFilter) WhereExpiresAt(p entql.TimeP) {
+	f.Where(p.Field(workflowsignal.FieldExpiresAt))
 }
 
 // WhereHasWorkflow applies a predicate to check if query has an edge workflow.

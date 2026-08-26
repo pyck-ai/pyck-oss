@@ -220,10 +220,8 @@ type CreateCollectionMovementCollectionInput struct {
 	ItemID *uuid.UUID
 
 	// Quantity is required for item-movement positions and rejected for
-	// repository-movement positions. Carried as *float64 to preserve the
-	// GraphQL nullability shape; the service casts to int64 when creating
-	// the underlying ent.CreateItemMovementInput.
-	Quantity *float64
+	// repository-movement positions.
+	Quantity *int64
 
 	// RepositoryID, when non-nil, marks this position as a
 	// repository-movement: the service will create a repository movement
@@ -457,13 +455,12 @@ type Service interface {
 
 // New constructs a Service. The dbDialect argument is the Ent dialect string
 // the surrounding *ent.Client was opened with (dialect.Postgres in
-// production, dialect.SQLite in unit tests). Step 7.2 uses it to gate the
+// production). Step 7.2 uses it to gate the
 // inventory.create_item_movement_proc dispatch: the proc is a hand-written
-// PL/pgSQL migration (it does not exist in the SQLite test schema), so the
-// Postgres branch calls the proc and the non-Postgres branch keeps the
-// legacy Go orchestration. Returning the Service interface is the whole
-// point — callers (resolvers, main.go, tests) bind to the abstraction, not
-// to *service.
+// PL/pgSQL migration, so dialect.Postgres calls the proc and any other value
+// keeps the legacy Go orchestration. Returning the Service interface is the
+// whole point — callers (resolvers, main.go, tests) bind to the abstraction,
+// not to *service.
 //
 //nolint:iface,ireturn // intentional: New is the single bind point.
 func New(dbDialect string, outboxEmitter OutboxEmitter) (Service, error) {

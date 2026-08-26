@@ -6,9 +6,10 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/rs/zerolog/log"
+
 	httputil "github.com/pyck-ai/pyck/backend/common/http"
 	"github.com/pyck-ai/pyck/backend/common/std"
-	"github.com/rs/zerolog/log"
 )
 
 func AccessTokenHandler(clientID, clientSecret string) http.HandlerFunc {

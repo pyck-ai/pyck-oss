@@ -1,46 +1,85 @@
 package validator
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
-	"sync"
 
-	"github.com/santhosh-tekuri/jsonschema/v5"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
-var once sync.Once
+var (
+	ean13Regexp = regexp.MustCompile(`^\d{13}$`)
+	ean8Regexp  = regexp.MustCompile(`^\d{8}$`)
+	upcaRegexp  = regexp.MustCompile(`^\d{12}$`)
+	upceRegexp  = regexp.MustCompile(`^\d{8}$`)
 
-// registerCustomFormats registers custom format validators for EAN and UPC barcode formats.
-// Supports EAN-13, EAN-8, UPC-A, and UPC-E with checksum and structural validation.
-func registerCustomFormats() {
-	once.Do(func() {
-		jsonschema.Formats["ean13"] = func(v interface{}) bool {
-			s, ok := v.(string)
-			return ok && regexp.MustCompile(`^\d{13}$`).MatchString(s) && isValidEANChecksum(s)
-		}
+	errInvalidEAN13 = errors.New("invalid EAN-13 barcode")
+	errInvalidEAN8  = errors.New("invalid EAN-8 barcode")
+	errInvalidUPCA  = errors.New("invalid UPC-A barcode")
+	errInvalidUPCE  = errors.New("invalid UPC-E barcode")
+)
 
-		jsonschema.Formats["ean8"] = func(v interface{}) bool {
-			s, ok := v.(string)
-			return ok && regexp.MustCompile(`^\d{8}$`).MatchString(s) && isValidEANChecksum(s)
-		}
+// registerCustomFormats registers custom format validators for EAN and UPC
+// barcode formats on the given compiler. Supports EAN-13, EAN-8, UPC-A, and
+// UPC-E with checksum and structural validation. Formats apply to string
+// instances only; other JSON types pass, matching the JSON Schema spec.
+func registerCustomFormats(compiler *jsonschema.Compiler) {
+	compiler.RegisterFormat(&jsonschema.Format{Name: "ean13", Validate: validateEAN13})
+	compiler.RegisterFormat(&jsonschema.Format{Name: "ean8", Validate: validateEAN8})
+	compiler.RegisterFormat(&jsonschema.Format{Name: "upca", Validate: validateUPCA})
+	compiler.RegisterFormat(&jsonschema.Format{Name: "upce", Validate: validateUPCE})
+}
 
-		jsonschema.Formats["upca"] = func(v interface{}) bool {
-			s, ok := v.(string)
-			return ok && regexp.MustCompile(`^\d{12}$`).MatchString(s) && isValidUPCChecksum(s)
-		}
+func validateEAN13(v any) error {
+	s, ok := v.(string)
+	if !ok {
+		return nil
+	}
+	if !ean13Regexp.MatchString(s) || !isValidEANChecksum(s) {
+		return errInvalidEAN13
+	}
+	return nil
+}
 
-		jsonschema.Formats["upce"] = func(v interface{}) bool {
-			s, ok := v.(string)
-			if !ok || !regexp.MustCompile(`^\d{8}$`).MatchString(s) {
-				return false
-			}
-			// Structural validation: only number system 0 or 1 are valid for UPC-E
-			if s[0] != '0' && s[0] != '1' {
-				return false
-			}
-			return isValidUPCEChecksum(s)
-		}
-	})
+func validateEAN8(v any) error {
+	s, ok := v.(string)
+	if !ok {
+		return nil
+	}
+	if !ean8Regexp.MatchString(s) || !isValidEANChecksum(s) {
+		return errInvalidEAN8
+	}
+	return nil
+}
+
+func validateUPCA(v any) error {
+	s, ok := v.(string)
+	if !ok {
+		return nil
+	}
+	if !upcaRegexp.MatchString(s) || !isValidUPCChecksum(s) {
+		return errInvalidUPCA
+	}
+	return nil
+}
+
+func validateUPCE(v any) error {
+	s, ok := v.(string)
+	if !ok {
+		return nil
+	}
+	if !upceRegexp.MatchString(s) {
+		return errInvalidUPCE
+	}
+	// Structural validation: only number system 0 or 1 are valid for UPC-E
+	if s[0] != '0' && s[0] != '1' {
+		return errInvalidUPCE
+	}
+	if !isValidUPCEChecksum(s) {
+		return errInvalidUPCE
+	}
+	return nil
 }
 
 // isValidUPCEChecksum validates the checksum of a UPC-E barcode.

@@ -14,6 +14,7 @@ import (
 
 	"github.com/pyck-ai/pyck/backend/management/ent/gen"
 	"github.com/pyck-ai/pyck/backend/management/exec"
+	"github.com/pyck-ai/pyck/backend/management/workerapi"
 	disabletenant "github.com/pyck-ai/pyck/backend/management/workflows/disable-tenant"
 	generatejsonschema "github.com/pyck-ai/pyck/backend/management/workflows/generate-json-schema"
 	registertenant "github.com/pyck-ai/pyck/backend/management/workflows/register-tenant"
@@ -42,30 +43,70 @@ type TemporalWorker struct {
 	taskQueueName    string
 	resolver         exec.MutationResolver
 	cli              client.Client
+	versioning       commonworkflow.VersioningConfig
+	depOpts          worker.DeploymentOptions
 }
 
 type WorkerOptions struct {
 	EnableTenantSync bool
+	// Versioning registers both workers under one Temporal deployment version
+	// (#1132). Zero value keeps them unversioned.
+	Versioning commonworkflow.VersioningConfig
 }
 
 func NewTemporalWorker(cli client.Client, taskQueue string, resolver exec.MutationResolver, opts WorkerOptions) (*TemporalWorker, error) {
+	main, sync, err := workerOptions(opts.Versioning)
+	if err != nil {
+		return nil, err
+	}
+
 	var tenantSync worker.Worker
 	if opts.EnableTenantSync {
-		tenantSync = worker.New(cli, zitadelsync.TenantSyncTaskQueue, worker.Options{
-			TaskQueueActivitiesPerSecond:       100,
-			MaxConcurrentActivityExecutionSize: 200,
-			MaxConcurrentActivityTaskPollers:   4,
-		})
+		tenantSync = worker.New(cli, zitadelsync.TenantSyncTaskQueue, sync)
 	}
 
 	return &TemporalWorker{
-		temporalWorker:   worker.New(cli, taskQueue, worker.Options{}),
+		temporalWorker:   worker.New(cli, taskQueue, main),
 		tenantSyncWorker: tenantSync,
 		taskQueueName:    taskQueue,
 		resolver:         resolver,
 		cli:              cli,
+		versioning:       opts.Versioning,
+		depOpts:          main.DeploymentOptions,
 	}, nil
 }
+
+// PromoteVersion makes this worker's version current, for deployments the
+// temporal-worker-controller does not manage.
+func (tw *TemporalWorker) PromoteVersion(ctx context.Context) {
+	tw.versioning.StartPromotion(ctx, tw.cli, tw.depOpts)
+}
+
+// workerOptions builds the options for both task queues. They share one
+// deployment version: they are one deploy of one binary, and versioning them
+// separately would let a rollout promote half of it.
+func workerOptions(versioning commonworkflow.VersioningConfig) (main, sync worker.Options, err error) {
+	// Unversioned resolves to the zero DeploymentOptions, which is already
+	// "no versioning" — no branch needed.
+	depOpts, _, err := versioning.DeploymentOptionsFromBuild()
+	if err != nil {
+		return worker.Options{}, worker.Options{}, err
+	}
+
+	main = worker.Options{DeploymentOptions: depOpts}
+	sync = worker.Options{
+		DeploymentOptions:                  depOpts,
+		TaskQueueActivitiesPerSecond:       100,
+		MaxConcurrentActivityExecutionSize: 200,
+		MaxConcurrentActivityTaskPollers:   4,
+	}
+
+	return main, sync, nil
+}
+
+// Versioned reports whether the workers registered a deployment version — an
+// unversioned worker in a deployed environment is otherwise invisible.
+func (tw *TemporalWorker) Versioned() bool { return tw.depOpts.UseVersioning }
 
 func (tw *TemporalWorker) Start() error {
 	// Start tenant-sync first so it's ready for scheduled runs.
@@ -96,14 +137,14 @@ func (tw *TemporalWorker) Run() error {
 	return <-errCh
 }
 
-func (tw *TemporalWorker) RegisterTenantWorkflow(entClient *gen.Client, nsGetter commonworkflow.NamespaceGetter) {
+func (tw *TemporalWorker) RegisterTenantWorkflow(entClient *gen.Client, nsGetter commonworkflow.NamespaceGetter, workerAPI *workerapi.Client) {
 	// Register workflows and activities
 	registerTenantWorkflowOptions := workflow.RegisterOptions{
 		Name: RegisterTenantWorkflow,
 	}
 
 	tw.temporalWorker.RegisterWorkflowWithOptions(registertenant.RegisterTenantWorkflow, registerTenantWorkflowOptions)
-	tw.temporalWorker.RegisterActivity(registertenant.NewActivities(tw.resolver, entClient, tw.cli, nsGetter))
+	tw.temporalWorker.RegisterActivity(registertenant.NewActivities(tw.resolver, entClient, tw.cli, nsGetter, workerAPI))
 }
 
 func (tw *TemporalWorker) RegisterGenerateJsonSchemaWorkflow() {

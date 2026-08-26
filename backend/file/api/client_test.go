@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect"
-	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/gqlgo/gqlgenc/clientv2"
@@ -20,6 +19,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/pyck-ai/pyck/backend/common/gqlserver"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/tenant"
 	"github.com/pyck-ai/pyck/backend/common/test/mocks"
@@ -116,7 +116,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, *ent.Client, context.Conte
 	schema := resolvers.NewSchema(resolver)
 
 	// Create GraphQL server
-	gqlServer := handler.NewDefaultServer(schema)
+	gqlServer := gqlserver.New(schema)
 
 	// Set up HTTP router with auth middleware
 	httpAuth := new(mocks.MockAuthProvider)

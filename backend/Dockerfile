@@ -78,9 +78,11 @@ ENV PYCK_LOG_LEVEL=info
 ENV PYCK_LOG_FORMAT=json
 ENV PYCK_DATABASE_DEBUG=false
 
-# TODO: we should not need nc in the final image, but it is currently used in the health check.
-# This is for the docker-compose setup only. Remove this line we switch to k8s.
+# TODO: we should not need nc/wget in the final image, but they are currently used in health checks.
+# This is for the docker-compose setup only. Remove these lines when we switch to k8s.
+# busybox dispatches on argv[0], so the same binary serves as nc and wget.
 COPY --from=builder /bin/busybox.static /usr/local/bin/nc
+COPY --from=builder /bin/busybox.static /usr/local/bin/wget
 
 WORKDIR /usr/local/bin/
 COPY --from=builder /tmp/service ./service

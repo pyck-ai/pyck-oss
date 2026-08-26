@@ -232,7 +232,7 @@ func TestOrder_Create(t *testing.T) {
 			"CustomerID": uuidgql.GenerateV7UUID(),
 			"DataTypeID": itemDataTypeID,
 			"Weight":     -50,
-		}, "'/meta/weight' does not validate")
+		}, "at '/meta/weight'")
 
 		te.assertNoEvents(ctx)
 	})
@@ -356,7 +356,7 @@ func TestOrder_Update(t *testing.T) {
 			"DataTypeID": itemDataTypeID,
 			"Data":       true,
 			"Sum":        -100,
-		}, "'/sum' does not validate")
+		}, "at '/sum'")
 
 		te.assertNoEvents(ctx)
 	})

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 )
 
 // Importer orchestrates the import of entities from files. It streams records
@@ -122,7 +123,7 @@ func (imp *Importer) processRecord(ctx context.Context, record ImportRecord, res
 	}
 
 	// Query for existing entity by identity field (or by id for create-only).
-	existingID, err := imp.findExisting(ctx, desc, identityVal, hasIdentity)
+	existingID, existing, err := imp.findExisting(ctx, desc, identityVal, hasIdentity)
 	if err != nil {
 		return fmt.Errorf("query existing %s: %w", record.TypeName, err)
 	}
@@ -139,12 +140,15 @@ func (imp *Importer) processRecord(ctx context.Context, record ImportRecord, res
 	}
 
 	if existingID != "" {
-		return imp.updateEntity(ctx, desc, record, existingID, identityVal, result)
+		return imp.updateEntity(ctx, desc, record, existingID, existing, identityVal, result)
 	}
 	return imp.createEntity(ctx, desc, record, identityVal, result)
 }
 
-func (imp *Importer) updateEntity(ctx context.Context, desc *EntityDescriptor, record ImportRecord, existingID string, identityVal any, result *ImportResult) error {
+func (imp *Importer) updateEntity(ctx context.Context, desc *EntityDescriptor, record ImportRecord, existingID string, existing map[string]any, identityVal any, result *ImportResult) error {
+	if err := checkImmutable(desc, record, existing); err != nil {
+		return err
+	}
 	updated, err := desc.Update(ctx, existingID, record.Data)
 	if err != nil {
 		return fmt.Errorf("update %s (id=%s): %w", record.TypeName, existingID, err)
@@ -187,11 +191,11 @@ func (imp *Importer) trackAlias(record ImportRecord, id string) error {
 }
 
 // findExisting looks up an entity by its identity field value. For create-only
-// entities (no identity field), it falls back to looking up by "id".
-// Returns the existing entity's ID or "" if not found.
-func (imp *Importer) findExisting(ctx context.Context, desc *EntityDescriptor, identityVal any, hasIdentity bool) (string, error) {
+// entities (no identity field), it falls back to looking up by "id". Returns
+// the entity's ID and the node behind it, or "" and nil when not found.
+func (imp *Importer) findExisting(ctx context.Context, desc *EntityDescriptor, identityVal any, hasIdentity bool) (string, map[string]any, error) {
 	if !hasIdentity {
-		return "", nil
+		return "", nil, nil
 	}
 
 	field := desc.IdentityField
@@ -202,16 +206,35 @@ func (imp *Importer) findExisting(ctx context.Context, desc *EntityDescriptor, i
 	first := 1
 	existing, err := desc.List(ctx, nil, &first, map[string]any{field: identityVal})
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	if len(existing.Nodes) > 0 {
 		if id, ok := existing.Nodes[0]["id"].(string); ok {
-			return id, nil
+			return id, existing.Nodes[0], nil
 		}
 	}
 
-	return "", nil
+	return "", nil, nil
+}
+
+// checkImmutable refuses an update that asks to change a field fixed at
+// creation. The update input cannot carry such a field, so without this the
+// record would be reported as updated while that one difference was dropped.
+func checkImmutable(desc *EntityDescriptor, record ImportRecord, existing map[string]any) error {
+	for _, field := range desc.ImmutableFields {
+		want, asked := record.Data[field]
+		if !asked {
+			continue
+		}
+		// A field the list query does not select cannot be compared; skipping
+		// keeps the import working rather than refusing everything it cannot see.
+		if have, ok := existing[field]; ok && !reflect.DeepEqual(want, have) {
+			return fmt.Errorf("%s: %w: %q is %v, the import asks for %v; recreate the entity instead",
+				record.TypeName, ErrImmutableField, field, have, want)
+		}
+	}
+	return nil
 }
 
 func (imp *Importer) printSummary(result *ImportResult) {

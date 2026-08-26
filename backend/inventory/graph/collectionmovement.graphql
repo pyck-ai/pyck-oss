@@ -23,7 +23,7 @@ input CollectionMovementArrayInput
   fromID: ID!
   toID: ID!
   itemID: ID
-  quantity: Float
+  quantity: Int64
   repositoryID: ID
   orderID: ID
 }

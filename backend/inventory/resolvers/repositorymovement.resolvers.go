@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
+	"github.com/pyck-ai/pyck/backend/common/sqljsonpath"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/repositorymovement"
 )
@@ -21,8 +22,12 @@ func (r *repositoryMovementWhereInputResolver) Data(ctx context.Context, obj *ge
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(repositorymovement.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueEQ(repositorymovement.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil
@@ -35,8 +40,12 @@ func (r *repositoryMovementWhereInputResolver) DataHasKey(ctx context.Context, o
 	}
 
 	if *data != "" {
+		jsonPath, err := sqljsonpath.DotPath(*data)
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(repositorymovement.FieldData, sqljson.DotPath(*data)))
+			s.Where(sqljson.HasKey(repositorymovement.FieldData, jsonPath))
 		})
 	}
 	return nil
@@ -53,8 +62,12 @@ func (r *repositoryMovementWhereInputResolver) DataIn(ctx context.Context, obj *
 		for _, v := range data[1:] {
 			args = append(args, v)
 		}
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(repositorymovement.FieldData, args, sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueIn(repositorymovement.FieldData, args, jsonPath))
 		})
 	}
 	return nil
@@ -67,8 +80,12 @@ func (r *repositoryMovementWhereInputResolver) DataContains(ctx context.Context,
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(repositorymovement.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueContains(repositorymovement.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil

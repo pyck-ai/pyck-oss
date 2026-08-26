@@ -52,8 +52,8 @@ func (r *entityResolver) FindPickingOrderItemBySku(ctx context.Context, sku stri
 		s.Where(sql.EQ(stock.RepositoryColumn, warehouseRepo.ID))
 		s.Where(sql.EQ(stock.ItemColumn, inventoryItem.ID))
 	})
-	// Current row = highest version per (repo, item); created_at is not a
-	// total order across pods and can surface a superseded row.
+	// Current row = highest version; created_at is per-pod wall clock, so it can
+	// serve a superseded row as the SKU's stock.
 	stockRecord, err := r.client.Stock.Query().
 		Where(where).
 		Order(gen.Desc(stock.FieldVersion)).
@@ -63,12 +63,12 @@ func (r *entityResolver) FindPickingOrderItemBySku(ctx context.Context, sku stri
 		return nil, fmt.Errorf("failed reading stock: %w", err)
 	}
 
-	reservedStock := 0
-	availableStock := 0
+	var reservedStock int64
+	var availableStock int64
 
 	if stockRecord != nil {
-		availableStock = int(stockRecord.Quantity + stockRecord.IncomingStock)
-		reservedStock = int(stockRecord.OutgoingStock)
+		availableStock = stockRecord.Quantity + stockRecord.IncomingStock
+		reservedStock = stockRecord.OutgoingStock
 	}
 
 	response := model.PickingOrderItem{

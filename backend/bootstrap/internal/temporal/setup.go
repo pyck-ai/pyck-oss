@@ -55,7 +55,7 @@ func waitForTemporal(ctx context.Context, temporalURL string) error {
 			RetryInterval: temporalRetryInterval,
 			CheckFunc: func(ctx context.Context) (bool, error) {
 				logger.Debug().Str("url", temporalURL).Msg("Checking Temporal connectivity")
-				c, err := temporal.NewTemporalClient(ctx, temporalURL)
+				c, err := temporal.NewTemporalClient(ctx, temporalURL, temporal.DefaultDialTimeout)
 				if err != nil {
 					logger.Warn().Err(err).
 						Dur("timeout", temporalTimeout).

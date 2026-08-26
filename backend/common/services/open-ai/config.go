@@ -1,6 +1,6 @@
 package openai
 
-import "github.com/openai/openai-go"
+import "github.com/openai/openai-go/v3"
 
 const (
 	jsonSchemaGeneratorConfigName   = "json-schema-generator"

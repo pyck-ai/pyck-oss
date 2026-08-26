@@ -6,6 +6,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/env"
 	envconfig "github.com/pyck-ai/pyck/backend/common/env/config"
 	"github.com/pyck-ai/pyck/backend/common/otel"
+	commonworkflow "github.com/pyck-ai/pyck/backend/common/workflow"
 )
 
 type config struct {
@@ -22,6 +23,10 @@ type config struct {
 	envconfig.ServiceInstanceConfig
 	envconfig.TemporalConfig
 	envconfig.ZitadelConfig
+
+	// Temporal Worker Deployment Versioning (#1132). Off unless a build ID is
+	// injected: the service image carries no module version.
+	commonworkflow.VersioningConfig
 
 	otel.OTelConfig
 

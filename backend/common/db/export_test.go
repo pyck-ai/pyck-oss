@@ -1,11 +1,17 @@
 package db
 
 import (
+	"database/sql"
+
 	"entgo.io/ent/dialect"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // BuildPoolUri is exported for testing.
 var BuildPoolUri = buildPoolUri
+
+// BuildHealthUri is exported for testing.
+var BuildHealthUri = buildHealthUri
 
 // DriverOpts exposes the (unexported) option-application path so tests can
 // verify functional options compose correctly without opening a real pool.
@@ -35,7 +41,13 @@ type MultiDriver = pgMultiDriver
 
 // NewMultiDriverWithDrivers wires a pgMultiDriver from caller-supplied
 // reader / writer dialect.Drivers. Tests use this to inject fakes that
-// record which pool a call landed on.
+// record which pool a call landed on. The health pool is a throwaway
+// in-memory database so the constructor upholds the production invariant
+// that healthDb is never nil (Close relies on it).
 func NewMultiDriverWithDrivers(reader, writer dialect.Driver) *MultiDriver {
-	return &pgMultiDriver{reader: reader, writer: writer}
+	healthDb, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		panic(err)
+	}
+	return &pgMultiDriver{reader: reader, writer: writer, healthDb: healthDb}
 }

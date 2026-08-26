@@ -8,20 +8,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPG_ConcurrentClobber_CreateVsExecute is the decisive OCC concurrency test.
-// Two overlapping transactions both attempt to write the next stock version for the
-// same (tenant, repository, item) triple. The unique index
-// stock_tenant_id_repository_id_item_id_version admits exactly one; the loser must
-// observe errOCCConflict (not a raw 23505) so the gqltx retry middleware retries it.
+// TestPG_ConcurrentClobber_CreateVsExecute pins the collide half of
+// correct-or-collide against real Postgres: two overlapping transactions claim
+// the same version for one (tenant, repository, item) triple, the unique index
+// admits one, and the loser's 23505 must reach the caller as errOCCConflict so
+// gqltx retries. Deterministic, no goroutines — tx1 opens, tx2 commits
+// version=1 underneath it, tx1 then tries the same slot.
 //
-// The test is deterministic — no goroutines:
-//  1. tx1 (ent Tx) opens a DB transaction: the "slow" caller that is about to be overtaken.
-//  2. tx2 (the shared ent client, auto-commit) commits a new row at version=1.
-//  3. tx1 tries to insert at version=1 — the slot tx2 already owns.
-//
-// Under READ COMMITTED isolation (Postgres default) the unique-index check in step 3
-// sees tx2's committed row and raises 23505, which wrapOCCConflict must translate to
-// errOCCConflict.
+// COVERAGE GAP: this writes stock rows directly, so it never enters
+// CreateRepositoryMovement and does not reproduce the two-snapshot clobber of
+// #1393 — it passes unchanged against the pre-fix code. The fix's only current
+// regression guard is compile-level plus the rebasedStock unit tests. A real
+// reproducer needs two concurrent CreateRepositoryMovement transactions over a
+// shared ancestor.
 func TestPG_ConcurrentClobber_CreateVsExecute(t *testing.T) {
 	t.Parallel()
 	e := newPGTestEnv(t)

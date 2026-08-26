@@ -69,6 +69,9 @@ func register{{ .TypeName }}(r *importexport.Registry, c Client) error {
 			}
 			return importexport.StructToMap(resp.{{ .CreateAccessorChain }})
 		},
+		{{- if .ImmutableFields }}
+		ImmutableFields: []string{ {{- range $i, $f := .ImmutableFields }}{{ if $i }}, {{ end }}"{{ $f }}"{{- end }} },
+		{{- end }}
 		{{- if .UpdateMethod }}
 		Update: func(ctx context.Context, id string, input map[string]any) (map[string]any, error) {
 			typed, err := importexport.MapToStruct[{{ .UpdateInputType }}](input)

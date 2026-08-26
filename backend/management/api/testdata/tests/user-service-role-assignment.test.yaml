@@ -1,0 +1,147 @@
+---
+name: "User service role assignment and removal"
+description: >
+  Resolves the caller via `me`, lists the assignable service-role catalog,
+  assigns a per-service role to that user, verifies it via userServiceRoles,
+  confirms ladder role keys are rejected, then removes the role and restores
+  it (so the caller keeps the access other suites rely on). Tenant-admin only.
+steps:
+  - id: me
+    name: "Resolve caller identity"
+    operation: management.getMe
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Caller has a user id and tenant"
+        assertions:
+          - ref: res.body.data.me.UserID
+            nil: false
+          - ref: res.body.data.me.TenantID
+            nil: false
+
+  - name: "List the assignable service-role catalog"
+    operation: management.getServiceRoles
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Catalog is non-empty"
+        assertions:
+          - ref: res.body.data.serviceRoles
+            empty: false
+
+  - id: assign
+    name: "Assign inventory_service to the caller"
+    operation: management.assignRoles
+    vars:
+      input:
+        tenantId: {$ref: "res[me].body.data.me.TenantID"}
+        userId: {$ref: "res[me].body.data.me.UserID"}
+        roles:
+          - inventory_service
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Response includes the assigned role"
+        assertions:
+          - ref: res.body.data.assignRoles.userId
+            equal: {$ref: "res[me].body.data.me.UserID"}
+          - ref: res.body.data.assignRoles.roles
+            contains: inventory_service
+
+  - name: "Verify the role via userServiceRoles"
+    operation: management.getUserServiceRoles
+    vars:
+      input:
+        tenantId: {$ref: "res[me].body.data.me.TenantID"}
+        userId: {$ref: "res[me].body.data.me.UserID"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "User holds inventory_service"
+        assertions:
+          - ref: res.body.data.userServiceRoles
+            contains: inventory_service
+
+  - name: "Reject a ladder role key on assignment"
+    operation: management.assignRoles
+    vars:
+      input:
+        tenantId: {$ref: "res[me].body.data.me.TenantID"}
+        userId: {$ref: "res[me].body.data.me.UserID"}
+        roles:
+          - admin
+    tests:
+      - msg: "Ladder role key is rejected"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Remove inventory_service from the caller"
+    operation: management.removeRoles
+    vars:
+      input:
+        tenantId: {$ref: "res[me].body.data.me.TenantID"}
+        userId: {$ref: "res[me].body.data.me.UserID"}
+        roles:
+          - inventory_service
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Response reflects the caller"
+        assertions:
+          - ref: res.body.data.removeRoles.userId
+            equal: {$ref: "res[me].body.data.me.UserID"}
+
+  - name: "Reject a ladder role key on removal"
+    operation: management.removeRoles
+    vars:
+      input:
+        tenantId: {$ref: "res[me].body.data.me.TenantID"}
+        userId: {$ref: "res[me].body.data.me.UserID"}
+        roles:
+          - admin
+    tests:
+      - msg: "Ladder role key is rejected"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Restore inventory_service to the caller"
+    operation: management.assignRoles
+    vars:
+      input:
+        tenantId: {$ref: "res[me].body.data.me.TenantID"}
+        userId: {$ref: "res[me].body.data.me.UserID"}
+        roles:
+          - inventory_service
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "inventory_service is restored"
+        assertions:
+          - ref: res.body.data.assignRoles.roles
+            contains: inventory_service

@@ -42,6 +42,10 @@ const (
 	FieldTemporalSignalType = "temporal_signal_type"
 	// FieldFilterRule holds the string denoting the filter_rule field in the database.
 	FieldFilterRule = "filter_rule"
+	// FieldWorkerID holds the string denoting the worker_id field in the database.
+	FieldWorkerID = "worker_id"
+	// FieldExpiresAt holds the string denoting the expires_at field in the database.
+	FieldExpiresAt = "expires_at"
 	// EdgeWorkflow holds the string denoting the workflow edge name in mutations.
 	EdgeWorkflow = "workflow"
 	// Table holds the table name of the workflowsignal in the database.
@@ -70,6 +74,8 @@ var Columns = []string{
 	FieldTemporalSignal,
 	FieldTemporalSignalType,
 	FieldFilterRule,
+	FieldWorkerID,
+	FieldExpiresAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -187,6 +193,16 @@ func ByTemporalSignalType(opts ...sql.OrderTermOption) OrderOption {
 // ByFilterRule orders the results by the filter_rule field.
 func ByFilterRule(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldFilterRule, opts...).ToFunc()
+}
+
+// ByWorkerID orders the results by the worker_id field.
+func ByWorkerID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWorkerID, opts...).ToFunc()
+}
+
+// ByExpiresAt orders the results by the expires_at field.
+func ByExpiresAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldExpiresAt, opts...).ToFunc()
 }
 
 // ByWorkflowField orders the results by workflow field.

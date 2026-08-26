@@ -81,17 +81,27 @@ var schemaGraph = func() *sqlgraph.Schema {
 		},
 		Type: "Order",
 		Fields: map[string]*sqlgraph.FieldSpec{
-			order.FieldTenantID:     {Type: field.TypeUUID, Column: order.FieldTenantID},
-			order.FieldDataTypeID:   {Type: field.TypeUUID, Column: order.FieldDataTypeID},
-			order.FieldDataTypeSlug: {Type: field.TypeString, Column: order.FieldDataTypeSlug},
-			order.FieldData:         {Type: field.TypeJSON, Column: order.FieldData},
-			order.FieldCreatedAt:    {Type: field.TypeTime, Column: order.FieldCreatedAt},
-			order.FieldCreatedBy:    {Type: field.TypeUUID, Column: order.FieldCreatedBy},
-			order.FieldUpdatedAt:    {Type: field.TypeTime, Column: order.FieldUpdatedAt},
-			order.FieldUpdatedBy:    {Type: field.TypeUUID, Column: order.FieldUpdatedBy},
-			order.FieldDeletedAt:    {Type: field.TypeTime, Column: order.FieldDeletedAt},
-			order.FieldDeletedBy:    {Type: field.TypeUUID, Column: order.FieldDeletedBy},
-			order.FieldCustomerID:   {Type: field.TypeUUID, Column: order.FieldCustomerID},
+			order.FieldTenantID:       {Type: field.TypeUUID, Column: order.FieldTenantID},
+			order.FieldDataTypeID:     {Type: field.TypeUUID, Column: order.FieldDataTypeID},
+			order.FieldDataTypeSlug:   {Type: field.TypeString, Column: order.FieldDataTypeSlug},
+			order.FieldData:           {Type: field.TypeJSON, Column: order.FieldData},
+			order.FieldDataIxText1:    {Type: field.TypeString, Column: order.FieldDataIxText1},
+			order.FieldDataIxText2:    {Type: field.TypeString, Column: order.FieldDataIxText2},
+			order.FieldDataIxText3:    {Type: field.TypeString, Column: order.FieldDataIxText3},
+			order.FieldDataIxText4:    {Type: field.TypeString, Column: order.FieldDataIxText4},
+			order.FieldDataIxNumeric1: {Type: field.TypeFloat64, Column: order.FieldDataIxNumeric1},
+			order.FieldDataIxNumeric2: {Type: field.TypeFloat64, Column: order.FieldDataIxNumeric2},
+			order.FieldDataIxBool1:    {Type: field.TypeBool, Column: order.FieldDataIxBool1},
+			order.FieldDataIxBool2:    {Type: field.TypeBool, Column: order.FieldDataIxBool2},
+			order.FieldDataIxList1:    {Type: field.TypeJSON, Column: order.FieldDataIxList1},
+			order.FieldDataIxList2:    {Type: field.TypeJSON, Column: order.FieldDataIxList2},
+			order.FieldCreatedAt:      {Type: field.TypeTime, Column: order.FieldCreatedAt},
+			order.FieldCreatedBy:      {Type: field.TypeUUID, Column: order.FieldCreatedBy},
+			order.FieldUpdatedAt:      {Type: field.TypeTime, Column: order.FieldUpdatedAt},
+			order.FieldUpdatedBy:      {Type: field.TypeUUID, Column: order.FieldUpdatedBy},
+			order.FieldDeletedAt:      {Type: field.TypeTime, Column: order.FieldDeletedAt},
+			order.FieldDeletedBy:      {Type: field.TypeUUID, Column: order.FieldDeletedBy},
+			order.FieldCustomerID:     {Type: field.TypeUUID, Column: order.FieldCustomerID},
 		},
 	}
 	graph.Nodes[3] = &sqlgraph.Node{
@@ -464,6 +474,56 @@ func (f *OrderFilter) WhereDataTypeSlug(p entql.StringP) {
 // WhereData applies the entql json.RawMessage predicate on the data field.
 func (f *OrderFilter) WhereData(p entql.BytesP) {
 	f.Where(p.Field(order.FieldData))
+}
+
+// WhereDataIxText1 applies the entql string predicate on the data_ix_text1 field.
+func (f *OrderFilter) WhereDataIxText1(p entql.StringP) {
+	f.Where(p.Field(order.FieldDataIxText1))
+}
+
+// WhereDataIxText2 applies the entql string predicate on the data_ix_text2 field.
+func (f *OrderFilter) WhereDataIxText2(p entql.StringP) {
+	f.Where(p.Field(order.FieldDataIxText2))
+}
+
+// WhereDataIxText3 applies the entql string predicate on the data_ix_text3 field.
+func (f *OrderFilter) WhereDataIxText3(p entql.StringP) {
+	f.Where(p.Field(order.FieldDataIxText3))
+}
+
+// WhereDataIxText4 applies the entql string predicate on the data_ix_text4 field.
+func (f *OrderFilter) WhereDataIxText4(p entql.StringP) {
+	f.Where(p.Field(order.FieldDataIxText4))
+}
+
+// WhereDataIxNumeric1 applies the entql float64 predicate on the data_ix_numeric1 field.
+func (f *OrderFilter) WhereDataIxNumeric1(p entql.Float64P) {
+	f.Where(p.Field(order.FieldDataIxNumeric1))
+}
+
+// WhereDataIxNumeric2 applies the entql float64 predicate on the data_ix_numeric2 field.
+func (f *OrderFilter) WhereDataIxNumeric2(p entql.Float64P) {
+	f.Where(p.Field(order.FieldDataIxNumeric2))
+}
+
+// WhereDataIxBool1 applies the entql bool predicate on the data_ix_bool1 field.
+func (f *OrderFilter) WhereDataIxBool1(p entql.BoolP) {
+	f.Where(p.Field(order.FieldDataIxBool1))
+}
+
+// WhereDataIxBool2 applies the entql bool predicate on the data_ix_bool2 field.
+func (f *OrderFilter) WhereDataIxBool2(p entql.BoolP) {
+	f.Where(p.Field(order.FieldDataIxBool2))
+}
+
+// WhereDataIxList1 applies the entql json.RawMessage predicate on the data_ix_list1 field.
+func (f *OrderFilter) WhereDataIxList1(p entql.BytesP) {
+	f.Where(p.Field(order.FieldDataIxList1))
+}
+
+// WhereDataIxList2 applies the entql json.RawMessage predicate on the data_ix_list2 field.
+func (f *OrderFilter) WhereDataIxList2(p entql.BytesP) {
+	f.Where(p.Field(order.FieldDataIxList2))
 }
 
 // WhereCreatedAt applies the entql time.Time predicate on the created_at field.

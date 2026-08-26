@@ -5,17 +5,16 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"entgo.io/ent/dialect"
 	"github.com/google/uuid"
+	"github.com/santhosh-tekuri/jsonschema/v6"
+
+	"github.com/pyck-ai/pyck/backend/common/db"
 	common_jsonschema "github.com/pyck-ai/pyck/backend/common/json-schema"
 	"github.com/pyck-ai/pyck/backend/common/request"
-	"github.com/santhosh-tekuri/jsonschema/v5"
 )
-
-var sqlSafeRegexp = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
 type Field struct {
 	Type   string
@@ -61,10 +60,9 @@ type Validator struct {
 	dataTypeReader DataTypeReader
 }
 
-// NewValidator initializes the validator and registers custom format validators (EAN, UPC, etc).
+// NewValidator initializes the validator. Custom format validators (EAN, UPC,
+// etc.) are registered on each schema compiler in validateInputWithSchema.
 func NewValidator(dataTypeReader DataTypeReader) *Validator {
-	registerCustomFormats()
-
 	return &Validator{
 		dataTypeReader: dataTypeReader,
 	}
@@ -76,6 +74,24 @@ func (v *Validator) ReadBySlug(ctx context.Context, slug string) (*common_jsonsc
 
 func (v *Validator) ReadByID(ctx context.Context, id uuid.UUID) (*common_jsonschema.DataType, error) {
 	return v.dataTypeReader.ReadByID(ctx, id)
+}
+
+// ReadFor resolves the datatype a row is written against, by ID first and slug
+// only as a fallback, returning nil when neither identifies one. This is a write
+// handle: the row is pinned to a specific data_type_id, whereas a slug resolves to
+// the latest version -- so under datatype versioning the slug would project a row
+// pinned to v2 using v5's bindings. (A query names the lineage and reads by slug;
+// that is a different handle.) ReadByID also needs no authenticated request
+// context, which ReadBySlug does.
+func (v *Validator) ReadFor(ctx context.Context, dataTypeID uuid.UUID, dataTypeSlug string) (*common_jsonschema.DataType, error) {
+	switch {
+	case dataTypeID != uuid.Nil:
+		return v.ReadByID(ctx, dataTypeID)
+	case dataTypeSlug != "":
+		return v.ReadBySlug(ctx, dataTypeSlug)
+	default:
+		return nil, nil //nolint:nilnil // neither identifier given: no datatype, no error
+	}
 }
 
 func (v *Validator) ValidateDataTypeInput(ctx context.Context, strict bool, input map[string]any, dataTypeID *uuid.UUID, dataTypeSlug *string) (*common_jsonschema.DataType, error) {
@@ -143,10 +159,15 @@ func (v *Validator) validateInputWithSchema(input map[string]any, dataType commo
 	}
 
 	compiler := jsonschema.NewCompiler()
-	compiler.Formats = jsonschema.Formats
-	compiler.AssertFormat = true
+	registerCustomFormats(compiler)
+	compiler.AssertFormat()
 
-	if err := compiler.AddResource(filename, strings.NewReader(dataType.JsonSchema)); err != nil {
+	doc, err := jsonschema.UnmarshalJSON(strings.NewReader(dataType.JsonSchema))
+	if err != nil {
+		return err
+	}
+
+	if err := compiler.AddResource(filename, doc); err != nil {
 		return err
 	}
 
@@ -283,16 +304,16 @@ func (v *Validator) createQueryForCountingUniqueRecords(
 	// TenantID they operate on.
 	req := request.ForContext(ctx)
 
-	if !sqlSafeRegexp.MatchString(table) {
+	if !db.IsSafeIdentifier(table) {
 		return "", nil, fmt.Errorf("%w: %q", ErrInvalidTable, table)
 	}
 
-	if !sqlSafeRegexp.MatchString(jsonColumn) {
+	if !db.IsSafeIdentifier(jsonColumn) {
 		return "", nil, fmt.Errorf("%w: %q", ErrInvalidJSONColumn, jsonColumn)
 	}
 
 	for _, part := range uniqueField.Path() {
-		if !sqlSafeRegexp.MatchString(part) {
+		if !db.IsSafeIdentifier(part) {
 			return "", nil, fmt.Errorf("%w: %q", ErrInvalidJSONField, uniqueField.String())
 		}
 	}
@@ -300,42 +321,55 @@ func (v *Validator) createQueryForCountingUniqueRecords(
 	var (
 		cond string
 		args []any
+		ph   int
 	)
+
+	// nextPlaceholder returns the bind placeholder for the next argument in the
+	// dialect's positional style. PostgreSQL uses $1, $2, …; SQLite (and the
+	// empty test dialect) use ?. Postgres must not use ? — it collides with the
+	// jsonb ? existence operator and the driver does not rebind raw SQL, so a
+	// literal ? produces a syntax error before the placeholder is ever bound.
+	nextPlaceholder := func() string {
+		ph++
+		if dbDriver == dialect.Postgres {
+			return fmt.Sprintf("$%d", ph)
+		}
+		return "?"
+	}
 
 	switch dbDriver {
 	case dialect.SQLite, "": // dialect is not set during tests
 		// For SQLite, we use the json_extract function with a dot-separated path.
 		path := strings.Join(uniqueField.Path(), ".")
-		cond = fmt.Sprintf("json_extract(%s, '$.%s') = ?", jsonColumn, path)
+		cond = fmt.Sprintf("json_extract(%s, '$.%s') = %s", jsonColumn, path, nextPlaceholder())
 		args = append(args, fieldValue)
 
 	case dialect.Postgres:
-		// For PostgreSQL, we build a chain of -> and ->> operators.
-		// We iterate through the path parts, wrapping each key in single quotes.
+		// For PostgreSQL, we build a chain of -> and ->> operators, wrapping each
+		// key in single quotes. Every part but the last uses -> to return a JSONB
+		// object for further traversal; the last uses ->> to return text.
 		parts := uniqueField.Path()
-
-		// The last part of the path must use the ->> operator to return text.
-		lastPart := fmt.Sprintf("->> '%s'", parts[len(parts)-1])
-
-		// The preceding parts must use the -> operator to return a JSONB object for further traversal.
-		leadingParts := []string{}
-		for _, part := range parts[:len(parts)-1] {
-			leadingParts = append(leadingParts, fmt.Sprintf("-> '%s'", part))
+		ops := make([]string, len(parts))
+		for i, part := range parts {
+			if i == len(parts)-1 {
+				ops[i] = fmt.Sprintf("->> '%s'", part)
+			} else {
+				ops[i] = fmt.Sprintf("-> '%s'", part)
+			}
 		}
 
-		cond = fmt.Sprintf("(%s::jsonb %s) = ?", jsonColumn, strings.Join(leadingParts, " ")+" "+lastPart)
+		cond = fmt.Sprintf("(%s::jsonb %s) = %s", jsonColumn, strings.Join(ops, " "), nextPlaceholder())
 		args = append(args, fieldValue)
 	default:
 		return "", nil, fmt.Errorf("%w: %q", ErrUnsupportedDialect, dbDriver)
 	}
 
 	// build query with placeholders
-	whereClause := fmt.Sprintf("%s AND data_type_id = ? AND tenant_id = ?", cond)
+	whereClause := fmt.Sprintf("%s AND data_type_id = %s AND tenant_id = %s", cond, nextPlaceholder(), nextPlaceholder())
+	args = append(args, dataTypeID, req.MutationTenantID())
 	if excludeID != nil {
-		whereClause += " AND id != ?"
-		args = append(args, dataTypeID, req.MutationTenantID(), *excludeID)
-	} else {
-		args = append(args, dataTypeID, req.MutationTenantID())
+		whereClause += fmt.Sprintf(" AND id != %s", nextPlaceholder())
+		args = append(args, *excludeID)
 	}
 
 	query := fmt.Sprintf("SELECT count(*) FROM %s WHERE %s", table, whereClause)

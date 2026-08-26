@@ -15,7 +15,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
@@ -111,7 +111,7 @@ func main() {
 	log.SetFlags(0)
 	log.SetPrefix(logPrefix)
 
-	app := &cli.App{
+	app := &cli.Command{
 		Name:  "apigen",
 		Usage: "Generate API client code from internal API definitions",
 		Flags: []cli.Flag{
@@ -142,18 +142,17 @@ func main() {
 		Action: run,
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatalf("%v", err)
 	}
 }
 
-func run(c *cli.Context) error {
-	ctx := c.Context
-	verbose = c.Bool("verbose")
-	dryRun = c.Bool("dry-run")
+func run(ctx context.Context, cmd *cli.Command) error {
+	verbose = cmd.Bool("verbose")
+	dryRun = cmd.Bool("dry-run")
 
-	pkgPath := c.String("pkg")
-	outputDir := c.String("output")
+	pkgPath := cmd.String("pkg")
+	outputDir := cmd.String("output")
 
 	// If pkgPath is empty, determine it from the current directory
 	if pkgPath == "" {

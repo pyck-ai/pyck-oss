@@ -24,7 +24,7 @@ input CreatePickingOrderItemsInput {
   dataTypeSlug: String
   data: Map
   sku: String!
-  quantity: Int!
+  quantity: Int64!
 }
 
 input CreatePickingOrderWithItemsInput {

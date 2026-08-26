@@ -1,0 +1,28 @@
+---
+operation: RemoveRoles
+name: "Remove service roles from a user"
+description: >
+  Removes one or more per-service roles from an existing user within a tenant.
+  Idempotent — removing a role the user does not hold is a no-op. The user's
+  ladder roles (reader/writer/admin) and any other service roles are preserved.
+  Only per-service role keys are accepted (ladder roles are rejected).
+  Tenant-admin only.
+vars:
+  input:
+    tenantId: {$placeholder: "tenant UUID"}
+    userId: {$placeholder: "management user UUID"}
+    roles:
+      - inventory_service
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Returns the user's service roles after removal"
+    assertions:
+      - ref: res.body.data.removeRoles.userId
+        nil: false

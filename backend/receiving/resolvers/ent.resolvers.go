@@ -72,7 +72,9 @@ func (r *Resolver) ReceivingInboundWhereInput() exec.ReceivingInboundWhereInputR
 	return &receivingInboundWhereInputResolver{r}
 }
 
-type queryResolver struct{ *Resolver }
-type receivingInboundItemWhereInputResolver struct{ *Resolver }
-type receivingInboundShipmentNotificationWhereInputResolver struct{ *Resolver }
-type receivingInboundWhereInputResolver struct{ *Resolver }
+type (
+	queryResolver                                          struct{ *Resolver }
+	receivingInboundItemWhereInputResolver                 struct{ *Resolver }
+	receivingInboundShipmentNotificationWhereInputResolver struct{ *Resolver }
+	receivingInboundWhereInputResolver                     struct{ *Resolver }
+)

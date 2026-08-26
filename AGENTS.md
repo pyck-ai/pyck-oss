@@ -111,6 +111,13 @@ Before committing:
 - Test fixtures: Use `gofakeit` for realistic data generation
 - Coverage reports: Generated during CI test runs
 
+**Adding end-to-end suites that need a live stack** (gateway/zitadel/temporal):
+do it in the `tests/integration/` module, not a `backend/<service>` unit test.
+Read [tests/integration/AGENTS.md](./tests/integration/AGENTS.md) first — it documents the
+build tag, the shared `Base`/fixtures, the fresh-tenant provisioning recipe,
+and the poll-don't-sleep rule. Run with `task test:integration` (needs
+`task up`); `task test` never runs these.
+
 ### Deployment
 
 **Environments:**

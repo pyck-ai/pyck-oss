@@ -145,6 +145,34 @@ func (_c *WorkflowSignalCreate) SetNillableFilterRule(v *string) *WorkflowSignal
 	return _c
 }
 
+// SetWorkerID sets the "worker_id" field.
+func (_c *WorkflowSignalCreate) SetWorkerID(v string) *WorkflowSignalCreate {
+	_c.mutation.SetWorkerID(v)
+	return _c
+}
+
+// SetNillableWorkerID sets the "worker_id" field if the given value is not nil.
+func (_c *WorkflowSignalCreate) SetNillableWorkerID(v *string) *WorkflowSignalCreate {
+	if v != nil {
+		_c.SetWorkerID(*v)
+	}
+	return _c
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (_c *WorkflowSignalCreate) SetExpiresAt(v time.Time) *WorkflowSignalCreate {
+	_c.mutation.SetExpiresAt(v)
+	return _c
+}
+
+// SetNillableExpiresAt sets the "expires_at" field if the given value is not nil.
+func (_c *WorkflowSignalCreate) SetNillableExpiresAt(v *time.Time) *WorkflowSignalCreate {
+	if v != nil {
+		_c.SetExpiresAt(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *WorkflowSignalCreate) SetID(v uuid.UUID) *WorkflowSignalCreate {
 	_c.mutation.SetID(v)
@@ -324,6 +352,14 @@ func (_c *WorkflowSignalCreate) createSpec() (*WorkflowSignal, *sqlgraph.CreateS
 	if value, ok := _c.mutation.FilterRule(); ok {
 		_spec.SetField(workflowsignal.FieldFilterRule, field.TypeString, value)
 		_node.FilterRule = value
+	}
+	if value, ok := _c.mutation.WorkerID(); ok {
+		_spec.SetField(workflowsignal.FieldWorkerID, field.TypeString, value)
+		_node.WorkerID = &value
+	}
+	if value, ok := _c.mutation.ExpiresAt(); ok {
+		_spec.SetField(workflowsignal.FieldExpiresAt, field.TypeTime, value)
+		_node.ExpiresAt = &value
 	}
 	if nodes := _c.mutation.WorkflowIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -539,6 +575,24 @@ func (u *WorkflowSignalUpsert) ClearFilterRule() *WorkflowSignalUpsert {
 	return u
 }
 
+// SetExpiresAt sets the "expires_at" field.
+func (u *WorkflowSignalUpsert) SetExpiresAt(v time.Time) *WorkflowSignalUpsert {
+	u.Set(workflowsignal.FieldExpiresAt, v)
+	return u
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *WorkflowSignalUpsert) UpdateExpiresAt() *WorkflowSignalUpsert {
+	u.SetExcluded(workflowsignal.FieldExpiresAt)
+	return u
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (u *WorkflowSignalUpsert) ClearExpiresAt() *WorkflowSignalUpsert {
+	u.SetNull(workflowsignal.FieldExpiresAt)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
 // Using this option is equivalent to using:
 //
@@ -564,6 +618,9 @@ func (u *WorkflowSignalUpsertOne) UpdateNewValues() *WorkflowSignalUpsertOne {
 		}
 		if _, exists := u.create.mutation.CreatedBy(); exists {
 			s.SetIgnore(workflowsignal.FieldCreatedBy)
+		}
+		if _, exists := u.create.mutation.WorkerID(); exists {
+			s.SetIgnore(workflowsignal.FieldWorkerID)
 		}
 	}))
 	return u
@@ -764,6 +821,27 @@ func (u *WorkflowSignalUpsertOne) ClearFilterRule() *WorkflowSignalUpsertOne {
 	})
 }
 
+// SetExpiresAt sets the "expires_at" field.
+func (u *WorkflowSignalUpsertOne) SetExpiresAt(v time.Time) *WorkflowSignalUpsertOne {
+	return u.Update(func(s *WorkflowSignalUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *WorkflowSignalUpsertOne) UpdateExpiresAt() *WorkflowSignalUpsertOne {
+	return u.Update(func(s *WorkflowSignalUpsert) {
+		s.UpdateExpiresAt()
+	})
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (u *WorkflowSignalUpsertOne) ClearExpiresAt() *WorkflowSignalUpsertOne {
+	return u.Update(func(s *WorkflowSignalUpsert) {
+		s.ClearExpiresAt()
+	})
+}
+
 // Exec executes the query.
 func (u *WorkflowSignalUpsertOne) Exec(ctx context.Context) error {
 	if len(u.create.conflict) == 0 {
@@ -955,6 +1033,9 @@ func (u *WorkflowSignalUpsertBulk) UpdateNewValues() *WorkflowSignalUpsertBulk {
 			}
 			if _, exists := b.mutation.CreatedBy(); exists {
 				s.SetIgnore(workflowsignal.FieldCreatedBy)
+			}
+			if _, exists := b.mutation.WorkerID(); exists {
+				s.SetIgnore(workflowsignal.FieldWorkerID)
 			}
 		}
 	}))
@@ -1153,6 +1234,27 @@ func (u *WorkflowSignalUpsertBulk) UpdateFilterRule() *WorkflowSignalUpsertBulk 
 func (u *WorkflowSignalUpsertBulk) ClearFilterRule() *WorkflowSignalUpsertBulk {
 	return u.Update(func(s *WorkflowSignalUpsert) {
 		s.ClearFilterRule()
+	})
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *WorkflowSignalUpsertBulk) SetExpiresAt(v time.Time) *WorkflowSignalUpsertBulk {
+	return u.Update(func(s *WorkflowSignalUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *WorkflowSignalUpsertBulk) UpdateExpiresAt() *WorkflowSignalUpsertBulk {
+	return u.Update(func(s *WorkflowSignalUpsert) {
+		s.UpdateExpiresAt()
+	})
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (u *WorkflowSignalUpsertBulk) ClearExpiresAt() *WorkflowSignalUpsertBulk {
+	return u.Update(func(s *WorkflowSignalUpsert) {
+		s.ClearExpiresAt()
 	})
 }
 

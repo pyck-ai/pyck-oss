@@ -274,12 +274,16 @@ zitadel:
               display_name: Writer Role
             - key: reader
               display_name: Reader Role
-            - key: temporal_reader
-              display_name: Temporal Reader Role
-            - key: temporal_writer
-              display_name: Temporal Writer Role
-            - key: temporal_admin
-              display_name: Temporal Admin Role
+            - key: inventory_service
+              display_name: Inventory Service Role
+            - key: picking_service
+              display_name: Picking Service Role
+            - key: receiving_service
+              display_name: Receiving Service Role
+            - key: file_service
+              display_name: File Service Role
+            - key: main_data_service
+              display_name: Main Data Service Role
       human_users:
         - username: bruno
           email: bruno@zitadel.local
@@ -292,6 +296,16 @@ zitadel:
           user_grants:
             - project_name: Pyck
               role_key: admin
+            - project_name: Pyck
+              role_key: inventory_service
+            - project_name: Pyck
+              role_key: picking_service
+            - project_name: Pyck
+              role_key: receiving_service
+            - project_name: Pyck
+              role_key: file_service
+            - project_name: Pyck
+              role_key: main_data_service
       machine_users:
         - username: service-user
           name: Service User
@@ -330,6 +344,11 @@ zitadel:
           role_keys:
             - writer
             - reader
+            - inventory_service
+            - picking_service
+            - receiving_service
+            - file_service
+            - main_data_service
       machine_users:
         - username: service-worker-user
           name: Service Worker User
@@ -354,6 +373,21 @@ zitadel:
             - organization_name: Zitadel
               project_name: Pyck
               role_key: writer
+            - organization_name: Zitadel
+              project_name: Pyck
+              role_key: inventory_service
+            - organization_name: Zitadel
+              project_name: Pyck
+              role_key: picking_service
+            - organization_name: Zitadel
+              project_name: Pyck
+              role_key: receiving_service
+            - organization_name: Zitadel
+              project_name: Pyck
+              role_key: file_service
+            - organization_name: Zitadel
+              project_name: Pyck
+              role_key: main_data_service
           key-creation:
             - type: file
               file: api-user.key

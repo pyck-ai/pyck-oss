@@ -1,7 +1,7 @@
 package main
 
 import (
-	_ "embed"
+	"context"
 	"fmt"
 	"go/ast"
 	"go/format"
@@ -14,19 +14,21 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
+
+	_ "embed"
 )
 
 //go:embed templates/entities.go.tmpl
 var entitiesTemplate string
 
 const (
-	logPrefix           = "entitygen: "
-	outputFileName      = "entities_gen.go"
-	defaultSchemaPath   = "../../*/ent/schema/*.go"
-	defaultOutputPath   = "."
-	dryRunPrefix        = "[DRY-RUN] Would write: "
-	generatedPrefix     = "Generated: "
+	logPrefix         = "entitygen: "
+	outputFileName    = "entities_gen.go"
+	defaultSchemaPath = "../../*/ent/schema/*.go"
+	defaultOutputPath = "."
+	dryRunPrefix      = "[DRY-RUN] Would write: "
+	generatedPrefix   = "Generated: "
 )
 
 var (
@@ -39,7 +41,7 @@ func main() {
 	log.SetFlags(0)
 	log.SetPrefix(logPrefix)
 
-	app := &cli.App{
+	app := &cli.Command{
 		Name:  "entitygen",
 		Usage: "Generate entity type list from Ent schemas",
 		Flags: []cli.Flag{
@@ -70,17 +72,17 @@ func main() {
 		Action: run,
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatalf("%v", err)
 	}
 }
 
-func run(c *cli.Context) error {
-	verbose = c.Bool("verbose")
-	dryRun = c.Bool("dry-run")
+func run(_ context.Context, cmd *cli.Command) error {
+	verbose = cmd.Bool("verbose")
+	dryRun = cmd.Bool("dry-run")
 
-	schemaPattern := c.String("schema")
-	outputDir := c.String("output")
+	schemaPattern := cmd.String("schema")
+	outputDir := cmd.String("output")
 
 	if verbose {
 		log.Printf("Schema files pattern: %s", schemaPattern)

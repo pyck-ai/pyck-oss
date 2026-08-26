@@ -136,18 +136,62 @@ func ledgerAnomalies(ctx context.Context, q querier, schema, tenantID, repoID, i
 	return out, rows.Err()
 }
 
-// maxCreatedAt returns the maximum created_at across all stock rows for a tenant.
-func maxCreatedAt(ctx context.Context, q querier, schema, tenantID string) (time.Time, error) {
-	var t time.Time
-	err := q.QueryRowContext(ctx, fmt.Sprintf(queryMaxCreatedAt, schema), tenantID).Scan(&t)
-	return t, err
+// quiescenceMark is the append-only fingerprint of a tenant's stocks table:
+// both fields only grow, so any write between two reads moves at least one.
+type quiescenceMark struct {
+	Rows     int64
+	VersionS int64
 }
 
-// maxVersion returns the highest version for a (tenant, repo, item) including soft-deleted rows.
-func maxVersion(ctx context.Context, q querier, schema, tenantID, repoID, itemID string) (int64, error) {
-	var v int64
-	err := q.QueryRowContext(ctx, fmt.Sprintf(queryMaxVersion, schema), tenantID, repoID, itemID).Scan(&v)
-	return v, err
+func (m quiescenceMark) String() string {
+	return fmt.Sprintf("rows=%d versionSum=%d", m.Rows, m.VersionS)
+}
+
+// quiescence reads the fingerprint used to detect in-flight writes.
+func quiescence(ctx context.Context, q querier, schema, tenantID string) (quiescenceMark, error) {
+	var m quiescenceMark
+	err := q.QueryRowContext(ctx, fmt.Sprintf(queryQuiescence, schema), tenantID).Scan(&m.Rows, &m.VersionS)
+	return m, err
+}
+
+// maxVersions returns the highest version per (repo, item) for a tenant,
+// including soft-deleted rows. One query covers every pair the repair touches.
+func maxVersions(ctx context.Context, q querier, schema, tenantID string) (map[stockPair]int64, error) {
+	rows, err := q.QueryContext(ctx, fmt.Sprintf(queryMaxVersions, schema), tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := map[stockPair]int64{}
+	for rows.Next() {
+		var p stockPair
+		var v int64
+		if err := rows.Scan(&p.RepoID, &p.ItemID, &v); err != nil {
+			return nil, err
+		}
+		out[p] = v
+	}
+	return out, rows.Err()
+}
+
+// repoParents returns parent_id per live repository ("" for a root).
+func repoParents(ctx context.Context, q querier, schema, tenantID string) (map[string]string, error) {
+	rows, err := q.QueryContext(ctx, fmt.Sprintf(queryRepoParents, schema), tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := map[string]string{}
+	for rows.Next() {
+		var id, parent string
+		if err := rows.Scan(&id, &parent); err != nil {
+			return nil, err
+		}
+		out[id] = parent
+	}
+	return out, rows.Err()
 }
 
 // insertCorrectiveRow inserts one corrective stock row within the supplied querier (typically a *sql.Tx).
@@ -161,16 +205,20 @@ func insertCorrectiveRow(ctx context.Context, q querier, schema string, r Correc
 	return err
 }
 
-// verifyAfterFix re-runs the rollup check inside the given querier and returns
-// any violations whose (repo+"/"+item) key is in touched.
-func verifyAfterFix(ctx context.Context, q querier, schema, tenantID string, touched map[string]bool) ([]RollupViolation, error) {
+// verifyAfterFix re-runs the rollup check and returns every violation the
+// repair is answerable for: the whole tenant, minus what was already unfixable.
+//
+// Scoping it to the pairs the repair touched would miss its own fallout — a
+// parent that was consistent can come out violated — and commit the shifted
+// drift while reporting success.
+func verifyAfterFix(ctx context.Context, q querier, schema, tenantID string, preexisting map[stockPair]bool) ([]RollupViolation, error) {
 	all, err := rollupViolations(ctx, q, schema, tenantID)
 	if err != nil {
 		return nil, err
 	}
 	var remaining []RollupViolation
 	for _, v := range all {
-		if touched[v.RepoID+"/"+v.ItemID] {
+		if !preexisting[v.Pair()] {
 			remaining = append(remaining, v)
 		}
 	}

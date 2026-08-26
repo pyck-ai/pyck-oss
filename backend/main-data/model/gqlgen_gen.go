@@ -6,11 +6,19 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pyck-ai/pyck/backend/main-data/ent/gen"
 )
 
 type CustomerDeletePayload struct {
 	DeletedID *uuid.UUID `json:"deletedID,omitempty"`
 }
+
+type PickingOrder struct {
+	CustomerID uuid.UUID     `json:"customerID"`
+	Customer   *gen.Customer `json:"customer,omitempty"`
+}
+
+func (PickingOrder) IsEntity() {}
 
 type ServiceInfo struct {
 	Version string     `json:"version"`

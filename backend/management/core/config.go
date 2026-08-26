@@ -2,14 +2,12 @@ package core
 
 import (
 	"context"
-	"os"
-	"strings"
-	"time"
 
 	"github.com/pyck-ai/pyck/backend/bootstrap/pkg/bootstrap"
 	"github.com/pyck-ai/pyck/backend/common/env"
 	envconfig "github.com/pyck-ai/pyck/backend/common/env/config"
 	"github.com/pyck-ai/pyck/backend/common/otel"
+	commonworkflow "github.com/pyck-ai/pyck/backend/common/workflow"
 )
 
 // FrontendConfig holds environment variables for the frontend settings endpoint.
@@ -25,6 +23,7 @@ type FrontendConfig struct {
 	OtelURL          string `env:"PYCK_FRONTEND_OTEL_URL"`
 	OtelKey          string `env:"PYCK_FRONTEND_OTEL_INGEST_KEY"`
 	FeedbackEndpoint string `env:"PYCK_FRONTEND_FEEDBACK_ENDPOINT"`
+	BarcodeApiURL    string `env:"PYCK_FRONTEND_BARCODE_API_URL"`
 }
 
 type config struct {
@@ -40,6 +39,10 @@ type config struct {
 	envconfig.ServiceInstanceConfig
 	envconfig.TemporalConfig
 	envconfig.ZitadelConfig
+
+	// Temporal Worker Deployment Versioning (#1132). Off unless a build ID is
+	// injected: the service image carries no module version.
+	commonworkflow.VersioningConfig
 
 	FrontendConfig
 
@@ -84,17 +87,10 @@ type config struct {
 	BootstrapEnabled bool `env:"PYCK_BOOTSTRAP_ENABLED" envDefault:"true"`
 	BootstrapOnly    bool `env:"PYCK_BOOTSTRAP_ONLY" envDefault:"true"`
 
-	FrontendBaseURL string `env:"PYCK_FRONTEND_BASE_URL"`
-
-	// Flavour Go worker image (used separately as the container image)
-	FlavourGoWorkerImage    string `env:"PYCK_FLAVOUR_GO_WORKER_IMAGE"`
-	FlavourGoWorkerReplicas int32  `env:"PYCK_FLAVOUR_GO_WORKER_REPLICAS" envDefault:"2"`
-
-	// Quickwit configuration
-	QuickwitEnabled      bool          `env:"PYCK_QUICKWIT_ENABLED" envDefault:"false"`
-	QuickwitURL          string        `env:"PYCK_QUICKWIT_URL"`
-	QuickwitBatchSize    int           `env:"PYCK_QUICKWIT_BATCH_SIZE" envDefault:"100"`
-	QuickwitBatchTimeout time.Duration `env:"PYCK_QUICKWIT_BATCH_TIMEOUT" envDefault:"5s"`
+	// WorkerAPIURL is the worker cluster's deployment control plane. Required
+	// wherever pyck-go tenants are registered: without it their registration
+	// fails rather than producing a tenant with no worker.
+	WorkerAPIURL string `env:"PYCK_WORKER_API_URL"`
 }
 
 type bootstrapConfig struct {
@@ -125,25 +121,4 @@ func LoadEnv() (err error) {
 func LoadBootstrapEnv() (err error) {
 	_, BootstrapConfig, err = env.Load[bootstrapConfig](context.TODO())
 	return err
-}
-
-const flavourGoEnvPrefix = "PYCK_FLAVOUR_GO_"
-
-// FlavourGoWorkerEnvVars collects all PYCK_FLAVOUR_GO_* env vars,
-// strips the prefix, and returns them as a map. WORKER_IMAGE is
-// excluded since it's used as the container image, not an env var.
-func FlavourGoWorkerEnvVars() map[string]string {
-	result := make(map[string]string)
-	for _, e := range os.Environ() {
-		key, value, ok := strings.Cut(e, "=")
-		if !ok || !strings.HasPrefix(key, flavourGoEnvPrefix) {
-			continue
-		}
-		stripped := strings.TrimPrefix(key, flavourGoEnvPrefix)
-		if stripped == "WORKER_IMAGE" {
-			continue
-		}
-		result[stripped] = value
-	}
-	return result
 }

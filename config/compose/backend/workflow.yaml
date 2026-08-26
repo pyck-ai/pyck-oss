@@ -9,6 +9,10 @@ services:
         - SERVICE_PORT=8089
       network: host
     restart: always
+    # Must exceed pre-drain delay + HTTP drain timeout + resource teardown
+    # (outbox flush, NATS drain, tracer flush) so SIGKILL never interrupts a
+    # graceful shutdown.
+    stop_grace_period: 30s
     env_file:
       - path: ../../../config/keys/bootstrap.env
       - path: ../../../.env
@@ -25,7 +29,9 @@ services:
       gateway: { condition: service_healthy }
       management: { condition: service_healthy }
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "8089"]
+      # Readiness endpoint: reports 503 while the service drains, unlike a
+      # bare TCP check which passes as long as the listener is bound.
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8089/health/ready"]
       interval: 5s
       timeout: 5s
       retries: 3

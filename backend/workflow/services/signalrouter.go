@@ -7,11 +7,15 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/pbinitiative/feel"
+	"go.temporal.io/api/enums/v1"
+	"go.temporal.io/sdk/temporal"
+
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/events"
@@ -19,12 +23,11 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/std"
 	"github.com/pyck-ai/pyck/backend/common/workflow"
+
 	ent "github.com/pyck-ai/pyck/backend/workflow/ent/gen"
 	entworkflow "github.com/pyck-ai/pyck/backend/workflow/ent/gen/workflow"
 	"github.com/pyck-ai/pyck/backend/workflow/ent/gen/workflowsignal"
 	"github.com/pyck-ai/pyck/backend/workflow/model"
-	"go.temporal.io/api/enums/v1"
-	"go.temporal.io/sdk/temporal"
 )
 
 const (
@@ -130,29 +133,23 @@ var (
 
 // SignalRouterConfig contains configuration for creating a SignalRouter.
 type SignalRouterConfig struct {
-	TemporalURL     string
 	EventPublisher  *events.EventPublisher
 	NatsClient      *nats.Conn
 	JetstreamClient jetstream.JetStream
 	StreamName      string
 	ServiceName     string
-	// ClientFactory is optional. If nil, workflow.DefaultClientFactory will be used.
+	// ClientFactory hands out the namespace-scoped Temporal clients the
+	// router starts and signals workflows through. Required — the router
+	// cannot build one itself because the factory must be constructed from
+	// the application lifecycle context and the root client dialed at
+	// startup. The router takes ownership and closes it in Stop.
 	ClientFactory workflow.ClientFactory
 }
 
 // NewSignalRouter creates a new SignalRouter instance with the provided configuration.
 func NewSignalRouter(entClient *ent.Client, cfg SignalRouterConfig) *SignalRouter {
-	// Use provided factory or create default one
-	factory := cfg.ClientFactory
-	if factory == nil {
-		factory = workflow.NewDefaultClientFactory(
-			cfg.TemporalURL,
-			nil, // DefaultClientFactory will create its own cache
-		)
-	}
-
 	return &SignalRouter{
-		clientFactory:   factory,
+		clientFactory:   cfg.ClientFactory,
 		eventPublisher:  cfg.EventPublisher,
 		natsClient:      cfg.NatsClient,
 		jetstreamClient: cfg.JetstreamClient,
@@ -379,6 +376,27 @@ func (wr *SignalRouter) GetClient(ctx context.Context, namespace string) (*workf
 	return wr.clientFactory.GetClient(ctx, namespace)
 }
 
+// activeWorkflowsWithSignals loads the tenant's workflows that still have at
+// least one live signal subscription, eager-loading only those subscriptions.
+// A subscription is live when it has no expiry (legacy shared) or its TTL has
+// not lapsed, so subscriptions left behind by crashed workers stop routing
+// even before the janitor reaps them.
+func (wr *SignalRouter) activeWorkflowsWithSignals(ctx context.Context, tenantID uuid.UUID) ([]*ent.Workflow, error) {
+	live := workflowsignal.Or(
+		workflowsignal.ExpiresAtIsNil(),
+		workflowsignal.ExpiresAtGT(time.Now().UTC()),
+	)
+
+	return wr.dbClient.Workflow.
+		Query().
+		Where(
+			entworkflow.TenantIDEQ(tenantID),
+			entworkflow.HasWorkflowSignalsWith(live),
+		).
+		WithWorkflowSignals(func(q *ent.WorkflowSignalQuery) { q.Where(live) }).
+		AllPages(ctx, mixin.Limit)
+}
+
 // HandleMutationEvent parses a mutation event message and triggers matching workflows.
 // It is the shared core used by both the request/reply and fire-and-forget subscriptions.
 func (wr *SignalRouter) HandleMutationEvent(ctx context.Context, msg *nats.Msg) ([]*model.TemporalWorkflow, error) {
@@ -448,14 +466,7 @@ func (wr *SignalRouter) triggerWorkflowsBySignal(ctx context.Context, event even
 		Str("event_topic", topic).
 		Logger()
 
-	wfs, err := wr.dbClient.Workflow.
-		Query().
-		Where(
-			entworkflow.TenantIDEQ(event.TenantID),
-			entworkflow.HasWorkflowSignals(),
-		).
-		WithWorkflowSignals().
-		AllPages(ctx, mixin.Limit)
+	wfs, err := wr.activeWorkflowsWithSignals(ctx, event.TenantID)
 	if err != nil && !ent.IsNotFound(err) {
 		return nil, err
 	} else if len(wfs) == 0 || ent.IsNotFound(err) {
@@ -642,14 +653,7 @@ func (wr *SignalRouter) handleTemporalWorkflowStateChange(ctx context.Context, m
 
 	ctx = request.Context(ctx, authn.SystemUser(), tenantID)
 
-	wfs, err := wr.dbClient.Workflow.
-		Query().
-		Where(
-			entworkflow.TenantIDEQ(tenantID),
-			entworkflow.HasWorkflowSignals(),
-		).
-		WithWorkflowSignals().
-		AllPages(ctx, mixin.Limit)
+	wfs, err := wr.activeWorkflowsWithSignals(ctx, tenantID)
 	if err != nil && !ent.IsNotFound(err) {
 		return nil, err
 	} else if len(wfs) == 0 || ent.IsNotFound(err) {

@@ -1,6 +1,7 @@
 package resolvers_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -14,7 +15,9 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 
+	"github.com/pyck-ai/pyck/backend/management/core"
 	ent "github.com/pyck-ai/pyck/backend/management/ent/gen"
+	enttenant "github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
 	registertenantwf "github.com/pyck-ai/pyck/backend/management/workflows/register-tenant"
 )
 
@@ -68,6 +71,9 @@ type (
 	}
 	setTenantExpiryData struct {
 		SetTenantExpiry struct{ Success bool }
+	}
+	setTenantUITemplateData struct {
+		SetTenantUITemplate struct{ Success bool }
 	}
 )
 
@@ -178,6 +184,67 @@ func TestRegisterTenant(t *testing.T) {
 	})
 }
 
+// A failed registration must not destroy an unrelated, previously
+// soft-deleted tenant that merely shares the display name. The rollback
+// looks the cleanup target up by `tenant.Name(input.Name)`, and `name`
+// is NOT unique (only idp_org_ref is). The lookup therefore stays on
+// systemCtx — NOT FEATURE_SHOW_DELETED — so it can only ever match an
+// ACTIVE row this registration created. The RegisterTenantWorkflow's own
+// saga rollback owns soft-deleting the row it created (by deterministic
+// id); the resolver never needs to see or hard-delete a soft-deleted row.
+//
+// Pre-revert the lookup ran under FEATURE_SHOW_DELETED + entprivacy.Allow,
+// so it matched the unrelated soft-deleted tenant and hard-deleted it —
+// data loss on a failed registration. This test fails on that code.
+func TestRegisterTenantRollback_DoesNotDestroyUnrelatedSoftDeletedTenant(t *testing.T) {
+	t.Parallel()
+	te := setup(t)
+	defer te.Close(t)
+	ctx := te.ctx(userA)
+
+	// An unrelated tenant, same display name, already soft-deleted.
+	// Invisible to the resolver's active-name pre-flight (systemCtx), so
+	// registration proceeds.
+	unrelatedID := uuidgql.GenerateV7UUID()
+	te.newTenant(te.ctxForTenant(systemUser, unrelatedID), unrelatedID).
+		Name("Acme").Deleted().Create()
+
+	seeded, seedErr := te.Ent.Tenant.Query().
+		Where(enttenant.IDEQ(unrelatedID)).
+		Exist(te.ctxWithDeleted(systemUser))
+	require.NoError(t, seedErr)
+	require.True(t, seeded, "precondition: unrelated soft-deleted tenant must be seeded")
+
+	// The provisioning workflow fails (its own saga has already cleaned
+	// up whatever it created).
+	wfErr := errors.New("provisioning boom")
+	mockRun := mocks.NewMockWorkflowRun("workflow-id", "run-id", nil, wfErr)
+	te.TemporalClient.
+		On("ExecuteWorkflow", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(mockRun, nil).Once()
+	te.TemporalClient.
+		On("GetWorkflow", mock.Anything, "workflow-id", "run-id").
+		Return(mockRun).Once()
+
+	// The real workflow error surfaces (not a masked NotFound, not a
+	// NotSingular from matching two same-named rows).
+	execErr(te, ctx, registerTenant, map[string]any{
+		"Name":           "Acme",
+		"AdminUsername":  "acmeadmin",
+		"AdminEmail":     "acme@example.com",
+		"AdminFirstName": "Acme",
+		"AdminLastName":  "Admin",
+		"AdminPassword":  "SecurePass123!",
+	}, "provisioning boom")
+
+	// The unrelated soft-deleted tenant must be untouched.
+	exists, err := te.Ent.Tenant.Query().
+		Where(enttenant.IDEQ(unrelatedID)).
+		Exist(te.ctxWithDeleted(systemUser))
+	require.NoError(t, err)
+	assert.True(t, exists, "rollback must not hard-delete an unrelated same-named soft-deleted tenant")
+}
+
 // =============================================================================
 // TENANT LIFECYCLE TEMPLATES (disable / restore / setExpiry)
 // =============================================================================
@@ -209,6 +276,36 @@ var (
 
 	clearTenantExpiryMut = resolver.ParseTemplate(`mutation {
 		setTenantExpiry(input: { expiresAt: null }) {
+			success
+		}
+	}`)
+
+	setTenantUITemplateMut = resolver.ParseTemplate(`mutation {
+		setTenantUITemplate(input: { webTemplate: "{{.Web}}", mobileTemplate: "{{.Mobile}}" }) {
+			success
+		}
+	}`)
+
+	setTenantUITemplateWebOnlyMut = resolver.ParseTemplate(`mutation {
+		setTenantUITemplate(input: { webTemplate: "{{.Web}}" }) {
+			success
+		}
+	}`)
+
+	setTenantUITemplateEmptyMut = resolver.ParseTemplate(`mutation {
+		setTenantUITemplate(input: {}) {
+			success
+		}
+	}`)
+
+	setTenantUITemplateClearWebMut = resolver.ParseTemplate(`mutation {
+		setTenantUITemplate(input: { clearWebTemplate: true }) {
+			success
+		}
+	}`)
+
+	setTenantUITemplateSetAndClearMut = resolver.ParseTemplate(`mutation {
+		setTenantUITemplate(input: { webTemplate: "{{.Web}}", clearWebTemplate: true }) {
 			success
 		}
 	}`)
@@ -378,6 +475,33 @@ func TestRestoreTenant(t *testing.T) {
 		te.assertNoEvents(ctx)
 	})
 
+	// Pre-fix the resolver accepted any timestamp for input.expiresAt,
+	// including values already in the past. The tenant got restored, the
+	// Zitadel org reactivated, and then the periodic expiry sweep re-
+	// disabled it within ~60s — operator saw a brief restore-then-vanish
+	// with no error. Post-fix a past timestamp returns a typed error
+	// before any side effects fire.
+	t.Run("rejects past expiresAt", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+
+		tenantID := uuidgql.GenerateV7UUID()
+		ctx := te.ctxForTenant(systemUser, tenantID)
+		te.newTenant(ctx, tenantID).Deleted().Create()
+		te.clearEvents(ctx)
+
+		past := time.Now().UTC().Add(-1 * time.Hour).Format(time.RFC3339)
+		execErr(te, ctx, restoreTenantWithExpiryMut, map[string]any{
+			"ExpiresAt": past,
+		}, "expiresAt must be in the future")
+
+		// Tenant must still be deleted — restore did NOT fire.
+		got := mustGetTenant(t, te, tenantID)
+		assert.False(t, got.DeletedAt.IsZero(), "tenant must remain soft-deleted after a rejected restore")
+		te.assertNoEvents(ctx)
+	})
+
 	t.Run("errors on unknown tenant", func(t *testing.T) {
 		t.Parallel()
 		te := setup(t)
@@ -480,6 +604,37 @@ func TestSetTenantExpiry(t *testing.T) {
 		te.assertNoEvents(ctx)
 	})
 
+	// Pre-fix the equality check used Truncate(time.Second) on both sides.
+	// Two values differing only at sub-second precision compared equal and
+	// the resolver short-circuited Success without executing an Update —
+	// no outbox event, no cache eviction, the caller's new value silently
+	// lost. Post-fix any difference (even sub-second) goes through.
+	// RFC3339 lacks sub-second precision, so the test uses
+	// RFC3339Nano via a custom mutation that takes the raw string.
+	t.Run("sub-second change fires the update", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+
+		stored := time.Date(2099, 1, 1, 12, 34, 56, 300*int(time.Millisecond), time.UTC)
+		desired := time.Date(2099, 1, 1, 12, 34, 56, 500*int(time.Millisecond), time.UTC)
+
+		tenantID := uuidgql.GenerateV7UUID()
+		ctx := te.ctxForTenant(systemUser, tenantID)
+		te.newTenant(ctx, tenantID).ExpiresAt(stored).Create()
+		te.clearEvents(ctx)
+
+		data := execOK[setTenantExpiryData](te, ctx, setTenantExpiryMut, map[string]any{
+			"ExpiresAt": desired.Format(time.RFC3339Nano),
+		})
+		assert.True(t, data.SetTenantExpiry.Success)
+
+		got := mustGetTenant(t, te, tenantID)
+		require.NotNil(t, got.ExpiresAt)
+		assert.True(t, got.ExpiresAt.Equal(desired), "sub-second change must land on the row (got %v, want %v)", got.ExpiresAt, desired)
+		te.assertEvents(ctx, Update("tenant", tenantID))
+	})
+
 	t.Run("errors on unknown tenant", func(t *testing.T) {
 		t.Parallel()
 		te := setup(t)
@@ -530,6 +685,167 @@ func TestSetTenantExpiry(t *testing.T) {
 }
 
 // mustGetTenant reads a tenant including soft-deleted rows.
+// =============================================================================
+// SET TENANT UI TEMPLATE
+// =============================================================================
+
+func TestSetTenantUITemplate(t *testing.T) {
+	t.Parallel()
+
+	const (
+		webKey     = core.RemoteWebUITemplateKey
+		mobileKey  = core.RemoteMobileUITemplateKey
+		webTmpl    = "https://cdn.example.com/t/web/{{.Slug}}/{{.Version}}/mf-manifest.json"
+		mobileTmpl = "https://cdn.example.com/t/mobile/{{.Slug}}/{{.Version}}/widgets.rfw"
+	)
+
+	t.Run("system user sets both templates", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+
+		tenantID := uuidgql.GenerateV7UUID()
+		ctx := te.ctxForTenant(systemUser, tenantID)
+		te.newTenant(ctx, tenantID).Create()
+		te.clearEvents(ctx)
+
+		data := execOK[setTenantUITemplateData](te, ctx, setTenantUITemplateMut, map[string]any{
+			"Web": webTmpl, "Mobile": mobileTmpl,
+		})
+		assert.True(t, data.SetTenantUITemplate.Success)
+
+		got := mustGetTenant(t, te, tenantID)
+		assert.Equal(t, webTmpl, got.Data[webKey])
+		assert.Equal(t, mobileTmpl, got.Data[mobileKey])
+
+		te.assertEvents(ctx, Update("tenant", tenantID))
+	})
+
+	t.Run("writes only the provided field, leaving the other unchanged", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+
+		tenantID := uuidgql.GenerateV7UUID()
+		ctx := te.ctxForTenant(systemUser, tenantID)
+		te.newTenant(ctx, tenantID).Data(map[string]any{mobileKey: "keep-mobile"}).Create()
+		te.clearEvents(ctx)
+
+		data := execOK[setTenantUITemplateData](te, ctx, setTenantUITemplateWebOnlyMut, map[string]any{
+			"Web": webTmpl,
+		})
+		assert.True(t, data.SetTenantUITemplate.Success)
+
+		got := mustGetTenant(t, te, tenantID)
+		assert.Equal(t, webTmpl, got.Data[webKey])
+		assert.Equal(t, "keep-mobile", got.Data[mobileKey])
+	})
+
+	t.Run("is idempotent when the values already match", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+
+		tenantID := uuidgql.GenerateV7UUID()
+		ctx := te.ctxForTenant(systemUser, tenantID)
+		te.newTenant(ctx, tenantID).Data(map[string]any{webKey: webTmpl, mobileKey: mobileTmpl}).Create()
+		te.clearEvents(ctx)
+
+		data := execOK[setTenantUITemplateData](te, ctx, setTenantUITemplateMut, map[string]any{
+			"Web": webTmpl, "Mobile": mobileTmpl,
+		})
+		assert.True(t, data.SetTenantUITemplate.Success)
+
+		te.assertNoEvents(ctx)
+	})
+
+	t.Run("rejects a non-system (admin) caller", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+
+		te.newTenant(te.ctxForTenant(systemUser, resolver.TenantA), resolver.TenantA).Create()
+
+		adminCtx := te.ctx(userA)
+		execErr(te, adminCtx, setTenantUITemplateMut, map[string]any{
+			"Web": webTmpl, "Mobile": mobileTmpl,
+		}, "system role required")
+	})
+
+	t.Run("rejects an unauthenticated caller", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+
+		anonCtx := te.ctx(&authn.User{})
+		execErr(te, anonCtx, setTenantUITemplateMut, map[string]any{
+			"Web": webTmpl, "Mobile": mobileTmpl,
+		}, "system role required")
+	})
+
+	t.Run("rejects a request that changes nothing", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+
+		tenantID := uuidgql.GenerateV7UUID()
+		ctx := te.ctxForTenant(systemUser, tenantID)
+		te.newTenant(ctx, tenantID).Create()
+
+		execErr(te, ctx, setTenantUITemplateEmptyMut, nil, "at least one")
+	})
+
+	t.Run("rejects a malformed template", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+
+		tenantID := uuidgql.GenerateV7UUID()
+		ctx := te.ctxForTenant(systemUser, tenantID)
+		te.newTenant(ctx, tenantID).Create()
+
+		// Missing the {{.Version}} placeholder.
+		execErr(te, ctx, setTenantUITemplateWebOnlyMut, map[string]any{
+			"Web": "https://cdn.example.com/web/{{.Slug}}/mf-manifest.json",
+		}, "invalid UI bundle URL template")
+	})
+
+	t.Run("clears a stored template, reverting to the default", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+
+		tenantID := uuidgql.GenerateV7UUID()
+		ctx := te.ctxForTenant(systemUser, tenantID)
+		te.newTenant(ctx, tenantID).Data(map[string]any{webKey: webTmpl, mobileKey: mobileTmpl}).Create()
+		te.clearEvents(ctx)
+
+		data := execOK[setTenantUITemplateData](te, ctx, setTenantUITemplateClearWebMut, nil)
+		assert.True(t, data.SetTenantUITemplate.Success)
+
+		got := mustGetTenant(t, te, tenantID)
+		_, webPresent := got.Data[webKey]
+		assert.False(t, webPresent, "web template should be deleted, not blanked")
+		assert.Equal(t, mobileTmpl, got.Data[mobileKey], "mobile template untouched")
+
+		te.assertEvents(ctx, Update("tenant", tenantID))
+	})
+
+	t.Run("rejects setting and clearing the same template", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+
+		tenantID := uuidgql.GenerateV7UUID()
+		ctx := te.ctxForTenant(systemUser, tenantID)
+		te.newTenant(ctx, tenantID).Create()
+
+		execErr(te, ctx, setTenantUITemplateSetAndClearMut, map[string]any{
+			"Web": webTmpl,
+		}, "cannot set and clear")
+	})
+}
+
 func mustGetTenant(t *testing.T, te *testEnv, id uuid.UUID) *ent.Tenant {
 	t.Helper()
 	tenant, err := te.Ent.Tenant.Get(te.ctxWithDeleted(systemUser), id)

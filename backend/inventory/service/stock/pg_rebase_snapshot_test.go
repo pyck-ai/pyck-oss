@@ -5,15 +5,19 @@ import (
 	"testing"
 	"time"
 
+	"entgo.io/ent/dialect"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 
 	ent "github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	entstock "github.com/pyck-ai/pyck/backend/inventory/ent/gen/stock"
 )
 
 // TestPG_RebaseSnapshot_LiveAndFloor re-exercises TestLoadStockRebaseSnapshot_LiveAndFloor
-// against real Postgres to confirm the floor/live query works on the production dialect.
+// on the production dialect, so it runs the inventory.load_stock_rebase_snapshot
+// function rather than the Go reduction, and asserts the two agree.
 func TestPG_RebaseSnapshot_LiveAndFloor(t *testing.T) {
 	t.Parallel()
 	e := newPGTestEnv(t)
@@ -50,7 +54,7 @@ func TestPG_RebaseSnapshot_LiveAndFloor(t *testing.T) {
 	}
 
 	tx := e.withTx()
-	svc := &service{}
+	svc := &service{dbDialect: dialect.Postgres}
 
 	floor, live, err := svc.loadStockRebaseSnapshot(e.ctx, tx, e.tenantID, stockMap)
 	require.NoError(t, err)
@@ -64,6 +68,13 @@ func TestPG_RebaseSnapshot_LiveAndFloor(t *testing.T) {
 	require.Equal(t, int64(0), got.Version,
 		"live must be the highest-version non-deleted row (v=0 is the only live one)")
 	require.Equal(t, int64(42), got.Quantity)
+
+	// The Go reduction is the proc's oracle: both must agree on the same data.
+	goFloor, goLive, err := (&service{}).loadStockRebaseSnapshot(e.ctx, e.withTx(), e.tenantID, stockMap)
+	require.NoError(t, err)
+	require.Equal(t, goFloor, floor, "proc and Go floors must agree")
+	require.Equal(t, goLive[k].Version, got.Version, "proc and Go live rows must agree")
+	require.Equal(t, goLive[k].Quantity, got.Quantity)
 }
 
 // TestPG_RebaseSnapshot_CreateFanOut re-exercises TestCreateRepositoryMovement_RebaseLiveQuantityUsed
@@ -107,7 +118,7 @@ func TestPG_RebaseSnapshot_CreateFanOut(t *testing.T) {
 	require.NoError(t, err)
 
 	tx := e.withTx()
-	svc := &service{}
+	svc := &service{dbDialect: dialect.Postgres}
 
 	movement, err := svc.CreateRepositoryMovement(e.ctx, tx, CreateRepositoryMovementInput{
 		Input: ent.CreateRepositoryMovementInput{
@@ -174,7 +185,7 @@ func TestPG_RebaseSnapshot_DeleteFanOut(t *testing.T) {
 	require.NoError(t, err)
 
 	tx := e.withTx()
-	svc := &service{}
+	svc := &service{dbDialect: dialect.Postgres}
 
 	movement, err := svc.CreateRepositoryMovement(e.ctx, tx, CreateRepositoryMovementInput{
 		Input: ent.CreateRepositoryMovementInput{
@@ -202,7 +213,7 @@ func TestPG_RebaseSnapshot_DeleteFanOut(t *testing.T) {
 			entstock.ItemID(item),
 			entstock.MovementID(movement.ID),
 		).
-		All(e.ctx)
+		AllPages(e.ctx, mixin.Limit)
 	require.NoError(t, err)
 	require.Len(t, rows, 2, "one row from Create fan-out, one from Delete fan-out")
 	for _, r := range rows {

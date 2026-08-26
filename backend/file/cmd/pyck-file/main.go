@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net"
 	nethttp "net/http"
+	"os"
 	"strconv"
+	"syscall"
 
-	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/go-chi/chi/v5"
 	"github.com/gqlgo/gqlgenc/clientv2"
@@ -22,17 +25,22 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/env/config"
 	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/pyck-ai/pyck/backend/common/feature"
+	"github.com/pyck-ai/pyck/backend/common/gate"
+	"github.com/pyck-ai/pyck/backend/common/gqlserver"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
-	"github.com/pyck-ai/pyck/backend/common/handlers"
 	"github.com/pyck-ai/pyck/backend/common/hooks"
 	"github.com/pyck-ai/pyck/backend/common/http"
+	httpclient "github.com/pyck-ai/pyck/backend/common/http_client"
 	"github.com/pyck-ai/pyck/backend/common/idempotency"
 	json_schema "github.com/pyck-ai/pyck/backend/common/json-schema"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	logadapter "github.com/pyck-ai/pyck/backend/common/log/adapter"
 	"github.com/pyck-ai/pyck/backend/common/otel"
+	"github.com/pyck-ai/pyck/backend/common/serviceroles"
 	"github.com/pyck-ai/pyck/backend/common/services/temporal"
 	"github.com/pyck-ai/pyck/backend/common/services/zitadel"
+	"github.com/pyck-ai/pyck/backend/common/signals"
+	"github.com/pyck-ai/pyck/backend/common/startup"
 	"github.com/pyck-ai/pyck/backend/common/std"
 	"github.com/pyck-ai/pyck/backend/common/tenant"
 	"github.com/pyck-ai/pyck/backend/common/validator"
@@ -43,7 +51,6 @@ import (
 
 	"github.com/pyck-ai/pyck/backend/file/core"
 	ent "github.com/pyck-ai/pyck/backend/file/ent/gen"
-	entfile "github.com/pyck-ai/pyck/backend/file/ent/gen/file"
 	_ "github.com/pyck-ai/pyck/backend/file/ent/gen/runtime"
 	entmigrate "github.com/pyck-ai/pyck/backend/file/ent/migrate"
 	filehandlers "github.com/pyck-ai/pyck/backend/file/handlers"
@@ -52,37 +59,66 @@ import (
 	"github.com/pyck-ai/pyck/backend/file/workflows"
 )
 
-const (
-	serviceName = "file"
-)
+const serviceName = "file"
 
 func main() {
-	// Set up root context
+	os.Exit(realMain())
+}
+
+func realMain() int {
+	// Root context
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Set up default logger
+	// Bootstrap logger with default settings; the real level/format come
+	// from the environment, but a LoadEnv failure must still be reported
+	// structured, so run's error is logged with this context.
 	ctx, _ = log.SetupLogger(ctx, serviceName, config.LogConfig{})
 
+	if err := run(ctx); err != nil {
+		if errors.Is(err, startup.ErrAborted) {
+			log.ForContext(ctx).Info().Err(err).Msg("startup aborted")
+			return 0
+		}
+		log.ForContext(ctx).Error().
+			Err(err).
+			Msg("service terminated")
+		return 1
+	}
+
+	return 0
+}
+
+// run wires up the service on the given root context and blocks until a stop
+// signal has been handled. All teardown happens through its defers, so every
+// return path — including startup failures — releases whatever was already
+// initialized.
+func run(ctx context.Context) error {
 	// Load configuration
 	if err := core.LoadEnv(); err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed to load configuration")
-		return
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	// Configure logger
-	ctx, _ = log.SetupLogger(ctx, serviceName, core.Config.LogConfig)
+	procCtx, l := log.SetupLogger(ctx, serviceName, core.Config.LogConfig)
+	l.Info().Any("config", core.Config).Msg("starting...")
 
-	log.ForContext(ctx).Info().
-		Any("config", core.Config).
-		Msg("starting...")
+	// Stop context: cancelled by SIGTERM/SIGINT. Only the startup wait and
+	// the HTTP server react to it directly; everything else keeps running
+	// on ctx so in-flight requests and the outbox survive the drain.
+	appCtx, stopSignals := signals.NotifyContext(procCtx, os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
 
 	// Check the management service is running and version-compatible before
 	// starting, because we depend on it for JSON schemas and data types.
+	httpClient := httpclient.NewInstrumentedClient(
+		core.Config.GatewayHTTPTimeout,
+		core.Config.GatewayHTTPMaxIdleConns,
+	)
+	defer httpClient.CloseIdleConnections()
+
 	mgmtClient := managementapi.NewClient(
-		nethttp.DefaultClient,
+		httpClient,
 		core.Config.GatewayUrl,
 		&clientv2.Options{ParseDataAlongWithErrors: true},
 		func(ctx context.Context, r *nethttp.Request, gqlInfo *clientv2.GQLRequestInfo, res any, next clientv2.RequestInterceptorFunc) error {
@@ -91,53 +127,47 @@ func main() {
 		},
 	)
 
-	if err := managementguard.WaitForManagement(ctx, mgmtClient, env.GetBuildInfo().GitCommitSHA(), core.Config.StrictVersionCheck); err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("management service dependency check failed")
-		return
+	if err := managementguard.WaitForManagement(appCtx, mgmtClient, env.GetBuildInfo().GitCommitSHA(), core.Config.StrictVersionCheck); err != nil {
+		if abortErr := startup.Check(appCtx, "management dependency check"); abortErr != nil {
+			return abortErr
+		}
+		return fmt.Errorf("management service dependency check failed: %w", err)
 	}
 
 	// Set up tracer
 	tracer, err := otel.SetupTracer(serviceName, core.Config.EnvironmentName, &core.Config.OTelConfig)
 	if err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed setting up tracer")
-		return
+		return fmt.Errorf("failed setting up tracer: %w", err)
 	}
 	defer tracer.Close()
 
 	// Set up database
 	pgxDriver, err := db.NewPostgresMultiDriver(
+		procCtx,
 		serviceName,
 		core.Config.DbConfig,
 		db.WithWriterIsolation("serializable"),
 	)
 	if err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed setting up database driver")
-		return
+		return fmt.Errorf("failed setting up database driver: %w", err)
 	}
 
-	ctx = db.WithMaxRetries(ctx, core.Config.TxRetries)
-
 	if err = db.RunMigrations(
-		ctx,
+		procCtx,
 		pgxDriver.DB(),
 		serviceName,
 		entmigrate.Migrations,
 	); err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed running migrations")
-		return
+		return fmt.Errorf("failed running migrations: %w", err)
+	}
+
+	if err := startup.Check(appCtx, "migrations"); err != nil {
+		return err
 	}
 
 	dbClient := ent.NewClient(
 		ent.Driver(pgxDriver),
-		ent.Log(logadapter.EntLogAdapter(*log.ForContext(ctx))),
+		ent.Log(logadapter.EntLogAdapter(*log.ForContext(procCtx))),
 	)
 
 	if core.Config.DbDebug {
@@ -149,23 +179,21 @@ func main() {
 	dbClient.Use(hooks.LogMutation)
 
 	// Set up NATS client
-	natsClient, err := events.NewNatsClient(ctx, core.Config.NatsUrl)
+	natsClient, err := events.NewNatsClient(procCtx, core.Config.NatsUrl)
 	if err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed setting up NATS client")
-		return
+		return fmt.Errorf("failed setting up NATS client: %w", err)
 	}
 
-	defer natsClient.Close()
+	defer events.DrainNatsClient(procCtx, natsClient, events.DrainTimeout)
 
 	// Set up JetStream
-	jetstreamClient, err := events.CreateOrUpdateJetstream(ctx, natsClient, core.Config.NatsStreamName, core.Config.NatsReplicasNumber)
+	jetstreamClient, err := events.CreateOrUpdateJetstream(procCtx, natsClient, core.Config.NatsStreamName, core.Config.NatsReplicasNumber)
 	if err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed setting up JetStream")
-		return
+		return fmt.Errorf("failed setting up JetStream: %w", err)
+	}
+
+	if err := startup.Check(appCtx, "nats setup"); err != nil {
+		return err
 	}
 
 	// Auth path: introspection via Zitadel; org-active probe routed
@@ -173,7 +201,7 @@ func main() {
 	// resolver. The revocation subscriber evicts cached entries within
 	// the JetStream-propagation window when a tenant is disabled.
 	authProvider, revocationCC, err := authn.NewProviderWithRevocation(
-		ctx,
+		procCtx,
 		zitadel.NewClient(core.Config.ZitadelConfig),
 		core.Config.ZitadelConfig,
 		managementapi.NewOrganizationValidator(mgmtClient),
@@ -182,17 +210,13 @@ func main() {
 		serviceName,
 	)
 	if err != nil {
-		log.ForContext(ctx).Fatal().Err(err).Msg("failed to set up auth provider")
-		return
+		return fmt.Errorf("failed to set up auth provider: %w", err)
 	}
 	defer revocationCC.Stop()
 
 	jetstreamPub, err := events.NewEventPublisher(jetstreamClient, natsClient, core.Config.NatsStreamName, core.Config.NatsReplyTimeout)
 	if err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed setting up event publisher")
-		return
+		return fmt.Errorf("failed setting up event publisher: %w", err)
 	}
 
 	// Set up event system (mutation hook + outbox handler)
@@ -208,26 +232,13 @@ func main() {
 	})
 
 	dbClient.Use(eventSystem.Hook())
-	if err := eventSystem.Start(ctx); err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed starting event system")
-		return
+	if err := eventSystem.Start(procCtx); err != nil {
+		return fmt.Errorf("failed starting event system: %w", err)
 	}
 	defer eventSystem.Stop()
 
-	jetstreamSub, err := events.NewEventSubscriber(natsClient, core.Config.NatsStreamName)
-	if err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed setting up event subscriber")
-		return
-	}
-
-	defer jetstreamSub.Close()
-
 	// Set up data types validator
-	dataTypesCache, err := json_schema.NewDataTypesCache(ctx, jetstreamClient, json_schema.DataTypesCacheOptions{
+	dataTypesCache, err := json_schema.NewDataTypesCache(procCtx, jetstreamClient, json_schema.DataTypesCacheOptions{
 		Fetcher: managementdatatype.NewDataTypeClient(mgmtClient),
 		Stream:  core.Config.NatsStreamName,
 		Topics: []string{
@@ -238,59 +249,52 @@ func main() {
 		ServiceName: serviceName + "_" + core.Config.ServiceInstanceID,
 	})
 	if err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed setting up data types cache")
-		return
+		return fmt.Errorf("failed setting up data types cache: %w", err)
 	}
 
-	go dataTypesCache.ListenToEvents(ctx)
+	// Drain gate fires while the NATS connection is still open
+	listenCtx, stopListening := context.WithCancel(procCtx)
+	defer stopListening()
+	go dataTypesCache.ListenToEvents(listenCtx)
 
-	if err = dataTypesCache.RetrieveJsonSchemasToCache(ctx); err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed retrieving initial JSON schemas to cache")
-		return
+	if _, err = dataTypesCache.RetrieveJsonSchemasToCache(procCtx); err != nil {
+		return fmt.Errorf("failed retrieving initial JSON schemas to cache: %w", err)
 	}
 
 	// Set up Temporal
-	temporalClient, err := temporal.NewTemporalClient(ctx, core.Config.TemporalUrl)
+	temporalClient, err := temporal.NewTemporalClient(procCtx, core.Config.TemporalUrl, core.Config.TemporalDialTimeout)
 	if err != nil {
-		log.ForContext(ctx).Error().
-			Err(err).
-			Msg("failed setting up temporal client")
-		return
+		return fmt.Errorf("failed setting up temporal client: %w", err)
 	}
-
 	defer temporalClient.Close()
 
-	temporalWorker, err := workflows.NewTemporalWorker(temporalClient, workflows.TemporalFileTaskQueue)
+	temporalWorker, err := workflows.NewTemporalWorker(temporalClient, workflows.TemporalFileTaskQueue, core.Config.VersioningConfig)
 	if err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed setting up temporal worker")
-		return
+		return fmt.Errorf("failed setting up temporal worker: %w", err)
 	}
 
 	temporalWorker.RegisterImageAnalyzerWorkflow()
 
+	log.ForContext(procCtx).Info().
+		Bool("versioned", temporalWorker.Versioned()).
+		Msg("temporal worker deployment versioning")
+
 	if err = temporalWorker.Start(); err != nil {
-		log.ForContext(ctx).
-			Fatal().
-			Err(err).
-			Msg("failed starting temporal worker")
-		return
+		return fmt.Errorf("failed starting temporal worker: %w", err)
 	}
 
 	defer temporalWorker.Stop()
 
+	temporalWorker.PromoteVersion(procCtx)
+
+	if err := startup.Check(appCtx, "temporal worker"); err != nil {
+		return err
+	}
+
 	// Set up workflow client
 	workflowClient, err := workflow.NewClient(client.DefaultNamespace, temporalClient)
 	if err != nil {
-		log.ForContext(ctx).Error().
-			Err(err).
-			Msg("failed setting up workflow client")
-		return
+		return fmt.Errorf("failed setting up workflow client: %w", err)
 	}
 
 	// Set up S3 storage service
@@ -303,10 +307,7 @@ func main() {
 		core.Config.AwsS3HttpEndpointUrl,
 	)
 	if err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("failed setting up S3 storage service")
-		return
+		return fmt.Errorf("failed setting up S3 storage service: %w", err)
 	}
 
 	// Set GraphQL server
@@ -316,9 +317,15 @@ func main() {
 	// transaction via gqltx; janitor goroutine prunes committed rows after
 	// the 24h TTL.
 	idemStore := newIdempotencyStore(dbClient)
-	idempotency.NewJanitor(idemStore, idempotencyJanitorInterval, idempotencyJanitorTTL).Start(ctx)
 
-	gqlServer := handler.NewDefaultServer(resolvers.NewSchema(resolver))
+	// Scoped janitor context: its cancel is registered after the
+	// dbClient.Close defer, so the pruning loop is told to stop before the
+	// DB client it queries goes away.
+	janitorCtx, stopJanitor := context.WithCancel(procCtx)
+	defer stopJanitor()
+	idempotency.NewJanitor(idemStore, idempotencyJanitorInterval, idempotencyJanitorTTL).Start(janitorCtx)
+
+	gqlServer := gqlserver.New(resolvers.NewSchema(resolver))
 	gqlServer.Use(gqltx.NewMiddleware(
 		dbClient, ent.NewTxContext, serviceName, core.Config.TxRetries,
 		gqltx.WithIdempotency(idemStore, idempotency.DefaultAuthLookup),
@@ -330,6 +337,7 @@ func main() {
 	gqlHandler.Use(
 		authProvider.HTTPMiddleware(),
 		tenant.HTTPMiddleware(),
+		gate.HTTPMiddleware(serviceroles.File),
 		feature.HTTPMiddleware(),
 	)
 	gqlHandler.Mount("/", gqlServer)
@@ -341,32 +349,50 @@ func main() {
 	// Set up HTTP server
 	httpRouter := http.NewRouter(http.RouterConfig{
 		ServiceName: serviceName,
-		Logger:      log.ForContext(ctx),
+		Logger:      log.ForContext(procCtx),
 	})
+
+	// Requests get their own cancellable context below procCtx. It stays
+	// open through the whole drain; being the last-registered defer it is
+	// the FIRST to fire on unwind, so requests that outlived the drain
+	// deadline are cancelled and abort through their own error paths before
+	// the pools and clients they use start closing.
+	reqCtx, cancelRequests := context.WithCancel(procCtx)
+	defer cancelRequests()
+
+	httpAddr := net.JoinHostPort(core.Config.HTTPHost, strconv.Itoa(core.Config.HTTPPort))
+	httpServer := http.NewServer(
+		&nethttp.Server{
+			Addr:              httpAddr,
+			ReadHeaderTimeout: core.Config.HTTPReadHeaderTimeout,
+			Handler:           httpRouter,
+			BaseContext:       func(_ net.Listener) context.Context { return reqCtx },
+			ErrorLog:          logadapter.StdLogAdapter(*log.ForContext(procCtx)),
+		},
+		http.ServerOptions{
+			DrainTimeout:  core.Config.HTTPShutdownDrainTimeout,
+			PreDrainDelay: core.Config.HTTPShutdownPreDrainDelay,
+		},
+	)
 
 	httpRouter.Handle("/api/v1/files/{tenantId}/{alias}", filehandlers.FileAliasHandler(dbClient, s3StorageService))
 	httpRouter.Handle("/", gqlPlaygroundHandler)
 	httpRouter.Handle("/query", gqlHandler)
 	httpRouter.Handle("/metrics", promhttp.Handler())
-	httpRouter.Handle("/health", handlers.NewHealthCheckHandler(db.NewDbHealthChecker(pgxDriver.DB(), entfile.Table)))
+	// Liveness: static 200, no dependency checks — see http.LivenessHandler.
+	httpRouter.Handle("/health", http.LivenessHandler())
+	// Readiness: 503 the moment shutdown begins, so routing stops before
+	// the listener closes.
+	httpRouter.Handle("/health/ready", httpServer.ReadinessHandler(db.NewDbHealthChecker(pgxDriver.HealthDB())))
 
-	httpAddr := net.JoinHostPort(core.Config.HTTPHost, strconv.Itoa(core.Config.HTTPPort))
-	httpServer := &nethttp.Server{
-		Addr:              httpAddr,
-		ReadHeaderTimeout: core.Config.HTTPReadHeaderTimeout,
-		Handler:           httpRouter,
-		BaseContext:       func(_ net.Listener) context.Context { return ctx },
-		ErrorLog:          logadapter.StdLogAdapter(*log.ForContext(ctx)),
+	if err := startup.Check(appCtx, "http wiring"); err != nil {
+		return err
 	}
 
-	log.ForContext(ctx).Info().
-		Str("addr", httpServer.Addr).
-		Msgf("listening")
-
-	if err := httpServer.ListenAndServe(); err != nil {
-		log.ForContext(ctx).Fatal().
-			Err(err).
-			Msg("http server terminated unexpectedly")
-		return
+	if err := httpServer.ListenAndServe(appCtx); err != nil {
+		return fmt.Errorf("http server: %w", err)
 	}
+
+	l.Info().Msg("shutting down")
+	return nil
 }

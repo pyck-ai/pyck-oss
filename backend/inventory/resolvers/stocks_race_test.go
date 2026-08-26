@@ -101,7 +101,9 @@
 //	                 so the check sees no stock. Under WithDeferredUnderflow
 //	                 the resulting "insufficient stock" error is suppressed
 //	                 (impl.go:536-540) and the flow continues.
-//	               • stocks SELECT #2 — loadAncestorStocks (impl.go:553).
+//	               • stocks SELECT #2 — loadAncestorStocks (impl.go:553),
+//	                 on Postgres a `FROM inventory.load_ancestor_stocks(...)`
+//	                 proc call (isStocksSelect counts it as a stock read).
 //	                 Same snapshot, same invisible goA. Result:
 //	                 stockMap[slot] has Quantity=0, OwnQuantity=0 (the
 //	                 zero value of ent.Stock for a missing (repo, item)).
@@ -143,15 +145,11 @@
 //
 // ─── Why this is Postgres-only ────────────────────────────────────────
 //
-// The race is a READ COMMITTED snapshot-visibility anomaly. SQLite
-// effectively serializes write transactions, so goB cannot read while
-// goA is in-flight — the interleave is unreachable. There is intentionally
-// no SQLite variant of this test.
-//
-// The embedded-postgres harness is already wired up by
-// startEmbeddedPostgres / setupPostgres in resolver_test.go; we reuse
-// startEmbeddedPostgres and provide our own setup variant
-// (setupPostgresWithGate) that swaps the Ent driver for the gated one.
+// The race is a READ COMMITTED snapshot-visibility anomaly specific to
+// Postgres — write transactions are effectively serialized in embedded
+// databases, so the interleave is unreachable there. This test uses the
+// shared Postgres container started by TestMain and installs a gated
+// driver via setupPostgresWithGate to make the interleave deterministic.
 
 package resolvers_test
 
@@ -173,9 +171,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	commondb "github.com/pyck-ai/pyck/backend/common/db"
 	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
+	"github.com/pyck-ai/pyck/backend/common/test/pgtest"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 
@@ -375,7 +373,8 @@ func isStocksSelect(query string) bool {
 		return false
 	}
 	return strings.Contains(q, `from "stocks"`) ||
-		strings.Contains(q, `from "inventory"."stocks"`)
+		strings.Contains(q, `from "inventory"."stocks"`) ||
+		strings.Contains(q, `load_ancestor_stocks(`)
 }
 
 // gatedTx wraps a dialect.Tx so queries issued inside the transaction
@@ -447,51 +446,15 @@ func (t *gatedTx) ExecContext(ctx context.Context, query string, args ...any) (s
 // Returns the test environment, the armed-on-demand gate, and the raw
 // per-test DSN so the test can open its own pgx connection for the
 // "concurrent committer" goroutine.
-func setupPostgresWithGate(t *testing.T, pg pgHandle) (*testEnv, *stocksReadGate, string) {
+func setupPostgresWithGate(t *testing.T) (*testEnv, *stocksReadGate, string) {
 	t.Helper()
 
-	// Build a valid PostgreSQL identifier from the test name. Same
-	// convention as setupPostgres; see that function for the reasoning.
-	dbName := "t_" + pgIdentifierRe.ReplaceAllString(strings.ToLower(t.Name()), "_")
-	if len(dbName) > 63 {
-		dbName = dbName[:63]
-	}
+	// 1. Allocate an isolated migrated database in the shared container
+	// (this installs create_item_movement_proc and every other SQL artefact
+	// the resolver under test depends on) and registers drop-on-cleanup.
+	testDSN := pgtest.CreateMigratedDB(t, pkgPG, "inventory", entmigrate.Migrations)
 
-	adminDSN := pg.adminDSN()
-	testDSN := pg.dsn(dbName)
-
-	// 1. Create the per-test database in the admin connection.
-	adminDB, err := sql.Open("pgx", adminDSN)
-	require.NoError(t, err)
-	_, err = adminDB.ExecContext(context.Background(), "CREATE DATABASE "+dbName)
-	require.NoError(t, err)
-	require.NoError(t, adminDB.Close())
-
-	// 2. Apply all migrations against the per-test database. This is
-	// what installs create_item_movement_proc and every other SQL
-	// artefact the resolver under test depends on. See setupPostgres
-	// for the rationale on search_path.
-	migrationDB, err := sql.Open("pgx", testDSN)
-	require.NoError(t, err)
-	require.NoError(t, commondb.RunMigrations(context.Background(), migrationDB, "inventory", entmigrate.Migrations))
-	require.NoError(t, migrationDB.Close())
-
-	// 3. Drop the per-test database on cleanup.
-	t.Cleanup(func() {
-		drop, derr := sql.Open("pgx", adminDSN)
-		if derr != nil {
-			t.Logf("postgres drop db open: %v", derr)
-			return
-		}
-		defer drop.Close()
-		dropCtx := context.Background()
-		_, _ = drop.ExecContext(dropCtx, "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1", dbName)
-		if _, derr := drop.ExecContext(dropCtx, "DROP DATABASE IF EXISTS "+dbName); derr != nil {
-			t.Logf("postgres drop db: %v", derr)
-		}
-	})
-
-	// 4. Open the *sql.DB the ent client will use, wrap it in an ent
+	// 2. Open the *sql.DB the ent client will use, wrap it in an ent
 	// driver, then wrap THAT in our gate. This is the only structural
 	// difference from setupPostgres — enttest.Open hides driver
 	// construction so we replicate it here.
@@ -507,7 +470,7 @@ func setupPostgresWithGate(t *testing.T, pg pgHandle) (*testEnv, *stocksReadGate
 	client := ent.NewClient(ent.Driver(gate), ent.Log(t.Log))
 	t.Cleanup(func() { _ = client.Close() })
 
-	// 5. Wire up the same event hook the production code uses (mutations
+	// 3. Wire up the same event hook the production code uses (mutations
 	// emit outbox events). Without this, mutations work but emit no
 	// outbox rows; that doesn't matter for this test but matches the
 	// production wiring exactly, so behaviour is identical.
@@ -518,7 +481,7 @@ func setupPostgresWithGate(t *testing.T, pg pgHandle) (*testEnv, *stocksReadGate
 		OutboxInserter: events.NewEntOutboxInserter(ent.TxFromContext),
 	}))
 
-	// 6. Postgres dialect so the stock service uses the proc-aware
+	// 4. Postgres dialect so the stock service uses the proc-aware
 	// CreateItemMovement dispatch. CreateCollectionMovement wraps ctx
 	// with WithDeferredUnderflow, which routes to the Go path
 	// regardless, so the dialect only matters for the non-collection
@@ -557,8 +520,7 @@ func setupPostgresWithGate(t *testing.T, pg pgHandle) (*testEnv, *stocksReadGate
 func TestCreateCollectionMovement_StaleBaselineUnderConcurrentExecute_Postgres(t *testing.T) {
 	t.Parallel()
 
-	pg := startEmbeddedPostgres(t)
-	env, gate, testDSN := setupPostgresWithGate(t, pg)
+	env, gate, testDSN := setupPostgresWithGate(t)
 	apiClient := setupAPIClient(t, env)
 	ctx := env.ctx(userA)
 
@@ -879,7 +841,7 @@ func callCreateCollectionPick(
 	quantity int,
 ) (string, error) {
 	handler := testHandler
-	qty := float64(quantity)
+	qty := int64(quantity)
 
 	parsedItemID, err := uuid.Parse(itemID)
 	if err != nil {

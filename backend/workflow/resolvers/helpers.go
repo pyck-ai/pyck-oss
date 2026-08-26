@@ -1,8 +1,10 @@
 package resolvers
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -18,6 +20,8 @@ import (
 
 	"github.com/pyck-ai/pyck/backend/common/request"
 	commonworkflow "github.com/pyck-ai/pyck/backend/common/workflow"
+
+	ent "github.com/pyck-ai/pyck/backend/workflow/ent/gen"
 	"github.com/pyck-ai/pyck/backend/workflow/model"
 )
 
@@ -30,6 +34,9 @@ const (
 	defaultPageSize = 100
 	// maxPageSize is the maximum allowed page size for workflow executions.
 	maxPageSize = 1000
+	// maxWorkerIDLen bounds worker_id, which arrives as client-supplied text on
+	// a public mutation and lands in the workflow-signals unique index.
+	maxWorkerIDLen = 255
 )
 
 // QuotedValues converts a []string into a comma-separated list of quoted strings.
@@ -780,4 +787,24 @@ func strPredicate(p *string) (string, bool) {
 		return "", false
 	}
 	return *p, true
+}
+
+// workflowDataChanged reports whether input would actually change the workflow
+// row. It mirrors UpdateWorkflowInput.Mutate, which writes only non-nil fields,
+// so a heartbeat re-sending identical data is detected as a no-op. Data is
+// compared as canonical JSON so equal values that differ only in numeric type
+// across transports (int vs float) don't read as a change.
+func workflowDataChanged(wf *ent.Workflow, input model.RegisterWorkflowWithSignalsInput) bool {
+	if input.DataTypeID != nil && *input.DataTypeID != wf.DataTypeID {
+		return true
+	}
+	if input.DataTypeSlug != nil && *input.DataTypeSlug != wf.DataTypeSlug {
+		return true
+	}
+	if input.Data == nil {
+		return false
+	}
+	a, aErr := json.Marshal(input.Data)
+	b, bErr := json.Marshal(wf.Data)
+	return aErr != nil || bErr != nil || !bytes.Equal(a, b)
 }

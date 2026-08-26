@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/option"
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
+
 	"github.com/pyck-ai/pyck/backend/common/std"
 )
 
@@ -29,9 +30,9 @@ func NewClient(token string) *OpenAIClient {
 		option.WithHeader("OpenAI-Beta", "assistants=v2"),
 		option.WithAPIKey(token),
 	)
-	
+
 	client := &OpenAIClient{
-		token: token,
+		token:        token,
 		openaiClient: &openaiClient,
 	}
 

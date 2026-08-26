@@ -103,8 +103,8 @@
 //
 // ─── Why Postgres-only ────────────────────────────────────────────────
 //
-// The proc is PL/pgSQL — it does not exist on SQLite at all. There is
-// no SQLite reproducer because there is no SQLite code path to test.
+// The proc is PL/pgSQL and only exists on Postgres; there is no
+// alternative code path to test on other backends.
 
 package resolvers_test
 
@@ -131,12 +131,11 @@ import (
 func TestCreateItemMovementProc_StaleBaselineUnderConcurrentExecute_Postgres(t *testing.T) {
 	t.Parallel()
 
-	pg := startEmbeddedPostgres(t)
 	// We reuse setupPostgresWithGate purely for the DSN it returns; the
 	// gate is never armed in this test. The proc-side bug surfaces
 	// through the proc's own retry loop and PG's unique-index lock
 	// waiting, no driver-level intervention required.
-	env, _, testDSN := setupPostgresWithGate(t, pg)
+	env, _, testDSN := setupPostgresWithGate(t)
 	apiClient := setupAPIClient(t, env)
 	ctx := env.ctx(userA)
 

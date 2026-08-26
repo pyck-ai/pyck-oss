@@ -1,0 +1,11 @@
+-- Placeholder for a version that only ever existed on the v0.23.1 stock hotfix
+-- branch. Hosts running it stopped here, and golang-migrate looks the CURRENT
+-- version up in the source to find the next one — without this file they fail
+-- to boot with "no migration found for version 20260717092509".
+--
+-- The hotfix's schema changes are reapplied by 20260811101905 (CREATE INDEX
+-- IF NOT EXISTS) and 20260812073827 (drops the hotfix's partial index before
+-- recreating it), so a host already carrying them converges instead of
+-- colliding. Nothing belongs here: adding DDL would skip every host already
+-- past this version.
+SELECT 1;

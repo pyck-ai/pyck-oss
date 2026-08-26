@@ -22,6 +22,26 @@ const (
 	FieldDataTypeSlug = "data_type_slug"
 	// FieldData holds the string denoting the data field in the database.
 	FieldData = "data"
+	// FieldDataIxText1 holds the string denoting the data_ix_text1 field in the database.
+	FieldDataIxText1 = "data_ix_text1"
+	// FieldDataIxText2 holds the string denoting the data_ix_text2 field in the database.
+	FieldDataIxText2 = "data_ix_text2"
+	// FieldDataIxText3 holds the string denoting the data_ix_text3 field in the database.
+	FieldDataIxText3 = "data_ix_text3"
+	// FieldDataIxText4 holds the string denoting the data_ix_text4 field in the database.
+	FieldDataIxText4 = "data_ix_text4"
+	// FieldDataIxNumeric1 holds the string denoting the data_ix_numeric1 field in the database.
+	FieldDataIxNumeric1 = "data_ix_numeric1"
+	// FieldDataIxNumeric2 holds the string denoting the data_ix_numeric2 field in the database.
+	FieldDataIxNumeric2 = "data_ix_numeric2"
+	// FieldDataIxBool1 holds the string denoting the data_ix_bool1 field in the database.
+	FieldDataIxBool1 = "data_ix_bool1"
+	// FieldDataIxBool2 holds the string denoting the data_ix_bool2 field in the database.
+	FieldDataIxBool2 = "data_ix_bool2"
+	// FieldDataIxList1 holds the string denoting the data_ix_list1 field in the database.
+	FieldDataIxList1 = "data_ix_list1"
+	// FieldDataIxList2 holds the string denoting the data_ix_list2 field in the database.
+	FieldDataIxList2 = "data_ix_list2"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldCreatedBy holds the string denoting the created_by field in the database.
@@ -65,6 +85,16 @@ var Columns = []string{
 	FieldDataTypeID,
 	FieldDataTypeSlug,
 	FieldData,
+	FieldDataIxText1,
+	FieldDataIxText2,
+	FieldDataIxText3,
+	FieldDataIxText4,
+	FieldDataIxNumeric1,
+	FieldDataIxNumeric2,
+	FieldDataIxBool1,
+	FieldDataIxBool2,
+	FieldDataIxList1,
+	FieldDataIxList2,
 	FieldCreatedAt,
 	FieldCreatedBy,
 	FieldUpdatedAt,
@@ -120,6 +150,46 @@ func ByDataTypeID(opts ...sql.OrderTermOption) OrderOption {
 // ByDataTypeSlug orders the results by the data_type_slug field.
 func ByDataTypeSlug(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDataTypeSlug, opts...).ToFunc()
+}
+
+// ByDataIxText1 orders the results by the data_ix_text1 field.
+func ByDataIxText1(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDataIxText1, opts...).ToFunc()
+}
+
+// ByDataIxText2 orders the results by the data_ix_text2 field.
+func ByDataIxText2(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDataIxText2, opts...).ToFunc()
+}
+
+// ByDataIxText3 orders the results by the data_ix_text3 field.
+func ByDataIxText3(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDataIxText3, opts...).ToFunc()
+}
+
+// ByDataIxText4 orders the results by the data_ix_text4 field.
+func ByDataIxText4(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDataIxText4, opts...).ToFunc()
+}
+
+// ByDataIxNumeric1 orders the results by the data_ix_numeric1 field.
+func ByDataIxNumeric1(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDataIxNumeric1, opts...).ToFunc()
+}
+
+// ByDataIxNumeric2 orders the results by the data_ix_numeric2 field.
+func ByDataIxNumeric2(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDataIxNumeric2, opts...).ToFunc()
+}
+
+// ByDataIxBool1 orders the results by the data_ix_bool1 field.
+func ByDataIxBool1(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDataIxBool1, opts...).ToFunc()
+}
+
+// ByDataIxBool2 orders the results by the data_ix_bool2 field.
+func ByDataIxBool2(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDataIxBool2, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

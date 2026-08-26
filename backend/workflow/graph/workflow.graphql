@@ -417,7 +417,7 @@ type WorkflowExecutionInfo {
     """The current status of the workflow execution."""
     status: String!
     """The number of events in the workflow history."""
-    historyLength: Int!
+    historyLength: Int64!
     """The parent namespace ID if this is a child workflow."""
     parentNamespaceId: String
     """The parent execution if this is a child workflow."""
@@ -431,9 +431,9 @@ type WorkflowExecutionInfo {
     """The task queue where the workflow is executed."""
     taskQueue: String!
     """The number of state transitions in the workflow."""
-    stateTransitionCount: Int!
+    stateTransitionCount: Int64!
     """The size of the workflow history in bytes."""
-    historySizeBytes: Int!
+    historySizeBytes: Int64!
     """The version stamp of the most recent worker."""
     mostRecentWorkerVersionStamp: Map
     """The duration of the workflow execution."""
@@ -501,7 +501,7 @@ type WorkflowType {
 }
 
 type WorkflowEvent {
-  eventId: Int!
+  eventId: Int64!
   eventTime: String!
   eventType: String!
   extra: Map
@@ -519,6 +519,9 @@ input RegisterWorkflowWithSignalsInput {
     data: Map
     name: String!
     taskQueue: String!
+    # Identifies the calling worker so each worker owns its own subscriptions.
+    # Omitted by legacy workers, which keep sharing a single subscription set.
+    workerID: String
     signals: [RegisterWorkflowSignalInput!]
 }
 

@@ -7,16 +7,10 @@ import (
 	"sync"
 	"testing"
 
-	"entgo.io/ent/dialect"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/mattn/go-sqlite3"
-
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
-	testresolver "github.com/pyck-ai/pyck/backend/common/test/resolver"
 
-	ent "github.com/pyck-ai/pyck/backend/inventory/ent/gen"
-	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/enttest"
 	entprivacy "github.com/pyck-ai/pyck/backend/inventory/ent/gen/privacy"
 )
 
@@ -49,11 +43,7 @@ func TestAllPages_EmitsOrderBy(t *testing.T) {
 		mu.Unlock()
 	}
 
-	client := enttest.Open(t,
-		dialect.SQLite,
-		testresolver.DatabaseURI(t),
-		enttest.WithOptions(ent.Log(capture)),
-	).Debug()
+	client := openPGEntClientWithLogger(t, capture).Debug()
 	defer func() { _ = client.Close() }()
 
 	ctx := entprivacy.DecisionContext(context.Background(), entprivacy.Allow)
@@ -67,7 +57,8 @@ func TestAllPages_EmitsOrderBy(t *testing.T) {
 	var paginated []string
 	for _, q := range captured {
 		upper := strings.ToUpper(q)
-		if strings.Contains(upper, "FROM `STOCKS`") && strings.Contains(upper, "LIMIT 200") {
+		// Postgres emits schema-qualified names: "inventory"."stocks"; match the table substring.
+		if strings.Contains(upper, `"STOCKS"`) && strings.Contains(upper, "LIMIT 200") {
 			paginated = append(paginated, q)
 		}
 	}

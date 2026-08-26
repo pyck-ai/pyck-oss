@@ -712,48 +712,6 @@ func (u *RepositoryMovementUpsert) ClearDeletedBy() *RepositoryMovementUpsert {
 	return u
 }
 
-// SetRepositoryID sets the "repository_id" field.
-func (u *RepositoryMovementUpsert) SetRepositoryID(v uuid.UUID) *RepositoryMovementUpsert {
-	u.Set(repositorymovement.FieldRepositoryID, v)
-	return u
-}
-
-// UpdateRepositoryID sets the "repository_id" field to the value that was provided on create.
-func (u *RepositoryMovementUpsert) UpdateRepositoryID() *RepositoryMovementUpsert {
-	u.SetExcluded(repositorymovement.FieldRepositoryID)
-	return u
-}
-
-// SetFromID sets the "from_id" field.
-func (u *RepositoryMovementUpsert) SetFromID(v uuid.UUID) *RepositoryMovementUpsert {
-	u.Set(repositorymovement.FieldFromID, v)
-	return u
-}
-
-// UpdateFromID sets the "from_id" field to the value that was provided on create.
-func (u *RepositoryMovementUpsert) UpdateFromID() *RepositoryMovementUpsert {
-	u.SetExcluded(repositorymovement.FieldFromID)
-	return u
-}
-
-// ClearFromID clears the value of the "from_id" field.
-func (u *RepositoryMovementUpsert) ClearFromID() *RepositoryMovementUpsert {
-	u.SetNull(repositorymovement.FieldFromID)
-	return u
-}
-
-// SetToID sets the "to_id" field.
-func (u *RepositoryMovementUpsert) SetToID(v uuid.UUID) *RepositoryMovementUpsert {
-	u.Set(repositorymovement.FieldToID, v)
-	return u
-}
-
-// UpdateToID sets the "to_id" field to the value that was provided on create.
-func (u *RepositoryMovementUpsert) UpdateToID() *RepositoryMovementUpsert {
-	u.SetExcluded(repositorymovement.FieldToID)
-	return u
-}
-
 // SetExecuted sets the "executed" field.
 func (u *RepositoryMovementUpsert) SetExecuted(v bool) *RepositoryMovementUpsert {
 	u.Set(repositorymovement.FieldExecuted, v)
@@ -814,42 +772,6 @@ func (u *RepositoryMovementUpsert) ClearBlockedBy() *RepositoryMovementUpsert {
 	return u
 }
 
-// SetOrderID sets the "order_id" field.
-func (u *RepositoryMovementUpsert) SetOrderID(v uuid.UUID) *RepositoryMovementUpsert {
-	u.Set(repositorymovement.FieldOrderID, v)
-	return u
-}
-
-// UpdateOrderID sets the "order_id" field to the value that was provided on create.
-func (u *RepositoryMovementUpsert) UpdateOrderID() *RepositoryMovementUpsert {
-	u.SetExcluded(repositorymovement.FieldOrderID)
-	return u
-}
-
-// ClearOrderID clears the value of the "order_id" field.
-func (u *RepositoryMovementUpsert) ClearOrderID() *RepositoryMovementUpsert {
-	u.SetNull(repositorymovement.FieldOrderID)
-	return u
-}
-
-// SetPosition sets the "position" field.
-func (u *RepositoryMovementUpsert) SetPosition(v int) *RepositoryMovementUpsert {
-	u.Set(repositorymovement.FieldPosition, v)
-	return u
-}
-
-// UpdatePosition sets the "position" field to the value that was provided on create.
-func (u *RepositoryMovementUpsert) UpdatePosition() *RepositoryMovementUpsert {
-	u.SetExcluded(repositorymovement.FieldPosition)
-	return u
-}
-
-// AddPosition adds v to the "position" field.
-func (u *RepositoryMovementUpsert) AddPosition(v int) *RepositoryMovementUpsert {
-	u.Add(repositorymovement.FieldPosition, v)
-	return u
-}
-
 // UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
 // Using this option is equivalent to using:
 //
@@ -876,8 +798,23 @@ func (u *RepositoryMovementUpsertOne) UpdateNewValues() *RepositoryMovementUpser
 		if _, exists := u.create.mutation.CreatedBy(); exists {
 			s.SetIgnore(repositorymovement.FieldCreatedBy)
 		}
+		if _, exists := u.create.mutation.RepositoryID(); exists {
+			s.SetIgnore(repositorymovement.FieldRepositoryID)
+		}
+		if _, exists := u.create.mutation.FromID(); exists {
+			s.SetIgnore(repositorymovement.FieldFromID)
+		}
+		if _, exists := u.create.mutation.ToID(); exists {
+			s.SetIgnore(repositorymovement.FieldToID)
+		}
 		if _, exists := u.create.mutation.CollectionID(); exists {
 			s.SetIgnore(repositorymovement.FieldCollectionID)
+		}
+		if _, exists := u.create.mutation.OrderID(); exists {
+			s.SetIgnore(repositorymovement.FieldOrderID)
+		}
+		if _, exists := u.create.mutation.Position(); exists {
+			s.SetIgnore(repositorymovement.FieldPosition)
 		}
 	}))
 	return u
@@ -1057,55 +994,6 @@ func (u *RepositoryMovementUpsertOne) ClearDeletedBy() *RepositoryMovementUpsert
 	})
 }
 
-// SetRepositoryID sets the "repository_id" field.
-func (u *RepositoryMovementUpsertOne) SetRepositoryID(v uuid.UUID) *RepositoryMovementUpsertOne {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.SetRepositoryID(v)
-	})
-}
-
-// UpdateRepositoryID sets the "repository_id" field to the value that was provided on create.
-func (u *RepositoryMovementUpsertOne) UpdateRepositoryID() *RepositoryMovementUpsertOne {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.UpdateRepositoryID()
-	})
-}
-
-// SetFromID sets the "from_id" field.
-func (u *RepositoryMovementUpsertOne) SetFromID(v uuid.UUID) *RepositoryMovementUpsertOne {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.SetFromID(v)
-	})
-}
-
-// UpdateFromID sets the "from_id" field to the value that was provided on create.
-func (u *RepositoryMovementUpsertOne) UpdateFromID() *RepositoryMovementUpsertOne {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.UpdateFromID()
-	})
-}
-
-// ClearFromID clears the value of the "from_id" field.
-func (u *RepositoryMovementUpsertOne) ClearFromID() *RepositoryMovementUpsertOne {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.ClearFromID()
-	})
-}
-
-// SetToID sets the "to_id" field.
-func (u *RepositoryMovementUpsertOne) SetToID(v uuid.UUID) *RepositoryMovementUpsertOne {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.SetToID(v)
-	})
-}
-
-// UpdateToID sets the "to_id" field to the value that was provided on create.
-func (u *RepositoryMovementUpsertOne) UpdateToID() *RepositoryMovementUpsertOne {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.UpdateToID()
-	})
-}
-
 // SetExecuted sets the "executed" field.
 func (u *RepositoryMovementUpsertOne) SetExecuted(v bool) *RepositoryMovementUpsertOne {
 	return u.Update(func(s *RepositoryMovementUpsert) {
@@ -1173,48 +1061,6 @@ func (u *RepositoryMovementUpsertOne) UpdateBlockedBy() *RepositoryMovementUpser
 func (u *RepositoryMovementUpsertOne) ClearBlockedBy() *RepositoryMovementUpsertOne {
 	return u.Update(func(s *RepositoryMovementUpsert) {
 		s.ClearBlockedBy()
-	})
-}
-
-// SetOrderID sets the "order_id" field.
-func (u *RepositoryMovementUpsertOne) SetOrderID(v uuid.UUID) *RepositoryMovementUpsertOne {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.SetOrderID(v)
-	})
-}
-
-// UpdateOrderID sets the "order_id" field to the value that was provided on create.
-func (u *RepositoryMovementUpsertOne) UpdateOrderID() *RepositoryMovementUpsertOne {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.UpdateOrderID()
-	})
-}
-
-// ClearOrderID clears the value of the "order_id" field.
-func (u *RepositoryMovementUpsertOne) ClearOrderID() *RepositoryMovementUpsertOne {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.ClearOrderID()
-	})
-}
-
-// SetPosition sets the "position" field.
-func (u *RepositoryMovementUpsertOne) SetPosition(v int) *RepositoryMovementUpsertOne {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.SetPosition(v)
-	})
-}
-
-// AddPosition adds v to the "position" field.
-func (u *RepositoryMovementUpsertOne) AddPosition(v int) *RepositoryMovementUpsertOne {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.AddPosition(v)
-	})
-}
-
-// UpdatePosition sets the "position" field to the value that was provided on create.
-func (u *RepositoryMovementUpsertOne) UpdatePosition() *RepositoryMovementUpsertOne {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.UpdatePosition()
 	})
 }
 
@@ -1410,8 +1256,23 @@ func (u *RepositoryMovementUpsertBulk) UpdateNewValues() *RepositoryMovementUpse
 			if _, exists := b.mutation.CreatedBy(); exists {
 				s.SetIgnore(repositorymovement.FieldCreatedBy)
 			}
+			if _, exists := b.mutation.RepositoryID(); exists {
+				s.SetIgnore(repositorymovement.FieldRepositoryID)
+			}
+			if _, exists := b.mutation.FromID(); exists {
+				s.SetIgnore(repositorymovement.FieldFromID)
+			}
+			if _, exists := b.mutation.ToID(); exists {
+				s.SetIgnore(repositorymovement.FieldToID)
+			}
 			if _, exists := b.mutation.CollectionID(); exists {
 				s.SetIgnore(repositorymovement.FieldCollectionID)
+			}
+			if _, exists := b.mutation.OrderID(); exists {
+				s.SetIgnore(repositorymovement.FieldOrderID)
+			}
+			if _, exists := b.mutation.Position(); exists {
+				s.SetIgnore(repositorymovement.FieldPosition)
 			}
 		}
 	}))
@@ -1592,55 +1453,6 @@ func (u *RepositoryMovementUpsertBulk) ClearDeletedBy() *RepositoryMovementUpser
 	})
 }
 
-// SetRepositoryID sets the "repository_id" field.
-func (u *RepositoryMovementUpsertBulk) SetRepositoryID(v uuid.UUID) *RepositoryMovementUpsertBulk {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.SetRepositoryID(v)
-	})
-}
-
-// UpdateRepositoryID sets the "repository_id" field to the value that was provided on create.
-func (u *RepositoryMovementUpsertBulk) UpdateRepositoryID() *RepositoryMovementUpsertBulk {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.UpdateRepositoryID()
-	})
-}
-
-// SetFromID sets the "from_id" field.
-func (u *RepositoryMovementUpsertBulk) SetFromID(v uuid.UUID) *RepositoryMovementUpsertBulk {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.SetFromID(v)
-	})
-}
-
-// UpdateFromID sets the "from_id" field to the value that was provided on create.
-func (u *RepositoryMovementUpsertBulk) UpdateFromID() *RepositoryMovementUpsertBulk {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.UpdateFromID()
-	})
-}
-
-// ClearFromID clears the value of the "from_id" field.
-func (u *RepositoryMovementUpsertBulk) ClearFromID() *RepositoryMovementUpsertBulk {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.ClearFromID()
-	})
-}
-
-// SetToID sets the "to_id" field.
-func (u *RepositoryMovementUpsertBulk) SetToID(v uuid.UUID) *RepositoryMovementUpsertBulk {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.SetToID(v)
-	})
-}
-
-// UpdateToID sets the "to_id" field to the value that was provided on create.
-func (u *RepositoryMovementUpsertBulk) UpdateToID() *RepositoryMovementUpsertBulk {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.UpdateToID()
-	})
-}
-
 // SetExecuted sets the "executed" field.
 func (u *RepositoryMovementUpsertBulk) SetExecuted(v bool) *RepositoryMovementUpsertBulk {
 	return u.Update(func(s *RepositoryMovementUpsert) {
@@ -1708,48 +1520,6 @@ func (u *RepositoryMovementUpsertBulk) UpdateBlockedBy() *RepositoryMovementUpse
 func (u *RepositoryMovementUpsertBulk) ClearBlockedBy() *RepositoryMovementUpsertBulk {
 	return u.Update(func(s *RepositoryMovementUpsert) {
 		s.ClearBlockedBy()
-	})
-}
-
-// SetOrderID sets the "order_id" field.
-func (u *RepositoryMovementUpsertBulk) SetOrderID(v uuid.UUID) *RepositoryMovementUpsertBulk {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.SetOrderID(v)
-	})
-}
-
-// UpdateOrderID sets the "order_id" field to the value that was provided on create.
-func (u *RepositoryMovementUpsertBulk) UpdateOrderID() *RepositoryMovementUpsertBulk {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.UpdateOrderID()
-	})
-}
-
-// ClearOrderID clears the value of the "order_id" field.
-func (u *RepositoryMovementUpsertBulk) ClearOrderID() *RepositoryMovementUpsertBulk {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.ClearOrderID()
-	})
-}
-
-// SetPosition sets the "position" field.
-func (u *RepositoryMovementUpsertBulk) SetPosition(v int) *RepositoryMovementUpsertBulk {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.SetPosition(v)
-	})
-}
-
-// AddPosition adds v to the "position" field.
-func (u *RepositoryMovementUpsertBulk) AddPosition(v int) *RepositoryMovementUpsertBulk {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.AddPosition(v)
-	})
-}
-
-// UpdatePosition sets the "position" field to the value that was provided on create.
-func (u *RepositoryMovementUpsertBulk) UpdatePosition() *RepositoryMovementUpsertBulk {
-	return u.Update(func(s *RepositoryMovementUpsert) {
-		s.UpdatePosition()
 	})
 }
 

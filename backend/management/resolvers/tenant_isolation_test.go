@@ -24,38 +24,6 @@ var tenantTestdata embed.FS
 // =============================================================================
 
 var (
-	createGroup = testresolver.ParseTemplate(`mutation {
-		createGroup(input: { name: "{{.Name}}" }) { id tenantID name }
-	}`)
-
-	updateGroup = testresolver.ParseTemplate(`mutation {
-		updateGroup(id: "{{.ID}}", input: { name: "{{.Name}}" }) { id tenantID name }
-	}`)
-
-	deleteGroup = testresolver.ParseTemplate(`mutation {
-		deleteGroup(id: "{{.ID}}")
-	}`)
-
-	queryGroups = testresolver.ParseTemplate(`query {
-		groups { totalCount edges { node { id tenantID name } } }
-	}`)
-
-	createRole = testresolver.ParseTemplate(`mutation {
-		createRole(input: { name: "{{.Name}}" }) { id tenantID name }
-	}`)
-
-	updateRole = testresolver.ParseTemplate(`mutation {
-		updateRole(id: "{{.ID}}", input: { name: "{{.Name}}" }) { id tenantID name }
-	}`)
-
-	deleteRole = testresolver.ParseTemplate(`mutation {
-		deleteRole(id: "{{.ID}}")
-	}`)
-
-	queryRoles = testresolver.ParseTemplate(`query {
-		roles { totalCount edges { node { id tenantID name } } }
-	}`)
-
 	updateUser = testresolver.ParseTemplate(`mutation {
 		updateUser(id: "{{.ID}}", input: {
 			{{if .Username}}username: "{{.Username}}"{{end}}
@@ -70,68 +38,8 @@ var (
 		users { totalCount edges { node { id tenantID username } } }
 	}`)
 
-	createPolicy = testresolver.ParseTemplate(`mutation {
-		createPolicy(input: {
-			resource: "{{.Resource}}",
-			action: "{{.Action}}",
-			roleID: "{{.RoleID}}"
-		}) { id tenantID resource action }
-	}`)
-
-	deletePolicy = testresolver.ParseTemplate(`mutation {
-		deletePolicy(id: "{{.ID}}")
-	}`)
-
-	queryPolicies = testresolver.ParseTemplate(`query {
-		accessPolicies { totalCount edges { node { id tenantID resource action } } }
-	}`)
-
 	queryDeviceUsers = testresolver.ParseTemplate(`query {
 		deviceUsers { totalCount edges { node { id deviceID userID } } }
-	}`)
-
-	// Templates with edge IDs for cross-tenant FK injection tests
-	createGroupWithEdges = testresolver.ParseTemplate(`mutation {
-		createGroup(input: {
-			name: "{{.Name}}"
-			{{if .UserIDs}}, userIDs: ["{{.UserID}}"]{{end}}
-			{{if .RoleIDs}}, roleIDs: ["{{.RoleID}}"]{{end}}
-		}) { id tenantID name }
-	}`)
-
-	updateGroupWithEdges = testresolver.ParseTemplate(`mutation {
-		updateGroup(id: "{{.ID}}", input: {
-			{{if .AddUserID}}addUserIDs: ["{{.AddUserID}}"]{{end}}
-			{{if .AddRoleID}}addRoleIDs: ["{{.AddRoleID}}"]{{end}}
-		}) { id tenantID name }
-	}`)
-
-	createRoleWithEdges = testresolver.ParseTemplate(`mutation {
-		createRole(input: {
-			name: "{{.Name}}"
-			{{if .UserIDs}}, userIDs: ["{{.UserID}}"]{{end}}
-			{{if .GroupIDs}}, groupIDs: ["{{.GroupID}}"]{{end}}
-		}) { id tenantID name }
-	}`)
-
-	updateRoleWithEdges = testresolver.ParseTemplate(`mutation {
-		updateRole(id: "{{.ID}}", input: {
-			{{if .AddUserID}}addUserIDs: ["{{.AddUserID}}"]{{end}}
-			{{if .AddGroupID}}addGroupIDs: ["{{.AddGroupID}}"]{{end}}
-		}) { id tenantID name }
-	}`)
-
-	updateUserWithEdges = testresolver.ParseTemplate(`mutation {
-		updateUser(id: "{{.ID}}", input: {
-			{{if .AddRoleID}}addRoleIDs: ["{{.AddRoleID}}"]{{end}}
-			{{if .AddGroupID}}addGroupIDs: ["{{.AddGroupID}}"]{{end}}
-		}) { id tenantID username }
-	}`)
-
-	updatePolicyRole = testresolver.ParseTemplate(`mutation {
-		updatePolicy(id: "{{.ID}}", input: {
-			roleID: "{{.RoleID}}"
-		}) { id tenantID resource action }
 	}`)
 )
 
@@ -147,30 +55,6 @@ type (
 		}
 	}
 
-	groupNode struct {
-		ID       uuid.UUID
-		TenantID uuid.UUID
-		Name     string
-	}
-	queryGroupsData struct {
-		Groups struct {
-			TotalCount int
-			Edges      []struct{ Node groupNode }
-		}
-	}
-
-	roleNode struct {
-		ID       uuid.UUID
-		TenantID uuid.UUID
-		Name     string
-	}
-	queryRolesData struct {
-		Roles struct {
-			TotalCount int
-			Edges      []struct{ Node roleNode }
-		}
-	}
-
 	userNode struct {
 		ID       uuid.UUID
 		TenantID uuid.UUID
@@ -180,22 +64,6 @@ type (
 		Users struct {
 			TotalCount int
 			Edges      []struct{ Node userNode }
-		}
-	}
-
-	policyNode struct {
-		ID       uuid.UUID
-		TenantID uuid.UUID
-		Resource string
-		Action   string
-	}
-	createPolicyData struct {
-		CreatePolicy policyNode
-	}
-	queryPoliciesData struct {
-		AccessPolicies struct {
-			TotalCount int
-			Edges      []struct{ Node policyNode }
 		}
 	}
 )
@@ -219,9 +87,6 @@ type (
 		Devices         []deviceSeed         `yaml:"devices"`
 		DeviceLocations []deviceLocationSeed `yaml:"deviceLocations"`
 		Users           []userSeed           `yaml:"users"`
-		Roles           []roleSeed           `yaml:"roles"`
-		Policies        []policySeed         `yaml:"policies"`
-		Groups          []groupSeed          `yaml:"groups"`
 	}
 
 	tenantDef struct {
@@ -268,24 +133,6 @@ type (
 		Tenant     string `yaml:"tenant"`
 		AsAuthUser bool   `yaml:"asAuthUser"`
 	}
-
-	roleSeed struct {
-		Name   string `yaml:"name"`
-		Tenant string `yaml:"tenant"`
-	}
-
-	policySeed struct {
-		Name     string `yaml:"name"`
-		Tenant   string `yaml:"tenant"`
-		Role     string `yaml:"role"`
-		Resource string `yaml:"resource"`
-		Action   string `yaml:"action"`
-	}
-
-	groupSeed struct {
-		Name   string `yaml:"name"`
-		Tenant string `yaml:"tenant"`
-	}
 )
 
 // =============================================================================
@@ -331,9 +178,6 @@ func TestTenantIsolation(t *testing.T) {
 			seedDevices(t, te, scenario.Seed.Devices, ids)
 			seedDeviceLocations(t, te, scenario.Seed.DeviceLocations, ids)
 			seedUsers(t, te, scenario.Seed.Users, ids)
-			seedRoles(t, te, scenario.Seed.Roles, ids)
-			seedPolicies(t, te, scenario.Seed.Policies, ids)
-			seedGroups(t, te, scenario.Seed.Groups, ids)
 			// Check phase.
 			for _, check := range scenario.Checks {
 				t.Run(check.Description, func(t *testing.T) {
@@ -348,10 +192,6 @@ func TestTenantIsolation(t *testing.T) {
 						checkCrossDelete(t, te, ctx, check, ids)
 					case "cross-create":
 						checkCrossCreate(t, te, ctx, check, ids)
-					case "cross-update-with-args":
-						checkCrossUpdateWithArgs(t, te, ctx, check, ids)
-					case "cross-create-with-edges":
-						checkCrossCreateWithEdges(t, te, ctx, check, ids)
 					case "cross-checkin":
 						checkCrossCheckIn(t, te, ctx, check, ids)
 					case "cross-checkout":
@@ -425,47 +265,6 @@ func seedUsers(t *testing.T, te *testEnv, users []userSeed, ids map[string]uuid.
 	}
 }
 
-func seedRoles(t *testing.T, te *testEnv, roles []roleSeed, ids map[string]uuid.UUID) {
-	t.Helper()
-	for _, rs := range roles {
-		user := mustTenantUser(t, rs.Tenant)
-		ctx := te.ctx(user)
-		data := execOK[struct{ CreateRole roleNode }](te, ctx, createRole, map[string]any{"Name": rs.Name})
-		key := rs.Tenant + "/" + rs.Name
-		ids[key] = data.CreateRole.ID
-		t.Logf("Seeded role: %s (id=%s)", key, ids[key])
-	}
-}
-
-func seedPolicies(t *testing.T, te *testEnv, policies []policySeed, ids map[string]uuid.UUID) {
-	t.Helper()
-	for _, ps := range policies {
-		user := mustTenantUser(t, ps.Tenant)
-		ctx := te.ctx(user)
-		roleID := mustResolve(t, ids, ps.Tenant+"/"+ps.Role)
-		data := execOK[createPolicyData](te, ctx, createPolicy, map[string]any{
-			"Resource": ps.Resource,
-			"Action":   ps.Action,
-			"RoleID":   roleID,
-		})
-		key := ps.Tenant + "/" + ps.Name
-		ids[key] = data.CreatePolicy.ID
-		t.Logf("Seeded policy: %s (id=%s)", key, ids[key])
-	}
-}
-
-func seedGroups(t *testing.T, te *testEnv, groups []groupSeed, ids map[string]uuid.UUID) {
-	t.Helper()
-	for _, gs := range groups {
-		user := mustTenantUser(t, gs.Tenant)
-		ctx := te.ctx(user)
-		data := execOK[struct{ CreateGroup groupNode }](te, ctx, createGroup, map[string]any{"Name": gs.Name})
-		key := gs.Tenant + "/" + gs.Name
-		ids[key] = data.CreateGroup.ID
-		t.Logf("Seeded group: %s (id=%s)", key, ids[key])
-	}
-}
-
 // =============================================================================
 // CHECK HANDLERS
 // =============================================================================
@@ -489,15 +288,6 @@ func checkQuery(t *testing.T, te *testEnv, ctx context.Context, check tenantChec
 	case "user":
 		data := execOK[queryUsersData](te, ctx, queryUsers, nil)
 		assert.Equal(t, check.ExpectCount, data.Users.TotalCount)
-	case "role":
-		data := execOK[queryRolesData](te, ctx, queryRoles, nil)
-		assert.Equal(t, check.ExpectCount, data.Roles.TotalCount)
-	case "accessPolicy":
-		data := execOK[queryPoliciesData](te, ctx, queryPolicies, nil)
-		assert.Equal(t, check.ExpectCount, data.AccessPolicies.TotalCount)
-	case "group":
-		data := execOK[queryGroupsData](te, ctx, queryGroups, nil)
-		assert.Equal(t, check.ExpectCount, data.Groups.TotalCount)
 	case "deviceUser":
 		data := execOK[queryDeviceUsersData](te, ctx, queryDeviceUsers, nil)
 		assert.Equal(t, check.ExpectCount, data.DeviceUsers.TotalCount)
@@ -524,10 +314,6 @@ func checkCrossUpdate(t *testing.T, te *testEnv, ctx context.Context, check tena
 		execErr(te, ctx, updateDevice, map[string]any{"ID": targetID, "Name": "cross-tenant-test"}, check.ExpectError)
 	case "user":
 		execErr(te, ctx, updateUser, map[string]any{"ID": targetID, "Username": "cross-tenant-test"}, check.ExpectError)
-	case "role":
-		execErr(te, ctx, updateRole, map[string]any{"ID": targetID, "Name": "cross-tenant-test"}, check.ExpectError)
-	case "group":
-		execErr(te, ctx, updateGroup, map[string]any{"ID": targetID, "Name": "cross-tenant-test"}, check.ExpectError)
 	default:
 		t.Fatalf("unsupported entity %q for cross-update check", check.Entity)
 	}
@@ -548,12 +334,6 @@ func checkCrossDelete(t *testing.T, te *testEnv, ctx context.Context, check tena
 		execErr(te, ctx, unsetDeviceLocation, map[string]any{"ID": targetID}, check.ExpectError)
 	case "user":
 		execErr(te, ctx, deleteUser, map[string]any{"ID": targetID}, check.ExpectError)
-	case "role":
-		execErr(te, ctx, deleteRole, map[string]any{"ID": targetID}, check.ExpectError)
-	case "accessPolicy":
-		execErr(te, ctx, deletePolicy, map[string]any{"ID": targetID}, check.ExpectError)
-	case "group":
-		execErr(te, ctx, deleteGroup, map[string]any{"ID": targetID}, check.ExpectError)
 	default:
 		t.Fatalf("unsupported entity %q for cross-delete check", check.Entity)
 	}
@@ -568,87 +348,8 @@ func checkCrossCreate(t *testing.T, te *testEnv, ctx context.Context, check tena
 			"DeviceID":   mustResolve(t, ids, mustArg(t, check.Args, "device")),
 			"LocationID": mustResolve(t, ids, mustArg(t, check.Args, "location")),
 		}, check.ExpectError)
-	case "accessPolicy":
-		execErr(te, ctx, createPolicy, map[string]any{
-			"RoleID":   mustResolve(t, ids, mustArg(t, check.Args, "role")),
-			"Resource": mustArg(t, check.Args, "resource"),
-			"Action":   mustArg(t, check.Args, "action"),
-		}, check.ExpectError)
 	default:
 		t.Fatalf("unsupported entity %q for cross-create check", check.Entity)
-	}
-}
-
-func checkCrossUpdateWithArgs(t *testing.T, te *testEnv, ctx context.Context, check tenantCheck, ids map[string]uuid.UUID) {
-	t.Helper()
-	targetID := mustResolve(t, ids, check.Target)
-
-	switch check.Entity {
-	case "accessPolicy":
-		execErr(te, ctx, updatePolicyRole, map[string]any{
-			"ID":     targetID,
-			"RoleID": mustResolve(t, ids, mustArg(t, check.Args, "roleID")),
-		}, check.ExpectError)
-	case "role":
-		args := map[string]any{"ID": targetID}
-		if v, ok := check.Args["addUserID"]; ok {
-			args["AddUserID"] = mustResolve(t, ids, v.(string))
-		}
-		if v, ok := check.Args["addGroupID"]; ok {
-			args["AddGroupID"] = mustResolve(t, ids, v.(string))
-		}
-		execErr(te, ctx, updateRoleWithEdges, args, check.ExpectError)
-	case "group":
-		args := map[string]any{"ID": targetID}
-		if v, ok := check.Args["addUserID"]; ok {
-			args["AddUserID"] = mustResolve(t, ids, v.(string))
-		}
-		if v, ok := check.Args["addRoleID"]; ok {
-			args["AddRoleID"] = mustResolve(t, ids, v.(string))
-		}
-		execErr(te, ctx, updateGroupWithEdges, args, check.ExpectError)
-	case "user":
-		args := map[string]any{"ID": targetID}
-		if v, ok := check.Args["addRoleID"]; ok {
-			args["AddRoleID"] = mustResolve(t, ids, v.(string))
-		}
-		if v, ok := check.Args["addGroupID"]; ok {
-			args["AddGroupID"] = mustResolve(t, ids, v.(string))
-		}
-		execErr(te, ctx, updateUserWithEdges, args, check.ExpectError)
-	default:
-		t.Fatalf("unsupported entity %q for cross-update-with-args check", check.Entity)
-	}
-}
-
-func checkCrossCreateWithEdges(t *testing.T, te *testEnv, ctx context.Context, check tenantCheck, ids map[string]uuid.UUID) {
-	t.Helper()
-
-	switch check.Entity {
-	case "role":
-		args := map[string]any{"Name": mustArg(t, check.Args, "name")}
-		if v, ok := check.Args["userID"]; ok {
-			args["UserIDs"] = true
-			args["UserID"] = mustResolve(t, ids, v.(string))
-		}
-		if v, ok := check.Args["groupID"]; ok {
-			args["GroupIDs"] = true
-			args["GroupID"] = mustResolve(t, ids, v.(string))
-		}
-		execErr(te, ctx, createRoleWithEdges, args, check.ExpectError)
-	case "group":
-		args := map[string]any{"Name": mustArg(t, check.Args, "name")}
-		if v, ok := check.Args["userID"]; ok {
-			args["UserIDs"] = true
-			args["UserID"] = mustResolve(t, ids, v.(string))
-		}
-		if v, ok := check.Args["roleID"]; ok {
-			args["RoleIDs"] = true
-			args["RoleID"] = mustResolve(t, ids, v.(string))
-		}
-		execErr(te, ctx, createGroupWithEdges, args, check.ExpectError)
-	default:
-		t.Fatalf("unsupported entity %q for cross-create-with-edges check", check.Entity)
 	}
 }
 

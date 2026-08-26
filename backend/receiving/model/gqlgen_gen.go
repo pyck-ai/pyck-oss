@@ -14,7 +14,7 @@ type CreateReceivingInboundItemsInput struct {
 	DataTypeSlug *string        `json:"dataTypeSlug,omitempty"`
 	Data         map[string]any `json:"data,omitempty"`
 	Sku          string         `json:"sku"`
-	Quantity     int            `json:"quantity"`
+	Quantity     int64          `json:"quantity"`
 }
 
 type CreateReceivingInboundWithItemsInput struct {

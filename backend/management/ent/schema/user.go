@@ -9,6 +9,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
+
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 )
@@ -36,17 +37,6 @@ func (User) Edges() []ent.Edge {
 			Unique().
 			Required().
 			Immutable(),
-		edge.To("roles", Role.Type).
-			Annotations(
-				entgql.RelayConnection(),
-				entgql.MapsTo("roles"),
-			),
-		edge.From("groups", Group.Type).
-			Ref("users").
-			Annotations(
-				entgql.RelayConnection(),
-				entgql.MapsTo("groups"),
-			),
 		edge.To("deviceUsersUsers", DeviceUser.Type).
 			Annotations(
 				entgql.RelayConnection(),
@@ -87,13 +77,6 @@ func (User) Fields() []ent.Field {
 			Default(false).
 			Annotations(
 				entgql.OrderField("IS_ADMIN"),
-			),
-		field.JSON("legacy_roles", []string{}).
-			Default([]string{}).
-			StorageKey("roles").
-			Comment("DEPRECATED: Legacy JSONB column for backward compatibility. Use role relations instead.").
-			Annotations(
-				entgql.Skip(entgql.SkipMutationCreateInput | entgql.SkipMutationUpdateInput),
 			),
 	}
 }

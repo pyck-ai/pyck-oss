@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/main-data/ent/gen"
 	"github.com/pyck-ai/pyck/backend/main-data/exec"
+	"github.com/pyck-ai/pyck/backend/main-data/model"
 )
 
 // FindCustomerByID is the resolver for the findCustomerByID field.
@@ -25,6 +26,29 @@ func (r *entityResolver) FindCustomerByID(ctx context.Context, id uuid.UUID) (*g
 	}
 
 	return customer, nil
+}
+
+// FindPickingOrderByCustomerID resolves the federated `customer` relation on a
+// PickingOrder. The gateway hands us the order's customerID; we look up the
+// Customer in our own data. A soft-deleted (or never-existing) customer is
+// filtered out by the history mixin's query policy and surfaces as a nil
+// relation, which is the intended behaviour: the order keeps its customerID
+// pointer but `customer` reads as null.
+func (r *entityResolver) FindPickingOrderByCustomerID(ctx context.Context, customerID uuid.UUID) (*model.PickingOrder, error) {
+	order := &model.PickingOrder{CustomerID: customerID}
+
+	customer, err := r.client.Customer.Query().Where(func(s *sql.Selector) {
+		s.Where(sql.EQ("id", customerID))
+	}).First(ctx)
+	if err != nil {
+		if gen.IsNotFound(err) {
+			return order, nil
+		}
+		return nil, fmt.Errorf("failed reading customer: %w", err)
+	}
+
+	order.Customer = customer
+	return order, nil
 }
 
 // FindSupplierByID is the resolver for the findSupplierByID field.

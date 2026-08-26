@@ -37,6 +37,7 @@ type (
 		UpdateInputType     string
 		WhereInputType      string
 		CreateAccessorChain string
+		ImmutableFields     []string
 		UpdateAccessorChain string
 		ListAccessor        string
 	}

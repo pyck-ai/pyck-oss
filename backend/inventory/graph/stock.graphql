@@ -10,7 +10,7 @@ type RebuildStockOutput {
 
 extend input StockWhereInput {
   time: Time
-  netStockGTE: Int
+  netStockGTE: Int64
 }
 
 type RepositoryTree {
@@ -24,6 +24,7 @@ type RepositoryTree {
 
 extend type Query {
   getStockTree(after: Cursor, first: Int, before: Cursor, last: Int, where: StockWhereInput): RepositoryTreeConnection!
+  currentStocks(after: Cursor, first: Int, before: Cursor, last: Int, orderBy: StockOrder, where: StockWhereInput): StockConnection!
 }
 
 type RepositoryTreeConnection {

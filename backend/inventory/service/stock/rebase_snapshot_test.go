@@ -11,20 +11,14 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
+
 	ent "github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	entstock "github.com/pyck-ai/pyck/backend/inventory/ent/gen/stock"
 )
 
-// TestLoadStockRebaseSnapshot_LiveAndFloor verifies that a single call to
-// loadStockRebaseSnapshot returns:
-//   - floor: the max version across ALL rows for each (repo, item), including
-//     soft-deleted ones (covering the full unique-index universe).
-//   - live: the highest-version non-deleted row for each (repo, item), whose
-//     field values the caller uses as the base for the delta formula:
-//     written = live[key].Field + (walked[key].Field - old[key].Field).
-//
-// FAILS to compile against the unfixed code (loadStockRebaseSnapshot does not
-// exist). Passes after the fix.
+// TestLoadStockRebaseSnapshot_LiveAndFloor pins the two halves of the snapshot:
+// floor spans soft-deleted rows, live is the highest-version row that is not.
 func TestLoadStockRebaseSnapshot_LiveAndFloor(t *testing.T) {
 	t.Parallel()
 	e := newAncestorTestEnv(t)
@@ -74,9 +68,6 @@ func TestLoadStockRebaseSnapshot_LiveAndFloor(t *testing.T) {
 // TestNewStockVersionTrackerFromFloors_MonotonicAssignment verifies that the
 // tracker seeded from a floor map assigns floor+1 on the first call and
 // increments monotonically for both known and unknown keys.
-//
-// FAILS to compile against the unfixed code (newStockVersionTrackerFromFloors
-// does not exist). Passes after the fix.
 func TestNewStockVersionTrackerFromFloors_MonotonicAssignment(t *testing.T) {
 	t.Parallel()
 
@@ -99,24 +90,13 @@ func TestNewStockVersionTrackerFromFloors_MonotonicAssignment(t *testing.T) {
 		"subsequent call for the unknown key must increment")
 }
 
-// TestCreateRepositoryMovement_RebaseLiveQuantityUsed drives the full
-// CreateRepositoryMovement service method and verifies that the fan-out
-// row for a parent ancestor uses the quantity from the fresh rebase
-// snapshot. It also pins that the assigned version correctly skips the
-// soft-deleted floor row, which the old two-read code computed via
-// loadMaxStockVersionsIncludingDeleted+seedFromNested and the new one-read
-// code computes via loadStockRebaseSnapshot.
+// TestCreateRepositoryMovement_RebaseLiveQuantityUsed drives the full service
+// method and pins that the fan-out row carries the live quantity and a version
+// above the soft-deleted floor (3 → 4).
 //
-// In this SQLite harness the "early" loadAncestorStocks read and the fresh
-// loadStockRebaseSnapshot read see the same committed data; a true
-// Postgres-with-concurrent-tx test would be needed to observe the quantity
-// delta diverge. The test still provides meaningful coverage:
-//   - The fan-out row quantity equals the seeded live quantity (delta=0 for
-//     Quantity in repo movements, so written = live.Quantity + 0 = live.Quantity).
-//   - The version skips the soft-deleted floor row (floor=3 → version=4).
-//   - The file fails to compile against the unfixed code (uses
-//     loadStockRebaseSnapshot / newStockVersionTrackerFromFloors from
-//     impl.go), making the pre-fix run a build-level failure.
+// Without a concurrent writer both reads see the same data, so this cannot
+// observe the delta diverge — no test in the package currently does; see the
+// coverage note in pg_concurrent_clobber_test.go.
 func TestCreateRepositoryMovement_RebaseLiveQuantityUsed(t *testing.T) {
 	t.Parallel()
 	e := newAncestorTestEnv(t)
@@ -137,9 +117,7 @@ func TestCreateRepositoryMovement_RebaseLiveQuantityUsed(t *testing.T) {
 	// root/item live row at v=0, qty=seedQty.
 	e.mkStockVersionedAt(root, item, seedQty, 0, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
 
-	// Soft-deleted row at v=3 for root/item: this is the "deleted floor" that
-	// the old loadMaxStockVersionsIncludingDeleted call would have observed and
-	// that loadStockRebaseSnapshot must also observe, assigning version=4.
+	// Soft-deleted row at v=3 for root/item: the floor the fan-out must clear.
 	row3, err := e.client.Stock.Create().
 		SetTenantID(e.tenantID).
 		SetRepositoryID(root).
@@ -247,7 +225,7 @@ func TestDeleteRepositoryMovement_RebaseLiveQuantityUsed(t *testing.T) {
 			entstock.ItemID(item),
 			entstock.MovementID(movement.ID),
 		).
-		All(e.ctx)
+		AllPages(e.ctx, mixin.Limit)
 	require.NoError(t, err)
 	require.Len(t, rows, 2, "one row from Create fan-out, one from Delete fan-out")
 	for _, r := range rows {
@@ -256,15 +234,9 @@ func TestDeleteRepositoryMovement_RebaseLiveQuantityUsed(t *testing.T) {
 	}
 }
 
-// TestRebaseOCCPath_ConflictIsWrapped proves the "correct-or-collide" pipeline
-// is intact: a Postgres 23505 on the stock version index becomes errOCCConflict
-// so the gqltx retry middleware retries the transaction. An unrelated 23505
-// (e.g., the item_sku unique index) must pass through unwrapped.
-//
-// The SQLite harness cannot produce pq/pgconn error types, so this test uses
-// a synthetic *pgconn.PgError to exercise wrapOCCConflict directly. The
-// integration counterpart (a concurrent-tx Postgres test) is outside this
-// harness; see the spec note in the PR description.
+// TestRebaseOCCPath_ConflictIsWrapped pins the second half of correct-or-collide:
+// a 23505 on the stock version index becomes errOCCConflict so gqltx retries,
+// while an unrelated 23505 passes through untouched.
 func TestRebaseOCCPath_ConflictIsWrapped(t *testing.T) {
 	t.Parallel()
 
@@ -286,17 +258,10 @@ func TestRebaseOCCPath_ConflictIsWrapped(t *testing.T) {
 		"unrelated 23505 must pass through unchanged")
 }
 
-// TestRebasedStock_ClampsNegativeReservations guards the edge case where a
-// concurrent transaction released a reservation between the early
-// loadAncestorStocks read and the fresh loadStockRebaseSnapshot read. When
-// that happens the live base is lower than old, so the subtract-mode walk
-// (DeleteRepositoryMovement) produces a raw delta that drives the reservation
-// field negative. The four Min(0)-validated reservation fields must be clamped
-// to 0 — writing a negative value would trip the schema validator with a
-// hard error that gqltx cannot retry (it only retries 23505 version
-// collisions). Quantity and OwnQuantity keep the raw result: the
-// pending-movement walks never touch them (delta always 0), so a negative
-// there is a real invariant violation that must stay loud.
+// TestRebasedStock_ClampsNegativeReservations covers a concurrent release
+// between the two reads: base drops below old, so the subtract walk's delta
+// goes negative. The reservation fields must clamp, because Min(0) would raise
+// a validation error gqltx does not retry. Quantity stays unclamped.
 func TestRebasedStock_ClampsNegativeReservations(t *testing.T) {
 	t.Parallel()
 
@@ -318,12 +283,8 @@ func TestRebasedStock_ClampsNegativeReservations(t *testing.T) {
 	require.Equal(t, int64(5), got.Quantity, "Quantity must pass through (delta 0)")
 }
 
-// TestRebasedStock_FreshBaseBeatsStaleOld verifies that the delta is applied
-// to the fresh live base, not to the stale old read. If a concurrent
-// transaction had already updated the live row to qty=99 / outgoing=99 by the
-// time the rebase snapshot runs, the fan-out must carry those fresh values
-// plus the walk's delta (+7 outgoing), not the stale values (qty=10, out=10)
-// that the early loadAncestorStocks returned.
+// TestRebasedStock_FreshBaseBeatsStaleOld pins that the delta rides on the
+// fresh live base, not on the stale values the early read returned.
 func TestRebasedStock_FreshBaseBeatsStaleOld(t *testing.T) {
 	t.Parallel()
 

@@ -1,12 +1,13 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"log"
 	"os"
 	"path/filepath"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/pyck-ai/pyck/backend/common/cmd/brunogen/api"
 	"github.com/pyck-ai/pyck/backend/common/cmd/brunogen/types"
@@ -36,7 +37,7 @@ func main() {
 		},
 	}
 
-	app := &cli.App{
+	app := &cli.Command{
 		Name:   "brunogen",
 		Usage:  "Generate Bruno API client files from GraphQL schema files",
 		Flags:  commonFlags,
@@ -96,12 +97,12 @@ func main() {
 		},
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatalf("%v", err)
 	}
 }
 
-func runAll(c *cli.Context) error {
+func runAll(_ context.Context, cmd *cli.Command) error {
 	graphqlFile := defaultGraphQLFile
 	if _, err := os.Stat(graphqlFile); errors.Is(err, os.ErrNotExist) {
 		return types.ErrGraphQLFileNotExist
@@ -110,8 +111,8 @@ func runAll(c *cli.Context) error {
 	if err := api.GenerateExamples(types.Config{
 		GraphQLFile: graphqlFile,
 		OutputDir:   defaultOutputDir,
-		Verbose:     c.Bool("verbose"),
-		DryRun:      c.Bool("dry-run"),
+		Verbose:     cmd.Bool("verbose"),
+		DryRun:      cmd.Bool("dry-run"),
 	}); err != nil {
 		return err
 	}
@@ -134,29 +135,29 @@ func runAll(c *cli.Context) error {
 		BackendDir:     absBackend,
 		TestdataDir:    defaultTestdataDir,
 		OutputTestsDir: defaultTestsDir,
-		Verbose:        c.Bool("verbose"),
-		DryRun:         c.Bool("dry-run"),
+		Verbose:        cmd.Bool("verbose"),
+		DryRun:         cmd.Bool("dry-run"),
 	})
 }
 
-func runExamples(c *cli.Context) error {
-	graphqlFile := c.String("graphql")
+func runExamples(_ context.Context, cmd *cli.Command) error {
+	graphqlFile := cmd.String("graphql")
 	if _, err := os.Stat(graphqlFile); errors.Is(err, os.ErrNotExist) {
 		return types.ErrGraphQLFileNotExist
 	}
 
 	cfg := types.Config{
 		GraphQLFile: graphqlFile,
-		ServiceName: c.String("service"),
-		OutputDir:   c.String("output"),
-		Verbose:     c.Bool("verbose"),
-		DryRun:      c.Bool("dry-run"),
+		ServiceName: cmd.String("service"),
+		OutputDir:   cmd.String("output"),
+		Verbose:     cmd.Bool("verbose"),
+		DryRun:      cmd.Bool("dry-run"),
 	}
 	return api.GenerateExamples(cfg)
 }
 
-func runTests(c *cli.Context) error {
-	serviceName := c.String("service")
+func runTests(_ context.Context, cmd *cli.Command) error {
+	serviceName := cmd.String("service")
 	if serviceName == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
@@ -168,7 +169,7 @@ func runTests(c *cli.Context) error {
 		}
 	}
 
-	backendDir := c.String("backend-dir")
+	backendDir := cmd.String("backend-dir")
 	absBackend, err := filepath.Abs(backendDir)
 	if err != nil {
 		return err
@@ -177,10 +178,10 @@ func runTests(c *cli.Context) error {
 	cfg := types.Config{
 		ServiceName:    serviceName,
 		BackendDir:     absBackend,
-		TestdataDir:    c.String("testdata"),
-		OutputTestsDir: c.String("output-tests"),
-		Verbose:        c.Bool("verbose"),
-		DryRun:         c.Bool("dry-run"),
+		TestdataDir:    cmd.String("testdata"),
+		OutputTestsDir: cmd.String("output-tests"),
+		Verbose:        cmd.Bool("verbose"),
+		DryRun:         cmd.Bool("dry-run"),
 	}
 	return api.GenerateScenarios(cfg)
 }

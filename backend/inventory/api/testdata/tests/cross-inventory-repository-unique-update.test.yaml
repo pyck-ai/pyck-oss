@@ -1,0 +1,188 @@
+---
+name: "Cross - Inventory Repository Unique Field Update"
+description: >
+  Regression test for #1142. When a repository's DataType schema marks a field
+  "unique": true, updateInventoryRepository must exclude the entity's own row
+  from the uniqueness check and run the check before persisting. Verifies that
+  updating with the same unique value, or to a new genuinely-unique value,
+  succeeds — while updating to a value already owned by a different repository
+  is still rejected.
+steps:
+  - id: createDT
+    name: "Create data type with a unique field"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Unique Repository Schema"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "repository"
+        jsonSchema: '{"type":"object","properties":{"zone":{"type":"string","minLength":1},"barcode":{"type":"string","unique":true}},"required":["zone","barcode"],"additionalProperties":false}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: createA
+    name: "Create repository A with unique barcode"
+    operation: inventory.createInventoryRepository
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        name: {$fake: "{{uuid}}"}
+        type: static
+        data:
+          zone: "Zone A"
+          barcode: {$fake: "{{loremslug}}-{{nonce}}-aaa"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Repository A created"
+        assertions:
+          - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+            nil: false
+
+  - id: createB
+    name: "Create repository B with a different unique barcode"
+    operation: inventory.createInventoryRepository
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        name: {$fake: "{{uuid}}"}
+        type: static
+        data:
+          zone: "Zone B"
+          barcode: {$fake: "{{loremslug}}-{{nonce}}-bbb"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Repository B created"
+        assertions:
+          - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+            nil: false
+
+  # The bug: before the fix this failed because the check counted A's own row
+  # (already updated, not excluded) and reported a constraint violation.
+  - name: "Update A keeping the same barcode succeeds"
+    operation: inventory.updateInventoryRepository
+    vars:
+      id: {$ref: "res[createA].body.data.createInventoryRepository.inventoryRepository.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          zone: "Zone A renamed"
+          barcode: {$ref: "res[createA].body.data.createInventoryRepository.inventoryRepository.data.barcode"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors (self is excluded from uniqueness check)"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Zone updated"
+        assertions:
+          - ref: res.body.data.updateInventoryRepository.inventoryRepository.data.zone
+            equal: "Zone A renamed"
+
+  - name: "Update A to a new genuinely-unique barcode succeeds"
+    operation: inventory.updateInventoryRepository
+    vars:
+      id: {$ref: "res[createA].body.data.createInventoryRepository.inventoryRepository.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          zone: "Zone A renamed"
+          barcode: {$fake: "{{loremslug}}-{{nonce}}-ccc"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  # The guard: a real collision with a different row must still be rejected.
+  - name: "Update A to B's barcode is rejected"
+    operation: inventory.updateInventoryRepository
+    vars:
+      id: {$ref: "res[createA].body.data.createInventoryRepository.inventoryRepository.id"}
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        data:
+          zone: "Zone A renamed"
+          barcode: {$ref: "res[createB].body.data.createInventoryRepository.inventoryRepository.data.barcode"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (collides with repository B)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Cleanup - delete repository A"
+    operation: inventory.deleteInventoryRepository
+    vars:
+      id: {$ref: "res[createA].body.data.createInventoryRepository.inventoryRepository.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete repository B"
+    operation: inventory.deleteInventoryRepository
+    vars:
+      id: {$ref: "res[createB].body.data.createInventoryRepository.inventoryRepository.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

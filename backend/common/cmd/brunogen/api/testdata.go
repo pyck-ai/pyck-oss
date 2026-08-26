@@ -2,13 +2,14 @@ package api
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/goccy/go-yaml"
-	jsonschema "github.com/santhosh-tekuri/jsonschema/v5"
+	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 
 	_ "embed"
 
@@ -27,8 +28,12 @@ var (
 )
 
 func mustCompileSchema(id string, data []byte) *jsonschema.Schema {
+	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
+	if err != nil {
+		panic("brunogen: failed to parse schema " + id + ": " + err.Error())
+	}
 	compiler := jsonschema.NewCompiler()
-	if err := compiler.AddResource(id, bytes.NewReader(data)); err != nil {
+	if err := compiler.AddResource(id, doc); err != nil {
 		panic("brunogen: failed to add schema resource " + id + ": " + err.Error())
 	}
 	schema, err := compiler.Compile(id)
@@ -44,7 +49,17 @@ func validateYAML(filePath string, data []byte, schema *jsonschema.Schema) error
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return fmt.Errorf("failed to parse YAML in %s: %w", filePath, err)
 	}
-	if err := schema.Validate(raw); err != nil {
+	// Round-trip through JSON so the instance uses the JSON type system
+	// (map[string]any keys, float64 numbers) the validator expects.
+	jsonBytes, err := json.Marshal(raw)
+	if err != nil {
+		return fmt.Errorf("failed to convert YAML to JSON in %s: %w", filePath, err)
+	}
+	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(jsonBytes))
+	if err != nil {
+		return fmt.Errorf("failed to parse converted JSON in %s: %w", filePath, err)
+	}
+	if err := schema.Validate(doc); err != nil {
 		return fmt.Errorf("schema validation failed for %s: %w", filePath, err)
 	}
 	return nil

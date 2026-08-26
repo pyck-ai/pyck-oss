@@ -1,11 +1,14 @@
 package stock
 
 import (
+	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -37,12 +40,11 @@ type service struct {
 	// to compare the two execution paths.
 	debugLog io.Writer
 
-	// dbDialect is the configured Ent dialect (e.g. dialect.Postgres or
-	// dialect.SQLite). Step 7.2 uses it to gate the
+	// dbDialect is the configured Ent dialect string (typically dialect.Postgres
+	// in production). Step 7.2 uses it to gate the
 	// inventory.create_item_movement_proc call: only Postgres backends ship
-	// the proc (it is a hand-written PL/pgSQL migration), so the SQLite
-	// in-package tests fall back to the legacy Go orchestration. Empty
-	// string means "no proc dispatch" — the Go path runs unconditionally.
+	// the proc (it is a hand-written PL/pgSQL migration). Empty string means
+	// "no proc dispatch" — the Go path runs unconditionally.
 	dbDialect string
 
 	// outboxEmitter, when non-nil, is invoked after createItemMovementViaProc
@@ -362,9 +364,8 @@ func (s *service) simulateRepositoryStockMapWalk(itemID, repositoryID, sourceRep
 func (s *service) GetCurrentRepositoriesStock(ctx context.Context, tx *ent.Tx, repositoryIDs []uuid.UUID) (map[uuid.UUID]map[uuid.UUID]ent.Stock, error) {
 	repoPred := entstock.RepositoryIDIn(repositoryIDs...)
 
-	// Current row = highest version per (repo, item); created_at is not a
-	// total order across pods and can surface a superseded row. Load-bearing:
-	// RebuildStockTable replays movements through this baseline.
+	// Current row = highest version; version is UNIQUE per pair, so exactly one
+	// row survives the NOT EXISTS — created_at ties would leave several.
 	records, err := tx.Stock.Query().
 		Where(repoPred).
 		DistinctOnExists(
@@ -499,12 +500,11 @@ func (s *service) CreateItemMovement(ctx context.Context, tx *ent.Tx, dto Create
 	return s.createItemMovementViaGo(ctx, tx, dto)
 }
 
-// createItemMovementViaGo is the legacy Go orchestration body. It is the
-// fallback path for non-Postgres dialects (the SQLite tests in this
-// package). The Postgres path goes through createItemMovementViaProc /
-// inventory.create_item_movement_proc instead. Behavior is preserved
-// verbatim from the pre-Step-7.2 implementation so the SQLite tests pin
-// the exact contract the proc implements server-side.
+// createItemMovementViaGo is the Go orchestration body used when the proc
+// path is not engaged. On Postgres it is reached when IsDeferredUnderflow(ctx)
+// is true (see dispatch at impl.go:496). Behavior is preserved from the
+// pre-Step-7.2 implementation; the proc implements the same contract
+// server-side.
 func (s *service) createItemMovementViaGo(ctx context.Context, tx *ent.Tx, dto CreateItemMovementInput) (*ent.ItemMovement, error) {
 	input := dto.Input
 
@@ -526,8 +526,8 @@ func (s *service) createItemMovementViaGo(ctx context.Context, tx *ent.Tx, dto C
 			sel.Where(sql.EQ(entstock.RepositoryColumn, input.FromID))
 			sel.Where(sql.EQ(entstock.ItemColumn, input.ItemID))
 		})
-		// Current row = highest version; created_at is not a total order
-		// across pods, and this row gates the insufficient-stock rejection.
+		// Current row = highest version; ordering by created_at gates the move
+		// against a superseded row and rejects it as insufficient.
 		stockRecord, qerr := tx.Stock.Query().
 			Where(where).
 			Where(entstock.TenantID(dto.TenantID)).
@@ -721,7 +721,7 @@ func (s *service) createItemMovementViaProc(ctx context.Context, tx *ent.Tx, dto
 	// consumers (signal-router, workflow_reply waiters) still observe this
 	// create. The emit runs in the same tx as the proc, so the outbox row
 	// commits atomically with the movement row. A nil emitter is tolerated
-	// for the SQLite test paths where the event system is not wired.
+	// for test paths where the event system is not wired.
 	if s.outboxEmitter != nil {
 		if err := s.outboxEmitter(ctx, "ItemMovement", "create", returnedID, movement, nil); err != nil {
 			return nil, fmt.Errorf("create_item_movement_proc: emit outbox event: %w", err)
@@ -856,6 +856,7 @@ func (s *service) ExecuteItemMovement(ctx context.Context, tx *ent.Tx, dto Execu
 			SetVersion(versions.nextFor(repoID, itemMovement.ItemID))
 		stocksToCreate = append(stocksToCreate, newStock)
 	}
+	sortStockCreates(stocksToCreate)
 	if _, err = tx.Stock.CreateBulk(stocksToCreate...).Save(ctx); err != nil {
 		return nil, wrapOCCConflict(fmt.Errorf("failed inserting stocks: %w", err))
 	}
@@ -1022,21 +1023,29 @@ func (s *service) CreateRepositoryMovement(ctx context.Context, tx *ent.Tx, dto 
 	if err != nil {
 		return nil, err
 	}
+
 	repositoryMap, ancestorStocks, err := s.loadAncestorStocks(ctx, tx, dto.TenantID, []uuid.UUID{input.RepositoryID, *input.FromID, input.ToID}, movingRepoItemIDs, false)
 	if err != nil {
 		return nil, err
 	}
-	stockMap := nestStockKeyMap(ancestorStocks)
 
-	for itemID, itemRecord := range stockMap[input.RepositoryID] {
-		// Calculate stockMap for parents of the 'from' repository
-		if err = s.simulateRepositoryStockMap(itemID, *input.FromID, input.ToID, -1*itemRecord.Quantity, stockMap, repositoryMap, false); err != nil {
-			return nil, fmt.Errorf("failed calculating stock map: %w", err)
-		}
+	// An empty repository has no ancestor stock (loadAncestorStocks returns
+	// nothing for an empty item list), so skip the stock-map build and simulate
+	// walk — the bulk-assign fast path. The movement is still recorded below and
+	// the fan-out no-ops on the nil stock map.
+	var stockMap map[uuid.UUID]map[uuid.UUID]ent.Stock
+	if len(ancestorStocks) > 0 {
+		stockMap = nestStockKeyMap(ancestorStocks)
+		for itemID, itemRecord := range stockMap[input.RepositoryID] {
+			// Calculate stockMap for parents of the 'from' repository
+			if err = s.simulateRepositoryStockMap(itemID, *input.FromID, input.ToID, -1*itemRecord.Quantity, stockMap, repositoryMap, false); err != nil {
+				return nil, fmt.Errorf("failed calculating stock map: %w", err)
+			}
 
-		// Calculate stockMap for parents of the 'to' repository
-		if err = s.simulateRepositoryStockMap(itemID, input.ToID, *input.FromID, itemRecord.Quantity, stockMap, repositoryMap, false); err != nil {
-			return nil, fmt.Errorf("failed calculating stock map: %w", err)
+			// Calculate stockMap for parents of the 'to' repository
+			if err = s.simulateRepositoryStockMap(itemID, input.ToID, *input.FromID, itemRecord.Quantity, stockMap, repositoryMap, false); err != nil {
+				return nil, fmt.Errorf("failed calculating stock map: %w", err)
+			}
 		}
 	}
 
@@ -1055,14 +1064,9 @@ func (s *service) CreateRepositoryMovement(ctx context.Context, tx *ent.Tx, dto 
 		return nil, err
 	}
 
-	// Fan-out bases and the version floor come from ONE fresh snapshot.
-	// Concurrent rows committed before this read are absorbed into the
-	// base values; rows committed after it occupy the version we assign,
-	// so the insert trips the unique index → 23505 → errOCCConflict →
-	// gqltx retry ("correct-or-collide", same shape as
-	// create_item_movement_proc). The floor spans soft-deleted rows so
-	// the assigned version clears the full unique-index universe and
-	// avoids version-reuse livelock.
+	// Bases and version floor from one snapshot: a concurrent row committed
+	// before it is absorbed into the base, one committed after collides on
+	// the unique index and gqltx retries.
 	rebaseFloor, rebaseLive, err := s.loadStockRebaseSnapshot(ctx, tx, dto.TenantID, stockMap)
 	if err != nil {
 		return nil, err
@@ -1115,6 +1119,7 @@ func (s *service) CreateRepositoryMovement(ctx context.Context, tx *ent.Tx, dto 
 			stocksToCreate = append(stocksToCreate, newStock)
 		}
 	}
+	sortStockCreates(stocksToCreate)
 	if _, err = tx.Stock.CreateBulk(stocksToCreate...).Save(ctx); err != nil {
 		return nil, wrapOCCConflict(fmt.Errorf("failed inserting stock: %w", err))
 	}
@@ -1248,6 +1253,7 @@ func (s *service) ExecuteRepositoryMovement(ctx context.Context, tx *ent.Tx, dto
 			stocksToCreate = append(stocksToCreate, newStock)
 		}
 	}
+	sortStockCreates(stocksToCreate)
 	_, err = tx.Stock.CreateBulk(stocksToCreate...).Save(ctx)
 	if err != nil {
 		return nil, wrapOCCConflict(fmt.Errorf("failed inserting stock: %w", err))
@@ -1341,14 +1347,7 @@ func (s *service) DeleteRepositoryMovement(ctx context.Context, tx *ent.Tx, dto 
 		}
 	}
 
-	// Fan-out bases and the version floor come from ONE fresh snapshot.
-	// Concurrent rows committed before this read are absorbed into the
-	// base values; rows committed after it occupy the version we assign,
-	// so the insert trips the unique index → 23505 → errOCCConflict →
-	// gqltx retry ("correct-or-collide", same shape as
-	// create_item_movement_proc). The floor spans soft-deleted rows so
-	// the assigned version clears the full unique-index universe and
-	// avoids version-reuse livelock.
+	// Bases and version floor from one snapshot, as in CreateRepositoryMovement.
 	rebaseFloor, rebaseLive, err := s.loadStockRebaseSnapshot(ctx, tx, dto.TenantID, stockMap)
 	if err != nil {
 		return nil, err
@@ -1376,6 +1375,7 @@ func (s *service) DeleteRepositoryMovement(ctx context.Context, tx *ent.Tx, dto 
 			stocksToCreate = append(stocksToCreate, newStock)
 		}
 	}
+	sortStockCreates(stocksToCreate)
 	_, err = tx.Stock.CreateBulk(stocksToCreate...).Save(ctx)
 	if err != nil {
 		return nil, wrapOCCConflict(fmt.Errorf("failed inserting stock: %w", err))
@@ -1523,7 +1523,7 @@ func (s *service) CreateCollectionMovement(ctx context.Context, tx *ent.Tx, dto 
 					DataTypeID:   collection.DataTypeID,
 					DataTypeSlug: collection.DataTypeSlug,
 					Data:         collection.Data,
-					Quantity:     int64(*collection.Quantity),
+					Quantity:     *collection.Quantity,
 					Handler:      collection.Handler,
 					FromID:       collection.FromID,
 					ToID:         collection.ToID,
@@ -1713,6 +1713,37 @@ func (s *service) insertStockMap(ctx context.Context, tx *ent.Tx, itemID, tenant
 	return s.insertStockMapWithVersions(ctx, tx, itemID, tenantID, movementID, stockMap, nil)
 }
 
+// sortStockCreates orders a fan-out batch by (repository, item, version) so
+// every transaction locks the stocks version index in the same sequence.
+// Batches are built by ranging over Go maps, so two movements over shared
+// ancestors otherwise locked those tuples in opposite orders and deadlocked
+// (40P01) — and 40P01 being retryable, the retry reshuffled and deadlocked
+// again. Comparing raw UUID bytes keeps the comparator allocation-free on the
+// rebuild path's tens of thousands of rows; hex preserves byte order, so
+// uuid.String() would produce the same sequence.
+func sortStockCreates(creates []*ent.StockCreate) {
+	key := func(c *ent.StockCreate) (repo, item uuid.UUID, version int64) {
+		m := c.Mutation()
+		repo, _ = m.RepositoryID()
+		item, _ = m.ItemID()
+		version, _ = m.Version()
+		return repo, item, version
+	}
+	slices.SortFunc(creates, func(a, b *ent.StockCreate) int {
+		repoA, itemA, versionA := key(a)
+		repoB, itemB, versionB := key(b)
+		if c := bytes.Compare(repoA[:], repoB[:]); c != 0 {
+			return c
+		}
+		if c := bytes.Compare(itemA[:], itemB[:]); c != 0 {
+			return c
+		}
+		// SortFunc is unstable, so a pair carrying two versions (the chunked
+		// path accepts that) needs an explicit tiebreak to stay deterministic.
+		return cmp.Compare(versionA, versionB)
+	})
+}
+
 // insertStockMapWithVersions is the version-aware extension of
 // insertStockMap. When versions is non-nil, new rows draw their versions
 // from the supplied tracker (which the caller maintains across multiple
@@ -1828,6 +1859,7 @@ func (s *service) insertStockMapWithVersions(ctx context.Context, tx *ent.Tx, it
 	if len(stocksToCreate) == 0 {
 		return nil
 	}
+	sortStockCreates(stocksToCreate)
 	if _, err := tx.Stock.CreateBulk(stocksToCreate...).Save(ctx); err != nil {
 		return wrapOCCConflict(fmt.Errorf("failed inserting stocks: %w", err))
 	}
@@ -1863,10 +1895,8 @@ func newStockVersionTracker(latest map[stockKey]ent.Stock) *stockVersionTracker 
 }
 
 // newStockVersionTrackerFromFloors seeds a tracker from a per-(repo, item)
-// version floor map. nextFor returns floor[key]+1 on the first call for
-// that key (or 0 when the key is absent), then increments monotonically.
-// Used by loadStockRebaseSnapshot callers that fold the floor and live
-// snapshot into a single read.
+// version floor: nextFor yields floor+1 first (0 when the pair is absent),
+// then increments.
 func newStockVersionTrackerFromFloors(floor map[stockKey]int64) *stockVersionTracker {
 	next := make(map[stockKey]int64, len(floor))
 	for k, v := range floor {
@@ -1948,14 +1978,26 @@ func stockBulkChunkBounds(n, maxBatch int) [][2]int {
 // rolls back the whole rebuild atomically via the surrounding gqltx
 // middleware — there is no partial-write window.
 //
-// Empty input is a no-op (returns nil without touching the database).
+// Empty input is a no-op. The caller's slice is sorted in place here rather
+// than by each caller, so the chunks stay contiguous ranges of one global
+// insert order instead of being ordered only within themselves.
 func stockCreateBulkChunked(ctx context.Context, tx *ent.Tx, stocksToCreate []*ent.StockCreate) error {
+	sortStockCreates(stocksToCreate)
 	for _, b := range stockBulkChunkBounds(len(stocksToCreate), maxStockRowsPerInsert) {
 		if _, err := tx.Stock.CreateBulk(stocksToCreate[b[0]:b[1]]...).Save(ctx); err != nil {
 			return fmt.Errorf("CreateBulk batch %d-%d of %d: %w", b[0], b[1], len(stocksToCreate), err)
 		}
 	}
 	return nil
+}
+
+// InsertRows writes a stock batch built outside this package. The
+// DeleteInventoryStock resolver fans out over the same version tuples as the
+// movement paths but in the opposite order (item-major, children before their
+// parent), so it must share this write path to avoid deadlocking against them.
+// Reorders the caller's slice.
+func InsertRows(ctx context.Context, tx *ent.Tx, creates []*ent.StockCreate) error {
+	return wrapOCCConflict(stockCreateBulkChunked(ctx, tx, creates))
 }
 
 // loadLatestStockPerRepo returns, for a fixed itemID and a slice of
@@ -2005,41 +2047,121 @@ func (s *service) loadLatestStockPerRepo(ctx context.Context, tx *ent.Tx, tenant
 	return out, nil
 }
 
-// loadStockRebaseSnapshot returns, in a single query over all rows for the
-// (repo, item) pairs in stockMap (including soft-deleted rows):
+// loadStockRebaseSnapshot returns, per (repo, item) pair in stockMap, the
+// version floor (max version over all rows including soft-deleted ones, so the
+// version we assign clears the whole unique index) and the live row (highest
+// version not deleted, absent when there is none) that rebasedStock uses as
+// its base.
 //
-//   - floor: per (repo, item) max(version) across the full unique-index
-//     universe. The caller seeds a stockVersionTracker from this so the
-//     assigned version clears every existing row — including soft-deleted
-//     ones — and avoids version-reuse livelock.
-//
-//   - live: per (repo, item) the full ent.Stock of the highest-version row
-//     with deleted_at IS NULL. Absent when no live row exists. The caller
-//     uses live[key].Field as the base for the delta formula:
-//     written = live[key].Field + (walked[key].Field - old[key].Field).
-//
-// Coupling both to one read means any row a concurrent transaction commits
-// between the caller's loadAncestorStocks and this insert will be visible
-// here; if its version equals the one we assign, the unique index fires a
-// 23505 → errOCCConflict → gqltx retry (correct-or-collide).
+// Both come from one statement, read right before the fan-out INSERT: a
+// concurrent row committed before it is absorbed into the base; one committed
+// after takes the version we assign, so the insert collides on the unique
+// index instead of silently overwriting it.
 func (s *service) loadStockRebaseSnapshot(
 	ctx context.Context,
 	tx *ent.Tx,
 	tenantID uuid.UUID,
 	stockMap map[uuid.UUID]map[uuid.UUID]ent.Stock,
 ) (floor map[stockKey]int64, live map[stockKey]ent.Stock, err error) {
-	repoSet := make(map[uuid.UUID]struct{}, len(stockMap))
-	itemSet := make(map[uuid.UUID]struct{})
+	pairs := make([]stockKey, 0, len(stockMap))
 	for repoID, perItem := range stockMap {
-		repoSet[repoID] = struct{}{}
 		for itemID := range perItem {
-			itemSet[itemID] = struct{}{}
+			pairs = append(pairs, stockKey{RepositoryID: repoID, ItemID: itemID})
 		}
 	}
-	if len(repoSet) == 0 || len(itemSet) == 0 {
+	if len(pairs) == 0 {
 		return make(map[stockKey]int64), make(map[stockKey]ent.Stock), nil
 	}
 
+	if s.dbDialect == dialect.Postgres {
+		return s.loadStockRebaseSnapshotViaProc(ctx, tx, tenantID, pairs)
+	}
+	return s.loadStockRebaseSnapshotGo(ctx, tx, tenantID, pairs)
+}
+
+// loadStockRebaseSnapshotViaProc is the Postgres path: one index-served call
+// bounded to the exact pairs, never a history walk.
+func (s *service) loadStockRebaseSnapshotViaProc(
+	ctx context.Context,
+	tx *ent.Tx,
+	tenantID uuid.UUID,
+	pairs []stockKey,
+) (floor map[stockKey]int64, live map[stockKey]ent.Stock, err error) {
+	jsonPairs := make([][2]string, len(pairs))
+	for i, k := range pairs {
+		jsonPairs[i] = [2]string{k.RepositoryID.String(), k.ItemID.String()}
+	}
+	pairsJSON, err := json.Marshal(jsonPairs)
+	if err != nil {
+		return nil, nil, fmt.Errorf("loadStockRebaseSnapshot: marshal pairs: %w", err)
+	}
+
+	const procCall = `SELECT repository_id, item_id, floor_version, has_live, ` +
+		`live_version, live_quantity, live_incoming_stock, live_outgoing_stock, ` +
+		`live_own_quantity, live_own_incoming_stock, live_own_outgoing_stock ` +
+		`FROM inventory.load_stock_rebase_snapshot($1::uuid, $2::jsonb)`
+
+	rows, err := tx.QueryContext(ctx, procCall, tenantID, pairsJSON)
+	if err != nil {
+		return nil, nil, fmt.Errorf("loadStockRebaseSnapshot: proc: %w", err)
+	}
+	defer func() {
+		if cerr := rows.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("loadStockRebaseSnapshot: close rows: %w", cerr)
+		}
+	}()
+
+	floor = make(map[stockKey]int64, len(pairs))
+	live = make(map[stockKey]ent.Stock, len(pairs))
+	for rows.Next() {
+		var (
+			repoID, itemID uuid.UUID
+			floorVersion   *int64 // NULL when the pair has no rows
+			hasLive        bool
+			lv             ent.Stock
+		)
+		if serr := rows.Scan(
+			&repoID, &itemID, &floorVersion, &hasLive,
+			&lv.Version, &lv.Quantity, &lv.IncomingStock, &lv.OutgoingStock,
+			&lv.OwnQuantity, &lv.OwnIncomingStock, &lv.OwnOutgoingStock,
+		); serr != nil {
+			return nil, nil, fmt.Errorf("loadStockRebaseSnapshot: scan: %w", serr)
+		}
+		k := stockKey{RepositoryID: repoID, ItemID: itemID}
+		if floorVersion != nil {
+			floor[k] = *floorVersion
+		}
+		if hasLive {
+			lv.TenantID = tenantID
+			lv.RepositoryID = repoID
+			lv.ItemID = itemID
+			live[k] = lv
+		}
+	}
+	if rerr := rows.Err(); rerr != nil {
+		return nil, nil, fmt.Errorf("loadStockRebaseSnapshot: rows: %w", rerr)
+	}
+	return floor, live, nil
+}
+
+// loadStockRebaseSnapshotGo is the non-Postgres (SQLite test) path: it reads
+// the repo × item cross product and reduces it in Go. FEATURE_SHOW_DELETED
+// bypasses HistoryMixin's filter so floor spans soft-deleted rows;
+// DeletedAt.IsZero() covers both NULL and zero-time, as the proc does in SQL.
+func (s *service) loadStockRebaseSnapshotGo(
+	ctx context.Context,
+	tx *ent.Tx,
+	tenantID uuid.UUID,
+	pairs []stockKey,
+) (map[stockKey]int64, map[stockKey]ent.Stock, error) {
+	ctx = feature.Context(ctx, feature.FEATURE_SHOW_DELETED)
+
+	repoSet := make(map[uuid.UUID]struct{}, len(pairs))
+	itemSet := make(map[uuid.UUID]struct{}, len(pairs))
+	for _, k := range pairs {
+		repoSet[k.RepositoryID] = struct{}{}
+		itemSet[k.ItemID] = struct{}{}
+	}
 	repoIDs := make([]uuid.UUID, 0, len(repoSet))
 	for r := range repoSet {
 		repoIDs = append(repoIDs, r)
@@ -2060,8 +2182,8 @@ func (s *service) loadStockRebaseSnapshot(
 		return nil, nil, fmt.Errorf("failed reading rebase snapshot: %w", err)
 	}
 
-	floor = make(map[stockKey]int64)
-	live = make(map[stockKey]ent.Stock)
+	floor := make(map[stockKey]int64)
+	live := make(map[stockKey]ent.Stock)
 	for _, r := range rows {
 		k := stockKey{RepositoryID: r.RepositoryID, ItemID: r.ItemID}
 		if cur, ok := floor[k]; !ok || r.Version > cur {
@@ -2076,22 +2198,14 @@ func (s *service) loadStockRebaseSnapshot(
 	return floor, live, nil
 }
 
-// rebasedStock computes the field values for one fan-out row by rebasing the
-// walked delta onto the fresh live base:
+// rebasedStock replays the walk's delta on the fresh live base:
+// written = base + (walked - old), old being the row the walk started from.
 //
-//	written = base.Field + (walked.Field - old.Field)
-//
-// old is the row the simulate walk started from (read early in the request,
-// possibly stale); base is the highest-version live row from
-// loadStockRebaseSnapshot (fresh). A concurrent transaction that shrank the
-// live reservation between those two reads makes base < old, so the
-// subtract-mode walk (DeleteRepositoryMovement) can drive a raw result
-// negative even though every input is non-negative. The four reservation
-// fields are clamped to 0: their schema validators enforce Min(0), and a
-// validation failure is not a 23505 version collision, so gqltx would fail
-// the request instead of retrying it. Quantity and OwnQuantity keep the raw
-// delta: the pending-movement walks never mutate them (delta 0), so a
-// negative value there is a real bug that must stay loud.
+// The reservation fields are clamped: a concurrent shrink makes base < old, so
+// Delete's subtract-mode walk can go negative, and the schema's Min(0)
+// validators reject that with an error gqltx does not retry. Quantity and
+// OwnQuantity stay unclamped — the walks never move them, so a negative there
+// is a real bug.
 func rebasedStock(base, walked, old ent.Stock) ent.Stock {
 	return ent.Stock{
 		Quantity:         base.Quantity + (walked.Quantity - old.Quantity),

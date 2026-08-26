@@ -33,7 +33,7 @@ func (e *ancestorTestEnv) mkStockVersionedAt(repoID, itemID uuid.UUID, qty, vers
 	tx, err := e.client.Tx(e.ctx)
 	require.NoError(e.t, err)
 	_, err = tx.ExecContext(e.ctx,
-		fmt.Sprintf("UPDATE %s SET %s = ? WHERE %s = ?", entstock.Table, entstock.FieldCreatedAt, entstock.FieldID),
+		fmt.Sprintf("UPDATE %s SET %s = $1 WHERE %s = $2", entstock.Table, entstock.FieldCreatedAt, entstock.FieldID),
 		createdAt, row.ID)
 	require.NoError(e.t, err)
 	require.NoError(e.t, tx.Commit())
@@ -96,68 +96,4 @@ func TestExecuteStaleParentRollup_CreatedAtOrderingUnderflows(t *testing.T) {
 			"(version-latest), so 1-1=0. It only underflows because "+
 			"loadAncestorStocks returned the created_at-latest row (rollup 0) instead "+
 			"of the version-latest one.")
-}
-
-// TestGetCurrentRepositoriesStock_PicksVersionLatest pins the same
-// version-over-created_at contract for GetCurrentRepositoriesStock, the
-// baseline RebuildStockTable and the delete resolvers read through.
-func TestGetCurrentRepositoriesStock_PicksVersionLatest(t *testing.T) {
-	t.Parallel()
-	e := newAncestorTestEnv(t)
-
-	repo := e.mkRepo("packing-area", uuid.Nil)
-	item := e.mkItem("side-component")
-
-	older := time.Date(2026, 7, 6, 6, 59, 0, 0, time.UTC)
-	newer := time.Date(2026, 7, 6, 7, 0, 0, 0, time.UTC)
-	e.mkStockVersionedAt(repo, item, 1, 5, older) // current by version
-	e.mkStockVersionedAt(repo, item, 0, 4, newer) // superseded, latest created_at
-
-	tx := e.withTx()
-	svc := &service{}
-
-	stockMap, err := svc.GetCurrentRepositoriesStock(e.ctx, tx, []uuid.UUID{repo})
-	require.NoError(t, err)
-
-	got, ok := stockMap[repo][item]
-	require.True(t, ok, "expected a current row for the seeded (repo, item)")
-	require.EqualValues(t, 5, got.Version,
-		"must pick the version-latest row, not the created_at-latest one")
-	require.EqualValues(t, 1, got.Quantity)
-}
-
-// TestCreateItemMovement_InsufficientStockGateUsesVersionLatest pins that the
-// create-time availability gate reads the version-latest row: with the
-// current row holding 1 (and a superseded created_at-latest row at 0), a
-// 1-unit movement must pass instead of failing with insufficient stock.
-func TestCreateItemMovement_InsufficientStockGateUsesVersionLatest(t *testing.T) {
-	t.Parallel()
-	e := newAncestorTestEnv(t)
-
-	from := e.mkRepo("pallet", uuid.Nil)
-	to := e.mkRepo("box", uuid.Nil)
-	item := e.mkItem("main-item")
-
-	older := time.Date(2026, 7, 6, 6, 59, 0, 0, time.UTC)
-	newer := time.Date(2026, 7, 6, 7, 0, 0, 0, time.UTC)
-	e.mkStockVersionedAt(from, item, 1, 5, older) // current: 1 unit available
-	e.mkStockVersionedAt(from, item, 0, 4, newer) // superseded: reads as empty
-
-	tx := e.withTx()
-	svc := &service{}
-
-	_, err := svc.CreateItemMovement(e.ctx, tx, CreateItemMovementInput{
-		Input: ent.CreateItemMovementInput{
-			Quantity: 1,
-			Handler:  "test",
-			FromID:   from,
-			ToID:     to,
-			ItemID:   item,
-		},
-		TenantID: e.tenantID,
-	})
-	require.NoError(t, err,
-		"moving 1 unit must pass the insufficient-stock gate: the current row "+
-			"(version-latest) holds 1; it only fails when the gate reads the "+
-			"superseded created_at-latest row (quantity 0)")
 }

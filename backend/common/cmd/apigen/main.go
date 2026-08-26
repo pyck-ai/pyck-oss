@@ -1,19 +1,19 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 const (
-	logPrefix        = "apigen: "
-	defaultSchemaDir = "./graph"
-	defaultOutputDir = "./api/graph"
-	generatedPrefix  = "Generated: "
-	dryRunPrefix     = "[DRY-RUN] Would write: "
+	logPrefix            = "apigen: "
+	defaultSchemaDir     = "./graph"
+	defaultOutputDir     = "./api/graph"
+	defaultOperationsDir = "./api/operations"
 )
 
 var (
@@ -26,7 +26,7 @@ func main() {
 	log.SetFlags(0)
 	log.SetPrefix(logPrefix)
 
-	app := &cli.App{
+	app := &cli.Command{
 		Name:  "apigen",
 		Usage: "Generate GraphQL client query files from server-side schema definitions",
 		Flags: []cli.Flag{
@@ -41,6 +41,12 @@ func main() {
 				Aliases: []string{"o"},
 				Usage:   "Output directory for generated client query files",
 				Value:   defaultOutputDir,
+			},
+			&cli.StringFlag{
+				Name:    "operations",
+				Aliases: []string{"p"},
+				Usage:   "Directory of hand-written operation files appended to the generated output (optional)",
+				Value:   defaultOperationsDir,
 			},
 			&cli.BoolFlag{
 				Name:    "verbose",
@@ -57,21 +63,23 @@ func main() {
 		Action: run,
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatalf("%v", err)
 	}
 }
 
-func run(c *cli.Context) error {
-	verbose = c.Bool("verbose")
-	dryRun = c.Bool("dry-run")
+func run(_ context.Context, cmd *cli.Command) error {
+	verbose = cmd.Bool("verbose")
+	dryRun = cmd.Bool("dry-run")
 
-	schemaDir := c.String("schema")
-	outputDir := c.String("output")
+	schemaDir := cmd.String("schema")
+	outputDir := cmd.String("output")
+	operationsDir := cmd.String("operations")
 
 	if verbose {
 		log.Printf("Schema directory: %s", schemaDir)
 		log.Printf("Output directory: %s", outputDir)
+		log.Printf("Operations directory: %s", operationsDir)
 		if dryRun {
 			log.Printf("Dry-run mode enabled - no files will be written")
 		}
@@ -99,7 +107,7 @@ func run(c *cli.Context) error {
 	}
 
 	// Generate client queries and mutations
-	if err := generateClientQueries(schema, outputDir); err != nil {
+	if err := generateClientQueries(schema, outputDir, operationsDir, dryRun); err != nil {
 		return fmt.Errorf("failed to generate client queries: %w", err)
 	}
 

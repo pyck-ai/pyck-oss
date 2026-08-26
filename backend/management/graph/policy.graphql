@@ -1,4 +1,0 @@
-extend type Query {
-  """Fetch a specific policy by ID"""
-  policy(id: ID!): AccessPolicy
-}

@@ -189,7 +189,7 @@ func TestSupplier_Create(t *testing.T) {
 		execErr(te, ctx, createSupplier, map[string]any{
 			"DataTypeID": dataTypeIDTenantA,
 			"Sum":        -10,
-		}, "'/sum' does not validate")
+		}, "at '/sum'")
 
 		te.assertNoEvents(ctx)
 	})
@@ -203,7 +203,7 @@ func TestSupplier_Create(t *testing.T) {
 		execErr(te, ctx, createSupplier, map[string]any{
 			"DataTypeID": dataTypeIDTenantA,
 			"Weight":     -50,
-		}, "'/meta/weight' does not validate")
+		}, "at '/meta/weight'")
 
 		te.assertNoEvents(ctx)
 	})
@@ -299,7 +299,7 @@ func TestSupplier_Update(t *testing.T) {
 			"ID":         supplier.ID,
 			"DataTypeID": dataTypeIDTenantA,
 			"Sum":        -100,
-		}, "'/sum' does not validate")
+		}, "at '/sum'")
 
 		te.assertNoEvents(ctx)
 	})

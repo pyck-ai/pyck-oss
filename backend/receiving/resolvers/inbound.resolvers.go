@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
+	"github.com/pyck-ai/pyck/backend/common/sqljsonpath"
 	"github.com/pyck-ai/pyck/backend/receiving/ent/gen"
 	"github.com/pyck-ai/pyck/backend/receiving/ent/gen/inbound"
 )
@@ -21,8 +22,12 @@ func (r *receivingInboundWhereInputResolver) Data(ctx context.Context, obj *gen.
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(inbound.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueEQ(inbound.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil
@@ -35,8 +40,12 @@ func (r *receivingInboundWhereInputResolver) DataHasKey(ctx context.Context, obj
 	}
 
 	if *data != "" {
+		jsonPath, err := sqljsonpath.DotPath(*data)
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(inbound.FieldData, sqljson.DotPath(*data)))
+			s.Where(sqljson.HasKey(inbound.FieldData, jsonPath))
 		})
 	}
 	return nil
@@ -53,8 +62,12 @@ func (r *receivingInboundWhereInputResolver) DataIn(ctx context.Context, obj *ge
 		for _, v := range data[1:] {
 			args = append(args, v)
 		}
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(inbound.FieldData, args, sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueIn(inbound.FieldData, args, jsonPath))
 		})
 	}
 	return nil
@@ -67,8 +80,12 @@ func (r *receivingInboundWhereInputResolver) DataContains(ctx context.Context, o
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(inbound.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueContains(inbound.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil

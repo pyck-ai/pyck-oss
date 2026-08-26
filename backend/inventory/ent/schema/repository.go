@@ -138,6 +138,11 @@ func (Repository) Indexes() []ent.Index {
 		index.Fields("tenant_id", "name").
 			Unique().
 			Annotations(mixin.HistoryMixinNotDeletedIndexAnnotation()),
+		// Serves the Relay walk over a parent's children, which sends no
+		// orderBy and so paginates by id. Not partial: HistoryMixinQueryFilter
+		// scopes every read with "deleted_at IS NULL OR = zero-time", and a
+		// disjunction cannot imply a partial index predicate.
+		index.Fields("parent_id", "id"),
 	}
 }
 

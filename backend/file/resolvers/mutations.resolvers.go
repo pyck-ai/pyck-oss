@@ -43,13 +43,6 @@ func (r *mutationResolver) CreateFile(ctx context.Context, input ent.CreateFileI
 		return nil, err
 	}
 
-	file, err := tx.File.Create().
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
@@ -57,6 +50,13 @@ func (r *mutationResolver) CreateFile(ctx context.Context, input ent.CreateFileI
 		FieldName: entfile.FieldData,
 		DbDriver:  core.Config.DbDriver,
 	}); err != nil {
+		return nil, err
+	}
+
+	file, err := tx.File.Create().
+		SetInput(input).
+		Save(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -87,18 +87,19 @@ func (r *mutationResolver) UpdateFile(ctx context.Context, id uuid.UUID, input e
 		return nil, err
 	}
 
-	file, err := tx.File.UpdateOneID(id).SetInput(input).Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
 		TableName: entfile.Table,
 		FieldName: entfile.FieldData,
 		DbDriver:  core.Config.DbDriver,
+		ExcludeID: &id,
 	}); err != nil {
+		return nil, err
+	}
+
+	file, err := tx.File.UpdateOneID(id).SetInput(input).Save(ctx)
+	if err != nil {
 		return nil, err
 	}
 

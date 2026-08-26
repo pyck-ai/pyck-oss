@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/pyck-ai/pyck/backend/common/feature"
+	"github.com/pyck-ai/pyck/backend/common/gqlserver"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/tenant"
 	"github.com/pyck-ai/pyck/backend/common/test/mocks"
@@ -71,7 +72,7 @@ func (te *TestEnvironment[E]) Init(ent E, gqlSchema graphql.ExecutableSchema, cf
 
 	te.Ent = ent
 
-	te.GQLServer = handler.NewDefaultServer(gqlSchema)
+	te.GQLServer = gqlserver.New(gqlSchema)
 	te.GQLServer.Use(entgql.Transactioner{TxOpener: te.Ent})
 
 	for _, c := range cfgs {

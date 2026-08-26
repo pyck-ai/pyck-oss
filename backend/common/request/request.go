@@ -2,6 +2,7 @@ package request
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 
@@ -76,4 +77,19 @@ func (rc RequestContext) HasMutationTenantID() bool {
 // baggage. Stable across retries and independent of trace sampling.
 func (rc RequestContext) RequestID() string {
 	return rc.requestID
+}
+
+// RequireRole asserts the caller is authenticated AND holds role on
+// the mutation tenant. Returns the tenant ID on success; otherwise an
+// error wrapping authn.ErrUnauthorized. op names the caller for
+// error-message diagnosis (e.g. "deleteTenant").
+func (rc RequestContext) RequireRole(role authn.Role, op string) (uuid.UUID, error) {
+	if !rc.User().IsAuthenticated() {
+		return uuid.Nil, fmt.Errorf("%w: authentication required for %s", authn.ErrUnauthorized, op)
+	}
+	tenantID := rc.MutationTenantID()
+	if !rc.User().HasRole(role, tenantID) {
+		return uuid.Nil, fmt.Errorf("%w: %s role required for %s", authn.ErrUnauthorized, role, op)
+	}
+	return tenantID, nil
 }

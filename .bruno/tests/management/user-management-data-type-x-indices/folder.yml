@@ -1,0 +1,11 @@
+info:
+  name: User - Management Data Type X-Indices
+  type: folder
+  seq: 1
+
+docs: |-
+  Pins the frozen-binding contract at the API layer. A slot's meaning is fixed for the life of a slug, so adding an index is accepted while moving an existing one to another slot, or dropping it, is refused — rows already projected under the old mapping would otherwise answer for a key they no longer carry, and no backfill can repair that.
+
+
+request:
+  auth: inherit

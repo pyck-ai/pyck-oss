@@ -73,6 +73,46 @@ func DataTypeSlug(v string) predicate.Order {
 	return predicate.Order(sql.FieldEQ(FieldDataTypeSlug, v))
 }
 
+// DataIxText1 applies equality check predicate on the "data_ix_text1" field. It's identical to DataIxText1EQ.
+func DataIxText1(v string) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxText1, v))
+}
+
+// DataIxText2 applies equality check predicate on the "data_ix_text2" field. It's identical to DataIxText2EQ.
+func DataIxText2(v string) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxText2, v))
+}
+
+// DataIxText3 applies equality check predicate on the "data_ix_text3" field. It's identical to DataIxText3EQ.
+func DataIxText3(v string) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxText3, v))
+}
+
+// DataIxText4 applies equality check predicate on the "data_ix_text4" field. It's identical to DataIxText4EQ.
+func DataIxText4(v string) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxText4, v))
+}
+
+// DataIxNumeric1 applies equality check predicate on the "data_ix_numeric1" field. It's identical to DataIxNumeric1EQ.
+func DataIxNumeric1(v float64) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxNumeric1, v))
+}
+
+// DataIxNumeric2 applies equality check predicate on the "data_ix_numeric2" field. It's identical to DataIxNumeric2EQ.
+func DataIxNumeric2(v float64) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxNumeric2, v))
+}
+
+// DataIxBool1 applies equality check predicate on the "data_ix_bool1" field. It's identical to DataIxBool1EQ.
+func DataIxBool1(v bool) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxBool1, v))
+}
+
+// DataIxBool2 applies equality check predicate on the "data_ix_bool2" field. It's identical to DataIxBool2EQ.
+func DataIxBool2(v bool) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxBool2, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Order {
 	return predicate.Order(sql.FieldEQ(FieldCreatedAt, v))
@@ -281,6 +321,466 @@ func DataIsNil() predicate.Order {
 // DataNotNil applies the NotNil predicate on the "data" field.
 func DataNotNil() predicate.Order {
 	return predicate.Order(sql.FieldNotNull(FieldData))
+}
+
+// DataIxText1EQ applies the EQ predicate on the "data_ix_text1" field.
+func DataIxText1EQ(v string) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxText1, v))
+}
+
+// DataIxText1NEQ applies the NEQ predicate on the "data_ix_text1" field.
+func DataIxText1NEQ(v string) predicate.Order {
+	return predicate.Order(sql.FieldNEQ(FieldDataIxText1, v))
+}
+
+// DataIxText1In applies the In predicate on the "data_ix_text1" field.
+func DataIxText1In(vs ...string) predicate.Order {
+	return predicate.Order(sql.FieldIn(FieldDataIxText1, vs...))
+}
+
+// DataIxText1NotIn applies the NotIn predicate on the "data_ix_text1" field.
+func DataIxText1NotIn(vs ...string) predicate.Order {
+	return predicate.Order(sql.FieldNotIn(FieldDataIxText1, vs...))
+}
+
+// DataIxText1GT applies the GT predicate on the "data_ix_text1" field.
+func DataIxText1GT(v string) predicate.Order {
+	return predicate.Order(sql.FieldGT(FieldDataIxText1, v))
+}
+
+// DataIxText1GTE applies the GTE predicate on the "data_ix_text1" field.
+func DataIxText1GTE(v string) predicate.Order {
+	return predicate.Order(sql.FieldGTE(FieldDataIxText1, v))
+}
+
+// DataIxText1LT applies the LT predicate on the "data_ix_text1" field.
+func DataIxText1LT(v string) predicate.Order {
+	return predicate.Order(sql.FieldLT(FieldDataIxText1, v))
+}
+
+// DataIxText1LTE applies the LTE predicate on the "data_ix_text1" field.
+func DataIxText1LTE(v string) predicate.Order {
+	return predicate.Order(sql.FieldLTE(FieldDataIxText1, v))
+}
+
+// DataIxText1Contains applies the Contains predicate on the "data_ix_text1" field.
+func DataIxText1Contains(v string) predicate.Order {
+	return predicate.Order(sql.FieldContains(FieldDataIxText1, v))
+}
+
+// DataIxText1HasPrefix applies the HasPrefix predicate on the "data_ix_text1" field.
+func DataIxText1HasPrefix(v string) predicate.Order {
+	return predicate.Order(sql.FieldHasPrefix(FieldDataIxText1, v))
+}
+
+// DataIxText1HasSuffix applies the HasSuffix predicate on the "data_ix_text1" field.
+func DataIxText1HasSuffix(v string) predicate.Order {
+	return predicate.Order(sql.FieldHasSuffix(FieldDataIxText1, v))
+}
+
+// DataIxText1IsNil applies the IsNil predicate on the "data_ix_text1" field.
+func DataIxText1IsNil() predicate.Order {
+	return predicate.Order(sql.FieldIsNull(FieldDataIxText1))
+}
+
+// DataIxText1NotNil applies the NotNil predicate on the "data_ix_text1" field.
+func DataIxText1NotNil() predicate.Order {
+	return predicate.Order(sql.FieldNotNull(FieldDataIxText1))
+}
+
+// DataIxText1EqualFold applies the EqualFold predicate on the "data_ix_text1" field.
+func DataIxText1EqualFold(v string) predicate.Order {
+	return predicate.Order(sql.FieldEqualFold(FieldDataIxText1, v))
+}
+
+// DataIxText1ContainsFold applies the ContainsFold predicate on the "data_ix_text1" field.
+func DataIxText1ContainsFold(v string) predicate.Order {
+	return predicate.Order(sql.FieldContainsFold(FieldDataIxText1, v))
+}
+
+// DataIxText2EQ applies the EQ predicate on the "data_ix_text2" field.
+func DataIxText2EQ(v string) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxText2, v))
+}
+
+// DataIxText2NEQ applies the NEQ predicate on the "data_ix_text2" field.
+func DataIxText2NEQ(v string) predicate.Order {
+	return predicate.Order(sql.FieldNEQ(FieldDataIxText2, v))
+}
+
+// DataIxText2In applies the In predicate on the "data_ix_text2" field.
+func DataIxText2In(vs ...string) predicate.Order {
+	return predicate.Order(sql.FieldIn(FieldDataIxText2, vs...))
+}
+
+// DataIxText2NotIn applies the NotIn predicate on the "data_ix_text2" field.
+func DataIxText2NotIn(vs ...string) predicate.Order {
+	return predicate.Order(sql.FieldNotIn(FieldDataIxText2, vs...))
+}
+
+// DataIxText2GT applies the GT predicate on the "data_ix_text2" field.
+func DataIxText2GT(v string) predicate.Order {
+	return predicate.Order(sql.FieldGT(FieldDataIxText2, v))
+}
+
+// DataIxText2GTE applies the GTE predicate on the "data_ix_text2" field.
+func DataIxText2GTE(v string) predicate.Order {
+	return predicate.Order(sql.FieldGTE(FieldDataIxText2, v))
+}
+
+// DataIxText2LT applies the LT predicate on the "data_ix_text2" field.
+func DataIxText2LT(v string) predicate.Order {
+	return predicate.Order(sql.FieldLT(FieldDataIxText2, v))
+}
+
+// DataIxText2LTE applies the LTE predicate on the "data_ix_text2" field.
+func DataIxText2LTE(v string) predicate.Order {
+	return predicate.Order(sql.FieldLTE(FieldDataIxText2, v))
+}
+
+// DataIxText2Contains applies the Contains predicate on the "data_ix_text2" field.
+func DataIxText2Contains(v string) predicate.Order {
+	return predicate.Order(sql.FieldContains(FieldDataIxText2, v))
+}
+
+// DataIxText2HasPrefix applies the HasPrefix predicate on the "data_ix_text2" field.
+func DataIxText2HasPrefix(v string) predicate.Order {
+	return predicate.Order(sql.FieldHasPrefix(FieldDataIxText2, v))
+}
+
+// DataIxText2HasSuffix applies the HasSuffix predicate on the "data_ix_text2" field.
+func DataIxText2HasSuffix(v string) predicate.Order {
+	return predicate.Order(sql.FieldHasSuffix(FieldDataIxText2, v))
+}
+
+// DataIxText2IsNil applies the IsNil predicate on the "data_ix_text2" field.
+func DataIxText2IsNil() predicate.Order {
+	return predicate.Order(sql.FieldIsNull(FieldDataIxText2))
+}
+
+// DataIxText2NotNil applies the NotNil predicate on the "data_ix_text2" field.
+func DataIxText2NotNil() predicate.Order {
+	return predicate.Order(sql.FieldNotNull(FieldDataIxText2))
+}
+
+// DataIxText2EqualFold applies the EqualFold predicate on the "data_ix_text2" field.
+func DataIxText2EqualFold(v string) predicate.Order {
+	return predicate.Order(sql.FieldEqualFold(FieldDataIxText2, v))
+}
+
+// DataIxText2ContainsFold applies the ContainsFold predicate on the "data_ix_text2" field.
+func DataIxText2ContainsFold(v string) predicate.Order {
+	return predicate.Order(sql.FieldContainsFold(FieldDataIxText2, v))
+}
+
+// DataIxText3EQ applies the EQ predicate on the "data_ix_text3" field.
+func DataIxText3EQ(v string) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxText3, v))
+}
+
+// DataIxText3NEQ applies the NEQ predicate on the "data_ix_text3" field.
+func DataIxText3NEQ(v string) predicate.Order {
+	return predicate.Order(sql.FieldNEQ(FieldDataIxText3, v))
+}
+
+// DataIxText3In applies the In predicate on the "data_ix_text3" field.
+func DataIxText3In(vs ...string) predicate.Order {
+	return predicate.Order(sql.FieldIn(FieldDataIxText3, vs...))
+}
+
+// DataIxText3NotIn applies the NotIn predicate on the "data_ix_text3" field.
+func DataIxText3NotIn(vs ...string) predicate.Order {
+	return predicate.Order(sql.FieldNotIn(FieldDataIxText3, vs...))
+}
+
+// DataIxText3GT applies the GT predicate on the "data_ix_text3" field.
+func DataIxText3GT(v string) predicate.Order {
+	return predicate.Order(sql.FieldGT(FieldDataIxText3, v))
+}
+
+// DataIxText3GTE applies the GTE predicate on the "data_ix_text3" field.
+func DataIxText3GTE(v string) predicate.Order {
+	return predicate.Order(sql.FieldGTE(FieldDataIxText3, v))
+}
+
+// DataIxText3LT applies the LT predicate on the "data_ix_text3" field.
+func DataIxText3LT(v string) predicate.Order {
+	return predicate.Order(sql.FieldLT(FieldDataIxText3, v))
+}
+
+// DataIxText3LTE applies the LTE predicate on the "data_ix_text3" field.
+func DataIxText3LTE(v string) predicate.Order {
+	return predicate.Order(sql.FieldLTE(FieldDataIxText3, v))
+}
+
+// DataIxText3Contains applies the Contains predicate on the "data_ix_text3" field.
+func DataIxText3Contains(v string) predicate.Order {
+	return predicate.Order(sql.FieldContains(FieldDataIxText3, v))
+}
+
+// DataIxText3HasPrefix applies the HasPrefix predicate on the "data_ix_text3" field.
+func DataIxText3HasPrefix(v string) predicate.Order {
+	return predicate.Order(sql.FieldHasPrefix(FieldDataIxText3, v))
+}
+
+// DataIxText3HasSuffix applies the HasSuffix predicate on the "data_ix_text3" field.
+func DataIxText3HasSuffix(v string) predicate.Order {
+	return predicate.Order(sql.FieldHasSuffix(FieldDataIxText3, v))
+}
+
+// DataIxText3IsNil applies the IsNil predicate on the "data_ix_text3" field.
+func DataIxText3IsNil() predicate.Order {
+	return predicate.Order(sql.FieldIsNull(FieldDataIxText3))
+}
+
+// DataIxText3NotNil applies the NotNil predicate on the "data_ix_text3" field.
+func DataIxText3NotNil() predicate.Order {
+	return predicate.Order(sql.FieldNotNull(FieldDataIxText3))
+}
+
+// DataIxText3EqualFold applies the EqualFold predicate on the "data_ix_text3" field.
+func DataIxText3EqualFold(v string) predicate.Order {
+	return predicate.Order(sql.FieldEqualFold(FieldDataIxText3, v))
+}
+
+// DataIxText3ContainsFold applies the ContainsFold predicate on the "data_ix_text3" field.
+func DataIxText3ContainsFold(v string) predicate.Order {
+	return predicate.Order(sql.FieldContainsFold(FieldDataIxText3, v))
+}
+
+// DataIxText4EQ applies the EQ predicate on the "data_ix_text4" field.
+func DataIxText4EQ(v string) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxText4, v))
+}
+
+// DataIxText4NEQ applies the NEQ predicate on the "data_ix_text4" field.
+func DataIxText4NEQ(v string) predicate.Order {
+	return predicate.Order(sql.FieldNEQ(FieldDataIxText4, v))
+}
+
+// DataIxText4In applies the In predicate on the "data_ix_text4" field.
+func DataIxText4In(vs ...string) predicate.Order {
+	return predicate.Order(sql.FieldIn(FieldDataIxText4, vs...))
+}
+
+// DataIxText4NotIn applies the NotIn predicate on the "data_ix_text4" field.
+func DataIxText4NotIn(vs ...string) predicate.Order {
+	return predicate.Order(sql.FieldNotIn(FieldDataIxText4, vs...))
+}
+
+// DataIxText4GT applies the GT predicate on the "data_ix_text4" field.
+func DataIxText4GT(v string) predicate.Order {
+	return predicate.Order(sql.FieldGT(FieldDataIxText4, v))
+}
+
+// DataIxText4GTE applies the GTE predicate on the "data_ix_text4" field.
+func DataIxText4GTE(v string) predicate.Order {
+	return predicate.Order(sql.FieldGTE(FieldDataIxText4, v))
+}
+
+// DataIxText4LT applies the LT predicate on the "data_ix_text4" field.
+func DataIxText4LT(v string) predicate.Order {
+	return predicate.Order(sql.FieldLT(FieldDataIxText4, v))
+}
+
+// DataIxText4LTE applies the LTE predicate on the "data_ix_text4" field.
+func DataIxText4LTE(v string) predicate.Order {
+	return predicate.Order(sql.FieldLTE(FieldDataIxText4, v))
+}
+
+// DataIxText4Contains applies the Contains predicate on the "data_ix_text4" field.
+func DataIxText4Contains(v string) predicate.Order {
+	return predicate.Order(sql.FieldContains(FieldDataIxText4, v))
+}
+
+// DataIxText4HasPrefix applies the HasPrefix predicate on the "data_ix_text4" field.
+func DataIxText4HasPrefix(v string) predicate.Order {
+	return predicate.Order(sql.FieldHasPrefix(FieldDataIxText4, v))
+}
+
+// DataIxText4HasSuffix applies the HasSuffix predicate on the "data_ix_text4" field.
+func DataIxText4HasSuffix(v string) predicate.Order {
+	return predicate.Order(sql.FieldHasSuffix(FieldDataIxText4, v))
+}
+
+// DataIxText4IsNil applies the IsNil predicate on the "data_ix_text4" field.
+func DataIxText4IsNil() predicate.Order {
+	return predicate.Order(sql.FieldIsNull(FieldDataIxText4))
+}
+
+// DataIxText4NotNil applies the NotNil predicate on the "data_ix_text4" field.
+func DataIxText4NotNil() predicate.Order {
+	return predicate.Order(sql.FieldNotNull(FieldDataIxText4))
+}
+
+// DataIxText4EqualFold applies the EqualFold predicate on the "data_ix_text4" field.
+func DataIxText4EqualFold(v string) predicate.Order {
+	return predicate.Order(sql.FieldEqualFold(FieldDataIxText4, v))
+}
+
+// DataIxText4ContainsFold applies the ContainsFold predicate on the "data_ix_text4" field.
+func DataIxText4ContainsFold(v string) predicate.Order {
+	return predicate.Order(sql.FieldContainsFold(FieldDataIxText4, v))
+}
+
+// DataIxNumeric1EQ applies the EQ predicate on the "data_ix_numeric1" field.
+func DataIxNumeric1EQ(v float64) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxNumeric1, v))
+}
+
+// DataIxNumeric1NEQ applies the NEQ predicate on the "data_ix_numeric1" field.
+func DataIxNumeric1NEQ(v float64) predicate.Order {
+	return predicate.Order(sql.FieldNEQ(FieldDataIxNumeric1, v))
+}
+
+// DataIxNumeric1In applies the In predicate on the "data_ix_numeric1" field.
+func DataIxNumeric1In(vs ...float64) predicate.Order {
+	return predicate.Order(sql.FieldIn(FieldDataIxNumeric1, vs...))
+}
+
+// DataIxNumeric1NotIn applies the NotIn predicate on the "data_ix_numeric1" field.
+func DataIxNumeric1NotIn(vs ...float64) predicate.Order {
+	return predicate.Order(sql.FieldNotIn(FieldDataIxNumeric1, vs...))
+}
+
+// DataIxNumeric1GT applies the GT predicate on the "data_ix_numeric1" field.
+func DataIxNumeric1GT(v float64) predicate.Order {
+	return predicate.Order(sql.FieldGT(FieldDataIxNumeric1, v))
+}
+
+// DataIxNumeric1GTE applies the GTE predicate on the "data_ix_numeric1" field.
+func DataIxNumeric1GTE(v float64) predicate.Order {
+	return predicate.Order(sql.FieldGTE(FieldDataIxNumeric1, v))
+}
+
+// DataIxNumeric1LT applies the LT predicate on the "data_ix_numeric1" field.
+func DataIxNumeric1LT(v float64) predicate.Order {
+	return predicate.Order(sql.FieldLT(FieldDataIxNumeric1, v))
+}
+
+// DataIxNumeric1LTE applies the LTE predicate on the "data_ix_numeric1" field.
+func DataIxNumeric1LTE(v float64) predicate.Order {
+	return predicate.Order(sql.FieldLTE(FieldDataIxNumeric1, v))
+}
+
+// DataIxNumeric1IsNil applies the IsNil predicate on the "data_ix_numeric1" field.
+func DataIxNumeric1IsNil() predicate.Order {
+	return predicate.Order(sql.FieldIsNull(FieldDataIxNumeric1))
+}
+
+// DataIxNumeric1NotNil applies the NotNil predicate on the "data_ix_numeric1" field.
+func DataIxNumeric1NotNil() predicate.Order {
+	return predicate.Order(sql.FieldNotNull(FieldDataIxNumeric1))
+}
+
+// DataIxNumeric2EQ applies the EQ predicate on the "data_ix_numeric2" field.
+func DataIxNumeric2EQ(v float64) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxNumeric2, v))
+}
+
+// DataIxNumeric2NEQ applies the NEQ predicate on the "data_ix_numeric2" field.
+func DataIxNumeric2NEQ(v float64) predicate.Order {
+	return predicate.Order(sql.FieldNEQ(FieldDataIxNumeric2, v))
+}
+
+// DataIxNumeric2In applies the In predicate on the "data_ix_numeric2" field.
+func DataIxNumeric2In(vs ...float64) predicate.Order {
+	return predicate.Order(sql.FieldIn(FieldDataIxNumeric2, vs...))
+}
+
+// DataIxNumeric2NotIn applies the NotIn predicate on the "data_ix_numeric2" field.
+func DataIxNumeric2NotIn(vs ...float64) predicate.Order {
+	return predicate.Order(sql.FieldNotIn(FieldDataIxNumeric2, vs...))
+}
+
+// DataIxNumeric2GT applies the GT predicate on the "data_ix_numeric2" field.
+func DataIxNumeric2GT(v float64) predicate.Order {
+	return predicate.Order(sql.FieldGT(FieldDataIxNumeric2, v))
+}
+
+// DataIxNumeric2GTE applies the GTE predicate on the "data_ix_numeric2" field.
+func DataIxNumeric2GTE(v float64) predicate.Order {
+	return predicate.Order(sql.FieldGTE(FieldDataIxNumeric2, v))
+}
+
+// DataIxNumeric2LT applies the LT predicate on the "data_ix_numeric2" field.
+func DataIxNumeric2LT(v float64) predicate.Order {
+	return predicate.Order(sql.FieldLT(FieldDataIxNumeric2, v))
+}
+
+// DataIxNumeric2LTE applies the LTE predicate on the "data_ix_numeric2" field.
+func DataIxNumeric2LTE(v float64) predicate.Order {
+	return predicate.Order(sql.FieldLTE(FieldDataIxNumeric2, v))
+}
+
+// DataIxNumeric2IsNil applies the IsNil predicate on the "data_ix_numeric2" field.
+func DataIxNumeric2IsNil() predicate.Order {
+	return predicate.Order(sql.FieldIsNull(FieldDataIxNumeric2))
+}
+
+// DataIxNumeric2NotNil applies the NotNil predicate on the "data_ix_numeric2" field.
+func DataIxNumeric2NotNil() predicate.Order {
+	return predicate.Order(sql.FieldNotNull(FieldDataIxNumeric2))
+}
+
+// DataIxBool1EQ applies the EQ predicate on the "data_ix_bool1" field.
+func DataIxBool1EQ(v bool) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxBool1, v))
+}
+
+// DataIxBool1NEQ applies the NEQ predicate on the "data_ix_bool1" field.
+func DataIxBool1NEQ(v bool) predicate.Order {
+	return predicate.Order(sql.FieldNEQ(FieldDataIxBool1, v))
+}
+
+// DataIxBool1IsNil applies the IsNil predicate on the "data_ix_bool1" field.
+func DataIxBool1IsNil() predicate.Order {
+	return predicate.Order(sql.FieldIsNull(FieldDataIxBool1))
+}
+
+// DataIxBool1NotNil applies the NotNil predicate on the "data_ix_bool1" field.
+func DataIxBool1NotNil() predicate.Order {
+	return predicate.Order(sql.FieldNotNull(FieldDataIxBool1))
+}
+
+// DataIxBool2EQ applies the EQ predicate on the "data_ix_bool2" field.
+func DataIxBool2EQ(v bool) predicate.Order {
+	return predicate.Order(sql.FieldEQ(FieldDataIxBool2, v))
+}
+
+// DataIxBool2NEQ applies the NEQ predicate on the "data_ix_bool2" field.
+func DataIxBool2NEQ(v bool) predicate.Order {
+	return predicate.Order(sql.FieldNEQ(FieldDataIxBool2, v))
+}
+
+// DataIxBool2IsNil applies the IsNil predicate on the "data_ix_bool2" field.
+func DataIxBool2IsNil() predicate.Order {
+	return predicate.Order(sql.FieldIsNull(FieldDataIxBool2))
+}
+
+// DataIxBool2NotNil applies the NotNil predicate on the "data_ix_bool2" field.
+func DataIxBool2NotNil() predicate.Order {
+	return predicate.Order(sql.FieldNotNull(FieldDataIxBool2))
+}
+
+// DataIxList1IsNil applies the IsNil predicate on the "data_ix_list1" field.
+func DataIxList1IsNil() predicate.Order {
+	return predicate.Order(sql.FieldIsNull(FieldDataIxList1))
+}
+
+// DataIxList1NotNil applies the NotNil predicate on the "data_ix_list1" field.
+func DataIxList1NotNil() predicate.Order {
+	return predicate.Order(sql.FieldNotNull(FieldDataIxList1))
+}
+
+// DataIxList2IsNil applies the IsNil predicate on the "data_ix_list2" field.
+func DataIxList2IsNil() predicate.Order {
+	return predicate.Order(sql.FieldIsNull(FieldDataIxList2))
+}
+
+// DataIxList2NotNil applies the NotNil predicate on the "data_ix_list2" field.
+func DataIxList2NotNil() predicate.Order {
+	return predicate.Order(sql.FieldNotNull(FieldDataIxList2))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

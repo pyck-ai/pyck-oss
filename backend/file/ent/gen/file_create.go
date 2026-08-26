@@ -632,18 +632,6 @@ func (u *FileUpsert) ClearDescription() *FileUpsert {
 	return u
 }
 
-// SetName sets the "name" field.
-func (u *FileUpsert) SetName(v string) *FileUpsert {
-	u.Set(file.FieldName, v)
-	return u
-}
-
-// UpdateName sets the "name" field to the value that was provided on create.
-func (u *FileUpsert) UpdateName() *FileUpsert {
-	u.SetExcluded(file.FieldName)
-	return u
-}
-
 // SetSize sets the "size" field.
 func (u *FileUpsert) SetSize(v int64) *FileUpsert {
 	u.Set(file.FieldSize, v)
@@ -665,18 +653,6 @@ func (u *FileUpsert) AddSize(v int64) *FileUpsert {
 // ClearSize clears the value of the "size" field.
 func (u *FileUpsert) ClearSize() *FileUpsert {
 	u.SetNull(file.FieldSize)
-	return u
-}
-
-// SetContentType sets the "content_type" field.
-func (u *FileUpsert) SetContentType(v string) *FileUpsert {
-	u.Set(file.FieldContentType, v)
-	return u
-}
-
-// UpdateContentType sets the "content_type" field to the value that was provided on create.
-func (u *FileUpsert) UpdateContentType() *FileUpsert {
-	u.SetExcluded(file.FieldContentType)
 	return u
 }
 
@@ -723,6 +699,12 @@ func (u *FileUpsertOne) UpdateNewValues() *FileUpsertOne {
 		}
 		if _, exists := u.create.mutation.CreatedBy(); exists {
 			s.SetIgnore(file.FieldCreatedBy)
+		}
+		if _, exists := u.create.mutation.Name(); exists {
+			s.SetIgnore(file.FieldName)
+		}
+		if _, exists := u.create.mutation.ContentType(); exists {
+			s.SetIgnore(file.FieldContentType)
 		}
 	}))
 	return u
@@ -951,20 +933,6 @@ func (u *FileUpsertOne) ClearDescription() *FileUpsertOne {
 	})
 }
 
-// SetName sets the "name" field.
-func (u *FileUpsertOne) SetName(v string) *FileUpsertOne {
-	return u.Update(func(s *FileUpsert) {
-		s.SetName(v)
-	})
-}
-
-// UpdateName sets the "name" field to the value that was provided on create.
-func (u *FileUpsertOne) UpdateName() *FileUpsertOne {
-	return u.Update(func(s *FileUpsert) {
-		s.UpdateName()
-	})
-}
-
 // SetSize sets the "size" field.
 func (u *FileUpsertOne) SetSize(v int64) *FileUpsertOne {
 	return u.Update(func(s *FileUpsert) {
@@ -990,20 +958,6 @@ func (u *FileUpsertOne) UpdateSize() *FileUpsertOne {
 func (u *FileUpsertOne) ClearSize() *FileUpsertOne {
 	return u.Update(func(s *FileUpsert) {
 		s.ClearSize()
-	})
-}
-
-// SetContentType sets the "content_type" field.
-func (u *FileUpsertOne) SetContentType(v string) *FileUpsertOne {
-	return u.Update(func(s *FileUpsert) {
-		s.SetContentType(v)
-	})
-}
-
-// UpdateContentType sets the "content_type" field to the value that was provided on create.
-func (u *FileUpsertOne) UpdateContentType() *FileUpsertOne {
-	return u.Update(func(s *FileUpsert) {
-		s.UpdateContentType()
 	})
 }
 
@@ -1219,6 +1173,12 @@ func (u *FileUpsertBulk) UpdateNewValues() *FileUpsertBulk {
 			}
 			if _, exists := b.mutation.CreatedBy(); exists {
 				s.SetIgnore(file.FieldCreatedBy)
+			}
+			if _, exists := b.mutation.Name(); exists {
+				s.SetIgnore(file.FieldName)
+			}
+			if _, exists := b.mutation.ContentType(); exists {
+				s.SetIgnore(file.FieldContentType)
 			}
 		}
 	}))
@@ -1448,20 +1408,6 @@ func (u *FileUpsertBulk) ClearDescription() *FileUpsertBulk {
 	})
 }
 
-// SetName sets the "name" field.
-func (u *FileUpsertBulk) SetName(v string) *FileUpsertBulk {
-	return u.Update(func(s *FileUpsert) {
-		s.SetName(v)
-	})
-}
-
-// UpdateName sets the "name" field to the value that was provided on create.
-func (u *FileUpsertBulk) UpdateName() *FileUpsertBulk {
-	return u.Update(func(s *FileUpsert) {
-		s.UpdateName()
-	})
-}
-
 // SetSize sets the "size" field.
 func (u *FileUpsertBulk) SetSize(v int64) *FileUpsertBulk {
 	return u.Update(func(s *FileUpsert) {
@@ -1487,20 +1433,6 @@ func (u *FileUpsertBulk) UpdateSize() *FileUpsertBulk {
 func (u *FileUpsertBulk) ClearSize() *FileUpsertBulk {
 	return u.Update(func(s *FileUpsert) {
 		s.ClearSize()
-	})
-}
-
-// SetContentType sets the "content_type" field.
-func (u *FileUpsertBulk) SetContentType(v string) *FileUpsertBulk {
-	return u.Update(func(s *FileUpsert) {
-		s.SetContentType(v)
-	})
-}
-
-// UpdateContentType sets the "content_type" field to the value that was provided on create.
-func (u *FileUpsertBulk) UpdateContentType() *FileUpsertBulk {
-	return u.Update(func(s *FileUpsert) {
-		s.UpdateContentType()
 	})
 }
 

@@ -97,3 +97,14 @@ frontend.persistenceMaxQPS:
   - value: 5000  # Increased from default 3000
     constraints: {}
 
+# Worker Deployment Versioning. Off by default in the server; without all four
+# a versioned worker fails to register its deployment version.
+system.enableDeployments:
+  - value: true
+system.enableDeploymentVersions:
+  - value: true
+frontend.workerVersioningDataAPIs:
+  - value: true
+frontend.workerVersioningWorkflowAPIs:
+  - value: true
+

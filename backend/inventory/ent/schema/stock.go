@@ -46,6 +46,7 @@ func (Stock) Fields() []ent.Field {
 			Min(0).
 			Annotations(
 				entgql.OrderField("QUANTITY"),
+				entgql.Type("Int64"),
 			),
 		field.UUID("movement_id", uuid.UUID{}).
 			Optional().
@@ -57,12 +58,14 @@ func (Stock) Fields() []ent.Field {
 			Default(0).
 			Annotations(
 				entgql.OrderField("INCOMING_STOCK"),
+				entgql.Type("Int64"),
 			),
 		field.Int64("outgoing_stock").
 			Min(0).
 			Default(0).
 			Annotations(
 				entgql.OrderField("OUTGOING_STOCK"),
+				entgql.Type("Int64"),
 			),
 
 		field.Int64("own_quantity").
@@ -70,6 +73,7 @@ func (Stock) Fields() []ent.Field {
 			Default(0).
 			Annotations(
 				entgql.OrderField("OWN_QUANTITY"),
+				entgql.Type("Int64"),
 			),
 
 		field.Int64("own_incoming_stock").
@@ -77,21 +81,23 @@ func (Stock) Fields() []ent.Field {
 			Default(0).
 			Annotations(
 				entgql.OrderField("OWN_INCOMING_STOCK"),
+				entgql.Type("Int64"),
 			),
 		field.Int64("own_outgoing_stock").
 			Min(0).
 			Default(0).
 			Annotations(
 				entgql.OrderField("OWN_OUTGOING_STOCK"),
+				entgql.Type("Int64"),
 			),
 
-		// Unique and monotonic per (tenant, repository, item) — the only
-		// total order for "current row"; created_at is per-pod wall clock.
-		// Read-only in the API so clients can dedup by version.
+		// Unique and monotonic per (tenant, repository, item) — the total order
+		// "current row" is decided by. Exposed read-only for row identity.
 		field.Int64("version").
 			Default(0).
 			Annotations(
 				entgql.OrderField("VERSION"),
+				entgql.Type("Int64"),
 				entgql.Skip(entgql.SkipMutationCreateInput|entgql.SkipMutationUpdateInput),
 			),
 	}
@@ -119,14 +125,12 @@ func (Stock) Indexes() []ent.Index {
 		index.Fields("tenant_id", "repository_id", "item_id", "created_at"),
 		index.Fields("movement_id"),
 		index.Fields("tenant_id", "repository_id", "item_id", "version").Unique(),
-		// Lets the tenant-less NOT EXISTS-on-self stock subqueries in
-		// loadAncestorStocks / loadLatestStockPerRepo (repository_id, item_id,
-		// created_at > outer) index-scan instead of seq-scanning: they don't
-		// filter by tenant, so they can't use the tenant-prefixed index. Added
-		// in migration 20260521135054; kept as created_at DESC to match the
-		// existing index (no rebuild).
-		index.Fields("repository_id", "item_id", "created_at").
-			Annotations(entsql.DescColumns("created_at")),
+		// Serves the NOT EXISTS-on-self subqueries in loadAncestorStocks /
+		// loadItemIDsAtRepo / loadLatestStockPerRepo, which filter by neither
+		// tenant_id (so the unique index above cannot serve them) nor
+		// deleted_at (so this one must not be partial).
+		index.Fields("repository_id", "item_id", "version").
+			Annotations(entsql.DescColumns("version")),
 	}
 }
 

@@ -10,6 +10,8 @@ import (
 	"entgo.io/contrib/entgql"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
+
+	"github.com/pyck-ai/pyck/backend/common/sqljsonpath"
 )
 
 // JSONType defines the supported types for casting JSONB values during ordering.
@@ -49,93 +51,6 @@ func (jt *JSONType) UnmarshalGQL(v interface{}) error {
 	return jt.Validate()
 }
 
-// WithAccessPolicyOrder configures pagination ordering with JSONB support.
-func WithAccessPolicyOrder(order *AccessPolicyOrder) AccessPolicyPaginateOption {
-	if order == nil {
-		order = DefaultAccessPolicyOrder
-	}
-	o := *order
-	return func(pager *accesspolicyPager) error {
-		if err := o.Direction.Validate(); err != nil {
-			return err
-		}
-		if o.JSONType != nil {
-			if err := o.JSONType.Validate(); err != nil {
-				return err
-			}
-		}
-		if o.Field == nil && (o.JSONPath == nil || *o.JSONPath == "") {
-			o.Field = DefaultAccessPolicyOrder.Field
-		}
-		pager.order = &o
-		return nil
-	}
-}
-
-func (p *accesspolicyPager) toCursor(_m *AccessPolicy) Cursor {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		return DefaultAccessPolicyOrder.Field.toCursor(_m)
-	}
-	return p.ent_toCursor(_m)
-}
-
-func (p *accesspolicyPager) applyCursors(query *AccessPolicyQuery, after, before *Cursor) (*AccessPolicyQuery, error) {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		direction := p.order.Direction
-		if p.reverse {
-			direction = direction.Reverse()
-		}
-		for _, predicate := range entgql.CursorsPredicate(after, before,
-			DefaultAccessPolicyOrder.Field.column, DefaultAccessPolicyOrder.Field.column, direction) {
-			query = query.Where(predicate)
-		}
-		return query, nil
-	}
-	return p.ent_applyCursors(query, after, before)
-}
-
-func (p *accesspolicyPager) applyOrder(query *AccessPolicyQuery) *AccessPolicyQuery {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		direction := p.order.Direction
-		if p.reverse {
-			direction = direction.Reverse()
-		}
-		col := "data"
-		opts := []sqljson.Option{sqljson.DotPath(*p.order.JSONPath)}
-		if p.order.JSONType != nil {
-			switch *p.order.JSONType {
-			case JSONTypeNumber:
-				opts = append(opts, sqljson.Cast("numeric"))
-			case JSONTypeString:
-				opts = append(opts, sqljson.Cast("text"))
-			case JSONTypeBoolean:
-				opts = append(opts, sqljson.Cast("boolean"))
-			}
-		}
-		if direction == entgql.OrderDirectionDesc {
-			query = query.Order(sqljson.OrderValueDesc(col, opts...))
-		} else {
-			query = query.Order(sqljson.OrderValue(col, opts...))
-		}
-		query = query.Order(DefaultAccessPolicyOrder.Field.toTerm(direction.OrderTermOption()))
-		return query
-	}
-	return p.ent_applyOrder(query)
-}
-
-func (p *accesspolicyPager) orderExpr(query *AccessPolicyQuery) sql.Querier {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		direction := p.order.Direction
-		if p.reverse {
-			direction = direction.Reverse()
-		}
-		return sql.ExprFunc(func(b *sql.Builder) {
-			b.Ident(DefaultAccessPolicyOrder.Field.column).Pad().WriteString(string(direction))
-		})
-	}
-	return p.ent_orderExpr(query)
-}
-
 // WithDataTypeOrder configures pagination ordering with JSONB support.
 func WithDataTypeOrder(order *DataTypeOrder) DataTypePaginateOption {
 	if order == nil {
@@ -148,6 +63,15 @@ func WithDataTypeOrder(order *DataTypeOrder) DataTypePaginateOption {
 		}
 		if o.JSONType != nil {
 			if err := o.JSONType.Validate(); err != nil {
+				return err
+			}
+		}
+		// Reject a client-supplied JSON path that could break out of the raw
+		// single-quoted path literal ent emits on Postgres (see #1382). Applied
+		// here — the single point where pager.order is set — so every downstream
+		// use of JSONPath (applyOrder/toCursor/orderExpr) sees a validated path.
+		if o.JSONPath != nil && *o.JSONPath != "" {
+			if err := sqljsonpath.Validate(*o.JSONPath); err != nil {
 				return err
 			}
 		}
@@ -238,6 +162,15 @@ func WithDeviceOrder(order *DeviceOrder) DevicePaginateOption {
 				return err
 			}
 		}
+		// Reject a client-supplied JSON path that could break out of the raw
+		// single-quoted path literal ent emits on Postgres (see #1382). Applied
+		// here — the single point where pager.order is set — so every downstream
+		// use of JSONPath (applyOrder/toCursor/orderExpr) sees a validated path.
+		if o.JSONPath != nil && *o.JSONPath != "" {
+			if err := sqljsonpath.Validate(*o.JSONPath); err != nil {
+				return err
+			}
+		}
 		if o.Field == nil && (o.JSONPath == nil || *o.JSONPath == "") {
 			o.Field = DefaultDeviceOrder.Field
 		}
@@ -322,6 +255,15 @@ func WithDeviceLocationOrder(order *DeviceLocationOrder) DeviceLocationPaginateO
 		}
 		if o.JSONType != nil {
 			if err := o.JSONType.Validate(); err != nil {
+				return err
+			}
+		}
+		// Reject a client-supplied JSON path that could break out of the raw
+		// single-quoted path literal ent emits on Postgres (see #1382). Applied
+		// here — the single point where pager.order is set — so every downstream
+		// use of JSONPath (applyOrder/toCursor/orderExpr) sees a validated path.
+		if o.JSONPath != nil && *o.JSONPath != "" {
+			if err := sqljsonpath.Validate(*o.JSONPath); err != nil {
 				return err
 			}
 		}
@@ -412,6 +354,15 @@ func WithDeviceUserOrder(order *DeviceUserOrder) DeviceUserPaginateOption {
 				return err
 			}
 		}
+		// Reject a client-supplied JSON path that could break out of the raw
+		// single-quoted path literal ent emits on Postgres (see #1382). Applied
+		// here — the single point where pager.order is set — so every downstream
+		// use of JSONPath (applyOrder/toCursor/orderExpr) sees a validated path.
+		if o.JSONPath != nil && *o.JSONPath != "" {
+			if err := sqljsonpath.Validate(*o.JSONPath); err != nil {
+				return err
+			}
+		}
 		if o.Field == nil && (o.JSONPath == nil || *o.JSONPath == "") {
 			o.Field = DefaultDeviceUserOrder.Field
 		}
@@ -499,6 +450,15 @@ func WithEntityEventsOutboxOrder(order *EntityEventsOutboxOrder) EntityEventsOut
 				return err
 			}
 		}
+		// Reject a client-supplied JSON path that could break out of the raw
+		// single-quoted path literal ent emits on Postgres (see #1382). Applied
+		// here — the single point where pager.order is set — so every downstream
+		// use of JSONPath (applyOrder/toCursor/orderExpr) sees a validated path.
+		if o.JSONPath != nil && *o.JSONPath != "" {
+			if err := sqljsonpath.Validate(*o.JSONPath); err != nil {
+				return err
+			}
+		}
 		if o.Field == nil && (o.JSONPath == nil || *o.JSONPath == "") {
 			o.Field = DefaultEntityEventsOutboxOrder.Field
 		}
@@ -571,180 +531,6 @@ func (p *entityeventsoutboxPager) orderExpr(query *EntityEventsOutboxQuery) sql.
 	return p.ent_orderExpr(query)
 }
 
-// WithEventOrder configures pagination ordering with JSONB support.
-func WithEventOrder(order *EventOrder) EventPaginateOption {
-	if order == nil {
-		order = DefaultEventOrder
-	}
-	o := *order
-	return func(pager *eventPager) error {
-		if err := o.Direction.Validate(); err != nil {
-			return err
-		}
-		if o.JSONType != nil {
-			if err := o.JSONType.Validate(); err != nil {
-				return err
-			}
-		}
-		if o.Field == nil && (o.JSONPath == nil || *o.JSONPath == "") {
-			o.Field = DefaultEventOrder.Field
-		}
-		pager.order = &o
-		return nil
-	}
-}
-
-func (p *eventPager) toCursor(_m *Event) Cursor {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		return DefaultEventOrder.Field.toCursor(_m)
-	}
-	return p.ent_toCursor(_m)
-}
-
-func (p *eventPager) applyCursors(query *EventQuery, after, before *Cursor) (*EventQuery, error) {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		direction := p.order.Direction
-		if p.reverse {
-			direction = direction.Reverse()
-		}
-		for _, predicate := range entgql.CursorsPredicate(after, before,
-			DefaultEventOrder.Field.column, DefaultEventOrder.Field.column, direction) {
-			query = query.Where(predicate)
-		}
-		return query, nil
-	}
-	return p.ent_applyCursors(query, after, before)
-}
-
-func (p *eventPager) applyOrder(query *EventQuery) *EventQuery {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		direction := p.order.Direction
-		if p.reverse {
-			direction = direction.Reverse()
-		}
-		col := "data"
-		opts := []sqljson.Option{sqljson.DotPath(*p.order.JSONPath)}
-		if p.order.JSONType != nil {
-			switch *p.order.JSONType {
-			case JSONTypeNumber:
-				opts = append(opts, sqljson.Cast("numeric"))
-			case JSONTypeString:
-				opts = append(opts, sqljson.Cast("text"))
-			case JSONTypeBoolean:
-				opts = append(opts, sqljson.Cast("boolean"))
-			}
-		}
-		if direction == entgql.OrderDirectionDesc {
-			query = query.Order(sqljson.OrderValueDesc(col, opts...))
-		} else {
-			query = query.Order(sqljson.OrderValue(col, opts...))
-		}
-		query = query.Order(DefaultEventOrder.Field.toTerm(direction.OrderTermOption()))
-		return query
-	}
-	return p.ent_applyOrder(query)
-}
-
-func (p *eventPager) orderExpr(query *EventQuery) sql.Querier {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		direction := p.order.Direction
-		if p.reverse {
-			direction = direction.Reverse()
-		}
-		return sql.ExprFunc(func(b *sql.Builder) {
-			b.Ident(DefaultEventOrder.Field.column).Pad().WriteString(string(direction))
-		})
-	}
-	return p.ent_orderExpr(query)
-}
-
-// WithGroupOrder configures pagination ordering with JSONB support.
-func WithGroupOrder(order *GroupOrder) GroupPaginateOption {
-	if order == nil {
-		order = DefaultGroupOrder
-	}
-	o := *order
-	return func(pager *groupPager) error {
-		if err := o.Direction.Validate(); err != nil {
-			return err
-		}
-		if o.JSONType != nil {
-			if err := o.JSONType.Validate(); err != nil {
-				return err
-			}
-		}
-		if o.Field == nil && (o.JSONPath == nil || *o.JSONPath == "") {
-			o.Field = DefaultGroupOrder.Field
-		}
-		pager.order = &o
-		return nil
-	}
-}
-
-func (p *groupPager) toCursor(_m *Group) Cursor {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		return DefaultGroupOrder.Field.toCursor(_m)
-	}
-	return p.ent_toCursor(_m)
-}
-
-func (p *groupPager) applyCursors(query *GroupQuery, after, before *Cursor) (*GroupQuery, error) {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		direction := p.order.Direction
-		if p.reverse {
-			direction = direction.Reverse()
-		}
-		for _, predicate := range entgql.CursorsPredicate(after, before,
-			DefaultGroupOrder.Field.column, DefaultGroupOrder.Field.column, direction) {
-			query = query.Where(predicate)
-		}
-		return query, nil
-	}
-	return p.ent_applyCursors(query, after, before)
-}
-
-func (p *groupPager) applyOrder(query *GroupQuery) *GroupQuery {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		direction := p.order.Direction
-		if p.reverse {
-			direction = direction.Reverse()
-		}
-		col := "data"
-		opts := []sqljson.Option{sqljson.DotPath(*p.order.JSONPath)}
-		if p.order.JSONType != nil {
-			switch *p.order.JSONType {
-			case JSONTypeNumber:
-				opts = append(opts, sqljson.Cast("numeric"))
-			case JSONTypeString:
-				opts = append(opts, sqljson.Cast("text"))
-			case JSONTypeBoolean:
-				opts = append(opts, sqljson.Cast("boolean"))
-			}
-		}
-		if direction == entgql.OrderDirectionDesc {
-			query = query.Order(sqljson.OrderValueDesc(col, opts...))
-		} else {
-			query = query.Order(sqljson.OrderValue(col, opts...))
-		}
-		query = query.Order(DefaultGroupOrder.Field.toTerm(direction.OrderTermOption()))
-		return query
-	}
-	return p.ent_applyOrder(query)
-}
-
-func (p *groupPager) orderExpr(query *GroupQuery) sql.Querier {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		direction := p.order.Direction
-		if p.reverse {
-			direction = direction.Reverse()
-		}
-		return sql.ExprFunc(func(b *sql.Builder) {
-			b.Ident(DefaultGroupOrder.Field.column).Pad().WriteString(string(direction))
-		})
-	}
-	return p.ent_orderExpr(query)
-}
-
 // WithKeyValueOrder configures pagination ordering with JSONB support.
 func WithKeyValueOrder(order *KeyValueOrder) KeyValuePaginateOption {
 	if order == nil {
@@ -757,6 +543,15 @@ func WithKeyValueOrder(order *KeyValueOrder) KeyValuePaginateOption {
 		}
 		if o.JSONType != nil {
 			if err := o.JSONType.Validate(); err != nil {
+				return err
+			}
+		}
+		// Reject a client-supplied JSON path that could break out of the raw
+		// single-quoted path literal ent emits on Postgres (see #1382). Applied
+		// here — the single point where pager.order is set — so every downstream
+		// use of JSONPath (applyOrder/toCursor/orderExpr) sees a validated path.
+		if o.JSONPath != nil && *o.JSONPath != "" {
+			if err := sqljsonpath.Validate(*o.JSONPath); err != nil {
 				return err
 			}
 		}
@@ -847,6 +642,15 @@ func WithLocationOrder(order *LocationOrder) LocationPaginateOption {
 				return err
 			}
 		}
+		// Reject a client-supplied JSON path that could break out of the raw
+		// single-quoted path literal ent emits on Postgres (see #1382). Applied
+		// here — the single point where pager.order is set — so every downstream
+		// use of JSONPath (applyOrder/toCursor/orderExpr) sees a validated path.
+		if o.JSONPath != nil && *o.JSONPath != "" {
+			if err := sqljsonpath.Validate(*o.JSONPath); err != nil {
+				return err
+			}
+		}
 		if o.Field == nil && (o.JSONPath == nil || *o.JSONPath == "") {
 			o.Field = DefaultLocationOrder.Field
 		}
@@ -919,93 +723,6 @@ func (p *locationPager) orderExpr(query *LocationQuery) sql.Querier {
 	return p.ent_orderExpr(query)
 }
 
-// WithRoleOrder configures pagination ordering with JSONB support.
-func WithRoleOrder(order *RoleOrder) RolePaginateOption {
-	if order == nil {
-		order = DefaultRoleOrder
-	}
-	o := *order
-	return func(pager *rolePager) error {
-		if err := o.Direction.Validate(); err != nil {
-			return err
-		}
-		if o.JSONType != nil {
-			if err := o.JSONType.Validate(); err != nil {
-				return err
-			}
-		}
-		if o.Field == nil && (o.JSONPath == nil || *o.JSONPath == "") {
-			o.Field = DefaultRoleOrder.Field
-		}
-		pager.order = &o
-		return nil
-	}
-}
-
-func (p *rolePager) toCursor(_m *Role) Cursor {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		return DefaultRoleOrder.Field.toCursor(_m)
-	}
-	return p.ent_toCursor(_m)
-}
-
-func (p *rolePager) applyCursors(query *RoleQuery, after, before *Cursor) (*RoleQuery, error) {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		direction := p.order.Direction
-		if p.reverse {
-			direction = direction.Reverse()
-		}
-		for _, predicate := range entgql.CursorsPredicate(after, before,
-			DefaultRoleOrder.Field.column, DefaultRoleOrder.Field.column, direction) {
-			query = query.Where(predicate)
-		}
-		return query, nil
-	}
-	return p.ent_applyCursors(query, after, before)
-}
-
-func (p *rolePager) applyOrder(query *RoleQuery) *RoleQuery {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		direction := p.order.Direction
-		if p.reverse {
-			direction = direction.Reverse()
-		}
-		col := "data"
-		opts := []sqljson.Option{sqljson.DotPath(*p.order.JSONPath)}
-		if p.order.JSONType != nil {
-			switch *p.order.JSONType {
-			case JSONTypeNumber:
-				opts = append(opts, sqljson.Cast("numeric"))
-			case JSONTypeString:
-				opts = append(opts, sqljson.Cast("text"))
-			case JSONTypeBoolean:
-				opts = append(opts, sqljson.Cast("boolean"))
-			}
-		}
-		if direction == entgql.OrderDirectionDesc {
-			query = query.Order(sqljson.OrderValueDesc(col, opts...))
-		} else {
-			query = query.Order(sqljson.OrderValue(col, opts...))
-		}
-		query = query.Order(DefaultRoleOrder.Field.toTerm(direction.OrderTermOption()))
-		return query
-	}
-	return p.ent_applyOrder(query)
-}
-
-func (p *rolePager) orderExpr(query *RoleQuery) sql.Querier {
-	if p.order.JSONPath != nil && *p.order.JSONPath != "" {
-		direction := p.order.Direction
-		if p.reverse {
-			direction = direction.Reverse()
-		}
-		return sql.ExprFunc(func(b *sql.Builder) {
-			b.Ident(DefaultRoleOrder.Field.column).Pad().WriteString(string(direction))
-		})
-	}
-	return p.ent_orderExpr(query)
-}
-
 // WithTenantOrder configures pagination ordering with JSONB support.
 func WithTenantOrder(order *TenantOrder) TenantPaginateOption {
 	if order == nil {
@@ -1018,6 +735,15 @@ func WithTenantOrder(order *TenantOrder) TenantPaginateOption {
 		}
 		if o.JSONType != nil {
 			if err := o.JSONType.Validate(); err != nil {
+				return err
+			}
+		}
+		// Reject a client-supplied JSON path that could break out of the raw
+		// single-quoted path literal ent emits on Postgres (see #1382). Applied
+		// here — the single point where pager.order is set — so every downstream
+		// use of JSONPath (applyOrder/toCursor/orderExpr) sees a validated path.
+		if o.JSONPath != nil && *o.JSONPath != "" {
+			if err := sqljsonpath.Validate(*o.JSONPath); err != nil {
 				return err
 			}
 		}
@@ -1105,6 +831,15 @@ func WithUserOrder(order *UserOrder) UserPaginateOption {
 		}
 		if o.JSONType != nil {
 			if err := o.JSONType.Validate(); err != nil {
+				return err
+			}
+		}
+		// Reject a client-supplied JSON path that could break out of the raw
+		// single-quoted path literal ent emits on Postgres (see #1382). Applied
+		// here — the single point where pager.order is set — so every downstream
+		// use of JSONPath (applyOrder/toCursor/orderExpr) sees a validated path.
+		if o.JSONPath != nil && *o.JSONPath != "" {
+			if err := sqljsonpath.Validate(*o.JSONPath); err != nil {
 				return err
 			}
 		}

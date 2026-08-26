@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -20,11 +20,11 @@ const workflowServiceName = "temporal.api.workflowservice.v1.WorkflowService"
 
 var ErrFrontendNotServing = errors.New("temporal frontend is not serving")
 
-func checkHealth(c *cli.Context) error {
-	ctx, cancel := context.WithTimeout(c.Context, 10*time.Second)
+func checkHealth(ctx context.Context, cmd *cli.Command) error {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	address := c.String("address")
+	address := cmd.String("address")
 	if strings.HasPrefix(address, ":") {
 		address = "127.0.0.1" + address
 	}

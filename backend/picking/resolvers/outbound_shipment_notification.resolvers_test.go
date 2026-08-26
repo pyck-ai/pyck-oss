@@ -208,7 +208,7 @@ func TestOutboundShipmentNotification_Create(t *testing.T) {
 			"OrderID":    order.ID,
 			"DataTypeID": itemDataTypeID,
 			"Sum":        -10,
-		}, "'/sum' does not validate")
+		}, "at '/sum'")
 
 		te.assertNoEvents(ctx)
 	})
@@ -226,7 +226,7 @@ func TestOutboundShipmentNotification_Create(t *testing.T) {
 			"OrderID":    order.ID,
 			"DataTypeID": itemDataTypeID,
 			"Weight":     -50,
-		}, "'/meta/weight' does not validate")
+		}, "at '/meta/weight'")
 
 		te.assertNoEvents(ctx)
 	})
@@ -330,7 +330,7 @@ func TestOutboundShipmentNotification_Update(t *testing.T) {
 			"DataTypeID": itemDataTypeID,
 			"Data":       true,
 			"Sum":        -100,
-		}, "'/sum' does not validate")
+		}, "at '/sum'")
 
 		te.assertNoEvents(ctx)
 	})

@@ -57,6 +57,8 @@ func (r *Resolver) SupplierWhereInput() exec.SupplierWhereInputResolver {
 	return &supplierWhereInputResolver{r}
 }
 
-type queryResolver struct{ *Resolver }
-type customerWhereInputResolver struct{ *Resolver }
-type supplierWhereInputResolver struct{ *Resolver }
+type (
+	queryResolver              struct{ *Resolver }
+	customerWhereInputResolver struct{ *Resolver }
+	supplierWhereInputResolver struct{ *Resolver }
+)

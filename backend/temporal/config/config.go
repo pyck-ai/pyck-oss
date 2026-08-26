@@ -23,6 +23,10 @@ type EventAdapterConfig struct {
 	EventAdapterPostgresConnectTimeout time.Duration `env:"PYCK_EVENT_ADAPTER_POSTGRES_CONNECT_TIMEOUT" envDefault:"120s"`
 	// Interval between individual retry attempts
 	EventAdapterPostgresRetryInterval time.Duration `env:"PYCK_EVENT_ADAPTER_POSTGRES_RETRY_INTERVAL" envDefault:"1s"`
+	// Bound on each dial attempt to the Temporal frontend in Start's retry loop
+	EventAdapterTemporalDialTimeout time.Duration `env:"PYCK_EVENT_ADAPTER_TEMPORAL_DIAL_TIMEOUT" envDefault:"30s"`
+	// Bound on the lazy per-namespace Temporal client setup in the adapter's client factory
+	EventAdapterTemporalClientCreationTimeout time.Duration `env:"PYCK_EVENT_ADAPTER_TEMPORAL_CLIENT_CREATION_TIMEOUT" envDefault:"30s"`
 }
 
 type config struct {

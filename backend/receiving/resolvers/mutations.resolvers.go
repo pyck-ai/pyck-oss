@@ -97,7 +97,7 @@ func (r *mutationResolver) CreateReceivingInbound(ctx context.Context, input mod
 			DataTypeSlug: item.DataTypeSlug,
 			Data:         item.Data,
 			Sku:          item.Sku,
-			Quantity:     int64(item.Quantity),
+			Quantity:     item.Quantity,
 			InboundID:    receivedInbound.ID,
 		}
 		bulk = append(bulk, tx.InboundItem.Create().SetInput(createInput))

@@ -1,0 +1,23 @@
+---
+operation: GetUserServiceRoles
+name: "List a user's service roles"
+description: >
+  Returns the per-service roles assigned to a user within a tenant, read
+  directly from Zitadel. Tenant-admin only.
+vars:
+  input:
+    tenantId: {$placeholder: "tenant UUID"}
+    userId: {$placeholder: "management user UUID"}
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true
+  - msg: "Returns the user's service-role list"
+    assertions:
+      - ref: res.body.data.userServiceRoles
+        nil: false

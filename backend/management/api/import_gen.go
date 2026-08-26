@@ -67,6 +67,7 @@ func registerDataType(r *importexport.Registry, c Client) error {
 			}
 			return importexport.StructToMap(resp.GetCreateDataType())
 		},
+		ImmutableFields: []string{"entity"},
 		Update: func(ctx context.Context, id string, input map[string]any) (map[string]any, error) {
 			typed, err := importexport.MapToStruct[UpdateDataTypeInput](input)
 			if err != nil {

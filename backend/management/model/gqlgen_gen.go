@@ -9,6 +9,18 @@ import (
 	"github.com/pyck-ai/pyck/backend/management/ent/gen"
 )
 
+type AssignRolesInput struct {
+	TenantID uuid.UUID `json:"tenantId"`
+	UserID   uuid.UUID `json:"userId"`
+	Roles    []string  `json:"roles"`
+}
+
+type AssignRolesResponse struct {
+	UserID uuid.UUID `json:"userId"`
+	// All per-service roles the user holds after the assignment.
+	Roles []string `json:"roles"`
+}
+
 type CheckInUserDeviceInput struct {
 	DeviceID uuid.UUID `json:"deviceID"`
 }
@@ -25,13 +37,6 @@ type CheckOutUserDeviceInput struct {
 type CheckOutUserDeviceOutput struct {
 	DeviceUser []*gen.DeviceUser   `json:"deviceUser"`
 	Workflows  []*TemporalWorkflow `json:"workflows"`
-}
-
-type CreateEventInput struct {
-	Topic       string         `json:"topic"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Example     map[string]any `json:"example,omitempty"`
 }
 
 type CustomEventPayloadInput struct {
@@ -120,6 +125,18 @@ type RegisterTenantResponse struct {
 	Tenant  *gen.Tenant `json:"tenant,omitempty"`
 }
 
+type RemoveRolesInput struct {
+	TenantID uuid.UUID `json:"tenantId"`
+	UserID   uuid.UUID `json:"userId"`
+	Roles    []string  `json:"roles"`
+}
+
+type RemoveRolesResponse struct {
+	UserID uuid.UUID `json:"userId"`
+	// All per-service roles the user holds after the removal.
+	Roles []string `json:"roles"`
+}
+
 // Input for restoreTenant. Target tenant derived from
 // X-Pyck-Tenant-Id (req.MutationTenantID); ROLE_ADMIN required.
 type RestoreTenantInput struct {
@@ -150,6 +167,11 @@ type ServiceInfo struct {
 	Date    *time.Time `json:"date,omitempty"`
 }
 
+// An assignable per-service gate role.
+type ServiceRole struct {
+	Key string `json:"key"`
+}
+
 type SetKeyValueInput struct {
 	Name         string         `json:"name"`
 	DataTypeID   *uuid.UUID     `json:"dataTypeID,omitempty"`
@@ -172,6 +194,30 @@ type SetTenantExpiryResponse struct {
 	Success bool `json:"success"`
 }
 
+// Input for setTenantUITemplate. System-only (ROLE_SYSTEM / IsSystemUser).
+// Per platform: set a non-empty URL template (carrying {{.Slug}}/{{.Version}}
+// placeholders) to override the system-wide default, or clear*: true to drop the
+// override and revert to the default. Omit both to leave the stored value
+// unchanged. Setting a template and clearing it in the same call is rejected, and
+// the request must change at least one field. Target tenant is derived from
+// X-Pyck-Tenant-Id (req.MutationTenantID).
+type SetTenantUITemplateInput struct {
+	// Web UI bundle URL template (remoteWebUITemplate). Omit to leave unchanged.
+	WebTemplate *string `json:"webTemplate,omitempty"`
+	// Drop the per-tenant web template, reverting to the system-wide default.
+	ClearWebTemplate *bool `json:"clearWebTemplate,omitempty"`
+	// Mobile UI bundle URL template (remoteMobileUITemplate). Omit to leave unchanged.
+	MobileTemplate *string `json:"mobileTemplate,omitempty"`
+	// Drop the per-tenant mobile template, reverting to the system-wide default.
+	ClearMobileTemplate *bool `json:"clearMobileTemplate,omitempty"`
+}
+
+// Result of setTenantUITemplate. Returns an error when the tenant does not
+// exist. Idempotent when the provided values already match what is stored.
+type SetTenantUITemplateResponse struct {
+	Success bool `json:"success"`
+}
+
 type TemporalMetadata struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
@@ -181,12 +227,6 @@ type TemporalWorkflow struct {
 	Type  string `json:"type"`
 	ID    string `json:"id"`
 	RunID string `json:"runID"`
-}
-
-type UpdateEventInput struct {
-	Name        *string        `json:"name,omitempty"`
-	Description *string        `json:"description,omitempty"`
-	Example     map[string]any `json:"example,omitempty"`
 }
 
 type UserProfile struct {
@@ -204,6 +244,11 @@ type UserProfile struct {
 type UserRoleTuple struct {
 	Role     string    `json:"Role"`
 	TenantID uuid.UUID `json:"TenantID"`
+}
+
+type UserServiceRolesInput struct {
+	TenantID uuid.UUID `json:"tenantId"`
+	UserID   uuid.UUID `json:"userId"`
 }
 
 type UserTenants struct {

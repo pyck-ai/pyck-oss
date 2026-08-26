@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"time"
 
 	"github.com/pyck-ai/pyck/backend/common/env"
 	envconfig "github.com/pyck-ai/pyck/backend/common/env/config"
@@ -23,6 +24,39 @@ type config struct {
 	envconfig.ZitadelConfig
 
 	otel.OTelConfig
+
+	RemoteUIConfig
+	WorkflowSubscriptionConfig
+}
+
+// WorkflowSubscriptionConfig tunes the worker-owned signal subscription
+// lifecycle. Workers refresh their subscriptions well within SubscriptionTTL;
+// the janitor reaps any that outlive it (e.g. crashed workers).
+type WorkflowSubscriptionConfig struct {
+	SubscriptionTTL             time.Duration `env:"PYCK_WORKFLOW_SUBSCRIPTION_TTL" envDefault:"15m"`
+	SubscriptionJanitorInterval time.Duration `env:"PYCK_WORKFLOW_SUBSCRIPTION_JANITOR_INTERVAL" envDefault:"5m"`
+}
+
+// RemoteUIConfig holds the system-wide fallbacks for per-workflow UI bundle
+// resolution. All fields are optional: when a value is empty the corresponding
+// fallback is disabled and the resolver errors instead (the pre-fallback
+// behaviour). The per-tenant template (setTenantUITemplate) overrides the
+// default template; a pinned deployment version overrides the default bundle.
+type RemoteUIConfig struct {
+	// DefaultWebUITemplate / DefaultMobileUITemplate are the system-wide URL
+	// templates (with {{.Slug}}/{{.Version}} placeholders) used when a tenant has none
+	// stored.
+	DefaultWebUITemplate    string `env:"PYCK_REMOTE_UI_DEFAULT_WEB_TEMPLATE"`
+	DefaultMobileUITemplate string `env:"PYCK_REMOTE_UI_DEFAULT_MOBILE_TEMPLATE"`
+
+	// DefaultBundleSlug / DefaultBundleVersion are the bundle served when the
+	// bundle can't be read from a pinned version — no pinned deployment version
+	// (pre-versioning executions, workers not opted in, namespace without
+	// versioning) or a pinned version not stamped yet. Defaulted to default/latest
+	// so remoteUI keeps working through the #1132 rollout; the resolver logs a
+	// warning when it falls back so a broken CI stamp is visible.
+	DefaultBundleSlug    string `env:"PYCK_REMOTE_UI_DEFAULT_BUNDLE_SLUG" envDefault:"default"`
+	DefaultBundleVersion string `env:"PYCK_REMOTE_UI_DEFAULT_BUNDLE_VERSION" envDefault:"latest"`
 }
 
 var Config config

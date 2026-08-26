@@ -1,0 +1,83 @@
+---
+name: "User - Management Data Type X-Indices"
+description: >
+  Pins the frozen-binding contract at the API layer. A slot's meaning is fixed
+  for the life of a slug, so adding an index is accepted while moving an existing
+  one to another slot, or dropping it, is refused — rows already projected under
+  the old mapping would otherwise answer for a key they no longer carry, and no
+  backfill can repair that.
+steps:
+  - id: createDataType
+    name: "Create a picking-order data type with one index"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "X-Indices Contract Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "picking_order"
+        jsonSchema: '{"type":"object","properties":{"serials":{"type":"array"}},"x-indices":{"serialNumbers":{"source":"/serials","slot":"data_ix_list1"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - name: "Adding a second index is accepted"
+    operation: management.updateDataType
+    vars:
+      id: {$ref: "res[createDataType].body.data.createDataType.id"}
+      input:
+        jsonSchema: '{"type":"object","properties":{"serials":{"type":"array"},"carrier":{"type":"string"}},"x-indices":{"serialNumbers":{"source":"/serials","slot":"data_ix_list1"},"carrierName":{"source":"/carrier","slot":"data_ix_text1"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Moving an existing index to another slot is refused"
+    operation: management.updateDataType
+    vars:
+      id: {$ref: "res[createDataType].body.data.createDataType.id"}
+      input:
+        jsonSchema: '{"type":"object","properties":{"serials":{"type":"array"},"carrier":{"type":"string"}},"x-indices":{"serialNumbers":{"source":"/serials","slot":"data_ix_list2"},"carrierName":{"source":"/carrier","slot":"data_ix_text1"}}}'
+    tests:
+      - msg: "Rejected: the binding is frozen"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Dropping an existing index is refused"
+    operation: management.updateDataType
+    vars:
+      id: {$ref: "res[createDataType].body.data.createDataType.id"}
+      input:
+        jsonSchema: '{"type":"object","properties":{"serials":{"type":"array"}},"x-indices":{}}'
+    tests:
+      - msg: "Rejected: its slot may still hold rows"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Binding an index to a slot the entity does not have is refused"
+    operation: management.updateDataType
+    vars:
+      id: {$ref: "res[createDataType].body.data.createDataType.id"}
+      input:
+        jsonSchema: '{"type":"object","properties":{"serials":{"type":"array"},"carrier":{"type":"string"}},"x-indices":{"serialNumbers":{"source":"/serials","slot":"data_ix_list1"},"carrierName":{"source":"/carrier","slot":"data_ix_text1"},"bogus":{"source":"/carrier","slot":"data_ix_text9"}}}'
+    tests:
+      - msg: "Rejected: unknown slot"
+        assertions:
+          - ref: res.body.errors
+            nil: false

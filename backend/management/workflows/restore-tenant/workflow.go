@@ -3,8 +3,9 @@ package restoretenant
 import (
 	"time"
 
-	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
+
+	commonwf "github.com/pyck-ai/pyck/backend/common/workflow"
 )
 
 var activities Activities
@@ -23,15 +24,7 @@ func RestoreTenantWorkflow(ctx workflow.Context, input RestoreTenantWorkflowInpu
 		"idp_org_ref", input.IdpOrgRef,
 	)
 
-	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
-		StartToCloseTimeout: 30 * time.Second,
-		RetryPolicy: &temporal.RetryPolicy{
-			InitialInterval:    1 * time.Second,
-			BackoffCoefficient: 2.0,
-			MaximumInterval:    10 * time.Second,
-			MaximumAttempts:    3,
-		},
-	})
+	ctx = workflow.WithActivityOptions(ctx, commonwf.DefaultActivityOptions(30*time.Second))
 
 	logger.Info("RestoreTenantWorkflow: invoking ActivateZitadelOrgActivity",
 		"tenant_id", input.TenantID,

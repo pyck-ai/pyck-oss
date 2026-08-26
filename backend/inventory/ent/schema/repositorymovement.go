@@ -42,21 +42,25 @@ func (RepositoryMovement) Fields() []ent.Field {
 			Unique().
 			Immutable(),
 		field.UUID("repository_id", uuid.UUID{}).
+			Immutable().
 			Annotations(
 				entgql.OrderField("REPOSITORY_ID"),
-				entgql.Skip(entgql.SkipMutationUpdateInput),
 			),
 		field.UUID("from_id", uuid.UUID{}).
+			Immutable().
 			Annotations(
 				entgql.OrderField("FROM_ID"),
-				entgql.Skip(entgql.SkipMutationUpdateInput),
 			).
 			Optional(),
 		field.UUID("to_id", uuid.UUID{}).
+			Immutable().
 			Annotations(
 				entgql.OrderField("TO_ID"),
-				entgql.Skip(entgql.SkipMutationUpdateInput),
 			),
+		// executed/executed_at stay SkipMutationUpdateInput rather than
+		// Immutable: they are process-managed, flipped after creation when the
+		// movement is executed (see inventory/service/stock executor). Hiding
+		// them from the GraphQL update input still blocks client backdoors.
 		field.Bool("executed").
 			Default(false).
 			Annotations(
@@ -85,19 +89,18 @@ func (RepositoryMovement) Fields() []ent.Field {
 			Immutable().
 			Annotations(
 				entgql.OrderField("COLLECTION_ID"),
-				entgql.Skip(entgql.SkipMutationUpdateInput),
 			),
 		field.UUID("order_id", uuid.UUID{}).
 			Optional().
+			Immutable().
 			Annotations(
 				entgql.OrderField("ORDER_ID"),
-				entgql.Skip(entgql.SkipMutationUpdateInput),
 			),
 		field.Int("position").
 			Default(0).
+			Immutable().
 			Annotations(
 				entgql.OrderField("POSITION"),
-				entgql.Skip(entgql.SkipMutationUpdateInput),
 			),
 	}
 }
@@ -105,29 +108,26 @@ func (RepositoryMovement) Fields() []ent.Field {
 // Edges of the RepositoryMovement.
 func (RepositoryMovement) Edges() []ent.Edge {
 	return []ent.Edge{
+		// The from/to/repository edges are backed by Immutable fields, so Ent
+		// already excludes them from the update input; no SkipMutationUpdateInput
+		// needed.
 		edge.From("from", Repository.Type).
 			Ref("repositoryMovementFromRepositories").
 			Field("from_id").
-			Unique().
-			Annotations(
-				entgql.Skip(entgql.SkipMutationUpdateInput),
-			),
+			Immutable().
+			Unique(),
 		edge.From("to", Repository.Type).
 			Ref("repositoryMovementToRepositories").
 			Field("to_id").
 			Required().
-			Unique().
-			Annotations(
-				entgql.Skip(entgql.SkipMutationUpdateInput),
-			),
+			Immutable().
+			Unique(),
 		edge.From("repository", Repository.Type).
 			Ref("repositoryMovementRepositories").
 			Field("repository_id").
 			Required().
-			Unique().
-			Annotations(
-				entgql.Skip(entgql.SkipMutationUpdateInput),
-			),
+			Immutable().
+			Unique(),
 		// edge.From("collection", Collection_Movement.Type).
 		//	Ref("collectionMovementRepositoryMovement").
 		//	Field("collection_id").

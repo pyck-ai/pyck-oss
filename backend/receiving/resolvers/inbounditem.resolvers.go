@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
+	"github.com/pyck-ai/pyck/backend/common/sqljsonpath"
 	"github.com/pyck-ai/pyck/backend/receiving/ent/gen"
 	"github.com/pyck-ai/pyck/backend/receiving/ent/gen/inbounditem"
 )
@@ -21,8 +22,12 @@ func (r *receivingInboundItemWhereInputResolver) Data(ctx context.Context, obj *
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(inbounditem.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueEQ(inbounditem.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil
@@ -35,8 +40,12 @@ func (r *receivingInboundItemWhereInputResolver) DataHasKey(ctx context.Context,
 	}
 
 	if *data != "" {
+		jsonPath, err := sqljsonpath.DotPath(*data)
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(inbounditem.FieldData, sqljson.DotPath(*data)))
+			s.Where(sqljson.HasKey(inbounditem.FieldData, jsonPath))
 		})
 	}
 	return nil
@@ -53,8 +62,12 @@ func (r *receivingInboundItemWhereInputResolver) DataIn(ctx context.Context, obj
 		for _, v := range data[1:] {
 			args = append(args, v)
 		}
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(inbounditem.FieldData, args, sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueIn(inbounditem.FieldData, args, jsonPath))
 		})
 	}
 	return nil
@@ -67,8 +80,12 @@ func (r *receivingInboundItemWhereInputResolver) DataContains(ctx context.Contex
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(inbounditem.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueContains(inbounditem.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil

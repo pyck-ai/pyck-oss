@@ -20,7 +20,16 @@ tasks:
       - >
         go generate -x {{if ne .HAS_GENERATE_GO "true"}}./...{{end -}}
       - go mod tidy -v
-      - go work sync
+      # Deliberately no `go work sync` here. It rewrites go.mod for EVERY
+      # workspace module, not just this one, and the root `clean` has already
+      # deleted every module's gen/ directory — so syncing from inside one
+      # module's generate drops requires on all the modules that have not been
+      # regenerated yet. `go work sync` can only remove requires; only
+      # `go mod tidy`, run in the affected module against a complete tree, adds
+      # them back. Modules later in the root generate list happened to self-heal
+      # via their own tidy, but tests/integration, bootstrap and tests/nats are
+      # not in that list, so they kept the damage. The root generate target ends
+      # with `task tidy`, which tidies every go.work module and then syncs once.
 
   lint:
     desc: Lint module

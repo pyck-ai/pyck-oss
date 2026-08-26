@@ -4,6 +4,7 @@ package schema
 
 import (
 	"entgo.io/ent"
+
 	"github.com/pyck-ai/pyck/backend/common/authn/privacy"
 )
 

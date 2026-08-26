@@ -13,14 +13,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/mattn/go-sqlite3"
-
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/request"
-	testresolver "github.com/pyck-ai/pyck/backend/common/test/resolver"
 
 	ent "github.com/pyck-ai/pyck/backend/inventory/ent/gen"
-	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/enttest"
 	entitemmovement "github.com/pyck-ai/pyck/backend/inventory/ent/gen/itemmovement"
 	entprivacy "github.com/pyck-ai/pyck/backend/inventory/ent/gen/privacy"
 	entrepository "github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
@@ -133,12 +129,12 @@ func TestNew_StoresOutboxEmitter(t *testing.T) {
 // `if s.outboxEmitter != nil` so the proc fast path stays runnable in
 // environments where the event system is not wired (most unit tests).
 // Production wiring in main.go always supplies a non-nil emitter; this
-// test just locks the guard so a refactor cannot drop it and crash every
-// SQLite test that constructs the service with `nil`.
+// test just locks the guard so a refactor cannot drop it and crash tests
+// that construct the service with a nil emitter.
 func TestNew_NilEmitterTolerated(t *testing.T) {
 	t.Parallel()
 
-	svc, err := New(dialect.SQLite, nil)
+	svc, err := New(dialect.Postgres, nil)
 	require.NoError(t, err)
 
 	impl, ok := svc.(*service)
@@ -153,13 +149,12 @@ func TestNew_NilEmitterTolerated(t *testing.T) {
 // regular Ent .Save flow, which fires the registered mutation hook so
 // the outbox row is written through that channel. Calling the manual
 // emitter from the Go path would produce duplicate outbox rows. This
-// test wires a recording emitter, runs CreateItemMovement on the SQLite
-// Go path, and asserts the emitter was never invoked.
+// test wires a recording emitter, forces the Go path via WithDeferredUnderflow
+// (impl.go:496), and asserts the emitter was never invoked.
 func TestCreateItemMovement_GoPathDoesNotInvokeEmitter(t *testing.T) {
 	t.Parallel()
 
-	client := enttest.Open(t, dialect.SQLite, testresolver.DatabaseURI(t))
-	t.Cleanup(func() { _ = client.Close() })
+	client := openPGEntClient(t)
 
 	tenantID := uuid.New()
 	user := &authn.User{ID: uuid.New(), TenantID: tenantID}
@@ -209,16 +204,19 @@ func TestCreateItemMovement_GoPathDoesNotInvokeEmitter(t *testing.T) {
 		return nil
 	}
 
-	// dialect.SQLite (not Postgres) → CreateItemMovement routes through
-	// createItemMovementViaGo. The manual emitter must stay quiet.
-	svc, err := New(dialect.SQLite, emitter)
+	// On Postgres, CreateItemMovement routes to createItemMovementViaProc
+	// UNLESS IsDeferredUnderflow(ctx) is true (impl.go:496). Wrapping ctx
+	// with WithDeferredUnderflow forces the Go path, which must NOT invoke
+	// the manual emitter (it relies on the Ent mutation hook instead).
+	svc, err := New(dialect.Postgres, emitter)
 	require.NoError(t, err)
 
 	tx, err := client.Tx(ctx)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = tx.Rollback() })
 
-	movement, err := svc.CreateItemMovement(ctx, tx, CreateItemMovementInput{
+	goPathCtx := WithDeferredUnderflow(ctx)
+	movement, err := svc.CreateItemMovement(goPathCtx, tx, CreateItemMovementInput{
 		Input: ent.CreateItemMovementInput{
 			Quantity: 1,
 			Handler:  "test",

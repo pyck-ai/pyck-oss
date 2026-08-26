@@ -112,6 +112,7 @@ func MatchEntity(entry types.ImportExportEntry, methods map[string]types.ClientM
 	e.CreateArgsType = e.CreateMethod + "Args"
 	e.CreateInputType = internal.DeriveInputType(methods, e.CreateMethod)
 	e.WhereInputType = entry.TypeName + "WhereInput"
+	e.ImmutableFields = immutableFields[entry.TypeName]
 
 	// Detect create accessor chain.
 	createChain, err := internal.DetectAccessorChain(clientPath, e.CreateMethod)
@@ -200,4 +201,17 @@ func loadSchema(schemaDir string) (*ast.Schema, error) {
 	}
 
 	return schema, nil
+}
+
+// immutableFields lists, per entity, the fields the create input accepts but
+// the update input does not, because the schema marks them immutable. The
+// importer refuses a record that asks to change one instead of applying the
+// rest and reporting success.
+//
+// Derived by hand rather than from the input structs: the generator reads the
+// client interface, not the model package. Keep an entry here when a field
+// becomes immutable, or an import will silently drop changes to it.
+var immutableFields = map[string][]string{
+	// entity picks the slot pool a datatype's indices are validated against.
+	"DataType": {"entity"},
 }

@@ -1,0 +1,11 @@
+info:
+  name: Cross - Supplier Unique Field Update
+  type: folder
+  seq: 1
+
+docs: |-
+  Regression test for #1142. When a supplier's DataType schema marks a field "unique": true, updateSupplier must exclude the entity's own row from the uniqueness check and run the check before persisting. Verifies that updating with the same unique value, or to a new genuinely-unique value, succeeds — while updating to a value already owned by a different supplier is still rejected.
+
+
+request:
+  auth: inherit

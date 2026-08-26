@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"entgo.io/ent/dialect"
@@ -57,14 +58,6 @@ func (r *mutationResolver) CreateInventoryItem(ctx context.Context, input ent.Cr
 
 	var resp model.InventoryItemOutput
 
-	item, err := tx.Item.
-		Create().
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
@@ -72,6 +65,19 @@ func (r *mutationResolver) CreateInventoryItem(ctx context.Context, input ent.Cr
 		FieldName: entitem.FieldData,
 		DbDriver:  core.Config.DbDriver,
 	}); err != nil {
+		return nil, err
+	}
+
+	if err = validateItemEdgeOwnership(ctx, tx, request.ForContext(ctx).MutationTenantID(),
+		input.ItemSetIDs, input.ItemStockIDs, input.ItemMovementItemIDs, input.ItemTransactionIDs); err != nil {
+		return nil, err
+	}
+
+	item, err := tx.Item.
+		Create().
+		SetInput(input).
+		Save(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -98,21 +104,32 @@ func (r *mutationResolver) UpdateInventoryItem(ctx context.Context, id uuid.UUID
 
 	var resp model.InventoryItemOutput
 
-	item, err := tx.Item.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
 		TableName: entitem.Table,
 		FieldName: entitem.FieldData,
 		DbDriver:  core.Config.DbDriver,
+		ExcludeID: &id,
 	}); err != nil {
+		return nil, err
+	}
+
+	// Validate both the add and remove lists: removing a link on another
+	// tenant's row is a cross-tenant write too.
+	if err = validateItemEdgeOwnership(ctx, tx, request.ForContext(ctx).MutationTenantID(),
+		slices.Concat(input.AddItemSetIDs, input.RemoveItemSetIDs),
+		slices.Concat(input.AddItemStockIDs, input.RemoveItemStockIDs),
+		slices.Concat(input.AddItemMovementItemIDs, input.RemoveItemMovementItemIDs),
+		slices.Concat(input.AddItemTransactionIDs, input.RemoveItemTransactionIDs)); err != nil {
+		return nil, err
+	}
+
+	item, err := tx.Item.
+		UpdateOneID(id).
+		SetInput(input).
+		Save(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -218,13 +235,6 @@ func (r *mutationResolver) CreateInventoryRepository(ctx context.Context, input 
 		}
 	}
 
-	repo, err := tx.Repository.Create().
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
@@ -232,6 +242,20 @@ func (r *mutationResolver) CreateInventoryRepository(ctx context.Context, input 
 		FieldName: repository.FieldData,
 		DbDriver:  core.Config.DbDriver,
 	}); err != nil {
+		return nil, err
+	}
+
+	if err = validateRepositoryEdgeOwnership(ctx, tx, request.ForContext(ctx).MutationTenantID(),
+		slices.Concat(input.ItemMovementToRepositoryIDs, input.ItemMovementFromRepositoryIDs),
+		slices.Concat(input.RepositoryMovementToRepositoryIDs, input.RepositoryMovementFromRepositoryIDs, input.RepositoryMovementRepositoryIDs),
+		input.RepositoryTransactionIDs, input.RepositoryStockIDs, input.ChildIDs); err != nil {
+		return nil, err
+	}
+
+	repo, err := tx.Repository.Create().
+		SetInput(input).
+		Save(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -265,21 +289,36 @@ func (r *mutationResolver) UpdateInventoryRepository(ctx context.Context, id uui
 		}
 	}
 
-	repo, err := tx.Repository.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
 		TableName: repository.Table,
 		FieldName: repository.FieldData,
 		DbDriver:  core.Config.DbDriver,
+		ExcludeID: &id,
 	}); err != nil {
+		return nil, err
+	}
+
+	// Validate both add and remove lists: detaching another tenant's row is a
+	// cross-tenant write too.
+	if err = validateRepositoryEdgeOwnership(ctx, tx, request.ForContext(ctx).MutationTenantID(),
+		slices.Concat(input.AddItemMovementToRepositoryIDs, input.RemoveItemMovementToRepositoryIDs,
+			input.AddItemMovementFromRepositoryIDs, input.RemoveItemMovementFromRepositoryIDs),
+		slices.Concat(input.AddRepositoryMovementToRepositoryIDs, input.RemoveRepositoryMovementToRepositoryIDs,
+			input.AddRepositoryMovementFromRepositoryIDs, input.RemoveRepositoryMovementFromRepositoryIDs,
+			input.AddRepositoryMovementRepositoryIDs, input.RemoveRepositoryMovementRepositoryIDs),
+		slices.Concat(input.AddRepositoryTransactionIDs, input.RemoveRepositoryTransactionIDs),
+		slices.Concat(input.AddRepositoryStockIDs, input.RemoveRepositoryStockIDs),
+		slices.Concat(input.AddChildIDs, input.RemoveChildIDs)); err != nil {
+		return nil, err
+	}
+
+	repo, err := tx.Repository.
+		UpdateOneID(id).
+		SetInput(input).
+		Save(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -397,18 +436,19 @@ func (r *mutationResolver) UpdateInventoryItemMovement(ctx context.Context, id u
 		return nil, fmt.Errorf("itemMovement not found")
 	}
 
-	movement, err := tx.ItemMovement.UpdateOneID(id).SetInput(input).Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
 		TableName: itemmovement.Table,
 		FieldName: itemmovement.FieldData,
 		DbDriver:  core.Config.DbDriver,
+		ExcludeID: &id,
 	}); err != nil {
+		return nil, err
+	}
+
+	movement, err := tx.ItemMovement.UpdateOneID(id).SetInput(input).Save(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -502,18 +542,19 @@ func (r *mutationResolver) UpdateInventoryRepositoryMovement(ctx context.Context
 		return nil, err
 	}
 
-	movement, err := tx.RepositoryMovement.UpdateOneID(id).SetInput(input).Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
 		TableName: repositorymovement.Table,
 		FieldName: repositorymovement.FieldData,
 		DbDriver:  core.Config.DbDriver,
+		ExcludeID: &id,
 	}); err != nil {
+		return nil, err
+	}
+
+	movement, err := tx.RepositoryMovement.UpdateOneID(id).SetInput(input).Save(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -638,21 +679,22 @@ func (r *mutationResolver) UpdateInventoryCollectionMovement(ctx context.Context
 		input.Handler = nil
 	}
 
-	collectionMovement, err := tx.Collection_Movement.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
 		TableName: collection_movement.Table,
 		FieldName: collection_movement.FieldData,
 		DbDriver:  core.Config.DbDriver,
+		ExcludeID: &id,
 	}); err != nil {
+		return nil, err
+	}
+
+	collectionMovement, err := tx.Collection_Movement.
+		UpdateOneID(id).
+		SetInput(input).
+		Save(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -813,9 +855,10 @@ func (r *mutationResolver) DeleteInventoryStock(ctx context.Context, input model
 			)
 		}
 	}
-	_, err = tx.Stock.CreateBulk(stocksToCreate...).Save(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed inserting stocks: %w", err)
+	// Routed through the stock service so this fan-out locks the version index
+	// in the same order as the movement paths it races against.
+	if err = stocksvc.InsertRows(ctx, tx, stocksToCreate); err != nil {
+		return nil, err
 	}
 
 	_, err = tx.Transaction.CreateBulk(transactionsToCreate...).Save(ctx)
@@ -905,14 +948,6 @@ func (r *mutationResolver) CreateInventoryItemSet(ctx context.Context, input ent
 		}
 	}
 
-	itemSet, err := tx.ItemSet.
-		Create().
-		SetInput(input).
-		Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
@@ -920,6 +955,14 @@ func (r *mutationResolver) CreateInventoryItemSet(ctx context.Context, input ent
 		FieldName: itemset.FieldData,
 		DbDriver:  core.Config.DbDriver,
 	}); err != nil {
+		return nil, err
+	}
+
+	itemSet, err := tx.ItemSet.
+		Create().
+		SetInput(input).
+		Save(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -978,18 +1021,19 @@ func (r *mutationResolver) UpdateInventoryItemSet(ctx context.Context, id uuid.U
 		}
 	}
 
-	itemSet, err := tx.ItemSet.UpdateOneID(id).SetInput(input).Save(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
 		DataType:  dataType,
 		TableName: itemset.Table,
 		FieldName: itemset.FieldData,
 		DbDriver:  core.Config.DbDriver,
+		ExcludeID: &id,
 	}); err != nil {
+		return nil, err
+	}
+
+	itemSet, err := tx.ItemSet.UpdateOneID(id).SetInput(input).Save(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1086,7 +1130,7 @@ func (r *mutationResolver) CreateReplenishmentOrder(ctx context.Context, input m
 		createInput := ent.CreateReplenishmentOrderItemInput{
 			Data:                 item.Data,
 			Sku:                  item.Sku,
-			Quantity:             int64(item.Quantity),
+			Quantity:             item.Quantity,
 			ReplenishmentOrderID: createdOrder.ID,
 		}
 		if itemDataType != nil {
@@ -1127,23 +1171,31 @@ func (r *mutationResolver) UpdateReplenishmentOrder(ctx context.Context, id uuid
 
 	var resp model.ReplenishmentOrderOutput
 
+	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+		Input:     input.Data,
+		DataType:  dataType,
+		TableName: replenishmentorder.Table,
+		FieldName: replenishmentorder.FieldData,
+		DbDriver:  core.Config.DbDriver,
+		ExcludeID: &id,
+	}); err != nil {
+		log.ForContext(ctx).Err(err).Msg("Failed data uniqueness validation in UpdateReplenishmentOrder")
+		return nil, err
+	}
+
+	// Validate both add and remove lists: detaching another tenant's row is a
+	// cross-tenant write too.
+	if err = validateReplenishmentOrderEdgeOwnership(ctx, tx, request.ForContext(ctx).MutationTenantID(),
+		slices.Concat(input.AddReplenishmentOrderItemIDs, input.RemoveReplenishmentOrderItemIDs)); err != nil {
+		return nil, err
+	}
+
 	order, err := tx.ReplenishmentOrder.
 		UpdateOneID(id).
 		SetInput(input).
 		Save(ctx)
 	if err != nil {
 		log.ForContext(ctx).Err(err).Msg("Failed to update replenishment order in database")
-		return nil, err
-	}
-
-	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
-		Input:     input.Data,
-		DataType:  dataType,
-		TableName: "replenishment_orders",
-		FieldName: "data",
-		DbDriver:  core.Config.DbDriver,
-	}); err != nil {
-		log.ForContext(ctx).Err(err).Msg("Failed data uniqueness validation in UpdateReplenishmentOrder")
 		return nil, err
 	}
 
@@ -1256,22 +1308,23 @@ func (r *mutationResolver) UpdateReplenishmentOrderItem(ctx context.Context, id 
 
 	var resp model.ReplenishmentOrderItemOutput
 
+	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+		Input:     input.Data,
+		DataType:  dataType,
+		TableName: replenishmentorderitem.Table,
+		FieldName: replenishmentorderitem.FieldData,
+		DbDriver:  core.Config.DbDriver,
+		ExcludeID: &id,
+	}); err != nil {
+		log.ForContext(ctx).Err(err).Msg("Failed data uniqueness validation in UpdateReplenishmentOrderItem")
+		return nil, err
+	}
+
 	orderItem, err := tx.ReplenishmentOrderItem.
 		UpdateOneID(id).
 		SetInput(input).
 		Save(ctx)
 	if err != nil {
-		return nil, err
-	}
-
-	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
-		Input:     input.Data,
-		DataType:  dataType,
-		TableName: "replenishment_order_items",
-		FieldName: "data",
-		DbDriver:  core.Config.DbDriver,
-	}); err != nil {
-		log.ForContext(ctx).Err(err).Msg("Failed data uniqueness validation in UpdateReplenishmentOrderItem")
 		return nil, err
 	}
 

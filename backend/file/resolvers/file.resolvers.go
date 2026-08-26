@@ -11,6 +11,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
+	"github.com/pyck-ai/pyck/backend/common/sqljsonpath"
 	"github.com/pyck-ai/pyck/backend/common/std"
 	ent "github.com/pyck-ai/pyck/backend/file/ent/gen"
 	"github.com/pyck-ai/pyck/backend/file/ent/gen/file"
@@ -41,8 +42,12 @@ func (r *fileWhereInputResolver) Data(ctx context.Context, obj *ent.FileWhereInp
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(file.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueEQ(file.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil
@@ -55,8 +60,12 @@ func (r *fileWhereInputResolver) DataHasKey(ctx context.Context, obj *ent.FileWh
 	}
 
 	if *data != "" {
+		jsonPath, err := sqljsonpath.DotPath(*data)
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(file.FieldData, sqljson.DotPath(*data)))
+			s.Where(sqljson.HasKey(file.FieldData, jsonPath))
 		})
 	}
 	return nil
@@ -73,8 +82,12 @@ func (r *fileWhereInputResolver) DataIn(ctx context.Context, obj *ent.FileWhereI
 		for _, v := range data[1:] {
 			args = append(args, v)
 		}
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(file.FieldData, args, sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueIn(file.FieldData, args, jsonPath))
 		})
 	}
 	return nil
@@ -87,8 +100,12 @@ func (r *fileWhereInputResolver) DataContains(ctx context.Context, obj *ent.File
 	}
 
 	if len(data) == 2 {
+		jsonPath, err := sqljsonpath.DotPath(data[0])
+		if err != nil {
+			return err
+		}
 		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(file.FieldData, data[1], sqljson.DotPath(data[0])))
+			s.Where(sqljson.ValueContains(file.FieldData, data[1], jsonPath))
 		})
 	}
 	return nil

@@ -18,17 +18,19 @@ import (
 )
 
 const (
-	maxOpenConnections = 50
-	maxIdleConnections = 25
-	dbDriver           = dialect.Postgres
-	maxConnLifetime    = time.Minute * 30
-	maxConnIdleTime    = time.Minute * 10
+	maxOpenConnections    = 50
+	maxIdleConnections    = 25
+	dbDriver              = dialect.Postgres
+	maxConnLifetime       = time.Minute * 30
+	maxConnIdleTime       = time.Minute * 10
+	healthPoolPingTimeout = time.Second * 5
 )
 
 type pgMultiDriver struct {
 	reader   dialect.Driver
 	writer   dialect.Driver
 	writerDb *sql.DB
+	healthDb *sql.DB
 }
 
 var _ dialect.Driver = (*pgMultiDriver)(nil)
@@ -59,7 +61,7 @@ func WithReaderIsolation(level string) Option {
 	}
 }
 
-func NewPostgresMultiDriver(serviceName string, config config.DbConfig, opts ...Option) (*pgMultiDriver, error) {
+func NewPostgresMultiDriver(ctx context.Context, serviceName string, config config.DbConfig, opts ...Option) (*pgMultiDriver, error) {
 	cfg := driverOpts{
 		writerIsolation: "serializable",
 		readerIsolation: "read committed",
@@ -88,7 +90,61 @@ func NewPostgresMultiDriver(serviceName string, config config.DbConfig, opts ...
 		return nil, err
 	}
 
-	return &pgMultiDriver{reader: reader, writer: writer, writerDb: db}, nil
+	healthDb, err := healthPoolFromUri(ctx, buildHealthUri(writerUri, serviceName))
+	if err != nil {
+		return nil, err
+	}
+
+	return &pgMultiDriver{reader: reader, writer: writer, writerDb: db, healthDb: healthDb}, nil
+}
+
+// buildHealthUri derives the health pool's connection string from the
+// already-shaped writer URI, adding an application_name so the probe
+// connection is identifiable in pg_stat_activity. writerUri has been parsed
+// once before (by buildPoolUri), so parsing cannot fail here.
+//
+// The pool this feeds backs /health/ready, not /health.
+func buildHealthUri(writerUri, serviceName string) string {
+	parsed, err := url.Parse(writerUri)
+	if err != nil {
+		return writerUri
+	}
+	applyQueryArgs(parsed, map[string]string{
+		"application_name": serviceName + "-health",
+	})
+	return parsed.String()
+}
+
+// healthPoolFromUri opens the single-connection pool backing the
+// /health/ready endpoint. It is kept separate from the reader/writer pools so
+// that probe queries never wait behind request traffic for a pool slot:
+// readiness must keep answering while the service is busy. The pool is deliberately not
+// instrumented with otelsql — probes fire every few seconds and would
+// otherwise flood tracing with identical spans. The pool is pre-warmed with
+// a ping at construction: /health is a static liveness handler that never
+// touches the database, so nothing else warms this pool before the first
+// readiness probe.
+//
+// The connection has no lifetime or idle timeout: it is meant to stay open
+// for the whole server lifecycle. A broken connection is still replaced —
+// database/sql discards it on error and re-dials on the next probe.
+func healthPoolFromUri(ctx context.Context, uri string) (*sql.DB, error) {
+	db, err := sql.Open(dbDriver, uri)
+	if err != nil {
+		return nil, err
+	}
+
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+
+	pingCtx, cancel := context.WithTimeout(ctx, healthPoolPingTimeout)
+	defer cancel()
+
+	if err := db.PingContext(pingCtx); err != nil {
+		return nil, errors.Join(err, db.Close())
+	}
+
+	return db, nil
 }
 
 // buildPoolUri parses rawUrl and applies the per-pool query args (search_path
@@ -194,6 +250,7 @@ func (driver *pgMultiDriver) BeginTx(ctx context.Context, opts *sql.TxOptions) (
 func (driver *pgMultiDriver) Close() error {
 	readerErr := driver.reader.Close()
 	writerError := driver.writer.Close()
+	healthErr := driver.healthDb.Close()
 
 	if readerErr != nil {
 		return readerErr
@@ -201,6 +258,10 @@ func (driver *pgMultiDriver) Close() error {
 
 	if writerError != nil {
 		return writerError
+	}
+
+	if healthErr != nil {
+		return healthErr
 	}
 
 	return nil
@@ -212,4 +273,11 @@ func (driver *pgMultiDriver) Dialect() string {
 
 func (driver *pgMultiDriver) DB() *sql.DB {
 	return driver.writerDb
+}
+
+// HealthDB returns the dedicated single-connection pool for the /health/ready
+// endpoint. It must only be used for health checks: it holds one connection,
+// so any other user would serialize with the probes and defeat its purpose.
+func (driver *pgMultiDriver) HealthDB() *sql.DB {
+	return driver.healthDb
 }

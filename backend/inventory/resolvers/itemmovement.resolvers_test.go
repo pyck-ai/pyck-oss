@@ -7,8 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/mattn/go-sqlite3"
-
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 
@@ -235,6 +233,16 @@ func TestItemMovement_Create(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, stored, 1)
 		assert.Equal(t, created.ID, stored[0].ID)
+
+		// The Postgres proc path bypasses the ent MutationEventHook, so the
+		// movement's outbox event must come from the proc's manual emit step
+		// (wired to the recorder in setup). Exactly one create event, for
+		// this movement — no double emission.
+		procEvents := te.ProcEvents.take()
+		require.Len(t, procEvents, 1)
+		assert.Equal(t, "ItemMovement", procEvents[0].Schema)
+		assert.Equal(t, "create", procEvents[0].Op)
+		assert.Equal(t, created.ID, procEvents[0].EntityID)
 	})
 
 	t.Run("rejects insufficient stock", func(t *testing.T) {

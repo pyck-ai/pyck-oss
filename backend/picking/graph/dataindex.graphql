@@ -1,0 +1,30 @@
+"""
+Filters on an indexed data key. The caller names the index declared in the
+datatype's x-indices block; the slot column backing it stays server-side.
+"""
+input DataIndexWhereInput {
+  """Datatype declaring the index, by slug."""
+  dataType: String!
+  """Index name from the datatype's x-indices block, e.g. "serialNumbers"."""
+  field: String!
+
+  # Scalar slots.
+  eq: String
+  neq: String
+  in: [String!]
+  notIn: [String!]
+  gt: String
+  gte: String
+  lt: String
+  lte: String
+  contains: String
+  hasPrefix: String
+  hasSuffix: String
+
+  """Matches rows whose list slot holds any of these values."""
+  overlaps: [String!]
+}
+
+extend input PickingOrderWhereInput {
+  dataIndex: DataIndexWhereInput
+}

@@ -1,0 +1,11 @@
+info:
+  name: Cross - Picking Data Index Filter
+  type: folder
+  seq: 1
+
+docs: |-
+  Cross-service test for the typed-slot index. Declares an x-indices block on a picking-order data type, writes an order whose payload carries the indexed keys, and queries it back through the dataIndex filter — the path the serial claim pre-filter runs on. Also pins the refusals: an operator that does not match the slot's kind, an unknown index name, and a filter nested under not:, where the datatype scope would be negated along with the operator and match every other datatype's rows.
+
+
+request:
+  auth: inherit

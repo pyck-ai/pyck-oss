@@ -56,6 +56,7 @@ type Client interface {
 	GetTransactions(ctx context.Context, input GetTransactionsArgs) (*GetTransactions, error)
 	GetInventoryServiceInfo(ctx context.Context) (*GetInventoryServiceInfo, error)
 	GetStockTree(ctx context.Context, input GetStockTreeArgs) (*GetStockTree, error)
+	GetCurrentStocks(ctx context.Context, input GetCurrentStocksArgs) (*GetCurrentStocks, error)
 	CreateInventoryItem(ctx context.Context, input CreateInventoryItemArgs) (*CreateInventoryItem, error)
 	UpdateInventoryItem(ctx context.Context, input UpdateInventoryItemArgs) (*UpdateInventoryItem, error)
 	DeleteInventoryItem(ctx context.Context, input DeleteInventoryItemArgs) (*DeleteInventoryItem, error)
@@ -262,6 +263,20 @@ type GetStockTreeArgs struct {
 
 func (c *client) GetStockTree(ctx context.Context, input GetStockTreeArgs) (*GetStockTree, error) {
 	return c.api.GetStockTree(ctx, input.After, input.First, input.Before, input.Last, input.Where)
+}
+
+// GetCurrentStocksArgs is a sparse struct for GetCurrentStocks parameters
+type GetCurrentStocksArgs struct {
+	After   *string
+	First   *int
+	Before  *string
+	Last    *int
+	OrderBy *StockOrder
+	Where   *StockWhereInput
+}
+
+func (c *client) GetCurrentStocks(ctx context.Context, input GetCurrentStocksArgs) (*GetCurrentStocks, error) {
+	return c.api.GetCurrentStocks(ctx, input.After, input.First, input.Before, input.Last, input.OrderBy, input.Where)
 }
 
 // CreateInventoryItemArgs is a sparse struct for CreateInventoryItem parameters

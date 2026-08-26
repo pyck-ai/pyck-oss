@@ -46,8 +46,8 @@ graphql:
           "adminFirstName": "Test",
           "adminLastName": "Admin",
           "adminPassword": "Test1234!",
-          "adminUsername": "admin-{{$randomLoremSlug}}-{{$timestamp}}-3",
-          "name": "{{$randomLoremSlug}}-{{$timestamp}}-2"
+          "adminUsername": "admin-{{$randomLoremSlug}}-{{$timestamp}}-2",
+          "name": "{{$randomLoremSlug}}-{{$timestamp}}-3"
         }
       }
 

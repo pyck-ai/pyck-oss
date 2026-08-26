@@ -1,4 +1,4 @@
-h1:84jYGPkagFO59ZOUnkYj1UqHHS6i6J3bSfRd4s+xwm8=
+h1:ntOcUlR5CIQc/0A4weRvfOwJn2UwR7uKGoy2yQ+ATQw=
 20241212075318_default_state.up.sql h1:vAUpn2Pl2MPk+hUaUauklfLSFb28fM+VNvbU9RvFM6g=
 20250619222425_consistent_nulls.up.sql h1:HskHV3auTUxGOaLsFeq6flw2EprjftDcoawFoXLr8B0=
 20260120120000_add_event_outbox.up.sql h1:pkljIfqNLDaRZwmZ+E/qY0J+3qGgzwHIlCX594ThRhM=
@@ -9,3 +9,4 @@ h1:84jYGPkagFO59ZOUnkYj1UqHHS6i6J3bSfRd4s+xwm8=
 20260608154435_reconcile_schema_drift.up.sql h1:XuqVv+0ysWgeDg3lmmFdLZJGG+k8UTehgHcm2Tuy1L4=
 20260608155455_outbox_dead_letter_index.up.sql h1:yB6QQYUjZCQA8Kjx/5DgwxtCoOYLyr3620tLcyoRLNc=
 20260616120000_add_idempotency_keys.up.sql h1:ph0FRumZ4XSmImD+uMp8O17rY8Qhvf2GvpOPIBWCE1E=
+20260622133951_reconcile_idempotency_schema_drift.up.sql h1:TCxmdTcs6dFZdhDw15y6C/M4Wv5iDzGS6tMUGRR4s1g=

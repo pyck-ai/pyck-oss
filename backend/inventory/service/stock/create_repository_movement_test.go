@@ -8,18 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"entgo.io/ent/dialect"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/mattn/go-sqlite3"
-
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/request"
-	testresolver "github.com/pyck-ai/pyck/backend/common/test/resolver"
 
 	ent "github.com/pyck-ai/pyck/backend/inventory/ent/gen"
-	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/enttest"
 	entprivacy "github.com/pyck-ai/pyck/backend/inventory/ent/gen/privacy"
 	entrepository "github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
 	entrepositorymovement "github.com/pyck-ai/pyck/backend/inventory/ent/gen/repositorymovement"
@@ -58,8 +53,7 @@ import (
 func TestCreateRepositoryMovement_UniquenessHookFailsBeforeInsert(t *testing.T) {
 	t.Parallel()
 
-	client := enttest.Open(t, dialect.SQLite, testresolver.DatabaseURI(t))
-	t.Cleanup(func() { _ = client.Close() })
+	client := openPGEntClient(t)
 
 	tenantID := uuid.New()
 	user := &authn.User{ID: uuid.New(), TenantID: tenantID}
@@ -162,6 +156,96 @@ func TestCreateRepositoryMovement_UniquenessHookFailsBeforeInsert(t *testing.T) 
 	require.Equal(t, stockBefore, stockAfter, "per-item stock fan-out must not run when the uniqueness hook fails")
 }
 
+// TestCreateRepositoryMovement_EmptyRepoSkipsFanOut pins the end-to-end outcome
+// for an empty moving repository: the movement is recorded (uniqueness hook runs
+// first) and no fan-out stock rows are written. With no items, loadAncestorStocks
+// returns an empty stock map (see TestLoadAncestorStocks_EmptyItemsSkipsStock),
+// so the simulate/fan-out here no-op — no catalog-wide read. The seeded ancestor
+// stock is what the old "empty means all" path would have hydrated; the
+// assertions confirm the outcome: one movement row, hook once, no stock.
+func TestCreateRepositoryMovement_EmptyRepoSkipsFanOut(t *testing.T) {
+	t.Parallel()
+
+	client := openPGEntClient(t)
+
+	tenantID := uuid.New()
+	user := &authn.User{ID: uuid.New(), TenantID: tenantID}
+	ctx := request.Context(context.Background(), user, tenantID)
+	ctx = entprivacy.DecisionContext(ctx, entprivacy.Allow)
+
+	mkRepo := func(name string, parent uuid.UUID) uuid.UUID {
+		t.Helper()
+		b := client.Repository.Create().
+			SetTenantID(tenantID).
+			SetName(name).
+			SetType(entrepository.TypeStatic).
+			SetVirtualRepo(false)
+		if parent != uuid.Nil {
+			b.SetParentID(parent)
+		}
+		repo, err := b.Save(ctx)
+		require.NoError(t, err)
+		return repo.ID
+	}
+
+	rootID := mkRepo("R", uuid.Nil)
+	movingID := mkRepo("A", rootID) // the moving repo — deliberately holds NO stock
+	toID := mkRepo("B", rootID)
+
+	// Ancestor stock the wasteful empty-item read would hydrate — stands in for
+	// a stocked warehouse rather than an empty DB.
+	item, err := client.Item.Create().
+		SetTenantID(tenantID).
+		SetSku("CREATE-REPO-MV-EMPTY-REPO").
+		Save(ctx)
+	require.NoError(t, err)
+	_, err = client.Stock.Create().
+		SetTenantID(tenantID).
+		SetRepositoryID(rootID).
+		SetItemID(item.ID).
+		SetQuantity(9).
+		SetOwnQuantity(9).
+		SetMovementID(uuid.New()).
+		Save(ctx)
+	require.NoError(t, err)
+
+	tx, err := client.Tx(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if rerr := tx.Rollback(); rerr != nil {
+			t.Errorf("rollback test tx: %v", rerr)
+		}
+	})
+
+	hookCalls := 0
+	svc := &service{}
+	movement, err := svc.CreateRepositoryMovement(ctx, tx, CreateRepositoryMovementInput{
+		Input: ent.CreateRepositoryMovementInput{
+			Handler:      "test",
+			ToID:         toID,
+			RepositoryID: movingID,
+		},
+		TenantID:               tenantID,
+		ValidateUniquenessHook: func() error { hookCalls++; return nil },
+	})
+
+	require.NoError(t, err, "empty-repo create must succeed")
+	require.NotNil(t, movement, "the movement row must still be recorded")
+	require.Equal(t, 1, hookCalls, "the uniqueness hook must still run for an empty repo")
+
+	mvCount, err := tx.RepositoryMovement.Query().
+		Where(entrepositorymovement.TenantID(tenantID)).
+		Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, mvCount, "exactly one movement row is recorded")
+
+	fanOut, err := tx.Stock.Query().
+		Where(entstock.MovementID(movement.ID)).
+		Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 0, fanOut, "an empty moving repository writes no fan-out stock rows")
+}
+
 // TestCreateRepositoryMovement_VersionTrackerCoversSoftDeletedRow pins the
 // repository-movement parallel of the #1199 stock-projection stale-baseline
 // race — the surface that PR left unfixed.
@@ -185,8 +269,7 @@ func TestCreateRepositoryMovement_UniquenessHookFailsBeforeInsert(t *testing.T) 
 func TestCreateRepositoryMovement_VersionTrackerCoversSoftDeletedRow(t *testing.T) {
 	t.Parallel()
 
-	client := enttest.Open(t, dialect.SQLite, testresolver.DatabaseURI(t))
-	t.Cleanup(func() { _ = client.Close() })
+	client := openPGEntClient(t)
 
 	tenantID := uuid.New()
 	user := &authn.User{ID: uuid.New(), TenantID: tenantID}
@@ -319,8 +402,7 @@ func TestCreateRepositoryMovement_VersionTrackerCoversSoftDeletedRow(t *testing.
 func TestCreateRepositoryMovement_DoesNotRewriteUnaffectedAncestorItems(t *testing.T) {
 	t.Parallel()
 
-	client := enttest.Open(t, dialect.SQLite, testresolver.DatabaseURI(t))
-	t.Cleanup(func() { _ = client.Close() })
+	client := openPGEntClient(t)
 
 	tenantID := uuid.New()
 	user := &authn.User{ID: uuid.New(), TenantID: tenantID}

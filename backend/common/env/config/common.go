@@ -10,6 +10,18 @@ type HTTPConfig struct {
 	HTTPHost              string        `env:"PYCK_HTTP_HOST" envDefault:""`
 	HTTPPort              int           `env:"PYCK_HTTP_PORT,notEmpty" envDefault:"8080"`
 	HTTPReadHeaderTimeout time.Duration `env:"PYCK_HTTP_READ_HEADER_TIMEOUT,notEmpty" envDefault:"5s"`
+
+	// HTTPShutdownDrainTimeout caps how long shutdown waits for in-flight
+	// requests after the listener closes; requests still running at the
+	// deadline are abandoned.
+	HTTPShutdownDrainTimeout time.Duration `env:"PYCK_HTTP_SHUTDOWN_DRAIN_TIMEOUT,notEmpty" envDefault:"10s"`
+
+	// HTTPShutdownPreDrainDelay is how long the server keeps serving after
+	// the stop signal, with readiness already 503, so orchestrators stop
+	// routing before the listener closes. The container stop grace period
+	// must exceed delay + drain timeout + resource teardown; the full
+	// worst-case budget lives in docs/graceful-shutdown.md.
+	HTTPShutdownPreDrainDelay time.Duration `env:"PYCK_HTTP_SHUTDOWN_PREDRAIN_DELAY,notEmpty" envDefault:"3s"`
 }
 
 type EnvironmentConfig struct {
@@ -35,10 +47,35 @@ type DbConfig struct {
 
 type GatewayConfig struct {
 	GatewayUrl string `env:"PYCK_GATEWAY_URL,notEmpty,required"`
+
+	// GatewayHTTPTimeout caps an entire outbound gateway/management API call
+	// (dial, headers, body). Calls made from resolvers ride request contexts
+	// that deliberately carry no deadline, so without this a black-holed
+	// gateway would pin them indefinitely; responses are small GraphQL
+	// payloads, so a total cap is safe.
+	GatewayHTTPTimeout time.Duration `env:"PYCK_GATEWAY_HTTP_TIMEOUT,notEmpty" envDefault:"30s"`
+
+	// GatewayHTTPMaxIdleConns sizes the outbound client's idle connection
+	// pool for the gateway host. A reuse pool, not a concurrency cap:
+	// bursts beyond it run on short-lived extra connections. The stdlib
+	// per-host default (2) redials constantly under concurrent resolver
+	// traffic, while large values pin needless sockets on the gateway
+	// across every service replica; 16 covers realistic bursts with a
+	// small descriptor footprint.
+	GatewayHTTPMaxIdleConns int `env:"PYCK_GATEWAY_HTTP_MAX_IDLE_CONNS,notEmpty" envDefault:"16"`
 }
 
 type TemporalConfig struct {
 	TemporalUrl string `env:"PYCK_TEMPORAL_URL,notEmpty,required"`
+
+	// TemporalDialTimeout bounds the eager connectivity check when the service
+	// dials the Temporal frontend at startup.
+	TemporalDialTimeout time.Duration `env:"PYCK_TEMPORAL_DIAL_TIMEOUT,notEmpty" envDefault:"30s"`
+
+	// TemporalClientCreationTimeout bounds the lazy one-time namespace setup
+	// (namespace creation + search-attribute registration) triggered by the
+	// first request for a tenant namespace.
+	TemporalClientCreationTimeout time.Duration `env:"PYCK_TEMPORAL_CLIENT_CREATION_TIMEOUT,notEmpty" envDefault:"30s"`
 }
 
 type TemporalBootstrapConfig struct {
@@ -64,6 +101,10 @@ type ZitadelConfig struct {
 	ZitadelTlsInsecure        bool          `env:"PYCK_ZITADEL_TLS_INSECURE,notEmpty" envDefault:"false"`
 	ZitadelPATCacheTTL        time.Duration `env:"PYCK_ZITADEL_PAT_CACHE_TTL,notEmpty" envDefault:"1h"`
 	ZitadelPATCacheTTLOverlap time.Duration `env:"PYCK_ZITADEL_PAT_CACHE_TTL_OVERLAP,notEmpty" envDefault:"1m"`
+
+	// ZitadelOrganizationCacheTTL bounds how long a positive org-active verdict
+	// is reused before the validator is consulted again.
+	ZitadelOrganizationCacheTTL time.Duration `env:"PYCK_ZITADEL_ORGANIZATION_CACHE_TTL,notEmpty" envDefault:"1m"`
 }
 
 type NatsConfig struct {

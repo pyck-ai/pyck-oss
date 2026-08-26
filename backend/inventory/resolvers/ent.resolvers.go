@@ -140,6 +140,9 @@ func (r *queryResolver) Transactions(ctx context.Context, after *entgql.Cursor[u
 // Query returns exec.QueryResolver implementation.
 func (r *Resolver) Query() exec.QueryResolver { return &queryResolver{r} }
 
+// Repository returns exec.RepositoryResolver implementation.
+func (r *Resolver) Repository() exec.RepositoryResolver { return &repositoryResolver{r} }
+
 // InventoryCollectionWhereInput returns exec.InventoryCollectionWhereInputResolver implementation.
 func (r *Resolver) InventoryCollectionWhereInput() exec.InventoryCollectionWhereInputResolver {
 	return &inventoryCollectionWhereInputResolver{r}
@@ -183,13 +186,16 @@ func (r *Resolver) RepositoryWhereInput() exec.RepositoryWhereInputResolver {
 // StockWhereInput returns exec.StockWhereInputResolver implementation.
 func (r *Resolver) StockWhereInput() exec.StockWhereInputResolver { return &stockWhereInputResolver{r} }
 
-type queryResolver struct{ *Resolver }
-type inventoryCollectionWhereInputResolver struct{ *Resolver }
-type inventoryItemSetWhereInputResolver struct{ *Resolver }
-type inventoryItemWhereInputResolver struct{ *Resolver }
-type itemMovementWhereInputResolver struct{ *Resolver }
-type replenishmentOrderItemWhereInputResolver struct{ *Resolver }
-type replenishmentOrderWhereInputResolver struct{ *Resolver }
-type repositoryMovementWhereInputResolver struct{ *Resolver }
-type repositoryWhereInputResolver struct{ *Resolver }
-type stockWhereInputResolver struct{ *Resolver }
+type (
+	queryResolver                            struct{ *Resolver }
+	repositoryResolver                       struct{ *Resolver }
+	inventoryCollectionWhereInputResolver    struct{ *Resolver }
+	inventoryItemSetWhereInputResolver       struct{ *Resolver }
+	inventoryItemWhereInputResolver          struct{ *Resolver }
+	itemMovementWhereInputResolver           struct{ *Resolver }
+	replenishmentOrderItemWhereInputResolver struct{ *Resolver }
+	replenishmentOrderWhereInputResolver     struct{ *Resolver }
+	repositoryMovementWhereInputResolver     struct{ *Resolver }
+	repositoryWhereInputResolver             struct{ *Resolver }
+	stockWhereInputResolver                  struct{ *Resolver }
+)

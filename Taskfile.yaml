@@ -81,6 +81,12 @@ includes:
       taskfile: ./backend/workflowsdk/Taskfile.yaml,
       dir: ./backend/workflowsdk,
     }
+  integration:
+    {
+      internal: true,
+      taskfile: ./tests/integration/Taskfile.yaml,
+      dir: ./tests/integration,
+    }
 
 tasks:
   default:
@@ -124,7 +130,12 @@ tasks:
       - task: workflowsdk:{{.TASK}}
       - task: gateway:{{.TASK}}
       - task: temporal:{{.TASK}}
-      - go work sync
+      # Tidy every module in go.work, not just the ones generated above:
+      # tests/integration, bootstrap and tests/nats are absent from that list,
+      # so nothing else would ever re-add a require dropped during generation.
+      # `task tidy` ends with `go work sync`, so it replaces the bare sync that
+      # used to be here.
+      - task: tidy
 
   lint:
     desc: Lint all modules
@@ -160,6 +171,15 @@ tasks:
       - task: workflow:{{.TASK}}
       - task: workflowsdk:{{.TASK}}
       - task: temporal:{{.TASK}}
+
+  check:drift:
+    desc: "Check ent schema/migration drift for all services (same check CI runs)"
+    cmds:
+      - docker compose up --wait db
+      - >-
+        PYCK_DATABASE_MASTER_URL=postgres://admin:12345@localhost:5432/pyck_dev?sslmode=disable
+        PYCK_DATABASE_SLAVE_URL=postgres://admin:12345@localhost:5432/pyck_dev?sslmode=disable
+        ./scripts/check-migrations-drift.sh
 
   lint:fix:
     desc: Lint all modules and fix issues
@@ -217,6 +237,19 @@ tasks:
       - task: workflow:{{.TASK}}
       - task: workflowsdk:{{.TASK}}
       - task: temporal:{{.TASK}}
+
+  test:integration:
+    desc: "Run integration suites against a running stack (start it with: task up)"
+    cmds:
+      - task: integration:test:integration:run
+        vars: { CLI_ARGS: '{{.CLI_ARGS}}' }
+
+  test:integration:up:
+    desc: Boot the stack, then run the integration suites.
+    cmds:
+      - task: up
+      - task: integration:test:integration:run
+        vars: { CLI_ARGS: '{{.CLI_ARGS}}' }
 
   build:
     desc: Build all modules

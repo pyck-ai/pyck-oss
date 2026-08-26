@@ -22,6 +22,18 @@ type RollupViolation struct {
 // Discrepancy returns expected − stored (positive means stored is too low).
 func (v RollupViolation) Discrepancy() int64 { return v.ExpectedQty - v.StoredQty }
 
+// stockPair identifies one rollup node: the (repository, item) the invariant
+// is stated over.
+type stockPair struct {
+	RepoID string
+	ItemID string
+}
+
+// Pair returns the violation's (repository, item) key.
+func (v RollupViolation) Pair() stockPair {
+	return stockPair{RepoID: v.RepoID, ItemID: v.ItemID}
+}
+
 // AnomalyRow is a ledger row whose deltas violate expected movement semantics.
 type AnomalyRow struct {
 	Version       int64

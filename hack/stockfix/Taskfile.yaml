@@ -16,9 +16,22 @@ tasks:
       - go build -mod=readonly -trimpath -o bin/stockfix .
 
   test:
-    desc: Run unit tests (no database required)
+    desc: Run unit tests (database-backed tests skip unless STOCKFIX_TEST_DB_URL is set)
     cmds:
       - go test -v -count=1 ./...
+
+  test:db:
+    desc: |
+      Run the database-backed tests against a Postgres of your choosing.
+        DB_URL=postgres://user:pass@localhost:5432/db?sslmode=disable
+      Each test creates and drops its own schema, so any database the user can
+      CREATE SCHEMA in will do — no pyck schema, no migrations.
+    requires:
+      vars: [DB_URL]
+    env:
+      STOCKFIX_TEST_DB_URL: "{{.DB_URL}}"
+    cmds:
+      - go test -v -count=1 -run TestPG ./...
 
   run:
     desc: Run stockfix — pass subcommand and flags via CLI_ARGS

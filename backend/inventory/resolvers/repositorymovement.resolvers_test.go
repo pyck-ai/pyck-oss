@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -284,7 +283,7 @@ func TestRepositoryMovement_Create(t *testing.T) {
 			"DataTypeID":   itemDataTypeID,
 			"Data":         true,
 			"Weight":       -50,
-		}, "'/meta/weight' does not validate")
+		}, "at '/meta/weight'")
 
 		te.assertNoEvents(ctx)
 	})

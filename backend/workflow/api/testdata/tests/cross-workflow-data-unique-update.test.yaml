@@ -1,0 +1,201 @@
+---
+name: "Cross - Workflow Data Unique Field Update"
+description: >
+  Regression test for #1142. When a workflow's DataType schema marks a field
+  "unique": true, registerWorkflow must run the uniqueness check before
+  persisting and exclude the workflow's own row on update. registerWorkflow
+  upserts on (tenant, taskQueue, name), so re-registering the same name/queue
+  is an update. Verifies that creating a workflow with a unique field succeeds,
+  re-registering with the same unique value or a new genuinely-unique value
+  succeeds, while registering a different workflow with a value already owned
+  by another workflow is still rejected.
+steps:
+  - id: createDT
+    name: "Create data type with a unique field for workflows"
+    operation: management.createDataType
+    # Give the NATS create event time to propagate into the workflow service's
+    # in-memory data type cache before registerWorkflow resolves the slug.
+    wait_after_ms: 500
+    vars:
+      input:
+        name: "Unique Workflow Schema"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "workflow"
+        jsonSchema: '{"type":"object","properties":{"priority":{"type":"string","minLength":1},"code":{"type":"string","unique":true}},"required":["priority","code"],"additionalProperties":false}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created with slug"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.slug
+            nil: false
+
+  # The create-side bug: before the fix this failed on Postgres because the
+  # check counted the workflow's own freshly inserted row.
+  - id: registerA
+    name: "Register workflow A with a unique code"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: {$fake: "UniqWfA-{{nonce}}"}
+        taskQueue: {$fake: "uniq-wf-queue-{{nonce}}"}
+        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        data:
+          priority: "high"
+          code: {$fake: "{{loremslug}}-{{nonce}}-aaa"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors (own row not counted on create)"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Workflow A registered"
+        assertions:
+          - ref: res.body.data.registerWorkflow.id
+            nil: false
+
+  - id: registerB
+    name: "Register workflow B with a different unique code"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: {$fake: "UniqWfB-{{nonce}}"}
+        taskQueue: {$ref: "res[registerA].body.data.registerWorkflow.taskQueue"}
+        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        data:
+          priority: "high"
+          code: {$fake: "{{loremslug}}-{{nonce}}-bbb"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Workflow B registered"
+        assertions:
+          - ref: res.body.data.registerWorkflow.id
+            nil: false
+
+  # The update bug: re-registering A (same name + queue) keeps the same code.
+  # Before the fix this failed because the check counted A's own row (already
+  # updated, not excluded) and reported a constraint violation.
+  - name: "Re-register A keeping the same code succeeds"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: {$ref: "res[registerA].body.data.registerWorkflow.name"}
+        taskQueue: {$ref: "res[registerA].body.data.registerWorkflow.taskQueue"}
+        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        data:
+          priority: "low"
+          code: {$ref: "res[registerA].body.data.registerWorkflow.data.code"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors (self is excluded from uniqueness check)"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Priority updated"
+        assertions:
+          - ref: res.body.data.registerWorkflow.data.priority
+            equal: "low"
+
+  - name: "Re-register A with a new genuinely-unique code succeeds"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: {$ref: "res[registerA].body.data.registerWorkflow.name"}
+        taskQueue: {$ref: "res[registerA].body.data.registerWorkflow.taskQueue"}
+        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        data:
+          priority: "low"
+          code: {$fake: "{{loremslug}}-{{nonce}}-ccc"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  # The guard: a real collision with a different workflow must still be rejected.
+  - name: "Re-register A with B's code is rejected"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: {$ref: "res[registerA].body.data.registerWorkflow.name"}
+        taskQueue: {$ref: "res[registerA].body.data.registerWorkflow.taskQueue"}
+        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        data:
+          priority: "low"
+          code: {$ref: "res[registerB].body.data.registerWorkflow.data.code"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL errors present (collides with workflow B)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Cleanup - delete workflow A"
+    operation: workflow.deleteWorkflow
+    vars:
+      id: {$ref: "res[registerA].body.data.registerWorkflow.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete workflow B"
+    operation: workflow.deleteWorkflow
+    vars:
+      id: {$ref: "res[registerB].body.data.registerWorkflow.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

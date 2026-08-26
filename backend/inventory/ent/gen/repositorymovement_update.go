@@ -13,7 +13,6 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/predicate"
-	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/repositorymovement"
 
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/internal"
@@ -164,54 +163,6 @@ func (_u *RepositoryMovementUpdate) ClearDeletedBy() *RepositoryMovementUpdate {
 	return _u
 }
 
-// SetRepositoryID sets the "repository_id" field.
-func (_u *RepositoryMovementUpdate) SetRepositoryID(v uuid.UUID) *RepositoryMovementUpdate {
-	_u.mutation.SetRepositoryID(v)
-	return _u
-}
-
-// SetNillableRepositoryID sets the "repository_id" field if the given value is not nil.
-func (_u *RepositoryMovementUpdate) SetNillableRepositoryID(v *uuid.UUID) *RepositoryMovementUpdate {
-	if v != nil {
-		_u.SetRepositoryID(*v)
-	}
-	return _u
-}
-
-// SetFromID sets the "from_id" field.
-func (_u *RepositoryMovementUpdate) SetFromID(v uuid.UUID) *RepositoryMovementUpdate {
-	_u.mutation.SetFromID(v)
-	return _u
-}
-
-// SetNillableFromID sets the "from_id" field if the given value is not nil.
-func (_u *RepositoryMovementUpdate) SetNillableFromID(v *uuid.UUID) *RepositoryMovementUpdate {
-	if v != nil {
-		_u.SetFromID(*v)
-	}
-	return _u
-}
-
-// ClearFromID clears the value of the "from_id" field.
-func (_u *RepositoryMovementUpdate) ClearFromID() *RepositoryMovementUpdate {
-	_u.mutation.ClearFromID()
-	return _u
-}
-
-// SetToID sets the "to_id" field.
-func (_u *RepositoryMovementUpdate) SetToID(v uuid.UUID) *RepositoryMovementUpdate {
-	_u.mutation.SetToID(v)
-	return _u
-}
-
-// SetNillableToID sets the "to_id" field if the given value is not nil.
-func (_u *RepositoryMovementUpdate) SetNillableToID(v *uuid.UUID) *RepositoryMovementUpdate {
-	if v != nil {
-		_u.SetToID(*v)
-	}
-	return _u
-}
-
 // SetExecuted sets the "executed" field.
 func (_u *RepositoryMovementUpdate) SetExecuted(v bool) *RepositoryMovementUpdate {
 	_u.mutation.SetExecuted(v)
@@ -280,83 +231,9 @@ func (_u *RepositoryMovementUpdate) ClearBlockedBy() *RepositoryMovementUpdate {
 	return _u
 }
 
-// SetOrderID sets the "order_id" field.
-func (_u *RepositoryMovementUpdate) SetOrderID(v uuid.UUID) *RepositoryMovementUpdate {
-	_u.mutation.SetOrderID(v)
-	return _u
-}
-
-// SetNillableOrderID sets the "order_id" field if the given value is not nil.
-func (_u *RepositoryMovementUpdate) SetNillableOrderID(v *uuid.UUID) *RepositoryMovementUpdate {
-	if v != nil {
-		_u.SetOrderID(*v)
-	}
-	return _u
-}
-
-// ClearOrderID clears the value of the "order_id" field.
-func (_u *RepositoryMovementUpdate) ClearOrderID() *RepositoryMovementUpdate {
-	_u.mutation.ClearOrderID()
-	return _u
-}
-
-// SetPosition sets the "position" field.
-func (_u *RepositoryMovementUpdate) SetPosition(v int) *RepositoryMovementUpdate {
-	_u.mutation.ResetPosition()
-	_u.mutation.SetPosition(v)
-	return _u
-}
-
-// SetNillablePosition sets the "position" field if the given value is not nil.
-func (_u *RepositoryMovementUpdate) SetNillablePosition(v *int) *RepositoryMovementUpdate {
-	if v != nil {
-		_u.SetPosition(*v)
-	}
-	return _u
-}
-
-// AddPosition adds value to the "position" field.
-func (_u *RepositoryMovementUpdate) AddPosition(v int) *RepositoryMovementUpdate {
-	_u.mutation.AddPosition(v)
-	return _u
-}
-
-// SetFrom sets the "from" edge to the Repository entity.
-func (_u *RepositoryMovementUpdate) SetFrom(v *Repository) *RepositoryMovementUpdate {
-	return _u.SetFromID(v.ID)
-}
-
-// SetTo sets the "to" edge to the Repository entity.
-func (_u *RepositoryMovementUpdate) SetTo(v *Repository) *RepositoryMovementUpdate {
-	return _u.SetToID(v.ID)
-}
-
-// SetRepository sets the "repository" edge to the Repository entity.
-func (_u *RepositoryMovementUpdate) SetRepository(v *Repository) *RepositoryMovementUpdate {
-	return _u.SetRepositoryID(v.ID)
-}
-
 // Mutation returns the RepositoryMovementMutation object of the builder.
 func (_u *RepositoryMovementUpdate) Mutation() *RepositoryMovementMutation {
 	return _u.mutation
-}
-
-// ClearFrom clears the "from" edge to the Repository entity.
-func (_u *RepositoryMovementUpdate) ClearFrom() *RepositoryMovementUpdate {
-	_u.mutation.ClearFrom()
-	return _u
-}
-
-// ClearTo clears the "to" edge to the Repository entity.
-func (_u *RepositoryMovementUpdate) ClearTo() *RepositoryMovementUpdate {
-	_u.mutation.ClearTo()
-	return _u
-}
-
-// ClearRepository clears the "repository" edge to the Repository entity.
-func (_u *RepositoryMovementUpdate) ClearRepository() *RepositoryMovementUpdate {
-	_u.mutation.ClearRepository()
-	return _u
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -482,110 +359,8 @@ func (_u *RepositoryMovementUpdate) sqlSave(ctx context.Context) (_node int, err
 	if _u.mutation.CollectionIDCleared() {
 		_spec.ClearField(repositorymovement.FieldCollectionID, field.TypeUUID)
 	}
-	if value, ok := _u.mutation.OrderID(); ok {
-		_spec.SetField(repositorymovement.FieldOrderID, field.TypeUUID, value)
-	}
 	if _u.mutation.OrderIDCleared() {
 		_spec.ClearField(repositorymovement.FieldOrderID, field.TypeUUID)
-	}
-	if value, ok := _u.mutation.Position(); ok {
-		_spec.SetField(repositorymovement.FieldPosition, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedPosition(); ok {
-		_spec.AddField(repositorymovement.FieldPosition, field.TypeInt, value)
-	}
-	if _u.mutation.FromCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   repositorymovement.FromTable,
-			Columns: []string{repositorymovement.FromColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.RepositoryMovement
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.FromIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   repositorymovement.FromTable,
-			Columns: []string{repositorymovement.FromColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.RepositoryMovement
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.ToCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   repositorymovement.ToTable,
-			Columns: []string{repositorymovement.ToColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.RepositoryMovement
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.ToIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   repositorymovement.ToTable,
-			Columns: []string{repositorymovement.ToColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.RepositoryMovement
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.RepositoryCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   repositorymovement.RepositoryTable,
-			Columns: []string{repositorymovement.RepositoryColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.RepositoryMovement
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.RepositoryIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   repositorymovement.RepositoryTable,
-			Columns: []string{repositorymovement.RepositoryColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.RepositoryMovement
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_spec.Node.Schema = _u.schemaConfig.RepositoryMovement
 	ctx = internal.NewSchemaConfigContext(ctx, _u.schemaConfig)
@@ -741,54 +516,6 @@ func (_u *RepositoryMovementUpdateOne) ClearDeletedBy() *RepositoryMovementUpdat
 	return _u
 }
 
-// SetRepositoryID sets the "repository_id" field.
-func (_u *RepositoryMovementUpdateOne) SetRepositoryID(v uuid.UUID) *RepositoryMovementUpdateOne {
-	_u.mutation.SetRepositoryID(v)
-	return _u
-}
-
-// SetNillableRepositoryID sets the "repository_id" field if the given value is not nil.
-func (_u *RepositoryMovementUpdateOne) SetNillableRepositoryID(v *uuid.UUID) *RepositoryMovementUpdateOne {
-	if v != nil {
-		_u.SetRepositoryID(*v)
-	}
-	return _u
-}
-
-// SetFromID sets the "from_id" field.
-func (_u *RepositoryMovementUpdateOne) SetFromID(v uuid.UUID) *RepositoryMovementUpdateOne {
-	_u.mutation.SetFromID(v)
-	return _u
-}
-
-// SetNillableFromID sets the "from_id" field if the given value is not nil.
-func (_u *RepositoryMovementUpdateOne) SetNillableFromID(v *uuid.UUID) *RepositoryMovementUpdateOne {
-	if v != nil {
-		_u.SetFromID(*v)
-	}
-	return _u
-}
-
-// ClearFromID clears the value of the "from_id" field.
-func (_u *RepositoryMovementUpdateOne) ClearFromID() *RepositoryMovementUpdateOne {
-	_u.mutation.ClearFromID()
-	return _u
-}
-
-// SetToID sets the "to_id" field.
-func (_u *RepositoryMovementUpdateOne) SetToID(v uuid.UUID) *RepositoryMovementUpdateOne {
-	_u.mutation.SetToID(v)
-	return _u
-}
-
-// SetNillableToID sets the "to_id" field if the given value is not nil.
-func (_u *RepositoryMovementUpdateOne) SetNillableToID(v *uuid.UUID) *RepositoryMovementUpdateOne {
-	if v != nil {
-		_u.SetToID(*v)
-	}
-	return _u
-}
-
 // SetExecuted sets the "executed" field.
 func (_u *RepositoryMovementUpdateOne) SetExecuted(v bool) *RepositoryMovementUpdateOne {
 	_u.mutation.SetExecuted(v)
@@ -857,83 +584,9 @@ func (_u *RepositoryMovementUpdateOne) ClearBlockedBy() *RepositoryMovementUpdat
 	return _u
 }
 
-// SetOrderID sets the "order_id" field.
-func (_u *RepositoryMovementUpdateOne) SetOrderID(v uuid.UUID) *RepositoryMovementUpdateOne {
-	_u.mutation.SetOrderID(v)
-	return _u
-}
-
-// SetNillableOrderID sets the "order_id" field if the given value is not nil.
-func (_u *RepositoryMovementUpdateOne) SetNillableOrderID(v *uuid.UUID) *RepositoryMovementUpdateOne {
-	if v != nil {
-		_u.SetOrderID(*v)
-	}
-	return _u
-}
-
-// ClearOrderID clears the value of the "order_id" field.
-func (_u *RepositoryMovementUpdateOne) ClearOrderID() *RepositoryMovementUpdateOne {
-	_u.mutation.ClearOrderID()
-	return _u
-}
-
-// SetPosition sets the "position" field.
-func (_u *RepositoryMovementUpdateOne) SetPosition(v int) *RepositoryMovementUpdateOne {
-	_u.mutation.ResetPosition()
-	_u.mutation.SetPosition(v)
-	return _u
-}
-
-// SetNillablePosition sets the "position" field if the given value is not nil.
-func (_u *RepositoryMovementUpdateOne) SetNillablePosition(v *int) *RepositoryMovementUpdateOne {
-	if v != nil {
-		_u.SetPosition(*v)
-	}
-	return _u
-}
-
-// AddPosition adds value to the "position" field.
-func (_u *RepositoryMovementUpdateOne) AddPosition(v int) *RepositoryMovementUpdateOne {
-	_u.mutation.AddPosition(v)
-	return _u
-}
-
-// SetFrom sets the "from" edge to the Repository entity.
-func (_u *RepositoryMovementUpdateOne) SetFrom(v *Repository) *RepositoryMovementUpdateOne {
-	return _u.SetFromID(v.ID)
-}
-
-// SetTo sets the "to" edge to the Repository entity.
-func (_u *RepositoryMovementUpdateOne) SetTo(v *Repository) *RepositoryMovementUpdateOne {
-	return _u.SetToID(v.ID)
-}
-
-// SetRepository sets the "repository" edge to the Repository entity.
-func (_u *RepositoryMovementUpdateOne) SetRepository(v *Repository) *RepositoryMovementUpdateOne {
-	return _u.SetRepositoryID(v.ID)
-}
-
 // Mutation returns the RepositoryMovementMutation object of the builder.
 func (_u *RepositoryMovementUpdateOne) Mutation() *RepositoryMovementMutation {
 	return _u.mutation
-}
-
-// ClearFrom clears the "from" edge to the Repository entity.
-func (_u *RepositoryMovementUpdateOne) ClearFrom() *RepositoryMovementUpdateOne {
-	_u.mutation.ClearFrom()
-	return _u
-}
-
-// ClearTo clears the "to" edge to the Repository entity.
-func (_u *RepositoryMovementUpdateOne) ClearTo() *RepositoryMovementUpdateOne {
-	_u.mutation.ClearTo()
-	return _u
-}
-
-// ClearRepository clears the "repository" edge to the Repository entity.
-func (_u *RepositoryMovementUpdateOne) ClearRepository() *RepositoryMovementUpdateOne {
-	_u.mutation.ClearRepository()
-	return _u
 }
 
 // Where appends a list predicates to the RepositoryMovementUpdate builder.
@@ -1089,110 +742,8 @@ func (_u *RepositoryMovementUpdateOne) sqlSave(ctx context.Context) (_node *Repo
 	if _u.mutation.CollectionIDCleared() {
 		_spec.ClearField(repositorymovement.FieldCollectionID, field.TypeUUID)
 	}
-	if value, ok := _u.mutation.OrderID(); ok {
-		_spec.SetField(repositorymovement.FieldOrderID, field.TypeUUID, value)
-	}
 	if _u.mutation.OrderIDCleared() {
 		_spec.ClearField(repositorymovement.FieldOrderID, field.TypeUUID)
-	}
-	if value, ok := _u.mutation.Position(); ok {
-		_spec.SetField(repositorymovement.FieldPosition, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedPosition(); ok {
-		_spec.AddField(repositorymovement.FieldPosition, field.TypeInt, value)
-	}
-	if _u.mutation.FromCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   repositorymovement.FromTable,
-			Columns: []string{repositorymovement.FromColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.RepositoryMovement
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.FromIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   repositorymovement.FromTable,
-			Columns: []string{repositorymovement.FromColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.RepositoryMovement
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.ToCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   repositorymovement.ToTable,
-			Columns: []string{repositorymovement.ToColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.RepositoryMovement
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.ToIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   repositorymovement.ToTable,
-			Columns: []string{repositorymovement.ToColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.RepositoryMovement
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.RepositoryCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   repositorymovement.RepositoryTable,
-			Columns: []string{repositorymovement.RepositoryColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.RepositoryMovement
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.RepositoryIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   repositorymovement.RepositoryTable,
-			Columns: []string{repositorymovement.RepositoryColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.RepositoryMovement
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_spec.Node.Schema = _u.schemaConfig.RepositoryMovement
 	ctx = internal.NewSchemaConfigContext(ctx, _u.schemaConfig)

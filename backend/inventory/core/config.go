@@ -19,7 +19,6 @@ type config struct {
 	envconfig.NatsConfig
 	envconfig.ServiceConfig
 	envconfig.ServiceInstanceConfig
-	envconfig.TemporalConfig
 	envconfig.ZitadelConfig
 
 	otel.OTelConfig

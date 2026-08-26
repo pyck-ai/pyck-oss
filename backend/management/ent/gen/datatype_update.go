@@ -193,20 +193,6 @@ func (_u *DataTypeUpdate) SetNillableDefault(v *bool) *DataTypeUpdate {
 	return _u
 }
 
-// SetEntity sets the "entity" field.
-func (_u *DataTypeUpdate) SetEntity(v string) *DataTypeUpdate {
-	_u.mutation.SetEntity(v)
-	return _u
-}
-
-// SetNillableEntity sets the "entity" field if the given value is not nil.
-func (_u *DataTypeUpdate) SetNillableEntity(v *string) *DataTypeUpdate {
-	if v != nil {
-		_u.SetEntity(*v)
-	}
-	return _u
-}
-
 // Mutation returns the DataTypeMutation object of the builder.
 func (_u *DataTypeUpdate) Mutation() *DataTypeMutation {
 	return _u.mutation
@@ -244,11 +230,6 @@ func (_u *DataTypeUpdate) check() error {
 	if v, ok := _u.mutation.JSONSchema(); ok {
 		if err := datatype.JSONSchemaValidator(v); err != nil {
 			return &ValidationError{Name: "json_schema", err: fmt.Errorf(`gen: validator failed for field "DataType.json_schema": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.Entity(); ok {
-		if err := datatype.EntityValidator(v); err != nil {
-			return &ValidationError{Name: "entity", err: fmt.Errorf(`gen: validator failed for field "DataType.entity": %w`, err)}
 		}
 	}
 	return nil
@@ -313,9 +294,6 @@ func (_u *DataTypeUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Default(); ok {
 		_spec.SetField(datatype.FieldDefault, field.TypeBool, value)
-	}
-	if value, ok := _u.mutation.Entity(); ok {
-		_spec.SetField(datatype.FieldEntity, field.TypeString, value)
 	}
 	_spec.Node.Schema = _u.schemaConfig.DataType
 	ctx = internal.NewSchemaConfigContext(ctx, _u.schemaConfig)
@@ -501,20 +479,6 @@ func (_u *DataTypeUpdateOne) SetNillableDefault(v *bool) *DataTypeUpdateOne {
 	return _u
 }
 
-// SetEntity sets the "entity" field.
-func (_u *DataTypeUpdateOne) SetEntity(v string) *DataTypeUpdateOne {
-	_u.mutation.SetEntity(v)
-	return _u
-}
-
-// SetNillableEntity sets the "entity" field if the given value is not nil.
-func (_u *DataTypeUpdateOne) SetNillableEntity(v *string) *DataTypeUpdateOne {
-	if v != nil {
-		_u.SetEntity(*v)
-	}
-	return _u
-}
-
 // Mutation returns the DataTypeMutation object of the builder.
 func (_u *DataTypeUpdateOne) Mutation() *DataTypeMutation {
 	return _u.mutation
@@ -565,11 +529,6 @@ func (_u *DataTypeUpdateOne) check() error {
 	if v, ok := _u.mutation.JSONSchema(); ok {
 		if err := datatype.JSONSchemaValidator(v); err != nil {
 			return &ValidationError{Name: "json_schema", err: fmt.Errorf(`gen: validator failed for field "DataType.json_schema": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.Entity(); ok {
-		if err := datatype.EntityValidator(v); err != nil {
-			return &ValidationError{Name: "entity", err: fmt.Errorf(`gen: validator failed for field "DataType.entity": %w`, err)}
 		}
 	}
 	return nil
@@ -651,9 +610,6 @@ func (_u *DataTypeUpdateOne) sqlSave(ctx context.Context) (_node *DataType, err 
 	}
 	if value, ok := _u.mutation.Default(); ok {
 		_spec.SetField(datatype.FieldDefault, field.TypeBool, value)
-	}
-	if value, ok := _u.mutation.Entity(); ok {
-		_spec.SetField(datatype.FieldEntity, field.TypeString, value)
 	}
 	_spec.Node.Schema = _u.schemaConfig.DataType
 	ctx = internal.NewSchemaConfigContext(ctx, _u.schemaConfig)

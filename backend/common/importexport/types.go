@@ -6,8 +6,13 @@ package importexport
 
 import (
 	"context"
+	"errors"
 	"strconv"
 )
+
+// ErrImmutableField is returned when an import asks to change a field the
+// update input cannot express because it is fixed at creation.
+var ErrImmutableField = errors.New("field is fixed at creation")
 
 // EntityDescriptor describes how to list, create, and update one entity type.
 // Each importable entity type registers one descriptor with the [Registry].
@@ -38,6 +43,13 @@ type EntityDescriptor struct {
 	// field names matching the service's UpdateInput type. Returns the
 	// updated entity as a map.
 	Update func(ctx context.Context, id string, input map[string]any) (map[string]any, error)
+
+	// ImmutableFields names fields the create input accepts but the update
+	// input cannot express, because they are fixed at creation. An import
+	// carrying a different value for one of them is refused: the update would
+	// otherwise apply the rest and report success while silently dropping the
+	// difference the operator asked for.
+	ImmutableFields []string
 }
 
 // ListResult holds a page of entities from a List call.
@@ -94,3 +106,7 @@ func (e ImportError) Error() string {
 	}
 	return e.Record.Source + ": " + e.Err.Error()
 }
+
+// Unwrap exposes the cause so a caller can match it with errors.Is rather than
+// on the formatted message.
+func (e ImportError) Unwrap() error { return e.Err }

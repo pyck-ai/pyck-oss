@@ -5,13 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"os"
 	"os/signal"
 	"reflect"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
+	"time"
 
 	"github.com/google/uuid"
 	temporalclient "go.temporal.io/sdk/client"
@@ -22,6 +26,7 @@ import (
 	pycklog "github.com/pyck-ai/pyck/backend/common/log"
 	pycklogadapter "github.com/pyck-ai/pyck/backend/common/log/adapter"
 	pyckotel "github.com/pyck-ai/pyck/backend/common/otel"
+	commonworkflow "github.com/pyck-ai/pyck/backend/common/workflow"
 	pyckworkflowapi "github.com/pyck-ai/pyck/backend/workflow/api"
 	"github.com/pyck-ai/pyck/backend/workflow/model"
 
@@ -29,9 +34,98 @@ import (
 )
 
 var (
-	ErrReadBuildInfo  = fmt.Errorf("failed to read build info")
 	ErrAlreadyRunning = fmt.Errorf("worker is already running")
+
+	ErrReadBuildInfo = fmt.Errorf("failed to read build info")
+
+	// ErrUnversionedBuild aliases the common/workflow sentinel rather than
+	// copying it: versioning errors are raised there and must stay matchable
+	// through this package too.
+	ErrUnversionedBuild = commonworkflow.ErrUnversionedBuild
 )
+
+const (
+	uiBundleStampRetryDelay    = 1 * time.Second
+	uiBundleStampMaxRetryDelay = 30 * time.Second
+)
+
+// uiBundleMetadataEntries builds the ui.bundle.<Type>.{version,slug} metadata a
+// worker stamps on its deployment version (#1317). Slug is stamped only when
+// configured — shared flavour bundles have one, per-tenant bundles don't.
+//
+// An unset version stamps nothing. The build ID is not a usable fallback — the
+// two only coincide when a deploy pins them together — so claiming it would
+// point remoteUI at a bundle nobody uploaded, instead of letting it fall back to
+// the configured default.
+func uiBundleMetadataEntries(workflowTypes []string, bundle commonworkflow.UIBundle) map[string]interface{} {
+	if bundle.Version == "" {
+		return nil
+	}
+
+	entries := make(map[string]interface{}, len(workflowTypes)*2)
+	for _, t := range workflowTypes {
+		entries[commonworkflow.UIBundleVersionKey(t)] = bundle.Version
+		if bundle.Slug != "" {
+			entries[commonworkflow.UIBundleSlugKey(t)] = bundle.Slug
+		}
+	}
+	return entries
+}
+
+// stampUIBundleMetadata writes ui.bundle metadata for the workflow types this
+// worker serves onto its own deployment version, then marks the worker ready
+// (#1317). Readiness gates the controller's promotion, so it retries until the
+// stamp lands or the worker shuts down: no version may serve before its metadata
+// exists.
+func (w *worker) stampUIBundleMetadata(ctx context.Context, client temporalclient.Client, version temporalworker.WorkerDeploymentVersion, bundle commonworkflow.UIBundle, ready *atomic.Bool) {
+	logger := pycklog.ForContext(ctx)
+
+	workflows := w.registry.Workflows()
+	types := make([]string, 0, len(workflows))
+	for _, wf := range workflows {
+		types = append(types, wf.Type())
+	}
+
+	entries := uiBundleMetadataEntries(types, bundle)
+	if len(entries) == 0 {
+		// Say so: otherwise "why is this workflow served the default bundle?"
+		// has no answer anywhere.
+		logger.Info().
+			Str("build_id", version.BuildID).
+			Msg("no UI bundle version configured; serving whatever default the backend has")
+		ready.Store(true)
+		return
+	}
+
+	opts := temporalclient.WorkerDeploymentUpdateVersionMetadataOptions{
+		Version:        version,
+		MetadataUpdate: temporalclient.WorkerDeploymentMetadataUpdate{UpsertEntries: entries},
+	}
+	handle := client.WorkerDeploymentClient().GetHandle(version.DeploymentName)
+
+	// The version only registers a moment after the worker starts polling, so the
+	// first attempts are expected to fail; back off rather than spam the log.
+	delay := uiBundleStampRetryDelay
+	for {
+		_, err := handle.UpdateVersionMetadata(ctx, opts)
+		if err == nil {
+			ready.Store(true)
+			logger.Info().
+				Int("workflow_types", len(types)).
+				Str("build_id", version.BuildID).
+				Str("bundle_version", bundle.Version).
+				Msg("stamped UI bundle metadata")
+			return
+		}
+		logger.Warn().Err(err).Dur("retry_in", delay).Msg("stamp UI bundle metadata failed; worker stays not-ready until it lands")
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(delay):
+		}
+		delay = min(delay*2, uiBundleStampMaxRetryDelay)
+	}
+}
 
 func RunDefaultWorker(opts ...WorkerOption) {
 	ctx := context.Background()
@@ -73,6 +167,29 @@ func RunDefaultWorker(opts ...WorkerOption) {
 		return
 	}
 
+	// Worker Deployment Versioning (#1132): register a deployment version so
+	// rolling deploys don't break in-flight executions. Must precede Start, which
+	// passes workerOptions to every constructed worker.
+	ready := &atomic.Bool{}
+	depOpts, versioned, err := Config.DeploymentOptions(info.Main.Version, info.Main.Path)
+	if err != nil {
+		logger.Fatal().
+			Err(err).
+			Msg("worker versioning")
+		return
+	}
+	if versioned {
+		worker.workerOptions.DeploymentOptions = depOpts
+		logger.Info().
+			Str("deployment", depOpts.Version.DeploymentName).
+			Str("build_id", depOpts.Version.BuildID).
+			Msg("worker deployment versioning enabled (pinned)")
+	} else {
+		logger.Warn().
+			Msg("worker deployment versioning disabled: unversioned build and PYCK_WORKER_REQUIRE_BUILD_ID=false")
+		ready.Store(true) // nothing to stamp
+	}
+
 	defer worker.Stop()
 
 	if err := worker.Start(ctx); err != nil {
@@ -88,6 +205,14 @@ func RunDefaultWorker(opts ...WorkerOption) {
 	defer logger.Info().
 		Msg("worker stopped")
 
+	// Stamp UI bundle metadata (#1317) now that the worker polls and its deployment
+	// version exists. Backgrounded so it never delays the health server; the client
+	// is read here because Stop() nils worker.client on shutdown.
+	if versioned {
+		bundle := commonworkflow.UIBundle{Slug: Config.UIBundleSlug, Version: Config.UIBundleVersion}
+		go worker.stampUIBundleMetadata(ctx, worker.client, depOpts.Version, bundle, ready)
+	}
+
 	// Spin up the health server. It uses a dedicated Temporal client
 	// (dialed inside the probe loop) so probe gRPC traffic is isolated
 	// from the worker's long-polls. The HTTP listener binds
@@ -99,7 +224,7 @@ func RunDefaultWorker(opts ...WorkerOption) {
 		cfg.Identity = worker.clientOptions.Identity
 		cfg.TaskQueues = worker.taskQueues
 		go func() {
-			if err := runHealthServer(ctx, cfg, worker.clientOptions); err != nil {
+			if err := runHealthServer(ctx, cfg, worker.clientOptions, ready); err != nil {
 				logger.Error().
 					Err(err).
 					Msg("health server exited with error")
@@ -165,6 +290,7 @@ type worker struct {
 	workers         map[string]temporalworker.Worker
 	taskQueues      []string
 	healthConfig    healthServerConfig
+	heartbeatCancel context.CancelFunc
 }
 
 // defaultWorkerIdentity returns a stable per-process identity in the
@@ -182,10 +308,21 @@ func defaultWorkerIdentity() string {
 func (w *worker) Stop() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	w.stopLocked()
+}
+
+// stopLocked tears the worker down; the caller must hold w.mu. Start uses it on
+// its failure path, where it already holds the lock and calling Stop would
+// deadlock on the non-reentrant mutex.
+func (w *worker) stopLocked() {
+	if w.heartbeatCancel != nil {
+		w.heartbeatCancel()
+		w.heartbeatCancel = nil
+	}
 
 	if w.workers != nil {
-		for _, w := range w.workers {
-			w.Stop()
+		for _, wk := range w.workers {
+			wk.Stop()
 		}
 
 		w.workers = nil
@@ -205,6 +342,11 @@ func (w *worker) Stop() {
 func (w *worker) Start(ctx context.Context) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
+	// Guard against a second Start leaking the running workers and heartbeat.
+	if w.workers != nil {
+		return ErrAlreadyRunning
+	}
 
 	var (
 		err    error
@@ -250,14 +392,21 @@ func (w *worker) Start(ctx context.Context) error {
 		return fmt.Errorf("register workflows: %w", err)
 	}
 
-	if err := w.registerAllWorkflowWithPyck(ctx, workflows); err != nil {
+	if err := w.registerAllWorkflowWithPyckRetrying(ctx, workflows); err != nil {
 		return fmt.Errorf("register workflow signals: %w", err)
 	}
 
 	if err := w.startAllWorkers(ctx); err != nil {
-		w.Stop()
+		w.stopLocked()
 		return fmt.Errorf("start workers: %w", err)
 	}
+
+	// Keep this worker's subscriptions alive past their TTL. Tie the heartbeat
+	// to Stop() so a worker that shuts down (including on a poller error) stops
+	// refreshing and lets its subscriptions expire.
+	hbCtx, cancel := context.WithCancel(ctx)
+	w.heartbeatCancel = cancel
+	go w.runRegistrationHeartbeat(hbCtx, workflows)
 
 	return nil
 }
@@ -430,7 +579,13 @@ func (w *worker) registerAllWorkflowWithPyck(ctx context.Context, workflows []re
 			Msg("deleted pyck workflow not in local registry")
 	}
 
-	// Register signals for each workflow in the local registry.
+	return w.registerLocalWorkflows(ctx, workflows)
+}
+
+// registerLocalWorkflows (re-)registers every local workflow's signals. Unlike
+// registerAllWorkflowWithPyck it skips the remote reconcile/delete, so it is
+// safe to call repeatedly from the heartbeat to refresh subscription TTLs.
+func (w *worker) registerLocalWorkflows(ctx context.Context, workflows []registry.WorkflowRegistryEntry) error {
 	for _, wf := range workflows {
 		if err := w.registerWorkflowWithPyck(ctx, wf); err != nil {
 			return fmt.Errorf("register pyck workflow %q: %w", wf.Type(), err)
@@ -438,6 +593,116 @@ func (w *worker) registerAllWorkflowWithPyck(ctx context.Context, workflows []re
 	}
 
 	return nil
+}
+
+// registerAllWorkflowWithPyckRetrying runs the initial registration, retrying
+// on transient serialization/deadlock conflicts. The workflow service already
+// retries these internally; this is the last-resort guard so a startup burst
+// (e.g. a fleet-wide rollout) that outlasts the server-side budget refreshes
+// rather than crash-looping the pod.
+func (w *worker) registerAllWorkflowWithPyckRetrying(ctx context.Context, workflows []registry.WorkflowRegistryEntry) error {
+	return RetryOnConflict(ctx, Config.RegistrationRetryAttempts, Config.RegistrationRetryBackoff, func() error {
+		return w.registerAllWorkflowWithPyck(ctx, workflows)
+	})
+}
+
+func RetryOnConflict(ctx context.Context, attempts int, baseBackoff time.Duration, fn func() error) error {
+	if attempts < 1 {
+		attempts = 1
+	}
+
+	logger := pycklog.ForContext(ctx)
+
+	for attempt := 1; ; attempt++ {
+		err := fn()
+		if err == nil {
+			return nil
+		}
+
+		if attempt >= attempts || !isRetryableRegistrationError(err) {
+			return err
+		}
+
+		backoff := baseBackoff << (attempt - 1)
+		if maxBackoff := time.Minute; backoff <= 0 || backoff > maxBackoff {
+			backoff = maxBackoff // guard against a large-attempt shift overflowing
+		}
+
+		// Jitter to ±50%: replicas in a rollout fail in lockstep, so an
+		// undithered backoff makes every retry wave re-collide.
+		//nolint:gosec // non-crypto jitter
+		backoff = backoff/2 + time.Duration(rand.Int64N(int64(backoff)))
+
+		logger.Warn().
+			Err(err).
+			Int("attempt", attempt).
+			Dur("backoff", backoff).
+			Msg("conflict, retrying")
+
+		// Check cancellation before waiting, not only inside the select. If
+		// this goroutine is descheduled past the backoff, both select cases
+		// below are ready at once and Go picks between them at random, so a
+		// cancelled context would abort the wait only about half the time and
+		// otherwise buy another attempt. Under load that is exactly what
+		// happens; the select alone is only reliable when it is reached before
+		// the timer fires.
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(backoff):
+		}
+	}
+}
+
+// runRegistrationHeartbeat periodically refreshes this worker's subscription
+// TTLs until ctx is cancelled. A failed refresh is non-fatal: the next tick
+// retries and the TTL leaves ample margin.
+func (w *worker) runRegistrationHeartbeat(ctx context.Context, workflows []registry.WorkflowRegistryEntry) {
+	interval := Config.HeartbeatInterval
+	if interval <= 0 {
+		return
+	}
+
+	logger := pycklog.ForContext(ctx)
+
+	t := time.NewTicker(interval)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if err := w.registerLocalWorkflows(ctx, workflows); err != nil {
+				logger.Warn().Err(err).Msg("workflow subscription heartbeat failed")
+			}
+		}
+	}
+}
+
+// isRetryableRegistrationError reports whether err is a transient PostgreSQL
+// conflict that a fresh attempt can resolve. The error crosses the GraphQL
+// boundary as text, so it is matched by message rather than by type.
+//
+// 23505 counts: replicas racing to create a brand-new workflow can lose with a
+// plain duplicate-key error rather than 40001, and nothing retries that
+// server-side. A retry then finds the winner's row and takes the update path.
+func isRetryableRegistrationError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "could not serialize") ||
+		strings.Contains(msg, "40001") ||
+		strings.Contains(msg, "deadlock detected") ||
+		strings.Contains(msg, "40p01") ||
+		strings.Contains(msg, "duplicate key") ||
+		strings.Contains(msg, "23505")
 }
 
 func (w *worker) registerWorkflowWithPyck(ctx context.Context, wf registry.WorkflowRegistryEntry) error {
@@ -452,9 +717,14 @@ func (w *worker) registerWorkflowWithPyck(ctx context.Context, wf registry.Workf
 		}
 	}
 
+	// The client identity is stable for the process lifetime and unique per
+	// worker, so it scopes this worker's subscriptions server-side.
+	identity := w.clientOptions.Identity
+
 	input := model.RegisterWorkflowWithSignalsInput{
 		Name:      wf.Type(),
 		TaskQueue: wf.TaskQueue(),
+		WorkerID:  &identity,
 		Signals:   signalInputs,
 	}
 

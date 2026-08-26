@@ -2,9 +2,11 @@ package stock
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
 
@@ -36,7 +38,117 @@ type stockKey struct {
 // belt-and-braces guard against a corrupt parent_id cycle.
 const ancestorWalkDepthCap = 100
 
-// loadAncestorStocks returns the union of seed repos and all their
+// loadAncestorStocks returns the seed-plus-ancestors closure and the current
+// stock row per (repo, item) for those repos. On Postgres it is one call to the
+// index-served inventory.load_ancestor_stocks function; on any other dialect it
+// falls back to the ent implementation, which is retained as the independent
+// oracle the proc parity tests compare against. Callers read only
+// repo.ParentID / repo.VirtualRepo and the stock quantity/version fields, so the
+// proc path hydrates only those.
+func (s *service) loadAncestorStocks(
+	ctx context.Context,
+	tx *ent.Tx,
+	tenantID uuid.UUID,
+	seeds []uuid.UUID,
+	items []uuid.UUID,
+	includeDeleted bool,
+) (map[uuid.UUID]ent.Repository, map[stockKey]ent.Stock, error) {
+	if len(seeds) == 0 {
+		return map[uuid.UUID]ent.Repository{}, map[stockKey]ent.Stock{}, nil
+	}
+	if s.dbDialect == dialect.Postgres {
+		return s.loadAncestorStocksViaProc(ctx, tx, tenantID, seeds, items, includeDeleted)
+	}
+	return s.loadAncestorStocksGo(ctx, tx, tenantID, seeds, items, includeDeleted)
+}
+
+// loadAncestorStocksViaProc is the Postgres path: one call to
+// inventory.load_ancestor_stocks returns the ancestor repos LEFT JOINed to their
+// current stock (stock columns NULL for a repo that holds none).
+func (s *service) loadAncestorStocksViaProc(
+	ctx context.Context,
+	tx *ent.Tx,
+	tenantID uuid.UUID,
+	seeds []uuid.UUID,
+	items []uuid.UUID,
+	includeDeleted bool,
+) (_ map[uuid.UUID]ent.Repository, _ map[stockKey]ent.Stock, retErr error) {
+	seedsJSON, err := marshalUUIDStrings(seeds)
+	if err != nil {
+		return nil, nil, fmt.Errorf("loadAncestorStocks: marshal seeds: %w", err)
+	}
+	itemsJSON, err := marshalUUIDStrings(items)
+	if err != nil {
+		return nil, nil, fmt.Errorf("loadAncestorStocks: marshal items: %w", err)
+	}
+
+	const procCall = `SELECT repository_id, parent_id, virtual_repo, item_id, ` +
+		`version, quantity, own_quantity, incoming_stock, outgoing_stock, ` +
+		`own_incoming_stock, own_outgoing_stock ` +
+		`FROM inventory.load_ancestor_stocks($1::uuid, $2::jsonb, $3::jsonb, $4::boolean)`
+
+	rows, err := tx.QueryContext(ctx, procCall, tenantID, seedsJSON, itemsJSON, includeDeleted)
+	if err != nil {
+		return nil, nil, fmt.Errorf("loadAncestorStocks: proc: %w", err)
+	}
+	// Close reports driver-side failures that rows.Err() can miss; join it
+	// into retErr so a failed release doesn't pass silently, without
+	// clobbering an earlier scan/iteration error.
+	defer func() {
+		if cerr := rows.Close(); cerr != nil && retErr == nil {
+			retErr = fmt.Errorf("loadAncestorStocks: close rows: %w", cerr)
+		}
+	}()
+
+	repos := map[uuid.UUID]ent.Repository{}
+	stocks := map[stockKey]ent.Stock{}
+	for rows.Next() {
+		var (
+			repoID, parentID                                  uuid.UUID
+			virtualRepo                                       bool
+			itemID                                            *uuid.UUID // NULL when the repo holds no matching stock
+			version, quantity, ownQty, in, out, ownIn, ownOut *int64
+		)
+		if err := rows.Scan(
+			&repoID, &parentID, &virtualRepo, &itemID,
+			&version, &quantity, &ownQty, &in, &out, &ownIn, &ownOut,
+		); err != nil {
+			return nil, nil, fmt.Errorf("loadAncestorStocks: scan: %w", err)
+		}
+		if _, ok := repos[repoID]; !ok {
+			repos[repoID] = ent.Repository{ID: repoID, ParentID: parentID, VirtualRepo: virtualRepo}
+		}
+		if itemID != nil {
+			stocks[stockKey{RepositoryID: repoID, ItemID: *itemID}] = ent.Stock{
+				TenantID:         tenantID,
+				RepositoryID:     repoID,
+				ItemID:           *itemID,
+				Version:          *version,
+				Quantity:         *quantity,
+				OwnQuantity:      *ownQty,
+				IncomingStock:    *in,
+				OutgoingStock:    *out,
+				OwnIncomingStock: *ownIn,
+				OwnOutgoingStock: *ownOut,
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("loadAncestorStocks: rows: %w", err)
+	}
+	return repos, stocks, nil
+}
+
+// marshalUUIDStrings renders a uuid slice as a jsonb string array for a proc arg.
+func marshalUUIDStrings(ids []uuid.UUID) ([]byte, error) {
+	strs := make([]string, len(ids))
+	for i, id := range ids {
+		strs[i] = id.String()
+	}
+	return json.Marshal(strs)
+}
+
+// loadAncestorStocksGo returns the union of seed repos and all their
 // ancestors via parent_id, plus the latest stock row per (repo, item)
 // pair for those repos. The implementation is "Approach 1" from
 // TODO.md Step 4.1: one recursive CTE that returns only repository IDs,
@@ -57,8 +169,9 @@ const ancestorWalkDepthCap = 100
 // both the recursive walk and the hydration query, and soft-deleted
 // stock rows are likewise excluded. When true, all rows are visible.
 //
-// items, when non-empty, narrows the stock map to those items. When
-// empty, every item that has a row at any returned repo is loaded.
+// items narrows the stock map to those items. An empty list means no
+// items (not "all"): the repos are still returned, but the stock map is
+// empty — a movement whose repository holds no stock has nothing to load.
 //
 // The returned maps key on:
 //   - repos: repository ID
@@ -66,7 +179,7 @@ const ancestorWalkDepthCap = 100
 //
 // Both maps are non-nil even when the corresponding result set is
 // empty, so callers can read freely without nil-map panics.
-func (s *service) loadAncestorStocks(
+func (s *service) loadAncestorStocksGo(
 	ctx context.Context,
 	tx *ent.Tx,
 	tenantID uuid.UUID,
@@ -111,6 +224,12 @@ func (s *service) loadAncestorStocks(
 		repos[r.ID] = *r
 	}
 
+	// No items: skip the stock scan and return the repos with an empty stock
+	// map (a movement whose repository holds no stock — the bulk-assign fast path).
+	if len(items) == 0 {
+		return repos, stocks, nil
+	}
+
 	// Step 3: hydrate the current Stock row per (repo, item) for the
 	// gathered repo set, optionally narrowed to items. "Current" is the
 	// highest version (UNIQUE and monotonic per tenant/repo/item), not the
@@ -120,6 +239,7 @@ func (s *service) loadAncestorStocks(
 	latestPredicate := func(sel *sql.Selector) {
 		t := sql.Table(entstock.Table).As("s2")
 		sub := sql.SelectExpr(sql.Expr("1")).From(t).Where(sql.And(
+			sql.EQ(t.C(entstock.FieldTenantID), tenantID),
 			sql.ColumnsEQ(t.C(entstock.RepositoryColumn), sel.C(entstock.RepositoryColumn)),
 			sql.ColumnsEQ(t.C(entstock.ItemColumn), sel.C(entstock.ItemColumn)),
 			sql.ColumnsGT(t.C(entstock.FieldVersion), sel.C(entstock.FieldVersion)),
@@ -132,10 +252,8 @@ func (s *service) loadAncestorStocks(
 			entstock.TenantID(tenantID),
 			entstock.RepositoryIDIn(ids...),
 		).
-		Where(func(sel *sql.Selector) { latestPredicate(sel) })
-	if len(items) > 0 {
-		stockQuery = stockQuery.Where(entstock.ItemIDIn(items...))
-	}
+		Where(func(sel *sql.Selector) { latestPredicate(sel) }).
+		Where(entstock.ItemIDIn(items...)) // items is non-empty here (see the guard above)
 	if !includeDeleted {
 		stockQuery = stockQuery.Where(entstock.DeletedAtIsNil())
 	}
@@ -185,6 +303,7 @@ func (s *service) loadItemIDsAtRepo(
 	latestPredicate := func(sel *sql.Selector) {
 		t := sql.Table(entstock.Table).As("s2")
 		sub := sql.SelectExpr(sql.Expr("1")).From(t).Where(sql.And(
+			sql.EQ(t.C(entstock.FieldTenantID), tenantID),
 			sql.ColumnsEQ(t.C(entstock.RepositoryColumn), sel.C(entstock.RepositoryColumn)),
 			sql.ColumnsEQ(t.C(entstock.ItemColumn), sel.C(entstock.ItemColumn)),
 			sql.ColumnsGT(t.C(entstock.FieldVersion), sel.C(entstock.FieldVersion)),
@@ -218,12 +337,11 @@ func (s *service) loadItemIDsAtRepo(
 // a stable order — callers must not depend on it.
 //
 // The query uses sequential positional placeholders ($1, $2, ...)
-// without skipping any index. Both pgx and the mattn/go-sqlite3 driver
-// accept this form; SQLite's bind path matches $NNN by its numeric
-// suffix and skipping a number (e.g., declaring $3 without $2) breaks
-// the binding. The includeDeleted toggle is therefore expressed by
-// switching the SQL itself — a soft-delete branch and an
-// include-everything branch — rather than by passing a bool param.
+// without skipping any index. The pgx driver matches $NNN by position;
+// skipping a number (e.g., declaring $3 without $2) breaks the binding.
+// The includeDeleted toggle is therefore expressed by switching the SQL
+// itself — a soft-delete branch and an include-everything branch —
+// rather than by passing a bool param.
 func (s *service) loadAncestorIDs(
 	ctx context.Context,
 	tx *ent.Tx,
@@ -233,8 +351,7 @@ func (s *service) loadAncestorIDs(
 ) ([]uuid.UUID, error) {
 	// Build the IN (...) placeholder list. $1 is the tenant ID and
 	// $2..$(N+1) are the seed IDs. There is no $0 and no gap so that
-	// SQLite's positional-name binder (which matches by the trailing
-	// integer in the placeholder text) lines up with the args slice.
+	// positional bindings line up with the args slice.
 	const tenantPlaceholderPos = 1
 	seedPlaceholders := make([]string, len(seeds))
 	args := make([]any, 0, 1+len(seeds))
@@ -247,11 +364,9 @@ func (s *service) loadAncestorIDs(
 	// deletedPredicate is empty when soft-deletes are visible (the
 	// caller asked to include them) and adds an "AND deleted_at IS
 	// NULL" filter at both legs of the UNION ALL otherwise. We toggle
-	// via SQL rather than via a bool parameter because SQLite's mattn
-	// driver binds positional placeholders by the trailing integer in
-	// the placeholder text — passing a parameter that the prepared
-	// statement does not actually reference shifts the remaining
-	// bindings off by one and produces silently empty results.
+	// via SQL rather than via a bool parameter: passing a parameter that
+	// the prepared statement does not actually reference shifts the
+	// remaining bindings off by one and produces silently empty results.
 	deletedClauseAnchor := ""
 	deletedClauseRecursive := ""
 	if !includeDeleted {
@@ -259,13 +374,12 @@ func (s *service) loadAncestorIDs(
 		deletedClauseRecursive = fmt.Sprintf(" AND r.%s IS NULL", entrepository.FieldDeletedAt)
 	}
 
-	// The CTE keeps the table name unqualified (repositories rather
-	// than inventory.repositories) so the same SQL works under PG with
-	// search_path=inventory (production) and under SQLite (tests),
-	// where there is no schema namespace at all. Tenant-, deleted- and
-	// depth-filters are repeated on the recursive step so a cyclic or
-	// sibling-shaped parent_id graph cannot leak rows from outside the
-	// tenant or below the soft-delete cutoff.
+	// The CTE keeps the table name unqualified (repositories rather than
+	// inventory.repositories); the search_path=inventory DSN option routes
+	// bare names to the correct schema. Tenant-, deleted- and depth-filters
+	// are repeated on the recursive step so a cyclic or sibling-shaped
+	// parent_id graph cannot leak rows from outside the tenant or below the
+	// soft-delete cutoff.
 	query := fmt.Sprintf(`WITH RECURSIVE ancestors(id, parent_id, depth) AS (
   SELECT %[1]s, %[2]s, 0
   FROM %[3]s

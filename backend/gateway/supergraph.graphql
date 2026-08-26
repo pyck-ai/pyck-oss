@@ -816,6 +816,7 @@ type Query @join__type(graph: FILE) @join__type(graph: INVENTORY) @join__type(gr
   ): TransactionConnection! @join__field(graph: INVENTORY)
   inventoryServiceInfo: ServiceInfo! @join__field(graph: INVENTORY)
   getStockTree(after: Cursor, first: Int, before: Cursor, last: Int, where: StockWhereInput): RepositoryTreeConnection! @join__field(graph: INVENTORY)
+  currentStocks(after: Cursor, first: Int, before: Cursor, last: Int, orderBy: StockOrder, where: StockWhereInput): StockConnection! @join__field(graph: INVENTORY)
   """Fetches an object given its ID."""
   node(
     """ID of the object."""
@@ -869,22 +870,6 @@ type Query @join__type(graph: FILE) @join__type(graph: INVENTORY) @join__type(gr
     """The list of node IDs."""
     ids: [ID!]!,
   ): [NodeDataType]! @join__field(graph: MANAGEMENT)
-  accessPolicies(
-    """Returns the elements in the list that come after the specified cursor."""
-    after: Cursor,
-    """Returns the first _n_ elements from the list."""
-    first: Int,
-    """
-    Returns the elements in the list that come before the specified cursor.
-    """
-    before: Cursor,
-    """Returns the last _n_ elements from the list."""
-    last: Int,
-    """Ordering options for AccessPolicies returned from the connection."""
-    orderBy: AccessPolicyOrder,
-    """Filtering options for AccessPolicies returned from the connection."""
-    where: AccessPolicyWhereInput,
-  ): AccessPolicyConnection! @join__field(graph: MANAGEMENT)
   dataTypes(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor,
@@ -949,38 +934,6 @@ type Query @join__type(graph: FILE) @join__type(graph: INVENTORY) @join__type(gr
     """Filtering options for DeviceUsers returned from the connection."""
     where: DeviceUserWhereInput,
   ): DeviceUserConnection! @join__field(graph: MANAGEMENT)
-  events(
-    """Returns the elements in the list that come after the specified cursor."""
-    after: Cursor,
-    """Returns the first _n_ elements from the list."""
-    first: Int,
-    """
-    Returns the elements in the list that come before the specified cursor.
-    """
-    before: Cursor,
-    """Returns the last _n_ elements from the list."""
-    last: Int,
-    """Ordering options for Events returned from the connection."""
-    orderBy: EventOrder,
-    """Filtering options for Events returned from the connection."""
-    where: EventWhereInput,
-  ): EventConnection! @join__field(graph: MANAGEMENT)
-  groups(
-    """Returns the elements in the list that come after the specified cursor."""
-    after: Cursor,
-    """Returns the first _n_ elements from the list."""
-    first: Int,
-    """
-    Returns the elements in the list that come before the specified cursor.
-    """
-    before: Cursor,
-    """Returns the last _n_ elements from the list."""
-    last: Int,
-    """Ordering options for Groups returned from the connection."""
-    orderBy: GroupOrder,
-    """Filtering options for Groups returned from the connection."""
-    where: GroupWhereInput,
-  ): GroupConnection! @join__field(graph: MANAGEMENT)
   keyValues(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor,
@@ -1013,22 +966,6 @@ type Query @join__type(graph: FILE) @join__type(graph: INVENTORY) @join__type(gr
     """Filtering options for Locations returned from the connection."""
     where: LocationWhereInput,
   ): LocationConnection! @join__field(graph: MANAGEMENT)
-  roles(
-    """Returns the elements in the list that come after the specified cursor."""
-    after: Cursor,
-    """Returns the first _n_ elements from the list."""
-    first: Int,
-    """
-    Returns the elements in the list that come before the specified cursor.
-    """
-    before: Cursor,
-    """Returns the last _n_ elements from the list."""
-    last: Int,
-    """Ordering options for Roles returned from the connection."""
-    orderBy: RoleOrder,
-    """Filtering options for Roles returned from the connection."""
-    where: RoleWhereInput,
-  ): RoleConnection! @join__field(graph: MANAGEMENT)
   tenants(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor,
@@ -1062,13 +999,17 @@ type Query @join__type(graph: FILE) @join__type(graph: INVENTORY) @join__type(gr
     where: UserWhereInput,
   ): UserConnection! @join__field(graph: MANAGEMENT)
   dataTypeEntities: [String!] @join__field(graph: MANAGEMENT)
-  """Fetch a specific group by ID"""
-  group(id: ID!): Group @join__field(graph: MANAGEMENT)
   organization(sub: String!): Organization! @join__field(graph: MANAGEMENT)
-  """Fetch a specific policy by ID"""
-  policy(id: ID!): AccessPolicy @join__field(graph: MANAGEMENT)
-  """Fetch a specific role by ID"""
-  role(id: ID!): Role @join__field(graph: MANAGEMENT)
+  """
+  List the per-service roles that can be assigned to users (the fixed,
+  seeded set). For populating an admin UI.
+  """
+  serviceRoles: [ServiceRole!]! @join__field(graph: MANAGEMENT)
+  """
+  List the per-service roles currently assigned to a user within a tenant,
+  read directly from Zitadel. Tenant-admin only.
+  """
+  userServiceRoles(input: UserServiceRolesInput!): [String!]! @join__field(graph: MANAGEMENT)
   managementServiceInfo: ServiceInfo! @join__field(graph: MANAGEMENT)
   me: UserProfile! @join__field(graph: MANAGEMENT)
   """Fetches an object given its ID."""
@@ -1243,6 +1184,27 @@ type Query @join__type(graph: FILE) @join__type(graph: INVENTORY) @join__type(gr
     """Filtering options for WorkflowSignals returned from the connection."""
     where: WorkflowSignalWhereInput,
   ): WorkflowSignalConnection! @join__field(graph: WORKFLOW)
+  """
+  Resolves the fully rendered web + mobile UI bundle URLs for a specific
+  workflow execution, keyed by workflow ID + run ID.
+
+  The bundle slug/version come from the Worker Deployment Version the
+  execution is pinned to (read from that version's metadata); the origin and
+  path layout come from the tenant's stored URL templates. The two are
+  combined and forwarded as-is — no composition happens in this resolver.
+
+  When the bundle can't be read from a pinned version (none pinned, or not
+  stamped yet) it falls back to the system-wide default bundle if one is
+  configured, otherwise it errors.
+  """
+  remoteUI(input: RemoteUIQueryInput!): RemoteUI @join__field(graph: WORKFLOW)
+  """
+  Lists every Worker Deployment Version in the tenant's namespace with its
+  drainage status and the UI bundle it ships. Used for drain visibility — which
+  versions still have pinned in-flight executions (draining) versus which are
+  safe to retire (drained). Admin-only.
+  """
+  workerDeploymentUIBundles(first: Int, after: String): DeploymentVersionUIConnection! @join__field(graph: WORKFLOW)
   workflowServiceInfo: ServiceInfo! @join__field(graph: WORKFLOW)
   currentUserDataInput(input: UserDataInputQueryInput!): CurrentUserDataInput @join__field(graph: WORKFLOW)
   """
@@ -1535,11 +1497,14 @@ type Repository implements NodeInventory @join__implements(graph: INVENTORY, int
     """Filtering options for Repositories returned from the connection."""
     where: RepositoryWhereInput,
   ): RepositoryConnection! @join__field(graph: INVENTORY)
+  currentStock(itemId: ID!): Stock @join__field(graph: INVENTORY)
 }
 
-type PickingOrder implements NodePicking @join__implements(graph: PICKING, interface: "NodePicking") @join__type(graph: FILE, key: "id") @join__type(graph: PICKING, key: "id") {
-  id: ID!
+type PickingOrder implements NodePicking @join__implements(graph: PICKING, interface: "NodePicking") @join__type(graph: FILE, key: "id") @join__type(graph: MAINDATA, key: "customerID") @join__type(graph: PICKING, key: "id") {
+  id: ID! @join__field(graph: FILE) @join__field(graph: PICKING)
   file: [File] @join__field(graph: FILE)
+  customerID: UUID! @join__field(graph: MAINDATA) @join__field(graph: PICKING)
+  customer: Customer @join__field(graph: MAINDATA)
   tenantID: UUID! @join__field(graph: PICKING)
   dataTypeID: UUID @join__field(graph: PICKING)
   dataTypeSlug: String @join__field(graph: PICKING)
@@ -1550,7 +1515,6 @@ type PickingOrder implements NodePicking @join__implements(graph: PICKING, inter
   updatedBy: UUID @join__field(graph: PICKING)
   deletedAt: Time @join__field(graph: PICKING)
   deletedBy: UUID @join__field(graph: PICKING)
-  customerID: UUID! @join__field(graph: PICKING)
   orderItems(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor,
@@ -1764,22 +1728,23 @@ type Mutation @join__type(graph: FILE) @join__type(graph: INVENTORY) @join__type
   ROLE_ADMIN required.
   """
   setTenantExpiry(input: SetTenantExpiryInput!): SetTenantExpiryResponse! @join__field(graph: MANAGEMENT)
+  """
+  Sets the per-workflow UI bundle URL templates for the tenant
+  (remoteWebUITemplate / remoteMobileUITemplate in tenant.data). The
+  templates carry {{.Slug}}/{{.Version}} placeholders that the workflow service
+  resolves per execution from the pinned deployment version.
+
+  Customers must never set these, so the resolver rejects any non-system
+  caller (ROLE_SYSTEM / IsSystemUser). Target tenant is derived from
+  X-Pyck-Tenant-Id (req.MutationTenantID). Only the provided fields are
+  written; omitted fields are left unchanged. Idempotent when the values
+  already match.
+  """
+  setTenantUITemplate(input: SetTenantUITemplateInput!): SetTenantUITemplateResponse! @join__field(graph: MANAGEMENT)
   generateJsonSchema(jsonData: String!): GenerateJsonSchemaResponse! @join__field(graph: MANAGEMENT)
-  createPolicy(input: CreateAccessPolicyInput!): AccessPolicy! @join__field(graph: MANAGEMENT)
-  updatePolicy(id: ID!, input: UpdateAccessPolicyInput!): AccessPolicy! @join__field(graph: MANAGEMENT)
-  deletePolicy(id: ID!): Boolean! @join__field(graph: MANAGEMENT)
-  createGroup(input: CreateGroupInput!): Group! @join__field(graph: MANAGEMENT)
-  updateGroup(id: ID!, input: UpdateGroupInput!): Group! @join__field(graph: MANAGEMENT)
-  deleteGroup(id: ID!): Boolean! @join__field(graph: MANAGEMENT)
-  createRole(input: CreateRoleInput!): Role! @join__field(graph: MANAGEMENT)
-  updateRole(id: ID!, input: UpdateRoleInput!): Role! @join__field(graph: MANAGEMENT)
-  deleteRole(id: ID!): Boolean! @join__field(graph: MANAGEMENT)
   createUser(input: CreateUserInput!): User! @join__field(graph: MANAGEMENT)
   updateUser(id: ID!, input: UpdateUserInput!): User! @join__field(graph: MANAGEMENT)
   deleteUser(id: ID!): Boolean! @join__field(graph: MANAGEMENT)
-  createEvent(input: CreateEventInput!): Event! @join__field(graph: MANAGEMENT)
-  updateEvent(id: ID!, input: UpdateEventInput!): Event! @join__field(graph: MANAGEMENT)
-  deleteEvent(id: ID!): Boolean! @join__field(graph: MANAGEMENT)
   setKeyValue(input: SetKeyValueInput!): KeyValue @join__field(graph: MANAGEMENT)
   deleteKeyValue(id: ID!): KeyValueDeletePayload! @join__field(graph: MANAGEMENT)
   createLocation(input: CreateLocationInput!): LocationOutput! @join__field(graph: MANAGEMENT)
@@ -1800,6 +1765,21 @@ type Mutation @join__type(graph: FILE) @join__type(graph: INVENTORY) @join__type
   Apply RFC 6902 JSON Patch operations to the device location's data field.
   """
   patchDeviceLocationData(id: ID!, patches: [JSONPatchInput!]!): DeviceLocationOutput! @join__field(graph: MANAGEMENT)
+  """
+  Assign one or more per-service roles to an existing user within a tenant.
+  Additive: roles the user already holds are preserved. Only per-service
+  role keys are accepted; ladder roles (reader/writer/admin) are rejected.
+  Tenant-admin only.
+  """
+  assignRoles(input: AssignRolesInput!): AssignRolesResponse! @join__field(graph: MANAGEMENT)
+  """
+  Remove one or more per-service roles from an existing user within a tenant.
+  Idempotent: removing a role the user does not hold is a no-op. The user's
+  ladder roles (reader/writer/admin) and any other service roles are preserved.
+  Only per-service role keys are accepted; ladder roles are rejected. Tenant-
+  admin only.
+  """
+  removeRoles(input: RemoveRolesInput!): RemoveRolesResponse! @join__field(graph: MANAGEMENT)
   createPickingOrder(input: CreatePickingOrderWithItemsInput!): PickingOrderOutput @join__field(graph: PICKING)
   updatePickingOrder(id: ID!, input: UpdatePickingOrderInput!): PickingOrderOutput @join__field(graph: PICKING)
   deletePickingOrder(id: ID!): PickingOrderDeletePayload! @join__field(graph: PICKING)
@@ -1921,7 +1901,7 @@ input CreateItemMovementInput @join__type(graph: INVENTORY) {
   dataTypeID: UUID
   dataTypeSlug: String
   data: Map
-  quantity: Int!
+  quantity: Int64!
   executed: Boolean
   handler: String!
   blockedBy: ItemMovementBlockedBy
@@ -1954,7 +1934,7 @@ input CreateReplenishmentOrderItemInput @join__type(graph: INVENTORY) {
   dataTypeSlug: String
   data: Map
   sku: String!
-  quantity: Int!
+  quantity: Int64!
   replenishmentorderID: ID!
 }
 
@@ -2000,6 +1980,9 @@ input CreateRepositoryMovementInput @join__type(graph: INVENTORY) {
   toID: ID!
   repositoryID: ID!
 }
+
+"""The builtin Int64 type"""
+scalar Int64 @join__type(graph: INVENTORY) @join__type(graph: PICKING) @join__type(graph: RECEIVING) @join__type(graph: WORKFLOW)
 
 type InventoryCollection implements NodeInventory @join__implements(graph: INVENTORY, interface: "NodeInventory") @join__type(graph: INVENTORY) {
   id: ID!
@@ -2544,7 +2527,7 @@ type ItemMovement implements NodeInventory @join__implements(graph: INVENTORY, i
   itemID: ID!
   fromID: ID!
   toID: ID!
-  quantity: Int!
+  quantity: Int64!
   executed: Boolean!
   executedAt: Time
   handler: String!
@@ -2731,14 +2714,14 @@ input ItemMovementWhereInput @join__type(graph: INVENTORY) {
   toIDIn: [ID!]
   toIDNotIn: [ID!]
   """quantity field predicates"""
-  quantity: Int
-  quantityNEQ: Int
-  quantityIn: [Int!]
-  quantityNotIn: [Int!]
-  quantityGT: Int
-  quantityGTE: Int
-  quantityLT: Int
-  quantityLTE: Int
+  quantity: Int64
+  quantityNEQ: Int64
+  quantityIn: [Int64!]
+  quantityNotIn: [Int64!]
+  quantityGT: Int64
+  quantityGTE: Int64
+  quantityLT: Int64
+  quantityLTE: Int64
   """executed field predicates"""
   executed: Boolean
   executedNEQ: Boolean
@@ -2895,7 +2878,7 @@ type ReplenishmentOrderItem implements NodeInventory @join__implements(graph: IN
   deletedAt: Time
   deletedBy: UUID
   sku: String!
-  quantity: Int!
+  quantity: Int64!
   replenishmentOrderID: ID!
   replenishmentorder: ReplenishmentOrder!
 }
@@ -3052,14 +3035,14 @@ input ReplenishmentOrderItemWhereInput @join__type(graph: INVENTORY) {
   skuEqualFold: String
   skuContainsFold: String
   """quantity field predicates"""
-  quantity: Int
-  quantityNEQ: Int
-  quantityIn: [Int!]
-  quantityNotIn: [Int!]
-  quantityGT: Int
-  quantityGTE: Int
-  quantityLT: Int
-  quantityLTE: Int
+  quantity: Int64
+  quantityNEQ: Int64
+  quantityIn: [Int64!]
+  quantityNotIn: [Int64!]
+  quantityGT: Int64
+  quantityGTE: Int64
+  quantityLT: Int64
+  quantityLTE: Int64
   """replenishment_order_id field predicates"""
   replenishmentOrderID: ID
   replenishmentOrderIDNEQ: ID
@@ -3740,14 +3723,14 @@ type Stock implements NodeInventory @join__implements(graph: INVENTORY, interfac
   deletedBy: UUID
   itemID: ID!
   repositoryID: ID!
-  quantity: Int!
+  quantity: Int64!
   movementID: UUID
-  incomingStock: Int!
-  outgoingStock: Int!
-  ownQuantity: Int!
-  ownIncomingStock: Int!
-  ownOutgoingStock: Int!
-  version: Int!
+  incomingStock: Int64!
+  outgoingStock: Int64!
+  ownQuantity: Int64!
+  ownIncomingStock: Int64!
+  ownOutgoingStock: Int64!
+  version: Int64!
   item: InventoryItem!
   repository: Repository!
 }
@@ -3880,14 +3863,14 @@ input StockWhereInput @join__type(graph: INVENTORY) {
   repositoryIDIn: [ID!]
   repositoryIDNotIn: [ID!]
   """quantity field predicates"""
-  quantity: Int
-  quantityNEQ: Int
-  quantityIn: [Int!]
-  quantityNotIn: [Int!]
-  quantityGT: Int
-  quantityGTE: Int
-  quantityLT: Int
-  quantityLTE: Int
+  quantity: Int64
+  quantityNEQ: Int64
+  quantityIn: [Int64!]
+  quantityNotIn: [Int64!]
+  quantityGT: Int64
+  quantityGTE: Int64
+  quantityLT: Int64
+  quantityLTE: Int64
   """movement_id field predicates"""
   movementID: UUID
   movementIDNEQ: UUID
@@ -3900,59 +3883,59 @@ input StockWhereInput @join__type(graph: INVENTORY) {
   movementIDIsNil: Boolean
   movementIDNotNil: Boolean
   """incoming_stock field predicates"""
-  incomingStock: Int
-  incomingStockNEQ: Int
-  incomingStockIn: [Int!]
-  incomingStockNotIn: [Int!]
-  incomingStockGT: Int
-  incomingStockGTE: Int
-  incomingStockLT: Int
-  incomingStockLTE: Int
+  incomingStock: Int64
+  incomingStockNEQ: Int64
+  incomingStockIn: [Int64!]
+  incomingStockNotIn: [Int64!]
+  incomingStockGT: Int64
+  incomingStockGTE: Int64
+  incomingStockLT: Int64
+  incomingStockLTE: Int64
   """outgoing_stock field predicates"""
-  outgoingStock: Int
-  outgoingStockNEQ: Int
-  outgoingStockIn: [Int!]
-  outgoingStockNotIn: [Int!]
-  outgoingStockGT: Int
-  outgoingStockGTE: Int
-  outgoingStockLT: Int
-  outgoingStockLTE: Int
+  outgoingStock: Int64
+  outgoingStockNEQ: Int64
+  outgoingStockIn: [Int64!]
+  outgoingStockNotIn: [Int64!]
+  outgoingStockGT: Int64
+  outgoingStockGTE: Int64
+  outgoingStockLT: Int64
+  outgoingStockLTE: Int64
   """own_quantity field predicates"""
-  ownQuantity: Int
-  ownQuantityNEQ: Int
-  ownQuantityIn: [Int!]
-  ownQuantityNotIn: [Int!]
-  ownQuantityGT: Int
-  ownQuantityGTE: Int
-  ownQuantityLT: Int
-  ownQuantityLTE: Int
+  ownQuantity: Int64
+  ownQuantityNEQ: Int64
+  ownQuantityIn: [Int64!]
+  ownQuantityNotIn: [Int64!]
+  ownQuantityGT: Int64
+  ownQuantityGTE: Int64
+  ownQuantityLT: Int64
+  ownQuantityLTE: Int64
   """own_incoming_stock field predicates"""
-  ownIncomingStock: Int
-  ownIncomingStockNEQ: Int
-  ownIncomingStockIn: [Int!]
-  ownIncomingStockNotIn: [Int!]
-  ownIncomingStockGT: Int
-  ownIncomingStockGTE: Int
-  ownIncomingStockLT: Int
-  ownIncomingStockLTE: Int
+  ownIncomingStock: Int64
+  ownIncomingStockNEQ: Int64
+  ownIncomingStockIn: [Int64!]
+  ownIncomingStockNotIn: [Int64!]
+  ownIncomingStockGT: Int64
+  ownIncomingStockGTE: Int64
+  ownIncomingStockLT: Int64
+  ownIncomingStockLTE: Int64
   """own_outgoing_stock field predicates"""
-  ownOutgoingStock: Int
-  ownOutgoingStockNEQ: Int
-  ownOutgoingStockIn: [Int!]
-  ownOutgoingStockNotIn: [Int!]
-  ownOutgoingStockGT: Int
-  ownOutgoingStockGTE: Int
-  ownOutgoingStockLT: Int
-  ownOutgoingStockLTE: Int
+  ownOutgoingStock: Int64
+  ownOutgoingStockNEQ: Int64
+  ownOutgoingStockIn: [Int64!]
+  ownOutgoingStockNotIn: [Int64!]
+  ownOutgoingStockGT: Int64
+  ownOutgoingStockGTE: Int64
+  ownOutgoingStockLT: Int64
+  ownOutgoingStockLTE: Int64
   """version field predicates"""
-  version: Int
-  versionNEQ: Int
-  versionIn: [Int!]
-  versionNotIn: [Int!]
-  versionGT: Int
-  versionGTE: Int
-  versionLT: Int
-  versionLTE: Int
+  version: Int64
+  versionNEQ: Int64
+  versionIn: [Int64!]
+  versionNotIn: [Int64!]
+  versionGT: Int64
+  versionGTE: Int64
+  versionLT: Int64
+  versionLTE: Int64
   """item edge predicates"""
   hasItem: Boolean
   hasItemWith: [InventoryItemWhereInput!]
@@ -3960,7 +3943,7 @@ input StockWhereInput @join__type(graph: INVENTORY) {
   hasRepository: Boolean
   hasRepositoryWith: [RepositoryWhereInput!]
   time: Time
-  netStockGTE: Int
+  netStockGTE: Int64
 }
 
 type Transaction implements NodeInventory @join__implements(graph: INVENTORY, interface: "NodeInventory") @join__type(graph: INVENTORY) {
@@ -3974,7 +3957,7 @@ type Transaction implements NodeInventory @join__implements(graph: INVENTORY, in
   deletedBy: UUID
   itemID: ID!
   repositoryID: ID!
-  quantity: Int!
+  quantity: Int64!
   type: TransactionType!
   item: InventoryItem!
   repository: Repository!
@@ -4108,14 +4091,14 @@ input TransactionWhereInput @join__type(graph: INVENTORY) {
   repositoryIDIn: [ID!]
   repositoryIDNotIn: [ID!]
   """quantity field predicates"""
-  quantity: Int
-  quantityNEQ: Int
-  quantityIn: [Int!]
-  quantityNotIn: [Int!]
-  quantityGT: Int
-  quantityGTE: Int
-  quantityLT: Int
-  quantityLTE: Int
+  quantity: Int64
+  quantityNEQ: Int64
+  quantityIn: [Int64!]
+  quantityNotIn: [Int64!]
+  quantityGT: Int64
+  quantityGTE: Int64
+  quantityLT: Int64
+  quantityLTE: Int64
   """type field predicates"""
   type: TransactionType
   typeNEQ: TransactionType
@@ -4233,7 +4216,7 @@ input UpdateReplenishmentOrderItemInput @join__type(graph: INVENTORY) {
   data: Map
   clearData: Boolean
   sku: String
-  quantity: Int
+  quantity: Int64
 }
 
 """
@@ -4313,7 +4296,7 @@ input CollectionMovementArrayInput @join__type(graph: INVENTORY) {
   fromID: ID!
   toID: ID!
   itemID: ID
-  quantity: Float
+  quantity: Int64
   repositoryID: ID
   orderID: ID
 }
@@ -4368,7 +4351,7 @@ input CreateReplenishmentOrderItemsInput @join__type(graph: INVENTORY) {
   dataTypeSlug: String
   data: Map
   sku: String!
-  quantity: Int!
+  quantity: Int64!
 }
 
 input CreateReplenishmentOrderWithItemsInput @join__type(graph: INVENTORY) {
@@ -4422,8 +4405,8 @@ type InventoryCollectionDeletePayload @join__type(graph: INVENTORY) {
 type PickingOrderItem implements NodePicking @join__implements(graph: PICKING, interface: "NodePicking") @join__type(graph: INVENTORY, key: "sku") @join__type(graph: PICKING, key: "sku") {
   sku: String!
   item: InventoryItem @join__field(graph: INVENTORY)
-  availableStock: Int @join__field(graph: INVENTORY)
-  reservedStock: Int @join__field(graph: INVENTORY)
+  availableStock: Int64 @join__field(graph: INVENTORY)
+  reservedStock: Int64 @join__field(graph: INVENTORY)
   id: ID! @join__field(graph: PICKING)
   tenantID: UUID! @join__field(graph: PICKING)
   dataTypeID: UUID @join__field(graph: PICKING)
@@ -4436,7 +4419,7 @@ type PickingOrderItem implements NodePicking @join__implements(graph: PICKING, i
   deletedAt: Time @join__field(graph: PICKING)
   deletedBy: UUID @join__field(graph: PICKING)
   orderID: ID! @join__field(graph: PICKING)
-  quantity: Int! @join__field(graph: PICKING)
+  quantity: Int64! @join__field(graph: PICKING)
   order: PickingOrder! @join__field(graph: PICKING)
 }
 
@@ -4844,195 +4827,6 @@ type SupplierDeletePayload @join__type(graph: MAINDATA) {
   deletedID: ID
 }
 
-type AccessPolicy implements NodeDataType @join__implements(graph: MANAGEMENT, interface: "NodeDataType") @join__type(graph: MANAGEMENT) {
-  id: ID!
-  createdAt: Time!
-  createdBy: UUID!
-  updatedAt: Time
-  updatedBy: UUID
-  deletedAt: Time
-  deletedBy: UUID
-  tenantID: UUID!
-  """Resource identifier (e.g., 'inventory.item')"""
-  resource: String!
-  """Action to perform (e.g., 'read', 'write', 'delete')"""
-  action: String!
-  """Effect of the policy: 'allow' or 'deny'"""
-  effect: String!
-  role: Role!
-}
-
-"""A connection to a list of items."""
-type AccessPolicyConnection @join__type(graph: MANAGEMENT) {
-  """A list of edges."""
-  edges: [AccessPolicyEdge]
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-  """Identifies the total count of items in the connection."""
-  totalCount: Int!
-}
-
-"""An edge in a connection."""
-type AccessPolicyEdge @join__type(graph: MANAGEMENT) {
-  """The item at the end of the edge."""
-  node: AccessPolicy
-  """A cursor for use in pagination."""
-  cursor: Cursor!
-}
-
-"""Ordering options for AccessPolicy connections"""
-input AccessPolicyOrder @join__type(graph: MANAGEMENT) {
-  """The ordering direction."""
-  direction: OrderDirection! = ASC
-  """The field by which to order AccessPolicies."""
-  field: AccessPolicyOrderField
-  """Dot-notation path into a JSONB column (e.g. "meta.weight")."""
-  jsonPath: String
-  """Cast type for the extracted JSONB value."""
-  jsonType: JSONType
-}
-
-"""Properties by which AccessPolicy connections can be ordered."""
-enum AccessPolicyOrderField @join__type(graph: MANAGEMENT) {
-  CREATED_AT @join__enumValue(graph: MANAGEMENT)
-  CREATED_BY @join__enumValue(graph: MANAGEMENT)
-  UPDATED_AT @join__enumValue(graph: MANAGEMENT)
-  UPDATED_BY @join__enumValue(graph: MANAGEMENT)
-  DELETED_AT @join__enumValue(graph: MANAGEMENT)
-  DELETED_BY @join__enumValue(graph: MANAGEMENT)
-  TENANT_ID @join__enumValue(graph: MANAGEMENT)
-  RESOURCE @join__enumValue(graph: MANAGEMENT)
-  ACTION @join__enumValue(graph: MANAGEMENT)
-  EFFECT @join__enumValue(graph: MANAGEMENT)
-}
-
-"""
-AccessPolicyWhereInput is used for filtering AccessPolicy objects.
-Input was generated by ent.
-"""
-input AccessPolicyWhereInput @join__type(graph: MANAGEMENT) {
-  not: AccessPolicyWhereInput
-  and: [AccessPolicyWhereInput!]
-  or: [AccessPolicyWhereInput!]
-  """id field predicates"""
-  id: ID
-  idNEQ: ID
-  idIn: [ID!]
-  idNotIn: [ID!]
-  idGT: ID
-  idGTE: ID
-  idLT: ID
-  idLTE: ID
-  """created_at field predicates"""
-  createdAt: Time
-  createdAtNEQ: Time
-  createdAtIn: [Time!]
-  createdAtNotIn: [Time!]
-  createdAtGT: Time
-  createdAtGTE: Time
-  createdAtLT: Time
-  createdAtLTE: Time
-  """created_by field predicates"""
-  createdBy: UUID
-  createdByNEQ: UUID
-  createdByIn: [UUID!]
-  createdByNotIn: [UUID!]
-  createdByGT: UUID
-  createdByGTE: UUID
-  createdByLT: UUID
-  createdByLTE: UUID
-  """updated_at field predicates"""
-  updatedAt: Time
-  updatedAtNEQ: Time
-  updatedAtIn: [Time!]
-  updatedAtNotIn: [Time!]
-  updatedAtGT: Time
-  updatedAtGTE: Time
-  updatedAtLT: Time
-  updatedAtLTE: Time
-  updatedAtIsNil: Boolean
-  updatedAtNotNil: Boolean
-  """updated_by field predicates"""
-  updatedBy: UUID
-  updatedByNEQ: UUID
-  updatedByIn: [UUID!]
-  updatedByNotIn: [UUID!]
-  updatedByGT: UUID
-  updatedByGTE: UUID
-  updatedByLT: UUID
-  updatedByLTE: UUID
-  updatedByIsNil: Boolean
-  updatedByNotNil: Boolean
-  """tenant_id field predicates"""
-  tenantID: UUID
-  tenantIDNEQ: UUID
-  tenantIDIn: [UUID!]
-  tenantIDNotIn: [UUID!]
-  tenantIDGT: UUID
-  tenantIDGTE: UUID
-  tenantIDLT: UUID
-  tenantIDLTE: UUID
-  """resource field predicates"""
-  resource: String
-  resourceNEQ: String
-  resourceIn: [String!]
-  resourceNotIn: [String!]
-  resourceGT: String
-  resourceGTE: String
-  resourceLT: String
-  resourceLTE: String
-  resourceContains: String
-  resourceHasPrefix: String
-  resourceHasSuffix: String
-  resourceEqualFold: String
-  resourceContainsFold: String
-  """action field predicates"""
-  action: String
-  actionNEQ: String
-  actionIn: [String!]
-  actionNotIn: [String!]
-  actionGT: String
-  actionGTE: String
-  actionLT: String
-  actionLTE: String
-  actionContains: String
-  actionHasPrefix: String
-  actionHasSuffix: String
-  actionEqualFold: String
-  actionContainsFold: String
-  """effect field predicates"""
-  effect: String
-  effectNEQ: String
-  effectIn: [String!]
-  effectNotIn: [String!]
-  effectGT: String
-  effectGTE: String
-  effectLT: String
-  effectLTE: String
-  effectContains: String
-  effectHasPrefix: String
-  effectHasSuffix: String
-  effectEqualFold: String
-  effectContainsFold: String
-  """role edge predicates"""
-  hasRole: Boolean
-  hasRoleWith: [RoleWhereInput!]
-}
-
-"""
-CreateAccessPolicyInput is used for create AccessPolicy object.
-Input was generated by ent.
-"""
-input CreateAccessPolicyInput @join__type(graph: MANAGEMENT) {
-  """Resource identifier (e.g., 'inventory.item')"""
-  resource: String!
-  """Action to perform (e.g., 'read', 'write', 'delete')"""
-  action: String!
-  """Effect of the policy: 'allow' or 'deny'"""
-  effect: String
-  roleID: ID!
-}
-
 """
 CreateDataTypeInput is used for create DataType object.
 Input was generated by ent.
@@ -5085,17 +4879,6 @@ input CreateDeviceUserInput @join__type(graph: MANAGEMENT) {
 }
 
 """
-CreateGroupInput is used for create Group object.
-Input was generated by ent.
-"""
-input CreateGroupInput @join__type(graph: MANAGEMENT) {
-  name: String!
-  description: String
-  userIDs: [ID!]
-  roleIDs: [ID!]
-}
-
-"""
 CreateKeyValueInput is used for create KeyValue object.
 Input was generated by ent.
 """
@@ -5119,18 +4902,6 @@ input CreateLocationInput @join__type(graph: MANAGEMENT) {
 }
 
 """
-CreateRoleInput is used for create Role object.
-Input was generated by ent.
-"""
-input CreateRoleInput @join__type(graph: MANAGEMENT) {
-  name: String!
-  description: String
-  userIDs: [ID!]
-  groupIDs: [ID!]
-  policyIDs: [ID!]
-}
-
-"""
 CreateUserInput is used for create User object.
 Input was generated by ent.
 """
@@ -5142,8 +4913,6 @@ input CreateUserInput @join__type(graph: MANAGEMENT) {
   lastName: String!
   isAdmin: Boolean
   tenantID: ID!
-  roleIDs: [ID!]
-  groupIDs: [ID!]
   deviceusersuserIDs: [ID!]
 }
 
@@ -5926,356 +5695,6 @@ input DeviceWhereInput @join__type(graph: MANAGEMENT) {
   DataContains: [String!]
 }
 
-type Event implements NodeDataType @join__implements(graph: MANAGEMENT, interface: "NodeDataType") @join__type(graph: MANAGEMENT) {
-  id: ID!
-  createdAt: Time!
-  createdBy: UUID!
-  updatedAt: Time
-  updatedBy: UUID
-  deletedAt: Time
-  deletedBy: UUID
-  topic: String!
-  name: String!
-  description: String!
-  example: Map
-}
-
-"""A connection to a list of items."""
-type EventConnection @join__type(graph: MANAGEMENT) {
-  """A list of edges."""
-  edges: [EventEdge]
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-  """Identifies the total count of items in the connection."""
-  totalCount: Int!
-}
-
-"""An edge in a connection."""
-type EventEdge @join__type(graph: MANAGEMENT) {
-  """The item at the end of the edge."""
-  node: Event
-  """A cursor for use in pagination."""
-  cursor: Cursor!
-}
-
-"""Ordering options for Event connections"""
-input EventOrder @join__type(graph: MANAGEMENT) {
-  """The ordering direction."""
-  direction: OrderDirection! = ASC
-  """The field by which to order Events."""
-  field: EventOrderField
-  """Dot-notation path into a JSONB column (e.g. "meta.weight")."""
-  jsonPath: String
-  """Cast type for the extracted JSONB value."""
-  jsonType: JSONType
-}
-
-"""Properties by which Event connections can be ordered."""
-enum EventOrderField @join__type(graph: MANAGEMENT) {
-  CREATED_AT @join__enumValue(graph: MANAGEMENT)
-  CREATED_BY @join__enumValue(graph: MANAGEMENT)
-  UPDATED_AT @join__enumValue(graph: MANAGEMENT)
-  UPDATED_BY @join__enumValue(graph: MANAGEMENT)
-  DELETED_AT @join__enumValue(graph: MANAGEMENT)
-  DELETED_BY @join__enumValue(graph: MANAGEMENT)
-  TOPIC @join__enumValue(graph: MANAGEMENT)
-  NAME @join__enumValue(graph: MANAGEMENT)
-  DESCRIPTION @join__enumValue(graph: MANAGEMENT)
-}
-
-"""
-EventWhereInput is used for filtering Event objects.
-Input was generated by ent.
-"""
-input EventWhereInput @join__type(graph: MANAGEMENT) {
-  not: EventWhereInput
-  and: [EventWhereInput!]
-  or: [EventWhereInput!]
-  """id field predicates"""
-  id: ID
-  idNEQ: ID
-  idIn: [ID!]
-  idNotIn: [ID!]
-  idGT: ID
-  idGTE: ID
-  idLT: ID
-  idLTE: ID
-  """created_at field predicates"""
-  createdAt: Time
-  createdAtNEQ: Time
-  createdAtIn: [Time!]
-  createdAtNotIn: [Time!]
-  createdAtGT: Time
-  createdAtGTE: Time
-  createdAtLT: Time
-  createdAtLTE: Time
-  """created_by field predicates"""
-  createdBy: UUID
-  createdByNEQ: UUID
-  createdByIn: [UUID!]
-  createdByNotIn: [UUID!]
-  createdByGT: UUID
-  createdByGTE: UUID
-  createdByLT: UUID
-  createdByLTE: UUID
-  """updated_at field predicates"""
-  updatedAt: Time
-  updatedAtNEQ: Time
-  updatedAtIn: [Time!]
-  updatedAtNotIn: [Time!]
-  updatedAtGT: Time
-  updatedAtGTE: Time
-  updatedAtLT: Time
-  updatedAtLTE: Time
-  updatedAtIsNil: Boolean
-  updatedAtNotNil: Boolean
-  """updated_by field predicates"""
-  updatedBy: UUID
-  updatedByNEQ: UUID
-  updatedByIn: [UUID!]
-  updatedByNotIn: [UUID!]
-  updatedByGT: UUID
-  updatedByGTE: UUID
-  updatedByLT: UUID
-  updatedByLTE: UUID
-  updatedByIsNil: Boolean
-  updatedByNotNil: Boolean
-  """topic field predicates"""
-  topic: String
-  topicNEQ: String
-  topicIn: [String!]
-  topicNotIn: [String!]
-  topicGT: String
-  topicGTE: String
-  topicLT: String
-  topicLTE: String
-  topicContains: String
-  topicHasPrefix: String
-  topicHasSuffix: String
-  topicEqualFold: String
-  topicContainsFold: String
-  """name field predicates"""
-  name: String
-  nameNEQ: String
-  nameIn: [String!]
-  nameNotIn: [String!]
-  nameGT: String
-  nameGTE: String
-  nameLT: String
-  nameLTE: String
-  nameContains: String
-  nameHasPrefix: String
-  nameHasSuffix: String
-  nameEqualFold: String
-  nameContainsFold: String
-  """description field predicates"""
-  description: String
-  descriptionNEQ: String
-  descriptionIn: [String!]
-  descriptionNotIn: [String!]
-  descriptionGT: String
-  descriptionGTE: String
-  descriptionLT: String
-  descriptionLTE: String
-  descriptionContains: String
-  descriptionHasPrefix: String
-  descriptionHasSuffix: String
-  descriptionEqualFold: String
-  descriptionContainsFold: String
-}
-
-type Group implements NodeDataType @join__implements(graph: MANAGEMENT, interface: "NodeDataType") @join__type(graph: MANAGEMENT) {
-  id: ID!
-  createdAt: Time!
-  createdBy: UUID!
-  updatedAt: Time
-  updatedBy: UUID
-  deletedAt: Time
-  deletedBy: UUID
-  tenantID: UUID!
-  name: String!
-  description: String
-  users(
-    """Returns the elements in the list that come after the specified cursor."""
-    after: Cursor,
-    """Returns the first _n_ elements from the list."""
-    first: Int,
-    """
-    Returns the elements in the list that come before the specified cursor.
-    """
-    before: Cursor,
-    """Returns the last _n_ elements from the list."""
-    last: Int,
-    """Ordering options for Users returned from the connection."""
-    orderBy: UserOrder,
-    """Filtering options for Users returned from the connection."""
-    where: UserWhereInput,
-  ): UserConnection!
-  roles(
-    """Returns the elements in the list that come after the specified cursor."""
-    after: Cursor,
-    """Returns the first _n_ elements from the list."""
-    first: Int,
-    """
-    Returns the elements in the list that come before the specified cursor.
-    """
-    before: Cursor,
-    """Returns the last _n_ elements from the list."""
-    last: Int,
-    """Ordering options for Roles returned from the connection."""
-    orderBy: RoleOrder,
-    """Filtering options for Roles returned from the connection."""
-    where: RoleWhereInput,
-  ): RoleConnection!
-}
-
-"""A connection to a list of items."""
-type GroupConnection @join__type(graph: MANAGEMENT) {
-  """A list of edges."""
-  edges: [GroupEdge]
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-  """Identifies the total count of items in the connection."""
-  totalCount: Int!
-}
-
-"""An edge in a connection."""
-type GroupEdge @join__type(graph: MANAGEMENT) {
-  """The item at the end of the edge."""
-  node: Group
-  """A cursor for use in pagination."""
-  cursor: Cursor!
-}
-
-"""Ordering options for Group connections"""
-input GroupOrder @join__type(graph: MANAGEMENT) {
-  """The ordering direction."""
-  direction: OrderDirection! = ASC
-  """The field by which to order Groups."""
-  field: GroupOrderField
-  """Dot-notation path into a JSONB column (e.g. "meta.weight")."""
-  jsonPath: String
-  """Cast type for the extracted JSONB value."""
-  jsonType: JSONType
-}
-
-"""Properties by which Group connections can be ordered."""
-enum GroupOrderField @join__type(graph: MANAGEMENT) {
-  CREATED_AT @join__enumValue(graph: MANAGEMENT)
-  CREATED_BY @join__enumValue(graph: MANAGEMENT)
-  UPDATED_AT @join__enumValue(graph: MANAGEMENT)
-  UPDATED_BY @join__enumValue(graph: MANAGEMENT)
-  DELETED_AT @join__enumValue(graph: MANAGEMENT)
-  DELETED_BY @join__enumValue(graph: MANAGEMENT)
-  TENANT_ID @join__enumValue(graph: MANAGEMENT)
-  NAME @join__enumValue(graph: MANAGEMENT)
-  DESCRIPTION @join__enumValue(graph: MANAGEMENT)
-}
-
-"""
-GroupWhereInput is used for filtering Group objects.
-Input was generated by ent.
-"""
-input GroupWhereInput @join__type(graph: MANAGEMENT) {
-  not: GroupWhereInput
-  and: [GroupWhereInput!]
-  or: [GroupWhereInput!]
-  """id field predicates"""
-  id: ID
-  idNEQ: ID
-  idIn: [ID!]
-  idNotIn: [ID!]
-  idGT: ID
-  idGTE: ID
-  idLT: ID
-  idLTE: ID
-  """created_at field predicates"""
-  createdAt: Time
-  createdAtNEQ: Time
-  createdAtIn: [Time!]
-  createdAtNotIn: [Time!]
-  createdAtGT: Time
-  createdAtGTE: Time
-  createdAtLT: Time
-  createdAtLTE: Time
-  """created_by field predicates"""
-  createdBy: UUID
-  createdByNEQ: UUID
-  createdByIn: [UUID!]
-  createdByNotIn: [UUID!]
-  createdByGT: UUID
-  createdByGTE: UUID
-  createdByLT: UUID
-  createdByLTE: UUID
-  """updated_at field predicates"""
-  updatedAt: Time
-  updatedAtNEQ: Time
-  updatedAtIn: [Time!]
-  updatedAtNotIn: [Time!]
-  updatedAtGT: Time
-  updatedAtGTE: Time
-  updatedAtLT: Time
-  updatedAtLTE: Time
-  updatedAtIsNil: Boolean
-  updatedAtNotNil: Boolean
-  """updated_by field predicates"""
-  updatedBy: UUID
-  updatedByNEQ: UUID
-  updatedByIn: [UUID!]
-  updatedByNotIn: [UUID!]
-  updatedByGT: UUID
-  updatedByGTE: UUID
-  updatedByLT: UUID
-  updatedByLTE: UUID
-  updatedByIsNil: Boolean
-  updatedByNotNil: Boolean
-  """tenant_id field predicates"""
-  tenantID: UUID
-  tenantIDNEQ: UUID
-  tenantIDIn: [UUID!]
-  tenantIDNotIn: [UUID!]
-  tenantIDGT: UUID
-  tenantIDGTE: UUID
-  tenantIDLT: UUID
-  tenantIDLTE: UUID
-  """name field predicates"""
-  name: String
-  nameNEQ: String
-  nameIn: [String!]
-  nameNotIn: [String!]
-  nameGT: String
-  nameGTE: String
-  nameLT: String
-  nameLTE: String
-  nameContains: String
-  nameHasPrefix: String
-  nameHasSuffix: String
-  nameEqualFold: String
-  nameContainsFold: String
-  """description field predicates"""
-  description: String
-  descriptionNEQ: String
-  descriptionIn: [String!]
-  descriptionNotIn: [String!]
-  descriptionGT: String
-  descriptionGTE: String
-  descriptionLT: String
-  descriptionLTE: String
-  descriptionContains: String
-  descriptionHasPrefix: String
-  descriptionHasSuffix: String
-  descriptionIsNil: Boolean
-  descriptionNotNil: Boolean
-  descriptionEqualFold: String
-  descriptionContainsFold: String
-  """users edge predicates"""
-  hasUsers: Boolean
-  hasUsersWith: [UserWhereInput!]
-  """roles edge predicates"""
-  hasRoles: Boolean
-  hasRolesWith: [RoleWhereInput!]
-}
-
 type KeyValue implements NodeDataType @join__implements(graph: MANAGEMENT, interface: "NodeDataType") @join__type(graph: MANAGEMENT) {
   id: ID!
   tenantID: UUID!
@@ -6653,217 +6072,6 @@ interface NodeDataType @join__type(graph: MANAGEMENT) {
   id: ID!
 }
 
-type Role implements NodeDataType @join__implements(graph: MANAGEMENT, interface: "NodeDataType") @join__type(graph: MANAGEMENT) {
-  id: ID!
-  createdAt: Time!
-  createdBy: UUID!
-  updatedAt: Time
-  updatedBy: UUID
-  deletedAt: Time
-  deletedBy: UUID
-  tenantID: UUID!
-  name: String!
-  description: String
-  users(
-    """Returns the elements in the list that come after the specified cursor."""
-    after: Cursor,
-    """Returns the first _n_ elements from the list."""
-    first: Int,
-    """
-    Returns the elements in the list that come before the specified cursor.
-    """
-    before: Cursor,
-    """Returns the last _n_ elements from the list."""
-    last: Int,
-    """Ordering options for Users returned from the connection."""
-    orderBy: UserOrder,
-    """Filtering options for Users returned from the connection."""
-    where: UserWhereInput,
-  ): UserConnection!
-  groups(
-    """Returns the elements in the list that come after the specified cursor."""
-    after: Cursor,
-    """Returns the first _n_ elements from the list."""
-    first: Int,
-    """
-    Returns the elements in the list that come before the specified cursor.
-    """
-    before: Cursor,
-    """Returns the last _n_ elements from the list."""
-    last: Int,
-    """Ordering options for Groups returned from the connection."""
-    orderBy: GroupOrder,
-    """Filtering options for Groups returned from the connection."""
-    where: GroupWhereInput,
-  ): GroupConnection!
-  policies(
-    """Returns the elements in the list that come after the specified cursor."""
-    after: Cursor,
-    """Returns the first _n_ elements from the list."""
-    first: Int,
-    """
-    Returns the elements in the list that come before the specified cursor.
-    """
-    before: Cursor,
-    """Returns the last _n_ elements from the list."""
-    last: Int,
-    """Ordering options for AccessPolicies returned from the connection."""
-    orderBy: AccessPolicyOrder,
-    """Filtering options for AccessPolicies returned from the connection."""
-    where: AccessPolicyWhereInput,
-  ): AccessPolicyConnection!
-}
-
-"""A connection to a list of items."""
-type RoleConnection @join__type(graph: MANAGEMENT) {
-  """A list of edges."""
-  edges: [RoleEdge]
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-  """Identifies the total count of items in the connection."""
-  totalCount: Int!
-}
-
-"""An edge in a connection."""
-type RoleEdge @join__type(graph: MANAGEMENT) {
-  """The item at the end of the edge."""
-  node: Role
-  """A cursor for use in pagination."""
-  cursor: Cursor!
-}
-
-"""Ordering options for Role connections"""
-input RoleOrder @join__type(graph: MANAGEMENT) {
-  """The ordering direction."""
-  direction: OrderDirection! = ASC
-  """The field by which to order Roles."""
-  field: RoleOrderField
-  """Dot-notation path into a JSONB column (e.g. "meta.weight")."""
-  jsonPath: String
-  """Cast type for the extracted JSONB value."""
-  jsonType: JSONType
-}
-
-"""Properties by which Role connections can be ordered."""
-enum RoleOrderField @join__type(graph: MANAGEMENT) {
-  CREATED_AT @join__enumValue(graph: MANAGEMENT)
-  CREATED_BY @join__enumValue(graph: MANAGEMENT)
-  UPDATED_AT @join__enumValue(graph: MANAGEMENT)
-  UPDATED_BY @join__enumValue(graph: MANAGEMENT)
-  DELETED_AT @join__enumValue(graph: MANAGEMENT)
-  DELETED_BY @join__enumValue(graph: MANAGEMENT)
-  TENANT_ID @join__enumValue(graph: MANAGEMENT)
-  NAME @join__enumValue(graph: MANAGEMENT)
-  DESCRIPTION @join__enumValue(graph: MANAGEMENT)
-}
-
-"""
-RoleWhereInput is used for filtering Role objects.
-Input was generated by ent.
-"""
-input RoleWhereInput @join__type(graph: MANAGEMENT) {
-  not: RoleWhereInput
-  and: [RoleWhereInput!]
-  or: [RoleWhereInput!]
-  """id field predicates"""
-  id: ID
-  idNEQ: ID
-  idIn: [ID!]
-  idNotIn: [ID!]
-  idGT: ID
-  idGTE: ID
-  idLT: ID
-  idLTE: ID
-  """created_at field predicates"""
-  createdAt: Time
-  createdAtNEQ: Time
-  createdAtIn: [Time!]
-  createdAtNotIn: [Time!]
-  createdAtGT: Time
-  createdAtGTE: Time
-  createdAtLT: Time
-  createdAtLTE: Time
-  """created_by field predicates"""
-  createdBy: UUID
-  createdByNEQ: UUID
-  createdByIn: [UUID!]
-  createdByNotIn: [UUID!]
-  createdByGT: UUID
-  createdByGTE: UUID
-  createdByLT: UUID
-  createdByLTE: UUID
-  """updated_at field predicates"""
-  updatedAt: Time
-  updatedAtNEQ: Time
-  updatedAtIn: [Time!]
-  updatedAtNotIn: [Time!]
-  updatedAtGT: Time
-  updatedAtGTE: Time
-  updatedAtLT: Time
-  updatedAtLTE: Time
-  updatedAtIsNil: Boolean
-  updatedAtNotNil: Boolean
-  """updated_by field predicates"""
-  updatedBy: UUID
-  updatedByNEQ: UUID
-  updatedByIn: [UUID!]
-  updatedByNotIn: [UUID!]
-  updatedByGT: UUID
-  updatedByGTE: UUID
-  updatedByLT: UUID
-  updatedByLTE: UUID
-  updatedByIsNil: Boolean
-  updatedByNotNil: Boolean
-  """tenant_id field predicates"""
-  tenantID: UUID
-  tenantIDNEQ: UUID
-  tenantIDIn: [UUID!]
-  tenantIDNotIn: [UUID!]
-  tenantIDGT: UUID
-  tenantIDGTE: UUID
-  tenantIDLT: UUID
-  tenantIDLTE: UUID
-  """name field predicates"""
-  name: String
-  nameNEQ: String
-  nameIn: [String!]
-  nameNotIn: [String!]
-  nameGT: String
-  nameGTE: String
-  nameLT: String
-  nameLTE: String
-  nameContains: String
-  nameHasPrefix: String
-  nameHasSuffix: String
-  nameEqualFold: String
-  nameContainsFold: String
-  """description field predicates"""
-  description: String
-  descriptionNEQ: String
-  descriptionIn: [String!]
-  descriptionNotIn: [String!]
-  descriptionGT: String
-  descriptionGTE: String
-  descriptionLT: String
-  descriptionLTE: String
-  descriptionContains: String
-  descriptionHasPrefix: String
-  descriptionHasSuffix: String
-  descriptionIsNil: Boolean
-  descriptionNotNil: Boolean
-  descriptionEqualFold: String
-  descriptionContainsFold: String
-  """users edge predicates"""
-  hasUsers: Boolean
-  hasUsersWith: [UserWhereInput!]
-  """groups edge predicates"""
-  hasGroups: Boolean
-  hasGroupsWith: [GroupWhereInput!]
-  """policies edge predicates"""
-  hasPolicies: Boolean
-  hasPoliciesWith: [AccessPolicyWhereInput!]
-}
-
 type Tenant implements NodeDataType @join__implements(graph: MANAGEMENT, interface: "NodeDataType") @join__type(graph: MANAGEMENT) {
   id: ID!
   dataTypeID: UUID
@@ -7068,20 +6276,6 @@ input TenantWhereInput @join__type(graph: MANAGEMENT) {
 }
 
 """
-UpdateAccessPolicyInput is used for update AccessPolicy object.
-Input was generated by ent.
-"""
-input UpdateAccessPolicyInput @join__type(graph: MANAGEMENT) {
-  """Resource identifier (e.g., 'inventory.item')"""
-  resource: String
-  """Action to perform (e.g., 'read', 'write', 'delete')"""
-  action: String
-  """Effect of the policy: 'allow' or 'deny'"""
-  effect: String
-  roleID: ID
-}
-
-"""
 UpdateDataTypeInput is used for update DataType object.
 Input was generated by ent.
 """
@@ -7093,7 +6287,6 @@ input UpdateDataTypeInput @join__type(graph: MANAGEMENT) {
   frontendSchema: String
   clearFrontendSchema: Boolean
   default: Boolean
-  entity: String
 }
 
 """
@@ -7147,22 +6340,6 @@ input UpdateDeviceUserInput @join__type(graph: MANAGEMENT) {
 }
 
 """
-UpdateGroupInput is used for update Group object.
-Input was generated by ent.
-"""
-input UpdateGroupInput @join__type(graph: MANAGEMENT) {
-  name: String
-  description: String
-  clearDescription: Boolean
-  addUserIDs: [ID!]
-  removeUserIDs: [ID!]
-  clearUsers: Boolean
-  addRoleIDs: [ID!]
-  removeRoleIDs: [ID!]
-  clearRoles: Boolean
-}
-
-"""
 UpdateKeyValueInput is used for update KeyValue object.
 Input was generated by ent.
 """
@@ -7194,25 +6371,6 @@ input UpdateLocationInput @join__type(graph: MANAGEMENT) {
 }
 
 """
-UpdateRoleInput is used for update Role object.
-Input was generated by ent.
-"""
-input UpdateRoleInput @join__type(graph: MANAGEMENT) {
-  name: String
-  description: String
-  clearDescription: Boolean
-  addUserIDs: [ID!]
-  removeUserIDs: [ID!]
-  clearUsers: Boolean
-  addGroupIDs: [ID!]
-  removeGroupIDs: [ID!]
-  clearGroups: Boolean
-  addPolicyIDs: [ID!]
-  removePolicyIDs: [ID!]
-  clearPolicies: Boolean
-}
-
-"""
 UpdateUserInput is used for update User object.
 Input was generated by ent.
 """
@@ -7222,12 +6380,6 @@ input UpdateUserInput @join__type(graph: MANAGEMENT) {
   firstName: String
   lastName: String
   isAdmin: Boolean
-  addRoleIDs: [ID!]
-  removeRoleIDs: [ID!]
-  clearRoles: Boolean
-  addGroupIDs: [ID!]
-  removeGroupIDs: [ID!]
-  clearGroups: Boolean
   addDeviceUsersUserIDs: [ID!]
   removeDeviceUsersUserIDs: [ID!]
   clearDeviceUsersUsers: Boolean
@@ -7248,43 +6400,7 @@ type User implements NodeDataType @join__implements(graph: MANAGEMENT, interface
   firstName: String!
   lastName: String!
   isAdmin: Boolean!
-  """
-  DEPRECATED: Legacy JSONB column for backward compatibility. Use role relations instead.
-  """
-  legacyRoles: [String!]!
   tenant: Tenant!
-  roles(
-    """Returns the elements in the list that come after the specified cursor."""
-    after: Cursor,
-    """Returns the first _n_ elements from the list."""
-    first: Int,
-    """
-    Returns the elements in the list that come before the specified cursor.
-    """
-    before: Cursor,
-    """Returns the last _n_ elements from the list."""
-    last: Int,
-    """Ordering options for Roles returned from the connection."""
-    orderBy: RoleOrder,
-    """Filtering options for Roles returned from the connection."""
-    where: RoleWhereInput,
-  ): RoleConnection!
-  groups(
-    """Returns the elements in the list that come after the specified cursor."""
-    after: Cursor,
-    """Returns the first _n_ elements from the list."""
-    first: Int,
-    """
-    Returns the elements in the list that come before the specified cursor.
-    """
-    before: Cursor,
-    """Returns the last _n_ elements from the list."""
-    last: Int,
-    """Ordering options for Groups returned from the connection."""
-    orderBy: GroupOrder,
-    """Filtering options for Groups returned from the connection."""
-    where: GroupWhereInput,
-  ): GroupConnection!
   deviceUsersUsers(
     """Returns the elements in the list that come after the specified cursor."""
     after: Cursor,
@@ -7488,12 +6604,6 @@ input UserWhereInput @join__type(graph: MANAGEMENT) {
   """tenant edge predicates"""
   hasTenant: Boolean
   hasTenantWith: [TenantWhereInput!]
-  """roles edge predicates"""
-  hasRoles: Boolean
-  hasRolesWith: [RoleWhereInput!]
-  """groups edge predicates"""
-  hasGroups: Boolean
-  hasGroupsWith: [GroupWhereInput!]
   """deviceUsersUsers edge predicates"""
   hasDeviceUsersUsers: Boolean
   hasDeviceUsersUsersWith: [DeviceUserWhereInput!]
@@ -7543,19 +6653,6 @@ type DeviceLocationOutput @join__type(graph: MANAGEMENT) {
 type DeviceLocationDeletePayload @join__type(graph: MANAGEMENT) {
   deletedID: ID
   workflows: [TemporalWorkflow!]!
-}
-
-input CreateEventInput @join__type(graph: MANAGEMENT) {
-  topic: String!
-  name: String!
-  description: String!
-  example: Map
-}
-
-input UpdateEventInput @join__type(graph: MANAGEMENT) {
-  name: String
-  description: String
-  example: Map
 }
 
 type GenerateJsonSchemaResponse @join__type(graph: MANAGEMENT) {
@@ -7609,6 +6706,40 @@ type CheckOutUserDeviceOutput @join__type(graph: MANAGEMENT) {
 type Organization @join__type(graph: MANAGEMENT) {
   id: String
   active: Boolean!
+}
+
+"""An assignable per-service gate role."""
+type ServiceRole @join__type(graph: MANAGEMENT) {
+  key: String!
+}
+
+input UserServiceRolesInput @join__type(graph: MANAGEMENT) {
+  tenantId: UUID!
+  userId: UUID!
+}
+
+input AssignRolesInput @join__type(graph: MANAGEMENT) {
+  tenantId: UUID!
+  userId: UUID!
+  roles: [String!]!
+}
+
+type AssignRolesResponse @join__type(graph: MANAGEMENT) {
+  userId: UUID!
+  """All per-service roles the user holds after the assignment."""
+  roles: [String!]!
+}
+
+input RemoveRolesInput @join__type(graph: MANAGEMENT) {
+  tenantId: UUID!
+  userId: UUID!
+  roles: [String!]!
+}
+
+type RemoveRolesResponse @join__type(graph: MANAGEMENT) {
+  userId: UUID!
+  """All per-service roles the user holds after the removal."""
+  roles: [String!]!
 }
 
 input RegisterTenantInput @join__type(graph: MANAGEMENT) {
@@ -7685,6 +6816,42 @@ type SetTenantExpiryResponse @join__type(graph: MANAGEMENT) {
   success: Boolean!
 }
 
+"""
+Input for setTenantUITemplate. System-only (ROLE_SYSTEM / IsSystemUser).
+Per platform: set a non-empty URL template (carrying {{.Slug}}/{{.Version}}
+placeholders) to override the system-wide default, or clear*: true to drop the
+override and revert to the default. Omit both to leave the stored value
+unchanged. Setting a template and clearing it in the same call is rejected, and
+the request must change at least one field. Target tenant is derived from
+X-Pyck-Tenant-Id (req.MutationTenantID).
+"""
+input SetTenantUITemplateInput @join__type(graph: MANAGEMENT) {
+  """
+  Web UI bundle URL template (remoteWebUITemplate). Omit to leave unchanged.
+  """
+  webTemplate: String
+  """
+  Drop the per-tenant web template, reverting to the system-wide default.
+  """
+  clearWebTemplate: Boolean
+  """
+  Mobile UI bundle URL template (remoteMobileUITemplate). Omit to leave unchanged.
+  """
+  mobileTemplate: String
+  """
+  Drop the per-tenant mobile template, reverting to the system-wide default.
+  """
+  clearMobileTemplate: Boolean
+}
+
+"""
+Result of setTenantUITemplate. Returns an error when the tenant does not
+exist. Idempotent when the provided values already match what is stored.
+"""
+type SetTenantUITemplateResponse @join__type(graph: MANAGEMENT) {
+  success: Boolean!
+}
+
 type UserProfile @join__type(graph: MANAGEMENT) {
   UserID: UUID!
   Username: String!
@@ -7730,7 +6897,7 @@ input CreatePickingOrderItemInput @join__type(graph: PICKING) {
   dataTypeSlug: String
   data: Map
   sku: String!
-  quantity: Int!
+  quantity: Int64!
   orderID: ID!
 }
 
@@ -7929,14 +7096,14 @@ input PickingOrderItemWhereInput @join__type(graph: PICKING) {
   orderIDIn: [ID!]
   orderIDNotIn: [ID!]
   """quantity field predicates"""
-  quantity: Int
-  quantityNEQ: Int
-  quantityIn: [Int!]
-  quantityNotIn: [Int!]
-  quantityGT: Int
-  quantityGTE: Int
-  quantityLT: Int
-  quantityLTE: Int
+  quantity: Int64
+  quantityNEQ: Int64
+  quantityIn: [Int64!]
+  quantityNotIn: [Int64!]
+  quantityGT: Int64
+  quantityGTE: Int64
+  quantityLT: Int64
+  quantityLTE: Int64
   """order edge predicates"""
   hasOrder: Boolean
   hasOrderWith: [PickingOrderWhereInput!]
@@ -8078,6 +7245,7 @@ input PickingOrderWhereInput @join__type(graph: PICKING) {
   """outboundShipmentNotifications edge predicates"""
   hasOutboundShipmentNotifications: Boolean
   hasOutboundShipmentNotificationsWith: [PickingOutboundShipmentNotificationWhereInput!]
+  dataIndex: DataIndexWhereInput
   Data: [String!]
   DataHasKey: String
   DataIn: [String!]
@@ -8283,7 +7451,7 @@ input UpdatePickingOrderItemInput @join__type(graph: PICKING) {
   data: Map
   clearData: Boolean
   sku: String
-  quantity: Int
+  quantity: Int64
   orderID: ID
 }
 
@@ -8301,12 +7469,36 @@ input UpdatePickingOutboundShipmentNotificationInput @join__type(graph: PICKING)
   orderID: ID
 }
 
+"""
+Filters on an indexed data key. The caller names the index declared in the
+datatype's x-indices block; the slot column backing it stays server-side.
+"""
+input DataIndexWhereInput @join__type(graph: PICKING) {
+  """Datatype declaring the index, by slug."""
+  dataType: String!
+  """Index name from the datatype's x-indices block, e.g. "serialNumbers"."""
+  field: String!
+  eq: String
+  neq: String
+  in: [String!]
+  notIn: [String!]
+  gt: String
+  gte: String
+  lt: String
+  lte: String
+  contains: String
+  hasPrefix: String
+  hasSuffix: String
+  """Matches rows whose list slot holds any of these values."""
+  overlaps: [String!]
+}
+
 input CreatePickingOrderItemsInput @join__type(graph: PICKING) {
   dataTypeID: UUID
   dataTypeSlug: String
   data: Map
   sku: String!
-  quantity: Int!
+  quantity: Int64!
 }
 
 input CreatePickingOrderWithItemsInput @join__type(graph: PICKING) {
@@ -8370,7 +7562,7 @@ input CreateReceivingInboundItemInput @join__type(graph: RECEIVING) {
   dataTypeSlug: String
   data: Map
   sku: String!
-  quantity: Int!
+  quantity: Int64!
   inboundID: ID!
 }
 
@@ -8482,7 +7674,7 @@ type ReceivingInboundItem implements NodeReceiving @join__implements(graph: RECE
   deletedBy: UUID
   sku: String!
   inboundID: ID!
-  quantity: Int!
+  quantity: Int64!
   inbound: ReceivingInbound!
 }
 
@@ -8643,14 +7835,14 @@ input ReceivingInboundItemWhereInput @join__type(graph: RECEIVING) {
   inboundIDIn: [ID!]
   inboundIDNotIn: [ID!]
   """quantity field predicates"""
-  quantity: Int
-  quantityNEQ: Int
-  quantityIn: [Int!]
-  quantityNotIn: [Int!]
-  quantityGT: Int
-  quantityGTE: Int
-  quantityLT: Int
-  quantityLTE: Int
+  quantity: Int64
+  quantityNEQ: Int64
+  quantityIn: [Int64!]
+  quantityNotIn: [Int64!]
+  quantityGT: Int64
+  quantityGTE: Int64
+  quantityLT: Int64
+  quantityLTE: Int64
   """inbound edge predicates"""
   hasInbound: Boolean
   hasInboundWith: [ReceivingInboundWhereInput!]
@@ -9016,7 +8208,7 @@ input UpdateReceivingInboundItemInput @join__type(graph: RECEIVING) {
   data: Map
   clearData: Boolean
   sku: String
-  quantity: Int
+  quantity: Int64
   inboundID: ID
 }
 
@@ -9049,7 +8241,7 @@ input CreateReceivingInboundItemsInput @join__type(graph: RECEIVING) {
   dataTypeSlug: String
   data: Map
   sku: String!
-  quantity: Int!
+  quantity: Int64!
 }
 
 input CreateReceivingInboundWithItemsInput @join__type(graph: RECEIVING) {
@@ -9547,6 +8739,66 @@ input WorkflowWhereInput @join__type(graph: WORKFLOW) {
   DataContains: [String!]
 }
 
+input RemoteUIQueryInput @join__type(graph: WORKFLOW) {
+  workflowID: String!
+  workflowExecutionID: String!
+}
+
+"""Fully rendered web + mobile UI bundle URLs."""
+type RemoteUI @join__type(graph: WORKFLOW) {
+  web: String!
+  mobile: String!
+}
+
+"""The UI bundle (slug + version) a deployment version ships."""
+type UIBundle @join__type(graph: WORKFLOW) {
+  slug: String!
+  version: String!
+}
+
+"""A Worker Deployment Version and the UI bundles it ships."""
+type DeploymentVersionUI @join__type(graph: WORKFLOW) {
+  deploymentName: String!
+  buildID: String!
+  """One of: unspecified, draining, drained."""
+  drainageStatus: String!
+  """
+  UI bundles stamped on the version, one per workflow type. Empty if none.
+  """
+  bundles: [DeploymentVersionUIBundle!]!
+}
+
+"""A UI bundle stamped on a deployment version for a given workflow type."""
+type DeploymentVersionUIBundle @join__type(graph: WORKFLOW) {
+  """
+  Workflow type this bundle serves, or empty for the version-wide default.
+  """
+  workflowType: String!
+  slug: String!
+  version: String!
+}
+
+"""A connection to a list of DeploymentVersionUI items."""
+type DeploymentVersionUIConnection @join__type(graph: WORKFLOW) {
+  edges: [DeploymentVersionUIEdge!]!
+  pageInfo: DeploymentVersionUIPageInfo!
+  totalCount: Int!
+}
+
+"""An edge in a DeploymentVersionUI connection."""
+type DeploymentVersionUIEdge @join__type(graph: WORKFLOW) {
+  node: DeploymentVersionUI!
+  cursor: String!
+}
+
+"""Pagination information for a DeploymentVersionUI connection."""
+type DeploymentVersionUIPageInfo @join__type(graph: WORKFLOW) {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
 scalar Any @join__type(graph: WORKFLOW)
 
 scalar UInt64 @join__type(graph: WORKFLOW)
@@ -9863,7 +9115,7 @@ type WorkflowExecutionInfo @join__type(graph: WORKFLOW) {
   """The current status of the workflow execution."""
   status: String!
   """The number of events in the workflow history."""
-  historyLength: Int!
+  historyLength: Int64!
   """The parent namespace ID if this is a child workflow."""
   parentNamespaceId: String
   """The parent execution if this is a child workflow."""
@@ -9877,9 +9129,9 @@ type WorkflowExecutionInfo @join__type(graph: WORKFLOW) {
   """The task queue where the workflow is executed."""
   taskQueue: String!
   """The number of state transitions in the workflow."""
-  stateTransitionCount: Int!
+  stateTransitionCount: Int64!
   """The size of the workflow history in bytes."""
-  historySizeBytes: Int!
+  historySizeBytes: Int64!
   """The version stamp of the most recent worker."""
   mostRecentWorkerVersionStamp: Map
   """The duration of the workflow execution."""
@@ -9941,7 +9193,7 @@ type WorkflowType @join__type(graph: WORKFLOW) {
 }
 
 type WorkflowEvent @join__type(graph: WORKFLOW) {
-  eventId: Int!
+  eventId: Int64!
   eventTime: String!
   eventType: String!
   extra: Map
@@ -9953,6 +9205,7 @@ input RegisterWorkflowWithSignalsInput @join__type(graph: WORKFLOW) {
   data: Map
   name: String!
   taskQueue: String!
+  workerID: String
   signals: [RegisterWorkflowSignalInput!]
 }
 

@@ -3,6 +3,7 @@ package importexport_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -596,4 +597,51 @@ func FuzzParseRecord(f *testing.F) {
 		// Errors are expected and fine — panics are not.
 		_, _ = importexport.ParseRecord(data)
 	})
+}
+
+// TestImporterRefusesImmutableFieldChange guards the silent-drop this exists to
+// prevent: the update input cannot carry an immutable field, so without the
+// check the record would report as updated while that one difference vanished.
+func TestImporterRefusesImmutableFieldChange(t *testing.T) {
+	t.Parallel()
+
+	desc, store := fakeDescriptor("Location")
+	desc.ImmutableFields = []string{"kind"}
+	reg := importexport.NewRegistry()
+	if err := reg.Register(desc); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	imp := importexport.NewImporter(reg, importexport.WithOutput(&buf))
+	dir := t.TempDir()
+
+	create := writeJSONL(t, dir, "create.jsonl",
+		`{"__typename": "Location", "name": "A", "kind": "shelf", "data": "x"}`+"\n")
+	if _, err := imp.ImportFiles(context.Background(), []string{create}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Same kind: the update goes through.
+	same := writeJSONL(t, dir, "same.jsonl",
+		`{"__typename": "Location", "name": "A", "kind": "shelf", "data": "y"}`+"\n")
+	res, err := imp.ImportFiles(context.Background(), []string{same})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Updated != 1 {
+		t.Errorf("Updated = %d, want 1", res.Updated)
+	}
+
+	// Different kind: refused, and the stored entity is left alone.
+	changed := writeJSONL(t, dir, "changed.jsonl",
+		`{"__typename": "Location", "name": "A", "kind": "pallet", "data": "z"}`+"\n")
+	if _, err := imp.ImportFiles(context.Background(), []string{changed}); err == nil {
+		t.Fatal("expected the import to be refused")
+	} else if !errors.Is(err, importexport.ErrImmutableField) {
+		t.Errorf("error = %q, want ErrImmutableField", err)
+	}
+	if (*store)[0]["data"] != "y" {
+		t.Errorf("data = %v, want 'y' — the refused import must not apply the rest", (*store)[0]["data"])
+	}
 }

@@ -442,6 +442,80 @@ See [temporalenvconfig](https://pkg.go.dev/go.temporal.io/sdk/contrib/envconfig)
 
 - **`PYCK_GATEWAY_URL`**: Pyck gateway base URL
 
+### Worker Deployment Versioning
+
+A worker registers itself with Temporal under a **deployment version**
+(`<deployment name>.<build ID>`) and runs with `Pinned` behaviour: an execution
+stays on the version it started on until it finishes, so replacing the binary
+under a running workflow can no longer replay changed code against an old
+history.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PYCK_WORKER_BUILD_ID` | Go module version | Explicit build ID override |
+| `PYCK_WORKER_DEPLOYMENT_NAME` | Go module name | Explicit deployment name override |
+| `TEMPORAL_WORKER_BUILD_ID` | — | Injected by the temporal-worker-controller |
+| `TEMPORAL_DEPLOYMENT_NAME` | — | Injected by the temporal-worker-controller |
+| `PYCK_WORKER_REQUIRE_BUILD_ID` | `false` | Refuse to start on an unversioned build |
+| `PYCK_WORKER_PROMOTE_ON_START` | `false` | Promote own version; only without the controller |
+| `PYCK_UI_BUNDLE_VERSION` | — | Version segment of the UI bundle URL |
+| `PYCK_UI_BUNDLE_SLUG` | empty | Bundle slug, for shared flavour bundles only |
+
+Build ID and deployment name resolve in that order: the `PYCK_` override first,
+then whatever the controller injected, then the Go module.
+
+The resolution lives in `common/workflow` (`VersioningConfig`), so the workers
+embedded in services — management, file — register versions the same way
+without adopting `RunDefaultWorker`, which owns a whole process. They read the
+same variables; without a build ID they stay unversioned, since the service
+images build without module version stamping.
+
+A registered version receives no tasks until it is made *current*. Under the
+temporal-worker-controller that is the controller's decision, gradual rollout
+included. Elsewhere, `PYCK_WORKER_PROMOTE_ON_START=true` makes the worker
+promote its own version through the Temporal API — no `temporal` CLI in the
+deploy step. Never set it under the controller: a self-promoting worker
+overrides the rollout it is in the middle of.
+
+**Under Kubernetes, do not set the `PYCK_` overrides.** The controller derives
+the deployment version itself and injects the `TEMPORAL_` pair; a `PYCK_` value
+outranks it, so the worker would register under a version the controller is not
+waiting for and the rollout would never complete. Pin the version on the CRD via
+`spec.workerOptions.unsafeCustomBuildID` instead.
+
+Locally, no configuration is needed: an unversioned (`go run`) build logs a
+warning and runs without versioning. Set `PYCK_WORKER_REQUIRE_BUILD_ID=true` in
+production so an unversioned worker fails loudly instead of silently opting out.
+
+> A versioned worker receives **no tasks** until its version is promoted to
+> current — by the controller in Kubernetes, or via
+> `temporal worker deployment set-current-version` elsewhere. A worker that
+> starts cleanly but sits idle is almost always an unpromoted version.
+
+### UI bundles
+
+Each worker stamps `ui.bundle.<WorkflowType>.{version,slug}` onto its own
+deployment version at startup, for every workflow type it serves. The backend
+reads it back off the version an execution is pinned to and renders the tenant's
+URL template, so a running workflow always gets the UI that matches its code.
+
+`PYCK_UI_BUNDLE_VERSION` is the version segment of that URL — the identifier the
+bundle was uploaded under, typically a git SHA. It is deliberately not derived
+from the build ID: the two coincide only when a deploy pins them together. Left
+unset, the worker stamps nothing and the backend serves the configured default
+bundle — the right answer for a deploy that named no bundle at all.
+
+`PYCK_UI_BUNDLE_SLUG` names a shared bundle and is set only for workers serving
+one. A per-tenant bundle needs no slug: the tenant already scopes the URL.
+
+The worker exposes two HTTP endpoints on port `8080`
+(`WithHealthServer(HealthPort(n))` to change it):
+
+- **`/health`** — liveness. Ready or not, a live worker answers 200 here.
+- **`/ready`** — readiness. 200 only once the UI bundle metadata is stamped, so
+  wiring this as the pod's `readinessProbe` keeps a version from taking pinned
+  executions before its bundle metadata exists.
+
 ## Worker Architecture
 
 The worker automatically:

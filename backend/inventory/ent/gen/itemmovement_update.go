@@ -12,10 +12,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/item"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/itemmovement"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/predicate"
-	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
 
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/internal"
 )
@@ -165,69 +163,6 @@ func (_u *ItemMovementUpdate) ClearDeletedBy() *ItemMovementUpdate {
 	return _u
 }
 
-// SetItemID sets the "item_id" field.
-func (_u *ItemMovementUpdate) SetItemID(v uuid.UUID) *ItemMovementUpdate {
-	_u.mutation.SetItemID(v)
-	return _u
-}
-
-// SetNillableItemID sets the "item_id" field if the given value is not nil.
-func (_u *ItemMovementUpdate) SetNillableItemID(v *uuid.UUID) *ItemMovementUpdate {
-	if v != nil {
-		_u.SetItemID(*v)
-	}
-	return _u
-}
-
-// SetFromID sets the "from_id" field.
-func (_u *ItemMovementUpdate) SetFromID(v uuid.UUID) *ItemMovementUpdate {
-	_u.mutation.SetFromID(v)
-	return _u
-}
-
-// SetNillableFromID sets the "from_id" field if the given value is not nil.
-func (_u *ItemMovementUpdate) SetNillableFromID(v *uuid.UUID) *ItemMovementUpdate {
-	if v != nil {
-		_u.SetFromID(*v)
-	}
-	return _u
-}
-
-// SetToID sets the "to_id" field.
-func (_u *ItemMovementUpdate) SetToID(v uuid.UUID) *ItemMovementUpdate {
-	_u.mutation.SetToID(v)
-	return _u
-}
-
-// SetNillableToID sets the "to_id" field if the given value is not nil.
-func (_u *ItemMovementUpdate) SetNillableToID(v *uuid.UUID) *ItemMovementUpdate {
-	if v != nil {
-		_u.SetToID(*v)
-	}
-	return _u
-}
-
-// SetQuantity sets the "quantity" field.
-func (_u *ItemMovementUpdate) SetQuantity(v int64) *ItemMovementUpdate {
-	_u.mutation.ResetQuantity()
-	_u.mutation.SetQuantity(v)
-	return _u
-}
-
-// SetNillableQuantity sets the "quantity" field if the given value is not nil.
-func (_u *ItemMovementUpdate) SetNillableQuantity(v *int64) *ItemMovementUpdate {
-	if v != nil {
-		_u.SetQuantity(*v)
-	}
-	return _u
-}
-
-// AddQuantity adds value to the "quantity" field.
-func (_u *ItemMovementUpdate) AddQuantity(v int64) *ItemMovementUpdate {
-	_u.mutation.AddQuantity(v)
-	return _u
-}
-
 // SetExecuted sets the "executed" field.
 func (_u *ItemMovementUpdate) SetExecuted(v bool) *ItemMovementUpdate {
 	_u.mutation.SetExecuted(v)
@@ -296,83 +231,9 @@ func (_u *ItemMovementUpdate) ClearBlockedBy() *ItemMovementUpdate {
 	return _u
 }
 
-// SetOrderID sets the "order_id" field.
-func (_u *ItemMovementUpdate) SetOrderID(v uuid.UUID) *ItemMovementUpdate {
-	_u.mutation.SetOrderID(v)
-	return _u
-}
-
-// SetNillableOrderID sets the "order_id" field if the given value is not nil.
-func (_u *ItemMovementUpdate) SetNillableOrderID(v *uuid.UUID) *ItemMovementUpdate {
-	if v != nil {
-		_u.SetOrderID(*v)
-	}
-	return _u
-}
-
-// ClearOrderID clears the value of the "order_id" field.
-func (_u *ItemMovementUpdate) ClearOrderID() *ItemMovementUpdate {
-	_u.mutation.ClearOrderID()
-	return _u
-}
-
-// SetPosition sets the "position" field.
-func (_u *ItemMovementUpdate) SetPosition(v int) *ItemMovementUpdate {
-	_u.mutation.ResetPosition()
-	_u.mutation.SetPosition(v)
-	return _u
-}
-
-// SetNillablePosition sets the "position" field if the given value is not nil.
-func (_u *ItemMovementUpdate) SetNillablePosition(v *int) *ItemMovementUpdate {
-	if v != nil {
-		_u.SetPosition(*v)
-	}
-	return _u
-}
-
-// AddPosition adds value to the "position" field.
-func (_u *ItemMovementUpdate) AddPosition(v int) *ItemMovementUpdate {
-	_u.mutation.AddPosition(v)
-	return _u
-}
-
-// SetFrom sets the "from" edge to the Repository entity.
-func (_u *ItemMovementUpdate) SetFrom(v *Repository) *ItemMovementUpdate {
-	return _u.SetFromID(v.ID)
-}
-
-// SetTo sets the "to" edge to the Repository entity.
-func (_u *ItemMovementUpdate) SetTo(v *Repository) *ItemMovementUpdate {
-	return _u.SetToID(v.ID)
-}
-
-// SetItem sets the "item" edge to the Item entity.
-func (_u *ItemMovementUpdate) SetItem(v *Item) *ItemMovementUpdate {
-	return _u.SetItemID(v.ID)
-}
-
 // Mutation returns the ItemMovementMutation object of the builder.
 func (_u *ItemMovementUpdate) Mutation() *ItemMovementMutation {
 	return _u.mutation
-}
-
-// ClearFrom clears the "from" edge to the Repository entity.
-func (_u *ItemMovementUpdate) ClearFrom() *ItemMovementUpdate {
-	_u.mutation.ClearFrom()
-	return _u
-}
-
-// ClearTo clears the "to" edge to the Repository entity.
-func (_u *ItemMovementUpdate) ClearTo() *ItemMovementUpdate {
-	_u.mutation.ClearTo()
-	return _u
-}
-
-// ClearItem clears the "item" edge to the Item entity.
-func (_u *ItemMovementUpdate) ClearItem() *ItemMovementUpdate {
-	_u.mutation.ClearItem()
-	return _u
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -404,11 +265,6 @@ func (_u *ItemMovementUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *ItemMovementUpdate) check() error {
-	if v, ok := _u.mutation.Quantity(); ok {
-		if err := itemmovement.QuantityValidator(v); err != nil {
-			return &ValidationError{Name: "quantity", err: fmt.Errorf(`gen: validator failed for field "ItemMovement.quantity": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.Handler(); ok {
 		if err := itemmovement.HandlerValidator(v); err != nil {
 			return &ValidationError{Name: "handler", err: fmt.Errorf(`gen: validator failed for field "ItemMovement.handler": %w`, err)}
@@ -485,12 +341,6 @@ func (_u *ItemMovementUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if _u.mutation.DeletedByCleared() {
 		_spec.ClearField(itemmovement.FieldDeletedBy, field.TypeUUID)
 	}
-	if value, ok := _u.mutation.Quantity(); ok {
-		_spec.SetField(itemmovement.FieldQuantity, field.TypeInt64, value)
-	}
-	if value, ok := _u.mutation.AddedQuantity(); ok {
-		_spec.AddField(itemmovement.FieldQuantity, field.TypeInt64, value)
-	}
 	if value, ok := _u.mutation.Executed(); ok {
 		_spec.SetField(itemmovement.FieldExecuted, field.TypeBool, value)
 	}
@@ -512,110 +362,8 @@ func (_u *ItemMovementUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if _u.mutation.CollectionIDCleared() {
 		_spec.ClearField(itemmovement.FieldCollectionID, field.TypeUUID)
 	}
-	if value, ok := _u.mutation.OrderID(); ok {
-		_spec.SetField(itemmovement.FieldOrderID, field.TypeUUID, value)
-	}
 	if _u.mutation.OrderIDCleared() {
 		_spec.ClearField(itemmovement.FieldOrderID, field.TypeUUID)
-	}
-	if value, ok := _u.mutation.Position(); ok {
-		_spec.SetField(itemmovement.FieldPosition, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedPosition(); ok {
-		_spec.AddField(itemmovement.FieldPosition, field.TypeInt, value)
-	}
-	if _u.mutation.FromCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   itemmovement.FromTable,
-			Columns: []string{itemmovement.FromColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.ItemMovement
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.FromIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   itemmovement.FromTable,
-			Columns: []string{itemmovement.FromColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.ItemMovement
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.ToCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   itemmovement.ToTable,
-			Columns: []string{itemmovement.ToColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.ItemMovement
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.ToIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   itemmovement.ToTable,
-			Columns: []string{itemmovement.ToColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.ItemMovement
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.ItemCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   itemmovement.ItemTable,
-			Columns: []string{itemmovement.ItemColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(item.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.ItemMovement
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.ItemIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   itemmovement.ItemTable,
-			Columns: []string{itemmovement.ItemColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(item.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.ItemMovement
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_spec.Node.Schema = _u.schemaConfig.ItemMovement
 	ctx = internal.NewSchemaConfigContext(ctx, _u.schemaConfig)
@@ -771,69 +519,6 @@ func (_u *ItemMovementUpdateOne) ClearDeletedBy() *ItemMovementUpdateOne {
 	return _u
 }
 
-// SetItemID sets the "item_id" field.
-func (_u *ItemMovementUpdateOne) SetItemID(v uuid.UUID) *ItemMovementUpdateOne {
-	_u.mutation.SetItemID(v)
-	return _u
-}
-
-// SetNillableItemID sets the "item_id" field if the given value is not nil.
-func (_u *ItemMovementUpdateOne) SetNillableItemID(v *uuid.UUID) *ItemMovementUpdateOne {
-	if v != nil {
-		_u.SetItemID(*v)
-	}
-	return _u
-}
-
-// SetFromID sets the "from_id" field.
-func (_u *ItemMovementUpdateOne) SetFromID(v uuid.UUID) *ItemMovementUpdateOne {
-	_u.mutation.SetFromID(v)
-	return _u
-}
-
-// SetNillableFromID sets the "from_id" field if the given value is not nil.
-func (_u *ItemMovementUpdateOne) SetNillableFromID(v *uuid.UUID) *ItemMovementUpdateOne {
-	if v != nil {
-		_u.SetFromID(*v)
-	}
-	return _u
-}
-
-// SetToID sets the "to_id" field.
-func (_u *ItemMovementUpdateOne) SetToID(v uuid.UUID) *ItemMovementUpdateOne {
-	_u.mutation.SetToID(v)
-	return _u
-}
-
-// SetNillableToID sets the "to_id" field if the given value is not nil.
-func (_u *ItemMovementUpdateOne) SetNillableToID(v *uuid.UUID) *ItemMovementUpdateOne {
-	if v != nil {
-		_u.SetToID(*v)
-	}
-	return _u
-}
-
-// SetQuantity sets the "quantity" field.
-func (_u *ItemMovementUpdateOne) SetQuantity(v int64) *ItemMovementUpdateOne {
-	_u.mutation.ResetQuantity()
-	_u.mutation.SetQuantity(v)
-	return _u
-}
-
-// SetNillableQuantity sets the "quantity" field if the given value is not nil.
-func (_u *ItemMovementUpdateOne) SetNillableQuantity(v *int64) *ItemMovementUpdateOne {
-	if v != nil {
-		_u.SetQuantity(*v)
-	}
-	return _u
-}
-
-// AddQuantity adds value to the "quantity" field.
-func (_u *ItemMovementUpdateOne) AddQuantity(v int64) *ItemMovementUpdateOne {
-	_u.mutation.AddQuantity(v)
-	return _u
-}
-
 // SetExecuted sets the "executed" field.
 func (_u *ItemMovementUpdateOne) SetExecuted(v bool) *ItemMovementUpdateOne {
 	_u.mutation.SetExecuted(v)
@@ -902,83 +587,9 @@ func (_u *ItemMovementUpdateOne) ClearBlockedBy() *ItemMovementUpdateOne {
 	return _u
 }
 
-// SetOrderID sets the "order_id" field.
-func (_u *ItemMovementUpdateOne) SetOrderID(v uuid.UUID) *ItemMovementUpdateOne {
-	_u.mutation.SetOrderID(v)
-	return _u
-}
-
-// SetNillableOrderID sets the "order_id" field if the given value is not nil.
-func (_u *ItemMovementUpdateOne) SetNillableOrderID(v *uuid.UUID) *ItemMovementUpdateOne {
-	if v != nil {
-		_u.SetOrderID(*v)
-	}
-	return _u
-}
-
-// ClearOrderID clears the value of the "order_id" field.
-func (_u *ItemMovementUpdateOne) ClearOrderID() *ItemMovementUpdateOne {
-	_u.mutation.ClearOrderID()
-	return _u
-}
-
-// SetPosition sets the "position" field.
-func (_u *ItemMovementUpdateOne) SetPosition(v int) *ItemMovementUpdateOne {
-	_u.mutation.ResetPosition()
-	_u.mutation.SetPosition(v)
-	return _u
-}
-
-// SetNillablePosition sets the "position" field if the given value is not nil.
-func (_u *ItemMovementUpdateOne) SetNillablePosition(v *int) *ItemMovementUpdateOne {
-	if v != nil {
-		_u.SetPosition(*v)
-	}
-	return _u
-}
-
-// AddPosition adds value to the "position" field.
-func (_u *ItemMovementUpdateOne) AddPosition(v int) *ItemMovementUpdateOne {
-	_u.mutation.AddPosition(v)
-	return _u
-}
-
-// SetFrom sets the "from" edge to the Repository entity.
-func (_u *ItemMovementUpdateOne) SetFrom(v *Repository) *ItemMovementUpdateOne {
-	return _u.SetFromID(v.ID)
-}
-
-// SetTo sets the "to" edge to the Repository entity.
-func (_u *ItemMovementUpdateOne) SetTo(v *Repository) *ItemMovementUpdateOne {
-	return _u.SetToID(v.ID)
-}
-
-// SetItem sets the "item" edge to the Item entity.
-func (_u *ItemMovementUpdateOne) SetItem(v *Item) *ItemMovementUpdateOne {
-	return _u.SetItemID(v.ID)
-}
-
 // Mutation returns the ItemMovementMutation object of the builder.
 func (_u *ItemMovementUpdateOne) Mutation() *ItemMovementMutation {
 	return _u.mutation
-}
-
-// ClearFrom clears the "from" edge to the Repository entity.
-func (_u *ItemMovementUpdateOne) ClearFrom() *ItemMovementUpdateOne {
-	_u.mutation.ClearFrom()
-	return _u
-}
-
-// ClearTo clears the "to" edge to the Repository entity.
-func (_u *ItemMovementUpdateOne) ClearTo() *ItemMovementUpdateOne {
-	_u.mutation.ClearTo()
-	return _u
-}
-
-// ClearItem clears the "item" edge to the Item entity.
-func (_u *ItemMovementUpdateOne) ClearItem() *ItemMovementUpdateOne {
-	_u.mutation.ClearItem()
-	return _u
 }
 
 // Where appends a list predicates to the ItemMovementUpdate builder.
@@ -1023,11 +634,6 @@ func (_u *ItemMovementUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *ItemMovementUpdateOne) check() error {
-	if v, ok := _u.mutation.Quantity(); ok {
-		if err := itemmovement.QuantityValidator(v); err != nil {
-			return &ValidationError{Name: "quantity", err: fmt.Errorf(`gen: validator failed for field "ItemMovement.quantity": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.Handler(); ok {
 		if err := itemmovement.HandlerValidator(v); err != nil {
 			return &ValidationError{Name: "handler", err: fmt.Errorf(`gen: validator failed for field "ItemMovement.handler": %w`, err)}
@@ -1121,12 +727,6 @@ func (_u *ItemMovementUpdateOne) sqlSave(ctx context.Context) (_node *ItemMoveme
 	if _u.mutation.DeletedByCleared() {
 		_spec.ClearField(itemmovement.FieldDeletedBy, field.TypeUUID)
 	}
-	if value, ok := _u.mutation.Quantity(); ok {
-		_spec.SetField(itemmovement.FieldQuantity, field.TypeInt64, value)
-	}
-	if value, ok := _u.mutation.AddedQuantity(); ok {
-		_spec.AddField(itemmovement.FieldQuantity, field.TypeInt64, value)
-	}
 	if value, ok := _u.mutation.Executed(); ok {
 		_spec.SetField(itemmovement.FieldExecuted, field.TypeBool, value)
 	}
@@ -1148,110 +748,8 @@ func (_u *ItemMovementUpdateOne) sqlSave(ctx context.Context) (_node *ItemMoveme
 	if _u.mutation.CollectionIDCleared() {
 		_spec.ClearField(itemmovement.FieldCollectionID, field.TypeUUID)
 	}
-	if value, ok := _u.mutation.OrderID(); ok {
-		_spec.SetField(itemmovement.FieldOrderID, field.TypeUUID, value)
-	}
 	if _u.mutation.OrderIDCleared() {
 		_spec.ClearField(itemmovement.FieldOrderID, field.TypeUUID)
-	}
-	if value, ok := _u.mutation.Position(); ok {
-		_spec.SetField(itemmovement.FieldPosition, field.TypeInt, value)
-	}
-	if value, ok := _u.mutation.AddedPosition(); ok {
-		_spec.AddField(itemmovement.FieldPosition, field.TypeInt, value)
-	}
-	if _u.mutation.FromCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   itemmovement.FromTable,
-			Columns: []string{itemmovement.FromColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.ItemMovement
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.FromIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   itemmovement.FromTable,
-			Columns: []string{itemmovement.FromColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.ItemMovement
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.ToCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   itemmovement.ToTable,
-			Columns: []string{itemmovement.ToColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.ItemMovement
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.ToIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   itemmovement.ToTable,
-			Columns: []string{itemmovement.ToColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(repository.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.ItemMovement
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.ItemCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   itemmovement.ItemTable,
-			Columns: []string{itemmovement.ItemColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(item.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.ItemMovement
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.ItemIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   itemmovement.ItemTable,
-			Columns: []string{itemmovement.ItemColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(item.FieldID, field.TypeUUID),
-			},
-		}
-		edge.Schema = _u.schemaConfig.ItemMovement
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_spec.Node.Schema = _u.schemaConfig.ItemMovement
 	ctx = internal.NewSchemaConfigContext(ctx, _u.schemaConfig)
