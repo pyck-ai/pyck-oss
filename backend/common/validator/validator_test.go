@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
@@ -191,6 +192,15 @@ func TestValidator_ReadByID(t *testing.T) {
 	}
 }
 
+// callerCtx returns a context acting on testTenantID, the tenant owning the
+// fixtures below. A DataType is served only to a caller acting on its tenant,
+// so a tenant-less context resolves nothing.
+func callerCtx(t *testing.T) context.Context {
+	t.Helper()
+
+	return tenant.Context(t.Context(), testTenantID)
+}
+
 func TestValidator_ValidateDataTypeInput(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -318,7 +328,7 @@ func TestValidator_ValidateDataTypeInput(t *testing.T) {
 			}
 
 			// Execute test
-			result, err := v.ValidateDataTypeInput(t.Context(), tt.strict, tt.input, dataTypeID, dataTypeSlug)
+			result, err := v.ValidateDataTypeInput(callerCtx(t), tt.strict, tt.input, dataTypeID, dataTypeSlug)
 
 			// Assertions - early return pattern
 			if tt.expectedError {
@@ -356,6 +366,166 @@ func TestValidator_ValidateDataTypeInput(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestValidator_ValidateDataTypeInput_IDFirstPriority verifies that when both
+// ID and slug are supplied the ID is authoritative — slug is only consulted
+// when ID is absent. Clients writing data_type_id explicitly must always get
+// the exact version they pinned; a slug alone resolves to the latest version.
+func TestValidator_ValidateDataTypeInput_IDFirstPriority(t *testing.T) {
+	t.Parallel()
+
+	// Two DataTypes share the slug "customer". Resolution-by-slug returns the
+	// newer one; resolution-by-ID must return the specific older one when the
+	// caller pins it.
+	older := common_jsonschema.DataType{
+		ID:         uuid.MustParse("11111111-1111-1111-1111-111111111111"),
+		Slug:       "customer",
+		TenantID:   testTenantID,
+		JsonSchema: string(test.MustLoadSchemaByName("customer")),
+		CreatedAt:  time.Now().UTC().Add(-time.Hour),
+	}
+	newer := common_jsonschema.DataType{
+		ID:         uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		Slug:       "customer",
+		TenantID:   testTenantID,
+		JsonSchema: string(test.MustLoadSchemaByName("customer")),
+		CreatedAt:  time.Now().UTC(),
+	}
+
+	mockProvider := &mocks.MockDataTypeProvider{}
+	mockProvider.AddDataType(older, newer)
+	v := validator.NewValidator(mockProvider)
+
+	customerInput := map[string]any{
+		"fields": map[string]any{
+			"eb214d08-6327-4b90-8143-4fa7b8ba1be3": "Acme Co",
+		},
+	}
+
+	// ID pin → returns the exact (older) version; the agreeing slug passes the
+	// cross-check.
+	olderID := older.ID
+	slug := "customer"
+	got, err := v.ValidateDataTypeInput(callerCtx(t), true, customerInput, &olderID, &slug)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, older.ID, got.ID)
+
+	// No ID, slug only → resolves by slug, returns the latest version.
+	got, err = v.ValidateDataTypeInput(callerCtx(t), true, customerInput, nil, &slug)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, newer.ID, got.ID)
+}
+
+// TestValidator_ValidateDataTypeInput_RejectsIDSlugMismatch: when a caller
+// pins an ID and also supplies a slug naming a different DataType, the
+// mismatch is rejected rather than silently resolving by ID — guards against
+// a stale client (id → slug) mapping writing an inconsistent row.
+func TestValidator_ValidateDataTypeInput_RejectsIDSlugMismatch(t *testing.T) {
+	t.Parallel()
+
+	customer := common_jsonschema.DataType{
+		ID:         uuid.New(),
+		Slug:       "customer",
+		TenantID:   testTenantID,
+		JsonSchema: string(test.MustLoadSchemaByName("customer")),
+	}
+	mockProvider := &mocks.MockDataTypeProvider{}
+	mockProvider.AddDataType(customer)
+	v := validator.NewValidator(mockProvider)
+
+	id := customer.ID
+
+	// id pinned + a slug that names a different type → rejected.
+	wrongSlug := "supplier"
+	_, err := v.ValidateDataTypeInput(callerCtx(t), true, nil, &id, &wrongSlug)
+	require.ErrorIs(t, err, validator.ErrDataTypeSlugMismatch)
+
+	// id pinned + the agreeing slug → accepted.
+	rightSlug := "customer"
+	got, err := v.ValidateDataTypeInput(callerCtx(t), true, nil, &id, &rightSlug)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, customer.ID, got.ID)
+}
+
+// TestValidator_ValidateDataTypeInput_RejectsCrossTenantID: when the caller
+// is in tenant A and passes a DataType ID that belongs to tenant B, the
+// validator must refuse the lookup (cache stores DataTypes from every
+// tenant; this is the boundary that enforces tenant isolation on
+// ID-pinned writes).
+func TestValidator_ValidateDataTypeInput_RejectsCrossTenantID(t *testing.T) {
+	t.Parallel()
+
+	otherTenantID := uuid.New()
+	foreign := common_jsonschema.DataType{
+		ID:         uuid.New(),
+		Slug:       "stolen",
+		TenantID:   otherTenantID,
+		JsonSchema: string(test.MustLoadSchemaByName("item")),
+	}
+
+	mockProvider := &mocks.MockDataTypeProvider{}
+	mockProvider.AddDataType(foreign)
+	v := validator.NewValidator(mockProvider)
+
+	// Caller context is tenant testTenantID (≠ otherTenantID).
+	ctx := tenant.Context(t.Context(), testTenantID)
+
+	_, err := v.ValidateDataTypeInput(ctx, true, testItemInput, &foreign.ID, nil)
+	require.ErrorIs(t, err, validator.ErrDataTypeNotFound)
+}
+
+// TestValidator_ValidateDataTypeInput_RejectsTenantlessContext: a DataType
+// owned by a tenant is refused when the context names no single acting tenant,
+// because there is nothing to match it against. Serving it unscoped would hand
+// a system-token caller any tenant's schema.
+func TestValidator_ValidateDataTypeInput_RejectsTenantlessContext(t *testing.T) {
+	t.Parallel()
+
+	owned := common_jsonschema.DataType{
+		ID:         uuid.New(),
+		Slug:       "item",
+		TenantID:   testTenantID,
+		JsonSchema: string(test.MustLoadSchemaByName("item")),
+	}
+
+	mockProvider := &mocks.MockDataTypeProvider{}
+	mockProvider.AddDataType(owned)
+	v := validator.NewValidator(mockProvider)
+
+	_, err := v.ValidateDataTypeInput(t.Context(), true, testItemInput, &owned.ID, nil)
+	require.ErrorIs(t, err, validator.ErrDataTypeNotFound)
+
+	// Several tenants in context is equally ambiguous.
+	multi := tenant.Context(t.Context(), testTenantID, uuid.New())
+	_, err = v.ValidateDataTypeInput(multi, true, testItemInput, &owned.ID, nil)
+	require.ErrorIs(t, err, validator.ErrDataTypeNotFound)
+}
+
+// TestValidator_ValidateDataTypeInput_RejectsDeletedDataType: write paths
+// must refuse to validate against a soft-deleted version. Reads aren't
+// affected.
+func TestValidator_ValidateDataTypeInput_RejectsDeletedDataType(t *testing.T) {
+	t.Parallel()
+
+	deletedAt := time.Now().UTC()
+	deleted := common_jsonschema.DataType{
+		ID:         uuid.New(),
+		Slug:       "item",
+		TenantID:   testTenantID,
+		JsonSchema: string(test.MustLoadSchemaByName("item")),
+		DeletedAt:  &deletedAt,
+	}
+
+	mockProvider := &mocks.MockDataTypeProvider{}
+	mockProvider.AddDataType(deleted)
+	v := validator.NewValidator(mockProvider)
+
+	_, err := v.ValidateDataTypeInput(callerCtx(t), true, testItemInput, &deleted.ID, nil)
+	require.ErrorIs(t, err, validator.ErrDataTypeDeleted)
 }
 
 // setupTestEnvironment creates an isolated SQLite database for testing

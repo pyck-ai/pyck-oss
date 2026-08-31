@@ -4,7 +4,7 @@ info:
   seq: 1
 
 docs: |-
-  Tests JSON Patch (RFC 6902) operations on locations. Management entities can have data without a DataType, so this test creates a location with free-form data and patches it directly.
+  Tests JSON Patch (RFC 6902) operations on locations. Creates a data type, location with data, updates it, patches individual fields, and verifies persistence.
 
 
 request:

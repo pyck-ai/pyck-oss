@@ -190,7 +190,11 @@ func TestRepository_Create(t *testing.T) {
 		t.Parallel()
 		te := setup(t)
 		defer te.Close(t)
-		ctx := te.ctx(userB)
+		// Run as userA: itemDataTypeID belongs to tenant A, and the validator
+		// now rejects cross-tenant data_type_id references before schema
+		// validation runs (#990). This test asserts the schema-validation
+		// path, so request tenant must match the DataType's tenant.
+		ctx := te.ctx(userA)
 
 		execErr(te, ctx, createRepository, map[string]any{
 			"DataTypeID": itemDataTypeID,

@@ -34,6 +34,7 @@ func (Customer) Annotations() []schema.Annotation {
 		entgql.Directives(keyDirective, importexport.Importable("",
 			importexport.WithList("customers"),
 			importexport.WithCreate("createCustomer"),
+			importexport.WithDataTypeReference(),
 		)),
 		entgql.QueryField(),
 		entgql.Mutations(entgql.MutationCreate(), entgql.MutationUpdate()),

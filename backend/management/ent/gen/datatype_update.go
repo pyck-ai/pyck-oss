@@ -125,74 +125,6 @@ func (_u *DataTypeUpdate) SetNillableName(v *string) *DataTypeUpdate {
 	return _u
 }
 
-// SetDescription sets the "description" field.
-func (_u *DataTypeUpdate) SetDescription(v string) *DataTypeUpdate {
-	_u.mutation.SetDescription(v)
-	return _u
-}
-
-// SetNillableDescription sets the "description" field if the given value is not nil.
-func (_u *DataTypeUpdate) SetNillableDescription(v *string) *DataTypeUpdate {
-	if v != nil {
-		_u.SetDescription(*v)
-	}
-	return _u
-}
-
-// ClearDescription clears the value of the "description" field.
-func (_u *DataTypeUpdate) ClearDescription() *DataTypeUpdate {
-	_u.mutation.ClearDescription()
-	return _u
-}
-
-// SetJSONSchema sets the "json_schema" field.
-func (_u *DataTypeUpdate) SetJSONSchema(v string) *DataTypeUpdate {
-	_u.mutation.SetJSONSchema(v)
-	return _u
-}
-
-// SetNillableJSONSchema sets the "json_schema" field if the given value is not nil.
-func (_u *DataTypeUpdate) SetNillableJSONSchema(v *string) *DataTypeUpdate {
-	if v != nil {
-		_u.SetJSONSchema(*v)
-	}
-	return _u
-}
-
-// SetFrontendSchema sets the "frontend_schema" field.
-func (_u *DataTypeUpdate) SetFrontendSchema(v string) *DataTypeUpdate {
-	_u.mutation.SetFrontendSchema(v)
-	return _u
-}
-
-// SetNillableFrontendSchema sets the "frontend_schema" field if the given value is not nil.
-func (_u *DataTypeUpdate) SetNillableFrontendSchema(v *string) *DataTypeUpdate {
-	if v != nil {
-		_u.SetFrontendSchema(*v)
-	}
-	return _u
-}
-
-// ClearFrontendSchema clears the value of the "frontend_schema" field.
-func (_u *DataTypeUpdate) ClearFrontendSchema() *DataTypeUpdate {
-	_u.mutation.ClearFrontendSchema()
-	return _u
-}
-
-// SetDefault sets the "default" field.
-func (_u *DataTypeUpdate) SetDefault(v bool) *DataTypeUpdate {
-	_u.mutation.SetDefault(v)
-	return _u
-}
-
-// SetNillableDefault sets the "default" field if the given value is not nil.
-func (_u *DataTypeUpdate) SetNillableDefault(v *bool) *DataTypeUpdate {
-	if v != nil {
-		_u.SetDefault(*v)
-	}
-	return _u
-}
-
 // Mutation returns the DataTypeMutation object of the builder.
 func (_u *DataTypeUpdate) Mutation() *DataTypeMutation {
 	return _u.mutation
@@ -225,20 +157,7 @@ func (_u *DataTypeUpdate) ExecX(ctx context.Context) {
 	}
 }
 
-// check runs all checks and user-defined validators on the builder.
-func (_u *DataTypeUpdate) check() error {
-	if v, ok := _u.mutation.JSONSchema(); ok {
-		if err := datatype.JSONSchemaValidator(v); err != nil {
-			return &ValidationError{Name: "json_schema", err: fmt.Errorf(`gen: validator failed for field "DataType.json_schema": %w`, err)}
-		}
-	}
-	return nil
-}
-
 func (_u *DataTypeUpdate) sqlSave(ctx context.Context) (_node int, err error) {
-	if err := _u.check(); err != nil {
-		return _node, err
-	}
 	_spec := sqlgraph.NewUpdateSpec(datatype.Table, datatype.Columns, sqlgraph.NewFieldSpec(datatype.FieldID, field.TypeUUID))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
@@ -277,23 +196,11 @@ func (_u *DataTypeUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.SlugCleared() {
 		_spec.ClearField(datatype.FieldSlug, field.TypeString)
 	}
-	if value, ok := _u.mutation.Description(); ok {
-		_spec.SetField(datatype.FieldDescription, field.TypeString, value)
-	}
 	if _u.mutation.DescriptionCleared() {
 		_spec.ClearField(datatype.FieldDescription, field.TypeString)
 	}
-	if value, ok := _u.mutation.JSONSchema(); ok {
-		_spec.SetField(datatype.FieldJSONSchema, field.TypeString, value)
-	}
-	if value, ok := _u.mutation.FrontendSchema(); ok {
-		_spec.SetField(datatype.FieldFrontendSchema, field.TypeString, value)
-	}
 	if _u.mutation.FrontendSchemaCleared() {
 		_spec.ClearField(datatype.FieldFrontendSchema, field.TypeString)
-	}
-	if value, ok := _u.mutation.Default(); ok {
-		_spec.SetField(datatype.FieldDefault, field.TypeBool, value)
 	}
 	_spec.Node.Schema = _u.schemaConfig.DataType
 	ctx = internal.NewSchemaConfigContext(ctx, _u.schemaConfig)
@@ -411,74 +318,6 @@ func (_u *DataTypeUpdateOne) SetNillableName(v *string) *DataTypeUpdateOne {
 	return _u
 }
 
-// SetDescription sets the "description" field.
-func (_u *DataTypeUpdateOne) SetDescription(v string) *DataTypeUpdateOne {
-	_u.mutation.SetDescription(v)
-	return _u
-}
-
-// SetNillableDescription sets the "description" field if the given value is not nil.
-func (_u *DataTypeUpdateOne) SetNillableDescription(v *string) *DataTypeUpdateOne {
-	if v != nil {
-		_u.SetDescription(*v)
-	}
-	return _u
-}
-
-// ClearDescription clears the value of the "description" field.
-func (_u *DataTypeUpdateOne) ClearDescription() *DataTypeUpdateOne {
-	_u.mutation.ClearDescription()
-	return _u
-}
-
-// SetJSONSchema sets the "json_schema" field.
-func (_u *DataTypeUpdateOne) SetJSONSchema(v string) *DataTypeUpdateOne {
-	_u.mutation.SetJSONSchema(v)
-	return _u
-}
-
-// SetNillableJSONSchema sets the "json_schema" field if the given value is not nil.
-func (_u *DataTypeUpdateOne) SetNillableJSONSchema(v *string) *DataTypeUpdateOne {
-	if v != nil {
-		_u.SetJSONSchema(*v)
-	}
-	return _u
-}
-
-// SetFrontendSchema sets the "frontend_schema" field.
-func (_u *DataTypeUpdateOne) SetFrontendSchema(v string) *DataTypeUpdateOne {
-	_u.mutation.SetFrontendSchema(v)
-	return _u
-}
-
-// SetNillableFrontendSchema sets the "frontend_schema" field if the given value is not nil.
-func (_u *DataTypeUpdateOne) SetNillableFrontendSchema(v *string) *DataTypeUpdateOne {
-	if v != nil {
-		_u.SetFrontendSchema(*v)
-	}
-	return _u
-}
-
-// ClearFrontendSchema clears the value of the "frontend_schema" field.
-func (_u *DataTypeUpdateOne) ClearFrontendSchema() *DataTypeUpdateOne {
-	_u.mutation.ClearFrontendSchema()
-	return _u
-}
-
-// SetDefault sets the "default" field.
-func (_u *DataTypeUpdateOne) SetDefault(v bool) *DataTypeUpdateOne {
-	_u.mutation.SetDefault(v)
-	return _u
-}
-
-// SetNillableDefault sets the "default" field if the given value is not nil.
-func (_u *DataTypeUpdateOne) SetNillableDefault(v *bool) *DataTypeUpdateOne {
-	if v != nil {
-		_u.SetDefault(*v)
-	}
-	return _u
-}
-
 // Mutation returns the DataTypeMutation object of the builder.
 func (_u *DataTypeUpdateOne) Mutation() *DataTypeMutation {
 	return _u.mutation
@@ -524,20 +363,7 @@ func (_u *DataTypeUpdateOne) ExecX(ctx context.Context) {
 	}
 }
 
-// check runs all checks and user-defined validators on the builder.
-func (_u *DataTypeUpdateOne) check() error {
-	if v, ok := _u.mutation.JSONSchema(); ok {
-		if err := datatype.JSONSchemaValidator(v); err != nil {
-			return &ValidationError{Name: "json_schema", err: fmt.Errorf(`gen: validator failed for field "DataType.json_schema": %w`, err)}
-		}
-	}
-	return nil
-}
-
 func (_u *DataTypeUpdateOne) sqlSave(ctx context.Context) (_node *DataType, err error) {
-	if err := _u.check(); err != nil {
-		return _node, err
-	}
 	_spec := sqlgraph.NewUpdateSpec(datatype.Table, datatype.Columns, sqlgraph.NewFieldSpec(datatype.FieldID, field.TypeUUID))
 	id, ok := _u.mutation.ID()
 	if !ok {
@@ -593,23 +419,11 @@ func (_u *DataTypeUpdateOne) sqlSave(ctx context.Context) (_node *DataType, err 
 	if _u.mutation.SlugCleared() {
 		_spec.ClearField(datatype.FieldSlug, field.TypeString)
 	}
-	if value, ok := _u.mutation.Description(); ok {
-		_spec.SetField(datatype.FieldDescription, field.TypeString, value)
-	}
 	if _u.mutation.DescriptionCleared() {
 		_spec.ClearField(datatype.FieldDescription, field.TypeString)
 	}
-	if value, ok := _u.mutation.JSONSchema(); ok {
-		_spec.SetField(datatype.FieldJSONSchema, field.TypeString, value)
-	}
-	if value, ok := _u.mutation.FrontendSchema(); ok {
-		_spec.SetField(datatype.FieldFrontendSchema, field.TypeString, value)
-	}
 	if _u.mutation.FrontendSchemaCleared() {
 		_spec.ClearField(datatype.FieldFrontendSchema, field.TypeString)
-	}
-	if value, ok := _u.mutation.Default(); ok {
-		_spec.SetField(datatype.FieldDefault, field.TypeBool, value)
 	}
 	_spec.Node.Schema = _u.schemaConfig.DataType
 	ctx = internal.NewSchemaConfigContext(ctx, _u.schemaConfig)

@@ -121,10 +121,6 @@ steps:
         assertions:
           - ref: res.body.data.createInventoryItemSet.inventoryItemSet.id
             nil: false
-      - msg: "Two items associated"
-        assertions:
-          - ref: res.body.data.createInventoryItemSet.inventoryItemSet.items.totalCount
-            equal: 2
       - msg: "DataTypeID persisted"
         assertions:
           - ref: res.body.data.createInventoryItemSet.inventoryItemSet.dataTypeID
@@ -156,9 +152,28 @@ steps:
         assertions:
           - ref: res.body.data.inventoryItemSets.edges[].node.data.category
             equal: "electronics"
-      - msg: "Items association persisted"
+
+  - name: "Verify two items are associated with the set"
+    # The itemSet -> items connection is not selected by the generated
+    # operations (apigen emits scalar node fields only), so the association is
+    # verified from the item side: count items whose itemSet is this set.
+    operation: inventory.getInventoryItems
+    vars:
+      where:
+        hasItemSetWith:
+          - id: {$ref: "res[createSet].body.data.createInventoryItemSet.inventoryItemSet.id"}
+    tests:
+      - msg: "Status is 200"
         assertions:
-          - ref: res.body.data.inventoryItemSets.edges[].node.items.totalCount
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Two items associated"
+        assertions:
+          - ref: res.body.data.inventoryItems.totalCount
             equal: 2
 
   - name: "Cleanup - delete item set"

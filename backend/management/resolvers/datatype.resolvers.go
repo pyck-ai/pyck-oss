@@ -8,10 +8,37 @@ package resolvers
 import (
 	"context"
 
-	"github.com/pyck-ai/pyck/backend/common/datatype"
+	commondatatype "github.com/pyck-ai/pyck/backend/common/datatype"
+	"github.com/pyck-ai/pyck/backend/common/request"
+	"github.com/pyck-ai/pyck/backend/management/ent/gen"
+	"github.com/pyck-ai/pyck/backend/management/ent/gen/datatype"
 )
 
 // DataTypeEntities is the resolver for the dataTypeEntities field.
 func (r *queryResolver) DataTypeEntities(ctx context.Context) ([]string, error) {
-	return datatype.DataTypeEntities(), nil
+	return commondatatype.DataTypeEntities(), nil
+}
+
+// DataTypeBySlug returns the latest non-deleted DataType for slug within the
+// caller's tenant(s), or nil if no version exists. "Latest" is MAX(version)
+// among non-deleted rows. The tenant predicate is explicit: TenantMixin's
+// privacy filter scopes regular users but SKIPS system users, so relying on
+// it alone would let a system-token caller resolve another tenant's row on a
+// cross-tenant slug collision (slugs are only unique per tenant).
+func (r *queryResolver) DataTypeBySlug(ctx context.Context, slug string) (*gen.DataType, error) {
+	dt, err := r.client.DataType.Query().
+		Where(
+			datatype.Slug(slug),
+			datatype.TenantIDIn(request.ForContext(ctx).TenantIDs()...),
+			datatype.DeletedAtIsNil(),
+		).
+		Order(gen.Desc(datatype.FieldVersion)).
+		First(ctx)
+	if err != nil {
+		if gen.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return dt, nil
 }

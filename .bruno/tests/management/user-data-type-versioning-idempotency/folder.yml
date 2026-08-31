@@ -1,0 +1,12 @@
+info:
+  name: User - Data Type Versioning Idempotency
+  type: folder
+  seq: 1
+
+docs: |-
+  Exercises the interaction between pyck#990's append-only DataType model and the Idempotency-Key middleware. createDataType is append-only — reusing a slug normally publishes a new version row — so a replayed create with the same idempotency key MUST return the cached response and MUST NOT append a duplicate version. A create with a different key is a genuine new call and still appends the next version. This guards against the middleware and the versioning hook double-counting or silently dropping versions.
+    Two distinct per-run key namespaces (bru_idem_mgmtveridem / *2) keep this suite's keys independent of user-management-idempotency, which also drives createDataType. The slug is generated once via $fake and referenced by every later step, so it is unique per run (no cross-run version-count pollution) yet identical across the fresh/replay pair (so the replay fingerprint matches).
+
+
+request:
+  auth: inherit

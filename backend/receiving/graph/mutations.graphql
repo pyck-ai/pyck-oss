@@ -22,7 +22,6 @@ scalar UUID
 
 input CreateReceivingInboundItemsInput {
   dataTypeID: UUID
-  dataTypeSlug: String
   data: Map
   sku: String!
   quantity: Int64!
@@ -30,7 +29,6 @@ input CreateReceivingInboundItemsInput {
 
 input CreateReceivingInboundWithItemsInput {
   dataTypeID: UUID
-  dataTypeSlug: String
   data: Map
   supplierID: UUID
   orderID: String

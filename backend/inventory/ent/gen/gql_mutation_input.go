@@ -11,14 +11,12 @@ import (
 
 // UpdateInventoryCollectionInput represents a mutation input for updating inventorycollections.
 type UpdateInventoryCollectionInput struct {
-	ClearDataTypeID   bool
-	DataTypeID        *uuid.UUID
-	ClearDataTypeSlug bool
-	DataTypeSlug      *string
-	ClearData         bool
-	Data              map[string]interface{}
-	ClearHandler      bool
-	Handler           *string
+	ClearDataTypeID bool
+	DataTypeID      *uuid.UUID
+	ClearData       bool
+	Data            map[string]interface{}
+	ClearHandler    bool
+	Handler         *string
 }
 
 // Mutate applies the UpdateInventoryCollectionInput on the CollectionMovementMutation builder.
@@ -28,12 +26,6 @@ func (i *UpdateInventoryCollectionInput) Mutate(m *CollectionMovementMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -64,7 +56,6 @@ func (c *CollectionMovementUpdateOne) SetInput(i UpdateInventoryCollectionInput)
 // CreateInventoryItemInput represents a mutation input for creating inventoryitems.
 type CreateInventoryItemInput struct {
 	DataTypeID          *uuid.UUID
-	DataTypeSlug        *string
 	Data                map[string]interface{}
 	Sku                 string
 	ItemMovementItemIDs []uuid.UUID
@@ -77,9 +68,6 @@ type CreateInventoryItemInput struct {
 func (i *CreateInventoryItemInput) Mutate(m *ItemMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -109,8 +97,6 @@ func (c *ItemCreate) SetInput(i CreateInventoryItemInput) *ItemCreate {
 type UpdateInventoryItemInput struct {
 	ClearDataTypeID           bool
 	DataTypeID                *uuid.UUID
-	ClearDataTypeSlug         bool
-	DataTypeSlug              *string
 	ClearData                 bool
 	Data                      map[string]interface{}
 	Sku                       *string
@@ -135,12 +121,6 @@ func (i *UpdateInventoryItemInput) Mutate(m *ItemMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -204,7 +184,6 @@ func (c *ItemUpdateOne) SetInput(i UpdateInventoryItemInput) *ItemUpdateOne {
 // CreateItemMovementInput represents a mutation input for creating itemmovements.
 type CreateItemMovementInput struct {
 	DataTypeID   *uuid.UUID
-	DataTypeSlug *string
 	Data         map[string]interface{}
 	Quantity     int64
 	Executed     *bool
@@ -222,9 +201,6 @@ type CreateItemMovementInput struct {
 func (i *CreateItemMovementInput) Mutate(m *ItemMovementMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -259,15 +235,13 @@ func (c *ItemMovementCreate) SetInput(i CreateItemMovementInput) *ItemMovementCr
 
 // UpdateItemMovementInput represents a mutation input for updating itemmovements.
 type UpdateItemMovementInput struct {
-	ClearDataTypeID   bool
-	DataTypeID        *uuid.UUID
-	ClearDataTypeSlug bool
-	DataTypeSlug      *string
-	ClearData         bool
-	Data              map[string]interface{}
-	Handler           *string
-	ClearBlockedBy    bool
-	BlockedBy         *itemmovement.BlockedBy
+	ClearDataTypeID bool
+	DataTypeID      *uuid.UUID
+	ClearData       bool
+	Data            map[string]interface{}
+	Handler         *string
+	ClearBlockedBy  bool
+	BlockedBy       *itemmovement.BlockedBy
 }
 
 // Mutate applies the UpdateItemMovementInput on the ItemMovementMutation builder.
@@ -277,12 +251,6 @@ func (i *UpdateItemMovementInput) Mutate(m *ItemMovementMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -315,20 +283,16 @@ func (c *ItemMovementUpdateOne) SetInput(i UpdateItemMovementInput) *ItemMovemen
 
 // CreateInventoryItemSetInput represents a mutation input for creating inventoryitemsets.
 type CreateInventoryItemSetInput struct {
-	DataTypeID   *uuid.UUID
-	DataTypeSlug *string
-	Data         map[string]interface{}
-	Sku          string
-	ItemIDs      []uuid.UUID
+	DataTypeID *uuid.UUID
+	Data       map[string]interface{}
+	Sku        string
+	ItemIDs    []uuid.UUID
 }
 
 // Mutate applies the CreateInventoryItemSetInput on the ItemSetMutation builder.
 func (i *CreateInventoryItemSetInput) Mutate(m *ItemSetMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -347,16 +311,14 @@ func (c *ItemSetCreate) SetInput(i CreateInventoryItemSetInput) *ItemSetCreate {
 
 // UpdateInventoryItemSetInput represents a mutation input for updating inventoryitemsets.
 type UpdateInventoryItemSetInput struct {
-	ClearDataTypeID   bool
-	DataTypeID        *uuid.UUID
-	ClearDataTypeSlug bool
-	DataTypeSlug      *string
-	ClearData         bool
-	Data              map[string]interface{}
-	Sku               *string
-	ClearItems        bool
-	AddItemIDs        []uuid.UUID
-	RemoveItemIDs     []uuid.UUID
+	ClearDataTypeID bool
+	DataTypeID      *uuid.UUID
+	ClearData       bool
+	Data            map[string]interface{}
+	Sku             *string
+	ClearItems      bool
+	AddItemIDs      []uuid.UUID
+	RemoveItemIDs   []uuid.UUID
 }
 
 // Mutate applies the UpdateInventoryItemSetInput on the ItemSetMutation builder.
@@ -366,12 +328,6 @@ func (i *UpdateInventoryItemSetInput) Mutate(m *ItemSetMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -408,7 +364,6 @@ func (c *ItemSetUpdateOne) SetInput(i UpdateInventoryItemSetInput) *ItemSetUpdat
 // CreateReplenishmentOrderInput represents a mutation input for creating replenishmentorders.
 type CreateReplenishmentOrderInput struct {
 	DataTypeID                *uuid.UUID
-	DataTypeSlug              *string
 	Data                      map[string]interface{}
 	SupplierID                *uuid.UUID
 	ReplenishmentOrderItemIDs []uuid.UUID
@@ -418,9 +373,6 @@ type CreateReplenishmentOrderInput struct {
 func (i *CreateReplenishmentOrderInput) Mutate(m *ReplenishmentOrderMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -443,8 +395,6 @@ func (c *ReplenishmentOrderCreate) SetInput(i CreateReplenishmentOrderInput) *Re
 type UpdateReplenishmentOrderInput struct {
 	ClearDataTypeID                 bool
 	DataTypeID                      *uuid.UUID
-	ClearDataTypeSlug               bool
-	DataTypeSlug                    *string
 	ClearData                       bool
 	Data                            map[string]interface{}
 	ClearSupplierID                 bool
@@ -461,12 +411,6 @@ func (i *UpdateReplenishmentOrderInput) Mutate(m *ReplenishmentOrderMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -506,7 +450,6 @@ func (c *ReplenishmentOrderUpdateOne) SetInput(i UpdateReplenishmentOrderInput) 
 // CreateReplenishmentOrderItemInput represents a mutation input for creating replenishmentorderitems.
 type CreateReplenishmentOrderItemInput struct {
 	DataTypeID           *uuid.UUID
-	DataTypeSlug         *string
 	Data                 map[string]interface{}
 	Sku                  string
 	Quantity             int64
@@ -517,9 +460,6 @@ type CreateReplenishmentOrderItemInput struct {
 func (i *CreateReplenishmentOrderItemInput) Mutate(m *ReplenishmentOrderItemMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -537,14 +477,12 @@ func (c *ReplenishmentOrderItemCreate) SetInput(i CreateReplenishmentOrderItemIn
 
 // UpdateReplenishmentOrderItemInput represents a mutation input for updating replenishmentorderitems.
 type UpdateReplenishmentOrderItemInput struct {
-	ClearDataTypeID   bool
-	DataTypeID        *uuid.UUID
-	ClearDataTypeSlug bool
-	DataTypeSlug      *string
-	ClearData         bool
-	Data              map[string]interface{}
-	Sku               *string
-	Quantity          *int64
+	ClearDataTypeID bool
+	DataTypeID      *uuid.UUID
+	ClearData       bool
+	Data            map[string]interface{}
+	Sku             *string
+	Quantity        *int64
 }
 
 // Mutate applies the UpdateReplenishmentOrderItemInput on the ReplenishmentOrderItemMutation builder.
@@ -554,12 +492,6 @@ func (i *UpdateReplenishmentOrderItemInput) Mutate(m *ReplenishmentOrderItemMuta
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -590,7 +522,6 @@ func (c *ReplenishmentOrderItemUpdateOne) SetInput(i UpdateReplenishmentOrderIte
 // CreateRepositoryInput represents a mutation input for creating repositories.
 type CreateRepositoryInput struct {
 	DataTypeID                          *uuid.UUID
-	DataTypeSlug                        *string
 	Data                                map[string]interface{}
 	LocationID                          *uuid.UUID
 	Name                                string
@@ -612,9 +543,6 @@ type CreateRepositoryInput struct {
 func (i *CreateRepositoryInput) Mutate(m *RepositoryMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -669,8 +597,6 @@ func (c *RepositoryCreate) SetInput(i CreateRepositoryInput) *RepositoryCreate {
 type UpdateRepositoryInput struct {
 	ClearDataTypeID                           bool
 	DataTypeID                                *uuid.UUID
-	ClearDataTypeSlug                         bool
-	DataTypeSlug                              *string
 	ClearData                                 bool
 	Data                                      map[string]interface{}
 	ClearLocationID                           bool
@@ -714,12 +640,6 @@ func (i *UpdateRepositoryInput) Mutate(m *RepositoryMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -840,7 +760,6 @@ func (c *RepositoryUpdateOne) SetInput(i UpdateRepositoryInput) *RepositoryUpdat
 // CreateRepositoryMovementInput represents a mutation input for creating repositorymovements.
 type CreateRepositoryMovementInput struct {
 	DataTypeID   *uuid.UUID
-	DataTypeSlug *string
 	Data         map[string]interface{}
 	Executed     *bool
 	Handler      string
@@ -857,9 +776,6 @@ type CreateRepositoryMovementInput struct {
 func (i *CreateRepositoryMovementInput) Mutate(m *RepositoryMovementMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -895,15 +811,13 @@ func (c *RepositoryMovementCreate) SetInput(i CreateRepositoryMovementInput) *Re
 
 // UpdateRepositoryMovementInput represents a mutation input for updating repositorymovements.
 type UpdateRepositoryMovementInput struct {
-	ClearDataTypeID   bool
-	DataTypeID        *uuid.UUID
-	ClearDataTypeSlug bool
-	DataTypeSlug      *string
-	ClearData         bool
-	Data              map[string]interface{}
-	Handler           *string
-	ClearBlockedBy    bool
-	BlockedBy         *repositorymovement.BlockedBy
+	ClearDataTypeID bool
+	DataTypeID      *uuid.UUID
+	ClearData       bool
+	Data            map[string]interface{}
+	Handler         *string
+	ClearBlockedBy  bool
+	BlockedBy       *repositorymovement.BlockedBy
 }
 
 // Mutate applies the UpdateRepositoryMovementInput on the RepositoryMovementMutation builder.
@@ -913,12 +827,6 @@ func (i *UpdateRepositoryMovementInput) Mutate(m *RepositoryMovementMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()

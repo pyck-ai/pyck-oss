@@ -100,6 +100,11 @@ func setupTestServer(t *testing.T) (*httptest.Server, *ent.Client, context.Conte
 func TestReplenishmentOrderCreate(t *testing.T) {
 	t.Parallel()
 
+	// Fixed test DataType ID shared by tests that exercise data + data_type_id
+	// (#990 requires data_type_id to be explicit; clients can no longer pass
+	// a slug at write time).
+	testDataTypeID := uuid.MustParse("019e6974-fae8-7ea0-9ad5-754067045188")
+
 	tests := []struct {
 		name          string
 		orderInput    model.CreateReplenishmentOrderWithItemsInput
@@ -128,9 +133,9 @@ func TestReplenishmentOrderCreate(t *testing.T) {
 				SupplierID: func() *uuid.UUID { id := uuidgql.GenerateV7UUID(); return &id }(),
 				Items: []*model.CreateReplenishmentOrderItemsInput{
 					{
-						Sku:          "CREATE-WITH-DATATYPE-SKU",
-						Quantity:     5,
-						DataTypeSlug: func() *string { s := "test-data-type"; return &s }(),
+						Sku:        "CREATE-WITH-DATATYPE-SKU",
+						Quantity:   5,
+						DataTypeID: &testDataTypeID,
 						Data: map[string]any{
 							"weight": 5.0,
 							"color":  "red",
@@ -148,9 +153,9 @@ func TestReplenishmentOrderCreate(t *testing.T) {
 				SupplierID: func() *uuid.UUID { id := uuidgql.GenerateV7UUID(); return &id }(),
 				Items: []*model.CreateReplenishmentOrderItemsInput{
 					{
-						Sku:          "CREATE-WITH-DATA-SKU",
-						Quantity:     15,
-						DataTypeSlug: func() *string { s := "test-data-type"; return &s }(),
+						Sku:        "CREATE-WITH-DATA-SKU",
+						Quantity:   15,
+						DataTypeID: &testDataTypeID,
 						Data: map[string]any{
 							"weight": 10.5,
 							"color":  "blue",
@@ -190,10 +195,10 @@ func TestReplenishmentOrderCreate(t *testing.T) {
 			defer server.Close()
 			defer entClient.Close()
 
-			// Add data type for tests that need it
+			// Add data type for tests that need it.
 			if tt.checkDataType || tt.checkData {
 				dataTypeProvider.AddDataType(json_schema.DataType{
-					ID:   uuidgql.GenerateV7UUID(),
+					ID:   testDataTypeID,
 					Slug: "test-data-type",
 					JsonSchema: `{
 						"type": "object",
@@ -378,6 +383,12 @@ func TestReplenishmentOrderGet(t *testing.T) {
 func TestReplenishmentOrderUpdate(t *testing.T) {
 	t.Parallel()
 
+	// Fixed DataType ID seeded into the mock provider; the update test below
+	// rebinds the order's data_type_id to this one and expects the slug to
+	// be re-derived server-side (#990: data_type_slug is no longer settable
+	// from clients).
+	testDataTypeID := uuid.MustParse("019e6974-fae8-7ea0-9ad5-754067045188")
+
 	tests := []struct {
 		name          string
 		updateInput   api.UpdateReplenishmentOrderInput
@@ -394,14 +405,9 @@ func TestReplenishmentOrderUpdate(t *testing.T) {
 		},
 		{
 			name: "update with data type",
-			updateInput: func() api.UpdateReplenishmentOrderInput {
-				dataTypeID := uuidgql.GenerateV7UUID()
-				dataTypeSlug := "test-data-type"
-				return api.UpdateReplenishmentOrderInput{
-					DataTypeID:   &dataTypeID,
-					DataTypeSlug: &dataTypeSlug,
-				}
-			}(),
+			updateInput: api.UpdateReplenishmentOrderInput{
+				DataTypeID: &testDataTypeID,
+			},
 			checkDataType: true,
 		},
 	}
@@ -410,9 +416,19 @@ func TestReplenishmentOrderUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			server, entClient, ctx, publisher, _ := setupTestServer(t)
+			server, entClient, ctx, publisher, dataTypeProvider := setupTestServer(t)
 			defer server.Close()
 			defer entClient.Close()
+
+			// Seed the test DataType so the validator can resolve the id
+			// passed in the update input and derive the slug.
+			if tt.checkDataType {
+				dataTypeProvider.AddDataType(json_schema.DataType{
+					ID:         testDataTypeID,
+					Slug:       "test-data-type",
+					JsonSchema: `{"type":"object","additionalProperties":true}`,
+				})
+			}
 
 			// Setup mocks
 			publisher.On("SendMutationEventWithReply", mock.Anything).Return([]byte(nil), nil).Maybe()

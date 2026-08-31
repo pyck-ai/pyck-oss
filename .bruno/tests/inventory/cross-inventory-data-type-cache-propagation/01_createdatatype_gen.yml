@@ -33,6 +33,7 @@ graphql:
           tenantID
           updatedAt
           updatedBy
+          version
         }
       }
     variables: |-
@@ -52,7 +53,6 @@ runtime:
   scripts:
     - type: before-request
       code: |-
-        bru.deleteVar('bru-test_cross-inventory-datatype-cache-propagation_4da9669e');
         bru.deleteVar('bru-test_cross-inventory-datatype-cache-propagation_f216fba0');
     - type: tests
       code: |-
@@ -80,7 +80,6 @@ runtime:
         // Source: backend/inventory/api/testdata/tests/cross-inventory-datatype-cache-propagation.test.yaml
 
         var body = res.body;
-        bru.setVar('bru-test_cross-inventory-datatype-cache-propagation_4da9669e', body?.data?.createDataType?.slug);
         bru.setVar('bru-test_cross-inventory-datatype-cache-propagation_f216fba0', body?.data?.createDataType?.id);
 
 settings:

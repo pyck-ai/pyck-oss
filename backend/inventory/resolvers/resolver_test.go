@@ -89,7 +89,11 @@ var (
 
 	supplierID = uuid.MustParse("0193547d-d23d-73d1-8300-e9ddf1a26b8d")
 
-	itemDataTypeID           = uuid.MustParse("94a80c62-3f81-4808-8961-768824d2c325")
+	itemDataTypeID = uuid.MustParse("94a80c62-3f81-4808-8961-768824d2c325")
+	// itemDataTypeIDV2 is a second tenant-A version of the "item" slug (same
+	// schema as itemDataTypeID) — used to test re-pointing an item at a new
+	// DataType version of the same slug under #990's append-only model.
+	itemDataTypeIDV2         = uuid.MustParse("94a80c62-3f81-4808-8961-768824d2c326")
 	itemDataTypeIDUniqueName = uuid.MustParse("14a80c62-3f81-4808-8961-768824d2c325")
 	itemDataTypeIDTenantB    = uuid.MustParse("0193547d-d23d-73d1-8300-e9ddf1a26b8d")
 	itemDataTypeIDTenantB2   = uuid.MustParse("0193547d-d23d-75b0-89c8-f4edb74e7f87")
@@ -255,6 +259,11 @@ func (te *testEnv) loadDataTypes() {
 	te.DataTypeProvider.AddDataType([]json_schema.DataType{
 		{
 			ID:         itemDataTypeID,
+			Slug:       itemDataTypeSlug,
+			TenantID:   tenantA,
+			JsonSchema: string(schema1),
+		}, {
+			ID:         itemDataTypeIDV2,
 			Slug:       itemDataTypeSlug,
 			TenantID:   tenantA,
 			JsonSchema: string(schema1),

@@ -37,6 +37,10 @@ func pyckImportableDirectiveSchemaHook(g *ent.Graph, s *ast.Schema) error {
 				Name: "update",
 				Type: ast.NamedType("String", nil),
 			},
+			{
+				Name: "references",
+				Type: ast.ListType(ast.NonNullNamedType("String", nil), nil),
+			},
 		},
 		Position: &ast.Position{Src: &ast.Source{BuiltIn: false}},
 	}
@@ -106,5 +110,65 @@ func jsonbOrderSchemaHook(_ *ent.Graph, s *ast.Schema) error {
 		)
 	}
 
+	return nil
+}
+
+// dataMixinGQLTypes returns the GraphQL type names of graph nodes that embed
+// DataMixin, detected by the presence of the data_type_slug field (the same
+// marker the set_input_with_datatype template uses). Respects an entgql Type
+// annotation override.
+func dataMixinGQLTypes(g *ent.Graph) map[string]bool {
+	types := make(map[string]bool)
+	for _, node := range g.Nodes {
+		hasSlug := false
+		for _, f := range node.Fields {
+			if f.Name == "data_type_slug" {
+				hasSlug = true
+				break
+			}
+		}
+		if !hasSlug {
+			continue
+		}
+		name := node.Name
+		ant := &entgql.Annotation{}
+		if raw, ok := node.Annotations[ant.Name()]; ok {
+			if err := ant.Decode(raw); err == nil && ant.Type != "" {
+				name = ant.Type
+			}
+		}
+		types[name] = true
+	}
+	return types
+}
+
+// dropClearDataTypeID removes the clearDataTypeID field from the
+// Update<Type>Input definition of every given DataMixin type. data_type_slug
+// is server-derived from data_type_id and hidden from mutation inputs, so a
+// client-visible clear on the id alone would produce a row with a NULL
+// data_type_id and a stale non-empty data_type_slug — the exact shape the
+// #990 precondition guard migration refuses to boot on. Re-pinning is done
+// by SETTING a new id; clearing has no product use, so the field is not
+// exposed at all.
+func dropClearDataTypeID(s *ast.Schema, dataMixinTypes map[string]bool) {
+	for typeName := range dataMixinTypes {
+		def, ok := s.Types["Update"+typeName+"Input"]
+		if !ok || def.Kind != ast.InputObject {
+			continue
+		}
+		fields := def.Fields[:0]
+		for _, f := range def.Fields {
+			if f.Name != "clearDataTypeID" {
+				fields = append(fields, f)
+			}
+		}
+		def.Fields = fields
+	}
+}
+
+// dropClearDataTypeIDSchemaHook wires dropClearDataTypeID into the entgql
+// schema generation pipeline.
+func dropClearDataTypeIDSchemaHook(g *ent.Graph, s *ast.Schema) error {
+	dropClearDataTypeID(s, dataMixinGQLTypes(g))
 	return nil
 }

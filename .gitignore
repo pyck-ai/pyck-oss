@@ -5,6 +5,7 @@
 # IDE and Project-Specific Configuration
 .claude/
 .idea/
+.serena/
 .task/
 .var/
 .vscode/
@@ -47,6 +48,11 @@ obj/
 !**/cmd/*/*/
 !**/cmd/*/*.go
 go.work.sum
+# `go build` on hack/versiongroups drops a binary named after the package,
+# either in the module dir or at the repo root depending on where it is run.
+# Both are build artifacts; the tool is meant to be invoked via `go run`.
+/versiongroups
+/hack/versiongroups/versiongroups
 cover.out
 coverprofile.txt
 coverage.html

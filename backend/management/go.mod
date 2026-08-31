@@ -22,13 +22,15 @@ require (
 	entgo.io/contrib v0.7.0
 	entgo.io/ent v0.14.6
 	github.com/99designs/gqlgen v0.17.94
-	github.com/go-chi/chi/v5 v5.3.1
+	github.com/go-chi/chi/v5 v5.3.2
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
 	github.com/gqlgo/gqlgenc v0.38.0
 	github.com/hashicorp/go-multierror v1.1.1
+	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6
 	github.com/jackc/pgx/v5 v5.10.0
-	github.com/mattn/go-sqlite3 v1.14.48
+	github.com/lib/pq v1.12.3
+	github.com/mattn/go-sqlite3 v1.14.50
 	github.com/nats-io/nats.go v1.52.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/pyck-ai/pyck/backend/bootstrap v0.0.0-00010101000000-000000000000
@@ -44,7 +46,7 @@ require (
 	golang.org/x/sync v0.22.0
 	google.golang.org/grpc v1.82.1
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/apimachinery v0.36.3
+	k8s.io/apimachinery v0.36.4
 )
 
 require (
@@ -92,7 +94,6 @@ require (
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/hcl/v2 v2.24.0 // indirect
-	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
@@ -101,7 +102,6 @@ require (
 	github.com/klauspost/compress v1.19.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.11 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect
-	github.com/lib/pq v1.12.3 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.21 // indirect
@@ -181,8 +181,8 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.2 // indirect
-	k8s.io/api v0.36.3 // indirect
-	k8s.io/client-go v0.36.3 // indirect
+	k8s.io/api v0.36.4 // indirect
+	k8s.io/client-go v0.36.4 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a // indirect
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2 // indirect

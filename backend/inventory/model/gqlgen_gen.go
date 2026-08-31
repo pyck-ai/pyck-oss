@@ -23,7 +23,6 @@ type CollectionMovement struct {
 type CollectionMovementArrayInput struct {
 	Handler      string         `json:"handler"`
 	DataTypeID   *uuid.UUID     `json:"dataTypeID,omitempty"`
-	DataTypeSlug *string        `json:"dataTypeSlug,omitempty"`
 	Data         map[string]any `json:"data,omitempty"`
 	FromID       uuid.UUID      `json:"fromID"`
 	ToID         uuid.UUID      `json:"toID"`
@@ -34,11 +33,10 @@ type CollectionMovementArrayInput struct {
 }
 
 type CreateCollectionMovementInput struct {
-	DataTypeID   *uuid.UUID                      `json:"dataTypeID,omitempty"`
-	DataTypeSlug *string                         `json:"dataTypeSlug,omitempty"`
-	Data         map[string]any                  `json:"data,omitempty"`
-	Collection   []*CollectionMovementArrayInput `json:"collection,omitempty"`
-	Handler      *string                         `json:"handler,omitempty"`
+	DataTypeID *uuid.UUID                      `json:"dataTypeID,omitempty"`
+	Data       map[string]any                  `json:"data,omitempty"`
+	Collection []*CollectionMovementArrayInput `json:"collection,omitempty"`
+	Handler    *string                         `json:"handler,omitempty"`
 }
 
 type CreateCollectionMovementOutput struct {
@@ -48,19 +46,17 @@ type CreateCollectionMovementOutput struct {
 }
 
 type CreateReplenishmentOrderItemsInput struct {
-	DataTypeID   *uuid.UUID     `json:"dataTypeID,omitempty"`
-	DataTypeSlug *string        `json:"dataTypeSlug,omitempty"`
-	Data         map[string]any `json:"data,omitempty"`
-	Sku          string         `json:"sku"`
-	Quantity     int64          `json:"quantity"`
+	DataTypeID *uuid.UUID     `json:"dataTypeID,omitempty"`
+	Data       map[string]any `json:"data,omitempty"`
+	Sku        string         `json:"sku"`
+	Quantity   int64          `json:"quantity"`
 }
 
 type CreateReplenishmentOrderWithItemsInput struct {
-	DataTypeID   *uuid.UUID                            `json:"dataTypeID,omitempty"`
-	DataTypeSlug *string                               `json:"dataTypeSlug,omitempty"`
-	Data         map[string]any                        `json:"data,omitempty"`
-	SupplierID   *uuid.UUID                            `json:"supplierID,omitempty"`
-	Items        []*CreateReplenishmentOrderItemsInput `json:"items,omitempty"`
+	DataTypeID *uuid.UUID                            `json:"dataTypeID,omitempty"`
+	Data       map[string]any                        `json:"data,omitempty"`
+	SupplierID *uuid.UUID                            `json:"supplierID,omitempty"`
+	Items      []*CreateReplenishmentOrderItemsInput `json:"items,omitempty"`
 }
 
 type DataBoolInput struct {

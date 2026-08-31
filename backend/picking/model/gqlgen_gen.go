@@ -10,19 +10,17 @@ import (
 )
 
 type CreatePickingOrderItemsInput struct {
-	DataTypeID   *uuid.UUID     `json:"dataTypeID,omitempty"`
-	DataTypeSlug *string        `json:"dataTypeSlug,omitempty"`
-	Data         map[string]any `json:"data,omitempty"`
-	Sku          string         `json:"sku"`
-	Quantity     int64          `json:"quantity"`
+	DataTypeID *uuid.UUID     `json:"dataTypeID,omitempty"`
+	Data       map[string]any `json:"data,omitempty"`
+	Sku        string         `json:"sku"`
+	Quantity   int64          `json:"quantity"`
 }
 
 type CreatePickingOrderWithItemsInput struct {
-	DataTypeID   *uuid.UUID                      `json:"dataTypeID,omitempty"`
-	DataTypeSlug *string                         `json:"dataTypeSlug,omitempty"`
-	Data         map[string]any                  `json:"data,omitempty"`
-	CustomerID   *uuid.UUID                      `json:"customerID,omitempty"`
-	OrderItems   []*CreatePickingOrderItemsInput `json:"orderItems,omitempty"`
+	DataTypeID *uuid.UUID                      `json:"dataTypeID,omitempty"`
+	Data       map[string]any                  `json:"data,omitempty"`
+	CustomerID *uuid.UUID                      `json:"customerID,omitempty"`
+	OrderItems []*CreatePickingOrderItemsInput `json:"orderItems,omitempty"`
 }
 
 // Filters on an indexed data key. The caller names the index declared in the

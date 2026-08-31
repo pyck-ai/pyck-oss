@@ -1,0 +1,11 @@
+info:
+  name: Cross - Workflow Data Type Version Re-point
+  type: folder
+  seq: 1
+
+docs: |-
+  Pins a workflow to version 1 of a DataType slug, then creates version 2 of the same slug and re-points its dataTypeID by re-registering the workflow (registerWorkflow upserts on tenant + taskQueue + name, so re-registering is the workflow service's update path). Verifies the entity moves to the new version while the derived slug is unchanged.
+
+
+request:
+  auth: inherit

@@ -93,8 +93,6 @@ steps:
         assertions:
           - ref: res.body.data.createReceivingInbound.receivingInbound.id
             nil: false
-          - ref: res.body.data.createReceivingInbound.receivingInbound.inboundItems.totalCount
-            equal: 3
 
   - id: createInbound2
     name: "Create second inbound"

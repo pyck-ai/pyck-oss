@@ -14,9 +14,9 @@ func TestRegistryRegisterAndGet(t *testing.T) {
 
 	reg := importexport.NewRegistry()
 	err := reg.Register(&importexport.EntityDescriptor{
-		TypeName:      "Location",
-		Service:       "management",
-		IdentityField: "name",
+		TypeName:       "Location",
+		Service:        "management",
+		IdentityFields: []string{"name"},
 	})
 	require.NoError(t, err)
 
@@ -24,7 +24,7 @@ func TestRegistryRegisterAndGet(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "Location", desc.TypeName)
 	assert.Equal(t, "management", desc.Service)
-	assert.Equal(t, "name", desc.IdentityField)
+	assert.Equal(t, []string{"name"}, desc.IdentityFields)
 }
 
 func TestRegistryGetUnknownType(t *testing.T) {

@@ -349,11 +349,13 @@ func (te *testEnv) withTx(ctx context.Context, fn func(tx *ent.Tx) error) error 
 // =============================================================================
 
 type workflowBuilder struct {
-	te   *testEnv
-	ctx  context.Context //nolint:containedctx // Builder pattern for tests
-	user *authn.User
-	data map[string]any
-	name string
+	te           *testEnv
+	ctx          context.Context //nolint:containedctx // Builder pattern for tests
+	user         *authn.User
+	data         map[string]any
+	name         string
+	dataTypeID   uuid.UUID
+	dataTypeSlug string
 }
 
 func (te *testEnv) newWorkflow(ctx context.Context, user *authn.User) *workflowBuilder {
@@ -367,6 +369,14 @@ func (te *testEnv) newWorkflow(ctx context.Context, user *authn.User) *workflowB
 
 func (b *workflowBuilder) Data(data map[string]any) *workflowBuilder {
 	b.data = data
+	return b
+}
+
+// DataType pins the row to a DataType version without going through the
+// validator, so tests can seed a row whose data the pinned version rejects.
+func (b *workflowBuilder) DataType(id uuid.UUID, slug string) *workflowBuilder {
+	b.dataTypeID = id
+	b.dataTypeSlug = slug
 	return b
 }
 
@@ -388,6 +398,10 @@ func (b *workflowBuilder) Create() *ent.Workflow {
 
 		if b.data != nil {
 			builder.SetData(b.data)
+		}
+
+		if b.dataTypeID != uuid.Nil {
+			builder.SetDataTypeID(b.dataTypeID).SetDataTypeSlug(b.dataTypeSlug)
 		}
 
 		var err error

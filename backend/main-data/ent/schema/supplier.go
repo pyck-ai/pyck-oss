@@ -34,6 +34,7 @@ func (Supplier) Annotations() []schema.Annotation {
 		entgql.Directives(keyDirective, importexport.Importable("",
 			importexport.WithList("suppliers"),
 			importexport.WithCreate("createSupplier"),
+			importexport.WithDataTypeReference(),
 		)),
 		entgql.QueryField(),
 		entgql.Mutations(entgql.MutationCreate(), entgql.MutationUpdate()),

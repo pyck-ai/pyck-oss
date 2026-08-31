@@ -202,11 +202,11 @@ func TestItem_Update(t *testing.T) {
 
 		data := execOK[updateItemData](te, ctx, updateItem, map[string]any{
 			"ID":         item.ID,
-			"DataTypeID": itemDataTypeIDTenantB,
+			"DataTypeID": itemDataTypeIDV2,
 		})
 
 		assert.Equal(t, tenantA, data.UpdateInventoryItem.InventoryItem.TenantID)
-		assert.Equal(t, itemDataTypeIDTenantB, data.UpdateInventoryItem.InventoryItem.DataTypeID)
+		assert.Equal(t, itemDataTypeIDV2, data.UpdateInventoryItem.InventoryItem.DataTypeID)
 
 		te.assertEvents(ctx, Update("item", item.ID))
 	})

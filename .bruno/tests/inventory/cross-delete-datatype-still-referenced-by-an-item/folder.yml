@@ -1,0 +1,11 @@
+info:
+  name: Cross - Delete DataType Still Referenced By An Item
+  type: folder
+  seq: 1
+
+docs: |-
+  A DataType can be (soft-)deleted even while an inventory item references it — there is no FK/cascade. Verifies the post-delete contract: the delete succeeds, the item still READS with its dataTypeID/slug/data intact, but a WRITE that re-validates data against the now-deleted version is rejected.
+
+
+request:
+  auth: inherit

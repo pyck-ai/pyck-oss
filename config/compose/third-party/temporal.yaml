@@ -21,9 +21,14 @@ services:
       start_period: 60s
     entrypoint: ["/bin/sh", "-c", "exec /etc/temporal/entrypoint.sh"]
     environment:
-      # Memory optimization settings
+      # Go runtime tuning. GOMEMLIMIT must stay comfortably above the live
+      # heap: at 256MiB the server sat at its soft limit and the collector ran
+      # continuously. GOMAXPROCS bounds that collector — without it the
+      # runtime sizes its worker pool from the host's core count (16 here),
+      # so a GC-heavy phase saturates the machine at ~900% CPU.
       - GOGC=100
-      - GOMEMLIMIT=256MiB
+      - GOMEMLIMIT=768MiB
+      - GOMAXPROCS=4
     env_file:
       - path: ../../../config/keys/bootstrap.env
       - path: ./../../../config/temporal/compose.env
@@ -33,7 +38,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 1G
     volumes:
       - ./../../../:/src:ro,z
       - ./../../../config/temporal/dynamicconfig/:/etc/temporal/config/dynamicconfig/:Z

@@ -10,7 +10,6 @@ import (
 // CreateWorkflowInput represents a mutation input for creating workflows.
 type CreateWorkflowInput struct {
 	DataTypeID        *uuid.UUID
-	DataTypeSlug      *string
 	Data              map[string]interface{}
 	Name              string
 	TaskQueue         string
@@ -21,9 +20,6 @@ type CreateWorkflowInput struct {
 func (i *CreateWorkflowInput) Mutate(m *WorkflowMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -45,8 +41,6 @@ func (c *WorkflowCreate) SetInput(i CreateWorkflowInput) *WorkflowCreate {
 type UpdateWorkflowInput struct {
 	ClearDataTypeID         bool
 	DataTypeID              *uuid.UUID
-	ClearDataTypeSlug       bool
-	DataTypeSlug            *string
 	ClearData               bool
 	Data                    map[string]interface{}
 	ClearWorkflowSignals    bool
@@ -61,12 +55,6 @@ func (i *UpdateWorkflowInput) Mutate(m *WorkflowMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()

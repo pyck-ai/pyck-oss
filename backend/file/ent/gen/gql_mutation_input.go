@@ -9,25 +9,21 @@ import (
 
 // CreateFileInput represents a mutation input for creating files.
 type CreateFileInput struct {
-	DataTypeID   *uuid.UUID
-	DataTypeSlug *string
-	Data         map[string]interface{}
-	Refid        uuid.UUID
-	Reftype      file.Reftype
-	Description  *string
-	Name         string
-	Size         *int64
-	ContentType  string
-	PublicAlias  *string
+	DataTypeID  *uuid.UUID
+	Data        map[string]interface{}
+	Refid       uuid.UUID
+	Reftype     file.Reftype
+	Description *string
+	Name        string
+	Size        *int64
+	ContentType string
+	PublicAlias *string
 }
 
 // Mutate applies the CreateFileInput on the FileMutation builder.
 func (i *CreateFileInput) Mutate(m *FileMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -55,18 +51,16 @@ func (c *FileCreate) SetInput(i CreateFileInput) *FileCreate {
 
 // UpdateFileInput represents a mutation input for updating files.
 type UpdateFileInput struct {
-	ClearDataTypeID   bool
-	DataTypeID        *uuid.UUID
-	ClearDataTypeSlug bool
-	DataTypeSlug      *string
-	ClearData         bool
-	Data              map[string]interface{}
-	Refid             *uuid.UUID
-	Reftype           *file.Reftype
-	ClearDescription  bool
-	Description       *string
-	ClearPublicAlias  bool
-	PublicAlias       *string
+	ClearDataTypeID  bool
+	DataTypeID       *uuid.UUID
+	ClearData        bool
+	Data             map[string]interface{}
+	Refid            *uuid.UUID
+	Reftype          *file.Reftype
+	ClearDescription bool
+	Description      *string
+	ClearPublicAlias bool
+	PublicAlias      *string
 }
 
 // Mutate applies the UpdateFileInput on the FileMutation builder.
@@ -76,12 +70,6 @@ func (i *UpdateFileInput) Mutate(m *FileMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()

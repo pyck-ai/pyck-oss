@@ -8,7 +8,6 @@ extend input InventoryCollectionWhereInput {
 input CreateCollectionMovementInput
 {
   dataTypeID: UUID
-  dataTypeSlug: String
   data: Map
   collection: [CollectionMovementArrayInput]
   handler: String
@@ -18,7 +17,6 @@ input CollectionMovementArrayInput
 {
   handler: String!
   dataTypeID: UUID
-  dataTypeSlug: String
   data: Map
   fromID: ID!
   toID: ID!

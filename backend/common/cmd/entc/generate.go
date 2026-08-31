@@ -68,7 +68,7 @@ func (gen *generator) registerGraphQLExtension() error {
 		entgql.WithTemplates(entgql.AllTemplates...),
 		entgql.WithWhereInputs(true),
 		entgql.WithSchemaGenerator(),
-		entgql.WithSchemaHook(pyckImportableDirectiveSchemaHook, jsonbOrderSchemaHook),
+		entgql.WithSchemaHook(pyckImportableDirectiveSchemaHook, jsonbOrderSchemaHook, dropClearDataTypeIDSchemaHook),
 		entgql.WithConfigPath(gen.config.GqlConfigPath),
 		entgql.WithSchemaPath(gen.config.GqlSchemaPath),
 		entgql.WithNodeDescriptor(false),

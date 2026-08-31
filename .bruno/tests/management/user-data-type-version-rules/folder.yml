@@ -1,0 +1,11 @@
+info:
+  name: User - Data Type Version Rules
+  type: folder
+  seq: 1
+
+docs: |-
+  End-to-end coverage for the PR #1236 DataType decisions: updateDataType (name-only, in place), import idempotency on re-creating an existing (slug, version) (identical = no-op, name-only = update, immutable diff = conflict), append-only version ordering (gaps allowed above MAX, rejected at-or-below MAX), and the restored `default` tenant-init flag.
+
+
+request:
+  auth: inherit

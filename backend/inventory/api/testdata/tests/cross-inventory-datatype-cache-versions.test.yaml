@@ -1,0 +1,216 @@
+---
+name: "Cross - Inventory Data Type Cache Versions"
+description: >
+  Deeper coverage of the inventory DataType cache beyond simple create/delete
+  propagation: the cache holds multiple versions of one slug independently
+  (each id enforces its own schema), deleting one version drops only that id and
+  leaves sibling versions resolvable, and an entity write issued immediately
+  after a datatype create (cache-miss window) still resolves via the management
+  ReadByID fallback.
+steps:
+  # ---------------------------------------------------------------------------
+  # Multi-version: two schemas under one slug, each id resolves independently.
+  # ---------------------------------------------------------------------------
+  - id: v1
+    name: "Create v1 (schema A: color enum)"
+    operation: management.createDataType
+    wait_after_ms: 500
+    vars:
+      input:
+        name: "Cache Versions A"
+        slug: {$fake: "cacheversions-{{loremslug}}-{{nonce}}"}
+        entity: "inventoryitem"
+        jsonSchema: '{"type":"object","properties":{"color":{"type":"string","enum":["red","green","blue"]}},"required":["color"],"additionalProperties":false}'
+    tests:
+      - msg: "v1 created as version 1"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.version
+            equal: 1
+
+  - id: v2
+    name: "Create v2 of the same slug (schema B: size enum)"
+    operation: management.createDataType
+    wait_after_ms: 500
+    vars:
+      input:
+        name: "Cache Versions B"
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+        entity: "inventoryitem"
+        jsonSchema: '{"type":"object","properties":{"size":{"type":"string","enum":["small","large"]}},"required":["size"],"additionalProperties":false}'
+    tests:
+      - msg: "v2 created as version 2"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.version
+            equal: 2
+
+  - id: itemV1
+    name: "Item under v1.id validates against schema A (color)"
+    operation: inventory.createInventoryItem
+    vars:
+      input:
+        dataTypeID: {$ref: "res[v1].body.data.createDataType.id"}
+        sku: {$fake: "{{uuid}}"}
+        data:
+          color: "red"
+    tests:
+      - msg: "v1.id resolves schema A — color accepted"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+
+  - name: "v1.id rejects schema B data (cache holds A for v1, not B)"
+    operation: inventory.createInventoryItem
+    vars:
+      input:
+        dataTypeID: {$ref: "res[v1].body.data.createDataType.id"}
+        sku: {$fake: "{{uuid}}"}
+        data:
+          size: "small"
+    tests:
+      - msg: "v1 schema rejects size (proves per-id schema isolation)"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - id: itemV2
+    name: "Item under v2.id validates against schema B (size)"
+    operation: inventory.createInventoryItem
+    vars:
+      input:
+        dataTypeID: {$ref: "res[v2].body.data.createDataType.id"}
+        sku: {$fake: "{{uuid}}"}
+        data:
+          size: "large"
+    tests:
+      - msg: "v2.id resolves schema B — size accepted"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+
+  - name: "Delete v2 (emits delete event -> cache drops v2.id only)"
+    operation: management.deleteDataType
+    wait_after_ms: 500
+    vars:
+      id: {$ref: "res[v2].body.data.createDataType.id"}
+    tests:
+      - msg: "Delete succeeds"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "v2.id no longer resolves after its delete"
+    operation: inventory.createInventoryItem
+    vars:
+      input:
+        dataTypeID: {$ref: "res[v2].body.data.createDataType.id"}
+        sku: {$fake: "{{uuid}}"}
+        data:
+          size: "small"
+    tests:
+      - msg: "v2 dropped from cache"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - id: itemV1b
+    name: "v1.id STILL resolves (deleting v2 left the sibling version intact)"
+    operation: inventory.createInventoryItem
+    vars:
+      input:
+        dataTypeID: {$ref: "res[v1].body.data.createDataType.id"}
+        sku: {$fake: "{{uuid}}"}
+        data:
+          color: "green"
+    tests:
+      - msg: "v1 unaffected by v2 delete (A2: Delete removes only the targeted id)"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+
+  # ---------------------------------------------------------------------------
+  # Cache-miss window: use a fresh id immediately, no propagation wait.
+  # ---------------------------------------------------------------------------
+  - id: race
+    name: "Create a fresh datatype (NO wait — exercise the cache-miss window)"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Cache Race"
+        slug: {$fake: "cacherace-{{loremslug}}-{{nonce}}"}
+        entity: "inventoryitem"
+        jsonSchema: '{"type":"object","properties":{"weight":{"type":"integer"}},"required":["weight"],"additionalProperties":false}'
+    tests:
+      - msg: "Created"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - id: itemRace
+    name: "Entity create immediately after datatype create still resolves"
+    operation: inventory.createInventoryItem
+    vars:
+      input:
+        dataTypeID: {$ref: "res[race].body.data.createDataType.id"}
+        sku: {$fake: "{{uuid}}"}
+        data:
+          weight: 10
+    tests:
+      - msg: "Resolves via cache hit or ReadByID fallback — race window does not fail the write"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+
+  # ---------------------------------------------------------------------------
+  # Cleanup of items created mid-flight.
+  # ---------------------------------------------------------------------------
+  - name: "Cleanup - delete v1 item (red)"
+    operation: inventory.deleteInventoryItem
+    vars:
+      id: {$ref: "res[itemV1].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "ok"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete v2 item (large)"
+    operation: inventory.deleteInventoryItem
+    vars:
+      id: {$ref: "res[itemV2].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "ok"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete v1 item (green)"
+    operation: inventory.deleteInventoryItem
+    vars:
+      id: {$ref: "res[itemV1b].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "ok"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete race item"
+    operation: inventory.deleteInventoryItem
+    vars:
+      id: {$ref: "res[itemRace].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "ok"
+        assertions:
+          - ref: res.body.errors
+            nil: true

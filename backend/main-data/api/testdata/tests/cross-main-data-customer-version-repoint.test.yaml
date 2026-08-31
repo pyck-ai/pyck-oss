@@ -1,0 +1,175 @@
+---
+name: "Cross - Customer Data Type Version Re-point"
+description: >
+  Pins a customer to version 1 of a DataType slug, then creates version 2 of
+  the same slug and re-points the customer's dataTypeID to it via updateCustomer.
+  Verifies the entity moves to the new version while the derived slug is
+  unchanged, and that the new version's schema validates the data.
+steps:
+  - id: v1
+    name: "Create data type v1"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Repoint Customer Type v1"
+        slug: {$fake: "repoint-{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"company":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "v1 created as version 1"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.version
+            equal: 1
+
+  - id: createCustomer
+    name: "Create customer pinned to v1"
+    operation: main-data.createCustomer
+    vars:
+      input:
+        dataTypeID: {$ref: "res[v1].body.data.createDataType.id"}
+        data:
+          company: "Acme Corp"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Customer pinned to v1"
+        assertions:
+          - ref: res.body.data.createCustomer.id
+            nil: false
+          - ref: res.body.data.createCustomer.dataTypeID
+            equal: {$ref: "res[v1].body.data.createDataType.id"}
+          - ref: res.body.data.createCustomer.dataTypeSlug
+            equal: {$ref: "res[v1].body.data.createDataType.slug"}
+
+  - id: v2
+    name: "Create data type v2 (same slug)"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Repoint Customer Type v2"
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"company":{"type":"string"},"tier":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "v2 created as version 2 of the same slug"
+        assertions:
+          - ref: res.body.data.createDataType.version
+            equal: 2
+          - ref: res.body.data.createDataType.slug
+            equal: {$ref: "res[v1].body.data.createDataType.slug"}
+
+  - name: "Re-point customer to v2"
+    operation: main-data.updateCustomer
+    vars:
+      id: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+      input:
+        dataTypeID: {$ref: "res[v2].body.data.createDataType.id"}
+        data:
+          company: "Acme Corp"
+          tier: "gold"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Customer now pinned to v2"
+        assertions:
+          - ref: res.body.data.updateCustomer.dataTypeID
+            equal: {$ref: "res[v2].body.data.createDataType.id"}
+      - msg: "Derived slug unchanged across versions"
+        assertions:
+          - ref: res.body.data.updateCustomer.dataTypeSlug
+            equal: {$ref: "res[v1].body.data.createDataType.slug"}
+
+  - name: "Verify re-point persisted on query"
+    operation: main-data.getCustomers
+    vars:
+      where:
+        id: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "DataTypeID is v2 on query"
+        assertions:
+          - ref: res.body.data.customers.edges[].node.dataTypeID
+            equal: {$ref: "res[v2].body.data.createDataType.id"}
+      - msg: "New-version data validated and persisted"
+        assertions:
+          - ref: res.body.data.customers.edges[].node.data.tier
+            equal: "gold"
+
+  - name: "Cleanup - delete customer"
+    operation: main-data.deleteCustomer
+    vars:
+      id: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete v2"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[v2].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete v1"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[v1].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

@@ -29,6 +29,9 @@ func (DeviceLocation) Annotations() []schema.Annotation {
 		entgql.Directives(importexport.Importable("",
 			importexport.WithList("deviceLocations"),
 			importexport.WithCreate("setDeviceLocation"),
+			importexport.WithDataTypeReference(),
+			importexport.WithReference("deviceID", "Device"),
+			importexport.WithReference("locationID", "Location"),
 		)),
 	}
 }

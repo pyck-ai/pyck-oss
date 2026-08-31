@@ -1,0 +1,11 @@
+info:
+  name: Cross - Device Data Type Version Re-point
+  type: folder
+  seq: 1
+
+docs: |-
+  Pins a device to version 1 of a DataType slug, then creates version 2 of the same slug and re-points its dataTypeID via the update mutation. Verifies the entity moves to the new version while the derived slug is unchanged.
+
+
+request:
+  auth: inherit

@@ -13,8 +13,9 @@ type CreateDataTypeInput struct {
 	Description    *string
 	JSONSchema     string
 	FrontendSchema *string
-	Default        *bool
 	Entity         string
+	Default        *bool
+	Version        *int
 }
 
 // Mutate applies the CreateDataTypeInput on the DataTypeMutation builder.
@@ -32,10 +33,13 @@ func (i *CreateDataTypeInput) Mutate(m *DataTypeMutation) {
 	if v := i.FrontendSchema; v != nil {
 		m.SetFrontendSchema(*v)
 	}
+	m.SetEntity(i.Entity)
 	if v := i.Default; v != nil {
 		m.SetDefault(*v)
 	}
-	m.SetEntity(i.Entity)
+	if v := i.Version; v != nil {
+		m.SetVersion(*v)
+	}
 }
 
 // SetInput applies the change-set in the CreateDataTypeInput on the DataTypeCreate builder.
@@ -46,37 +50,13 @@ func (c *DataTypeCreate) SetInput(i CreateDataTypeInput) *DataTypeCreate {
 
 // UpdateDataTypeInput represents a mutation input for updating datatypes.
 type UpdateDataTypeInput struct {
-	Name                *string
-	ClearDescription    bool
-	Description         *string
-	JSONSchema          *string
-	ClearFrontendSchema bool
-	FrontendSchema      *string
-	Default             *bool
+	Name *string
 }
 
 // Mutate applies the UpdateDataTypeInput on the DataTypeMutation builder.
 func (i *UpdateDataTypeInput) Mutate(m *DataTypeMutation) {
 	if v := i.Name; v != nil {
 		m.SetName(*v)
-	}
-	if i.ClearDescription {
-		m.ClearDescription()
-	}
-	if v := i.Description; v != nil {
-		m.SetDescription(*v)
-	}
-	if v := i.JSONSchema; v != nil {
-		m.SetJSONSchema(*v)
-	}
-	if i.ClearFrontendSchema {
-		m.ClearFrontendSchema()
-	}
-	if v := i.FrontendSchema; v != nil {
-		m.SetFrontendSchema(*v)
-	}
-	if v := i.Default; v != nil {
-		m.SetDefault(*v)
 	}
 }
 
@@ -95,7 +75,6 @@ func (c *DataTypeUpdateOne) SetInput(i UpdateDataTypeInput) *DataTypeUpdateOne {
 // CreateDeviceInput represents a mutation input for creating devices.
 type CreateDeviceInput struct {
 	DataTypeID               *uuid.UUID
-	DataTypeSlug             *string
 	Data                     map[string]interface{}
 	Name                     string
 	DeviceLocationsDeviceIDs []uuid.UUID
@@ -106,9 +85,6 @@ type CreateDeviceInput struct {
 func (i *CreateDeviceInput) Mutate(m *DeviceMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -132,8 +108,6 @@ func (c *DeviceCreate) SetInput(i CreateDeviceInput) *DeviceCreate {
 type UpdateDeviceInput struct {
 	ClearDataTypeID                bool
 	DataTypeID                     *uuid.UUID
-	ClearDataTypeSlug              bool
-	DataTypeSlug                   *string
 	ClearData                      bool
 	Data                           map[string]interface{}
 	Name                           *string
@@ -152,12 +126,6 @@ func (i *UpdateDeviceInput) Mutate(m *DeviceMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -202,20 +170,16 @@ func (c *DeviceUpdateOne) SetInput(i UpdateDeviceInput) *DeviceUpdateOne {
 
 // CreateDeviceLocationInput represents a mutation input for creating devicelocations.
 type CreateDeviceLocationInput struct {
-	DataTypeID   *uuid.UUID
-	DataTypeSlug *string
-	Data         map[string]interface{}
-	DeviceID     uuid.UUID
-	LocationID   uuid.UUID
+	DataTypeID *uuid.UUID
+	Data       map[string]interface{}
+	DeviceID   uuid.UUID
+	LocationID uuid.UUID
 }
 
 // Mutate applies the CreateDeviceLocationInput on the DeviceLocationMutation builder.
 func (i *CreateDeviceLocationInput) Mutate(m *DeviceLocationMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -232,14 +196,12 @@ func (c *DeviceLocationCreate) SetInput(i CreateDeviceLocationInput) *DeviceLoca
 
 // UpdateDeviceLocationInput represents a mutation input for updating devicelocations.
 type UpdateDeviceLocationInput struct {
-	ClearDataTypeID   bool
-	DataTypeID        *uuid.UUID
-	ClearDataTypeSlug bool
-	DataTypeSlug      *string
-	ClearData         bool
-	Data              map[string]interface{}
-	DeviceID          *uuid.UUID
-	LocationID        *uuid.UUID
+	ClearDataTypeID bool
+	DataTypeID      *uuid.UUID
+	ClearData       bool
+	Data            map[string]interface{}
+	DeviceID        *uuid.UUID
+	LocationID      *uuid.UUID
 }
 
 // Mutate applies the UpdateDeviceLocationInput on the DeviceLocationMutation builder.
@@ -249,12 +211,6 @@ func (i *UpdateDeviceLocationInput) Mutate(m *DeviceLocationMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -284,20 +240,16 @@ func (c *DeviceLocationUpdateOne) SetInput(i UpdateDeviceLocationInput) *DeviceL
 
 // CreateDeviceUserInput represents a mutation input for creating deviceusers.
 type CreateDeviceUserInput struct {
-	DataTypeID   *uuid.UUID
-	DataTypeSlug *string
-	Data         map[string]interface{}
-	DeviceID     uuid.UUID
-	UserID       uuid.UUID
+	DataTypeID *uuid.UUID
+	Data       map[string]interface{}
+	DeviceID   uuid.UUID
+	UserID     uuid.UUID
 }
 
 // Mutate applies the CreateDeviceUserInput on the DeviceUserMutation builder.
 func (i *CreateDeviceUserInput) Mutate(m *DeviceUserMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -314,14 +266,12 @@ func (c *DeviceUserCreate) SetInput(i CreateDeviceUserInput) *DeviceUserCreate {
 
 // UpdateDeviceUserInput represents a mutation input for updating deviceusers.
 type UpdateDeviceUserInput struct {
-	ClearDataTypeID   bool
-	DataTypeID        *uuid.UUID
-	ClearDataTypeSlug bool
-	DataTypeSlug      *string
-	ClearData         bool
-	Data              map[string]interface{}
-	DeviceID          *uuid.UUID
-	UserID            *uuid.UUID
+	ClearDataTypeID bool
+	DataTypeID      *uuid.UUID
+	ClearData       bool
+	Data            map[string]interface{}
+	DeviceID        *uuid.UUID
+	UserID          *uuid.UUID
 }
 
 // Mutate applies the UpdateDeviceUserInput on the DeviceUserMutation builder.
@@ -331,12 +281,6 @@ func (i *UpdateDeviceUserInput) Mutate(m *DeviceUserMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -366,19 +310,15 @@ func (c *DeviceUserUpdateOne) SetInput(i UpdateDeviceUserInput) *DeviceUserUpdat
 
 // CreateKeyValueInput represents a mutation input for creating keyvalues.
 type CreateKeyValueInput struct {
-	DataTypeID   *uuid.UUID
-	DataTypeSlug *string
-	Data         map[string]interface{}
-	Name         *string
+	DataTypeID *uuid.UUID
+	Data       map[string]interface{}
+	Name       *string
 }
 
 // Mutate applies the CreateKeyValueInput on the KeyValueMutation builder.
 func (i *CreateKeyValueInput) Mutate(m *KeyValueMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -396,13 +336,11 @@ func (c *KeyValueCreate) SetInput(i CreateKeyValueInput) *KeyValueCreate {
 
 // UpdateKeyValueInput represents a mutation input for updating keyvalues.
 type UpdateKeyValueInput struct {
-	ClearDataTypeID   bool
-	DataTypeID        *uuid.UUID
-	ClearDataTypeSlug bool
-	DataTypeSlug      *string
-	ClearData         bool
-	Data              map[string]interface{}
-	Name              *string
+	ClearDataTypeID bool
+	DataTypeID      *uuid.UUID
+	ClearData       bool
+	Data            map[string]interface{}
+	Name            *string
 }
 
 // Mutate applies the UpdateKeyValueInput on the KeyValueMutation builder.
@@ -412,12 +350,6 @@ func (i *UpdateKeyValueInput) Mutate(m *KeyValueMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -445,7 +377,6 @@ func (c *KeyValueUpdateOne) SetInput(i UpdateKeyValueInput) *KeyValueUpdateOne {
 // CreateLocationInput represents a mutation input for creating locations.
 type CreateLocationInput struct {
 	DataTypeID                 *uuid.UUID
-	DataTypeSlug               *string
 	Data                       map[string]interface{}
 	Name                       string
 	DeviceLocationsLocationIDs []uuid.UUID
@@ -455,9 +386,6 @@ type CreateLocationInput struct {
 func (i *CreateLocationInput) Mutate(m *LocationMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -478,8 +406,6 @@ func (c *LocationCreate) SetInput(i CreateLocationInput) *LocationCreate {
 type UpdateLocationInput struct {
 	ClearDataTypeID                  bool
 	DataTypeID                       *uuid.UUID
-	ClearDataTypeSlug                bool
-	DataTypeSlug                     *string
 	ClearData                        bool
 	Data                             map[string]interface{}
 	Name                             *string
@@ -495,12 +421,6 @@ func (i *UpdateLocationInput) Mutate(m *LocationMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()

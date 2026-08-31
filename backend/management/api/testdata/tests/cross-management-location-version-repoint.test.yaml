@@ -1,0 +1,421 @@
+---
+name: "Cross - Location Data Type Version Re-point"
+description: >
+  Pins a location to version 1 of a DataType slug, then creates version 2 of
+  the same slug and re-points its dataTypeID via the update mutation. Verifies the
+  entity moves to the new version while the derived slug is unchanged.
+  Also covers the re-point-without-a-data-payload paths, where the row's
+  PERSISTED data is what the newly pinned version has to accept: a widening
+  version accepts it and leaves the data untouched, a version that requires a
+  missing property rejects the re-point naming that property, clearing the data
+  in the same mutation makes that same re-point succeed, and re-sending the
+  row's current dataTypeID is not a re-point at all so it skips revalidation.
+steps:
+  - id: v1
+    name: "Create data type v1"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Repoint Location Type v1"
+        slug: {$fake: "repoint-{{loremslug}}-{{nonce}}"}
+        entity: "location"
+        jsonSchema: '{"type":"object","properties":{"label":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "v1 created as version 1"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.version
+            equal: 1
+
+  - id: createEntity
+    name: "Create location pinned to v1"
+    operation: management.createLocation
+    vars:
+      input:
+        name: {$fake: "Repoint-{{uuid}}"}
+        dataTypeID: {$ref: "res[v1].body.data.createDataType.id"}
+        data:
+          label: "v1"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Entity pinned to v1"
+        assertions:
+          - ref: res.body.data.createLocation.location.id
+            nil: false
+          - ref: res.body.data.createLocation.location.dataTypeID
+            equal: {$ref: "res[v1].body.data.createDataType.id"}
+          - ref: res.body.data.createLocation.location.dataTypeSlug
+            equal: {$ref: "res[v1].body.data.createDataType.slug"}
+
+  - id: v2
+    name: "Create data type v2 (same slug)"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Repoint Location Type v2"
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+        entity: "location"
+        jsonSchema: '{"type":"object","properties":{"label":{"type":"string"},"extra":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "v2 created as version 2 of the same slug"
+        assertions:
+          - ref: res.body.data.createDataType.version
+            equal: 2
+          - ref: res.body.data.createDataType.slug
+            equal: {$ref: "res[v1].body.data.createDataType.slug"}
+
+  - name: "Re-point location to v2"
+    operation: management.updateLocation
+    vars:
+      id: {$ref: "res[createEntity].body.data.createLocation.location.id"}
+      input:
+        dataTypeID: {$ref: "res[v2].body.data.createDataType.id"}
+        data:
+          label: "v1"
+          extra: "v2"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Now pinned to v2"
+        assertions:
+          - ref: res.body.data.updateLocation.location.dataTypeID
+            equal: {$ref: "res[v2].body.data.createDataType.id"}
+      - msg: "Derived slug unchanged across versions"
+        assertions:
+          - ref: res.body.data.updateLocation.location.dataTypeSlug
+            equal: {$ref: "res[v1].body.data.createDataType.slug"}
+
+  - name: "Verify re-point persisted on query"
+    operation: management.getLocations
+    vars:
+      where:
+        id: {$ref: "res[createEntity].body.data.createLocation.location.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "DataTypeID is v2 on query"
+        assertions:
+          - ref: res.body.data.locations.edges[].node.dataTypeID
+            equal: {$ref: "res[v2].body.data.createDataType.id"}
+      - msg: "New-version data validated and persisted"
+        assertions:
+          - ref: res.body.data.locations.edges[].node.data.extra
+            equal: "v2"
+
+  # ---------------------------------------------------------------------------
+  # Echoing the row's CURRENT pin with no data payload is not a re-point, so it
+  # must not drag the persisted data through validation again (worker heartbeats
+  # and PATCH-style resends do exactly this).
+  # ---------------------------------------------------------------------------
+  - name: "Re-send the unchanged dataTypeID without data"
+    operation: management.updateLocation
+    vars:
+      id: {$ref: "res[createEntity].body.data.createLocation.location.id"}
+      input:
+        dataTypeID: {$ref: "res[v2].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Still pinned to v2"
+        assertions:
+          - ref: res.body.data.updateLocation.location.dataTypeID
+            equal: {$ref: "res[v2].body.data.createDataType.id"}
+      - msg: "Persisted data untouched"
+        assertions:
+          - ref: res.body.data.updateLocation.location.data.label
+            equal: "v1"
+          - ref: res.body.data.updateLocation.location.data.extra
+            equal: "v2"
+
+  - id: v3
+    name: "Create data type v3 (widens the schema, accepts the stored data)"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Repoint Location Type v3"
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+        entity: "location"
+        jsonSchema: '{"type":"object","properties":{"label":{"type":"string"},"extra":{"type":"string"},"note":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "v3 created as version 3 of the same slug"
+        assertions:
+          - ref: res.body.data.createDataType.version
+            equal: 3
+          - ref: res.body.data.createDataType.slug
+            equal: {$ref: "res[v1].body.data.createDataType.slug"}
+
+  # ---------------------------------------------------------------------------
+  # Re-point WITHOUT a data payload: the row's persisted data is revalidated
+  # against the newly pinned version. v3 accepts it, so the update succeeds and
+  # the stored data is left exactly as it was.
+  # ---------------------------------------------------------------------------
+  - name: "Re-point to v3 without re-sending data"
+    operation: management.updateLocation
+    vars:
+      id: {$ref: "res[createEntity].body.data.createLocation.location.id"}
+      input:
+        dataTypeID: {$ref: "res[v3].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Now pinned to v3"
+        assertions:
+          - ref: res.body.data.updateLocation.location.dataTypeID
+            equal: {$ref: "res[v3].body.data.createDataType.id"}
+      - msg: "Derived slug still the shared lineage slug"
+        assertions:
+          - ref: res.body.data.updateLocation.location.dataTypeSlug
+            equal: {$ref: "res[v1].body.data.createDataType.slug"}
+      - msg: "Persisted data carried over unchanged"
+        assertions:
+          - ref: res.body.data.updateLocation.location.data.label
+            equal: "v1"
+          - ref: res.body.data.updateLocation.location.data.extra
+            equal: "v2"
+
+  - id: v4
+    name: "Create data type v4 (requires a property the stored data lacks)"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Repoint Location Type v4"
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+        entity: "location"
+        jsonSchema: '{"type":"object","properties":{"label":{"type":"string"},"extra":{"type":"string"},"criticality":{"type":"string"}},"required":["criticality"]}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "v4 created as version 4 of the same slug"
+        assertions:
+          - ref: res.body.data.createDataType.version
+            equal: 4
+
+  # ---------------------------------------------------------------------------
+  # Same re-point-without-data path, but v4 rejects the stored data. The update
+  # must fail naming the offending property rather than silently leaving the row
+  # pinned to a version its data does not satisfy.
+  # ---------------------------------------------------------------------------
+  - name: "Re-point to v4 without data is rejected by the stored data"
+    operation: management.updateLocation
+    vars:
+      id: {$ref: "res[createEntity].body.data.createLocation.location.id"}
+      input:
+        dataTypeID: {$ref: "res[v4].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Persisted data validated against v4 and rejected"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.errors[0].message
+            contains: "criticality"
+
+  - name: "Rejected re-point left the pin on v3"
+    operation: management.getLocations
+    vars:
+      where:
+        id: {$ref: "res[createEntity].body.data.createLocation.location.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Still pinned to v3"
+        assertions:
+          - ref: res.body.data.locations.edges[].node.dataTypeID
+            equal: {$ref: "res[v3].body.data.createDataType.id"}
+      - msg: "Data survived the rejected re-point"
+        assertions:
+          - ref: res.body.data.locations.edges[].node.data.extra
+            equal: "v2"
+
+  # ---------------------------------------------------------------------------
+  # Clearing the data in the same mutation removes what would have been
+  # validated, so the very re-point rejected above now succeeds.
+  # ---------------------------------------------------------------------------
+  - name: "Re-point to v4 while clearing the data succeeds"
+    operation: management.updateLocation
+    vars:
+      id: {$ref: "res[createEntity].body.data.createLocation.location.id"}
+      input:
+        dataTypeID: {$ref: "res[v4].body.data.createDataType.id"}
+        clearData: true
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Now pinned to v4"
+        assertions:
+          - ref: res.body.data.updateLocation.location.dataTypeID
+            equal: {$ref: "res[v4].body.data.createDataType.id"}
+      - msg: "Data cleared"
+        assertions:
+          - ref: res.body.data.updateLocation.location.data
+            nil: true
+
+  - name: "Verify cleared re-point persisted on query"
+    operation: management.getLocations
+    vars:
+      where:
+        id: {$ref: "res[createEntity].body.data.createLocation.location.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "DataTypeID is v4 on query"
+        assertions:
+          - ref: res.body.data.locations.edges[].node.dataTypeID
+            equal: {$ref: "res[v4].body.data.createDataType.id"}
+      - msg: "Data is empty on query"
+        assertions:
+          - ref: res.body.data.locations.edges[].node.data
+            nil: true
+
+  - name: "Cleanup - delete location"
+    operation: management.deleteLocation
+    vars:
+      id: {$ref: "res[createEntity].body.data.createLocation.location.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete v4"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[v4].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete v3"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[v3].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete v2"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[v2].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete v1"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[v1].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

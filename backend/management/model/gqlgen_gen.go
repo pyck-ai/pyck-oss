@@ -173,10 +173,9 @@ type ServiceRole struct {
 }
 
 type SetKeyValueInput struct {
-	Name         string         `json:"name"`
-	DataTypeID   *uuid.UUID     `json:"dataTypeID,omitempty"`
-	DataTypeSlug *string        `json:"dataTypeSlug,omitempty"`
-	Data         map[string]any `json:"data"`
+	Name       string         `json:"name"`
+	DataTypeID *uuid.UUID     `json:"dataTypeID,omitempty"`
+	Data       map[string]any `json:"data"`
 }
 
 // Input for setTenantExpiry. Target tenant derived from

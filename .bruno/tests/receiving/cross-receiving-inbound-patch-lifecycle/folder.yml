@@ -4,7 +4,7 @@ info:
   seq: 1
 
 docs: |-
-  Tests JSON Patch (RFC 6902) operations on receiving inbounds and inbound items. Creates a data type and inbound with data, patches individual fields, verifies changes persist, then cleans up.
+  Tests JSON Patch (RFC 6902) operations on receiving inbounds and inbound items. Creates a data type, inbound with data, and inbound item. Patches fields on both, verifies changes persist, then cleans up.
 
 
 request:

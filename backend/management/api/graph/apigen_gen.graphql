@@ -28,6 +28,7 @@ query GetDataTypes($after: Cursor, $first: Int, $before: Cursor, $last: Int, $or
         tenantID
         updatedAt
         updatedBy
+        version
       }
     }
   }
@@ -255,6 +256,28 @@ query GetDataTypeEntities {
 }
 
 
+query GetDataTypeBySlug($slug: String!) {
+  dataTypeBySlug(slug: $slug) {
+    createdAt
+    createdBy
+    default
+    deletedAt
+    deletedBy
+    description
+    entity
+    frontendSchema
+    id
+    jsonSchema
+    name
+    slug
+    tenantID
+    updatedAt
+    updatedBy
+    version
+  }
+}
+
+
 query GetOrganization($sub: String!) {
   organization(sub: $sub) {
     active
@@ -323,6 +346,7 @@ mutation CreateDataType($input: CreateDataTypeInput!) {
     tenantID
     updatedAt
     updatedBy
+    version
   }
 }
 
@@ -344,6 +368,7 @@ mutation UpdateDataType($id: ID!, $input: UpdateDataTypeInput!) {
     tenantID
     updatedAt
     updatedBy
+    version
   }
 }
 

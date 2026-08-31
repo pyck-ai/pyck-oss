@@ -39,6 +39,7 @@ func (Order) Annotations() []schema.Annotation {
 		entgql.Directives(keyDirective, importexport.Importable("",
 			importexport.WithList("pickingOrders"),
 			importexport.WithCreate("createPickingOrder"),
+			importexport.WithDataTypeReference(),
 		)),
 		entgql.QueryField(),
 		entgql.Mutations(entgql.MutationCreate(), entgql.MutationUpdate()),

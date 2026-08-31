@@ -43,7 +43,7 @@ graphql:
             "density": "compact",
             "theme": "dark"
           },
-          "dataTypeSlug": "{{bru-test_user-management-keyvalue-lifecycle_4da9669e}}",
+          "dataTypeID": "{{bru-test_user-management-keyvalue-lifecycle_f216fba0}}",
           "name": "ui.theme"
         }
       }

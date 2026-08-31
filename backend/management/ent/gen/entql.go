@@ -47,8 +47,9 @@ var schemaGraph = func() *sqlgraph.Schema {
 			datatype.FieldDescription:    {Type: field.TypeString, Column: datatype.FieldDescription},
 			datatype.FieldJSONSchema:     {Type: field.TypeString, Column: datatype.FieldJSONSchema},
 			datatype.FieldFrontendSchema: {Type: field.TypeString, Column: datatype.FieldFrontendSchema},
-			datatype.FieldDefault:        {Type: field.TypeBool, Column: datatype.FieldDefault},
 			datatype.FieldEntity:         {Type: field.TypeString, Column: datatype.FieldEntity},
+			datatype.FieldDefault:        {Type: field.TypeBool, Column: datatype.FieldDefault},
+			datatype.FieldVersion:        {Type: field.TypeInt, Column: datatype.FieldVersion},
 		},
 	}
 	graph.Nodes[1] = &sqlgraph.Node{
@@ -505,14 +506,19 @@ func (f *DataTypeFilter) WhereFrontendSchema(p entql.StringP) {
 	f.Where(p.Field(datatype.FieldFrontendSchema))
 }
 
+// WhereEntity applies the entql string predicate on the entity field.
+func (f *DataTypeFilter) WhereEntity(p entql.StringP) {
+	f.Where(p.Field(datatype.FieldEntity))
+}
+
 // WhereDefault applies the entql bool predicate on the default field.
 func (f *DataTypeFilter) WhereDefault(p entql.BoolP) {
 	f.Where(p.Field(datatype.FieldDefault))
 }
 
-// WhereEntity applies the entql string predicate on the entity field.
-func (f *DataTypeFilter) WhereEntity(p entql.StringP) {
-	f.Where(p.Field(datatype.FieldEntity))
+// WhereVersion applies the entql int predicate on the version field.
+func (f *DataTypeFilter) WhereVersion(p entql.IntP) {
+	f.Where(p.Field(datatype.FieldVersion))
 }
 
 // addPredicate implements the predicateAdder interface.

@@ -1,9 +1,8 @@
 ---
-name: "Cross - Inventory Item Slug Reference"
+name: "Cross - Inventory Item Data Type ID Reference"
 description: >
-  Creates a data type with a slug and references it by slug when
-  creating inventory items. Verifies dataTypeID and dataTypeSlug
-  are persisted correctly.
+  Creates a data type and references it by ID when creating inventory
+  items. Verifies dataTypeID and dataTypeSlug are persisted correctly.
 steps:
   - id: createDT
     name: "Create data type with slug for items"
@@ -31,11 +30,11 @@ steps:
             nil: false
 
   - id: create
-    name: "Create item via slug"
+    name: "Create item via ID"
     operation: inventory.createInventoryItem
     vars:
       input:
-        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         sku: {$fake: "{{uuid}}"}
         data:
           color: "red"
@@ -52,7 +51,7 @@ steps:
         assertions:
           - ref: res.body.data.createInventoryItem.inventoryItem.id
             nil: false
-      - msg: "DataTypeID persisted from slug"
+      - msg: "DataTypeID persisted"
         assertions:
           - ref: res.body.data.createInventoryItem.inventoryItem.dataTypeID
             equal: {$ref: "res[createDT].body.data.createDataType.id"}

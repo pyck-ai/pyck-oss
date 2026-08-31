@@ -104,13 +104,12 @@ type RegisterWorkflowSignalInput struct {
 }
 
 type RegisterWorkflowWithSignalsInput struct {
-	DataTypeID   *uuid.UUID                     `json:"dataTypeID,omitempty"`
-	DataTypeSlug *string                        `json:"dataTypeSlug,omitempty"`
-	Data         map[string]any                 `json:"data,omitempty"`
-	Name         string                         `json:"name"`
-	TaskQueue    string                         `json:"taskQueue"`
-	WorkerID     *string                        `json:"workerID,omitempty"`
-	Signals      []*RegisterWorkflowSignalInput `json:"signals,omitempty"`
+	DataTypeID *uuid.UUID                     `json:"dataTypeID,omitempty"`
+	Data       map[string]any                 `json:"data,omitempty"`
+	Name       string                         `json:"name"`
+	TaskQueue  string                         `json:"taskQueue"`
+	WorkerID   *string                        `json:"workerID,omitempty"`
+	Signals    []*RegisterWorkflowSignalInput `json:"signals,omitempty"`
 }
 
 type RemoteUIQueryInput struct {

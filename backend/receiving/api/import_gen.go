@@ -26,9 +26,10 @@ func RegisterEntities(r *importexport.Registry, c Client) error {
 
 func registerReceivingInbound(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "ReceivingInbound",
-		Service:       "receiving",
-		IdentityField: "",
+		TypeName:       "ReceivingInbound",
+		Service:        "receiving",
+		IdentityFields: []string{},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *ReceivingInboundWhereInput
 			if where != nil {
@@ -71,9 +72,10 @@ func registerReceivingInbound(r *importexport.Registry, c Client) error {
 
 func registerReceivingInboundItem(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "ReceivingInboundItem",
-		Service:       "receiving",
-		IdentityField: "",
+		TypeName:       "ReceivingInboundItem",
+		Service:        "receiving",
+		IdentityFields: []string{},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *ReceivingInboundItemWhereInput
 			if where != nil {

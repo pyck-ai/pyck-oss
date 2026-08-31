@@ -11,7 +11,6 @@ import (
 
 	"entgo.io/ent/dialect"
 	"github.com/google/uuid"
-	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
 	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/request"
@@ -27,14 +26,12 @@ import (
 // CreateCustomer is the resolver for the createCustomer field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) CreateCustomer(ctx context.Context, input ent.CreateCustomerInput) (*ent.Customer, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	create, dataType, err := tx.Customer.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -49,10 +46,7 @@ func (r *mutationResolver) CreateCustomer(ctx context.Context, input ent.CreateC
 		return nil, err
 	}
 
-	customer, err := tx.Customer.
-		Create().
-		SetInput(input).
-		Save(ctx)
+	customer, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -63,14 +57,12 @@ func (r *mutationResolver) CreateCustomer(ctx context.Context, input ent.CreateC
 // UpdateCustomer is the resolver for the updateCustomer field.
 // MutationEventHook captures the mutation automatically with field-level events.
 func (r *mutationResolver) UpdateCustomer(ctx context.Context, id uuid.UUID, input ent.UpdateCustomerInput) (*ent.Customer, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	update, dataType, err := tx.Customer.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +78,7 @@ func (r *mutationResolver) UpdateCustomer(ctx context.Context, id uuid.UUID, inp
 		return nil, err
 	}
 
-	customer, err := tx.Customer.UpdateOneID(id).SetInput(input).Save(ctx)
+	customer, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -118,14 +110,12 @@ func (r *mutationResolver) DeleteCustomer(ctx context.Context, id uuid.UUID) (*m
 // CreateSupplier is the resolver for the createSupplier field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) CreateSupplier(ctx context.Context, input ent.CreateSupplierInput) (*ent.Supplier, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	create, dataType, err := tx.Supplier.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -140,10 +130,7 @@ func (r *mutationResolver) CreateSupplier(ctx context.Context, input ent.CreateS
 		return nil, err
 	}
 
-	supplier, err := tx.Supplier.
-		Create().
-		SetInput(input).
-		Save(ctx)
+	supplier, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -154,14 +141,12 @@ func (r *mutationResolver) CreateSupplier(ctx context.Context, input ent.CreateS
 // UpdateSupplier is the resolver for the updateSupplier field.
 // MutationEventHook captures the mutation automatically with field-level events.
 func (r *mutationResolver) UpdateSupplier(ctx context.Context, id uuid.UUID, input ent.UpdateSupplierInput) (*ent.Supplier, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	update, dataType, err := tx.Supplier.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +162,7 @@ func (r *mutationResolver) UpdateSupplier(ctx context.Context, id uuid.UUID, inp
 		return nil, err
 	}
 
-	supplier, err := tx.Supplier.UpdateOneID(id).SetInput(input).Save(ctx)
+	supplier, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}

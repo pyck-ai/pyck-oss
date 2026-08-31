@@ -1,9 +1,9 @@
 ---
-name: "Cross - Customer Data Type Slug Reference"
+name: "Cross - Customer Data Type ID Reference"
 description: >
-  Creates a data type with a slug and references it by slug when
-  creating and updating customers. Verifies dataTypeID and
-  dataTypeSlug are persisted.
+  Creates a data type and references it by ID when creating and
+  updating customers. Verifies dataTypeID and dataTypeSlug are
+  persisted.
 steps:
   - id: createDT
     name: "Create data type with slug for customers"
@@ -31,11 +31,11 @@ steps:
             nil: false
 
   - id: create
-    name: "Create customer via slug"
+    name: "Create customer via ID"
     operation: main-data.createCustomer
     vars:
       input:
-        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         data:
           contactEmail: "info@acme.test"
           active: true
@@ -52,7 +52,7 @@ steps:
         assertions:
           - ref: res.body.data.createCustomer.id
             nil: false
-      - msg: "DataTypeID persisted from slug"
+      - msg: "DataTypeID persisted"
         assertions:
           - ref: res.body.data.createCustomer.dataTypeID
             equal: {$ref: "res[createDT].body.data.createDataType.id"}
@@ -94,11 +94,11 @@ steps:
           - ref: res.body.data.customers.edges[].node.data.active
             equal: true
 
-  - name: "Reject invalid data via slug"
+  - name: "Reject invalid data via ID"
     operation: main-data.createCustomer
     vars:
       input:
-        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         data:
           contactEmail: 12345
     tests:

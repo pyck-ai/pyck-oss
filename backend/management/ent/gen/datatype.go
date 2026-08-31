@@ -42,10 +42,12 @@ type DataType struct {
 	JSONSchema string `json:"json_schema,omitempty"`
 	// FrontendSchema holds the value of the "frontend_schema" field.
 	FrontendSchema string `json:"frontend_schema,omitempty"`
+	// Entity holds the value of the "entity" field.
+	Entity string `json:"entity,omitempty"`
 	// Default holds the value of the "default" field.
 	Default bool `json:"default,omitempty"`
-	// Entity holds the value of the "entity" field.
-	Entity       string `json:"entity,omitempty"`
+	// Version holds the value of the "version" field.
+	Version      int `json:"version,omitempty"`
 	selectValues sql.SelectValues
 }
 
@@ -56,6 +58,8 @@ func (*DataType) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case datatype.FieldDefault:
 			values[i] = new(sql.NullBool)
+		case datatype.FieldVersion:
+			values[i] = new(sql.NullInt64)
 		case datatype.FieldName, datatype.FieldSlug, datatype.FieldDescription, datatype.FieldJSONSchema, datatype.FieldFrontendSchema, datatype.FieldEntity:
 			values[i] = new(sql.NullString)
 		case datatype.FieldCreatedAt, datatype.FieldUpdatedAt, datatype.FieldDeletedAt:
@@ -155,17 +159,23 @@ func (_m *DataType) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.FrontendSchema = value.String
 			}
+		case datatype.FieldEntity:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field entity", values[i])
+			} else if value.Valid {
+				_m.Entity = value.String
+			}
 		case datatype.FieldDefault:
 			if value, ok := values[i].(*sql.NullBool); !ok {
 				return fmt.Errorf("unexpected type %T for field default", values[i])
 			} else if value.Valid {
 				_m.Default = value.Bool
 			}
-		case datatype.FieldEntity:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field entity", values[i])
+		case datatype.FieldVersion:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field version", values[i])
 			} else if value.Valid {
-				_m.Entity = value.String
+				_m.Version = int(value.Int64)
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -239,11 +249,14 @@ func (_m *DataType) String() string {
 	builder.WriteString("frontend_schema=")
 	builder.WriteString(_m.FrontendSchema)
 	builder.WriteString(", ")
+	builder.WriteString("entity=")
+	builder.WriteString(_m.Entity)
+	builder.WriteString(", ")
 	builder.WriteString("default=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Default))
 	builder.WriteString(", ")
-	builder.WriteString("entity=")
-	builder.WriteString(_m.Entity)
+	builder.WriteString("version=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Version))
 	builder.WriteByte(')')
 	return builder.String()
 }

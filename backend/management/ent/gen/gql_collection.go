@@ -103,15 +103,20 @@ func (_q *DataTypeQuery) collectField(ctx context.Context, oneNode bool, opCtx *
 				selectedFields = append(selectedFields, datatype.FieldFrontendSchema)
 				fieldSeen[datatype.FieldFrontendSchema] = struct{}{}
 			}
+		case "entity":
+			if _, ok := fieldSeen[datatype.FieldEntity]; !ok {
+				selectedFields = append(selectedFields, datatype.FieldEntity)
+				fieldSeen[datatype.FieldEntity] = struct{}{}
+			}
 		case "default":
 			if _, ok := fieldSeen[datatype.FieldDefault]; !ok {
 				selectedFields = append(selectedFields, datatype.FieldDefault)
 				fieldSeen[datatype.FieldDefault] = struct{}{}
 			}
-		case "entity":
-			if _, ok := fieldSeen[datatype.FieldEntity]; !ok {
-				selectedFields = append(selectedFields, datatype.FieldEntity)
-				fieldSeen[datatype.FieldEntity] = struct{}{}
+		case "version":
+			if _, ok := fieldSeen[datatype.FieldVersion]; !ok {
+				selectedFields = append(selectedFields, datatype.FieldVersion)
+				fieldSeen[datatype.FieldVersion] = struct{}{}
 			}
 		case "id":
 		case "__typename":

@@ -28,9 +28,26 @@ steps:
       nil: false
     - ref: res.body.data.createReplenishmentOrder.replenishmentOrder.id
       nil: false
+- name: Verify one order item created
+  # order -> replenishmentOrderItems connection isn't selected by the generated
+  # operations (apigen emits scalar node fields only); count items by parent.
+  operation: inventory.getReplenishmentOrderItems
+  vars:
+    where:
+      replenishmentOrderID:
+        $ref: res[createOrder].body.data.createReplenishmentOrder.replenishmentOrder.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
   - msg: One order item created
     assertions:
-    - ref: res.body.data.createReplenishmentOrder.replenishmentOrder.replenishmentOrderItems.totalCount
+    - ref: res.body.data.replenishmentOrderItems.totalCount
       equal: 1
 - name: Get created order
   operation: inventory.getReplenishmentOrders

@@ -31,6 +31,7 @@ func (ItemSet) Annotations() []schema.Annotation {
 			importexport.WithList("inventoryItemSets"),
 			importexport.WithCreate("createInventoryItemSet"),
 			importexport.WithUpdate("updateInventoryItemSet"),
+			importexport.WithDataTypeReference(),
 		)),
 		entgql.OrderField("sku"),
 	}

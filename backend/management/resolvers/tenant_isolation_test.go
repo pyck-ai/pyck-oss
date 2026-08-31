@@ -302,12 +302,7 @@ func checkCrossUpdate(t *testing.T, te *testEnv, ctx context.Context, check tena
 
 	switch check.Entity {
 	case "dataType":
-		execErr(te, ctx, updateDataType, map[string]any{
-			"ID":          targetID,
-			"Name":        "cross-tenant-test",
-			"Description": "cross-tenant-test",
-			"JsonSchema":  testresolver.EscapeJSON(testDataTypeSchema),
-		}, check.ExpectError)
+		execErr(te, ctx, updateDataType, map[string]any{"ID": targetID, "Name": "cross-tenant-test"}, check.ExpectError)
 	case "location":
 		execErr(te, ctx, updateLocation, map[string]any{"ID": targetID, "Name": "cross-tenant-test"}, check.ExpectError)
 	case "device":

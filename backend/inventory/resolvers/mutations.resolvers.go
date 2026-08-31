@@ -44,14 +44,12 @@ import (
 // CreateInventoryItem is the resolver for the createInventoryItem field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) CreateInventoryItem(ctx context.Context, input ent.CreateInventoryItemInput) (*model.InventoryItemOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	create, dataType, err := tx.Item.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -73,10 +71,7 @@ func (r *mutationResolver) CreateInventoryItem(ctx context.Context, input ent.Cr
 		return nil, err
 	}
 
-	item, err := tx.Item.
-		Create().
-		SetInput(input).
-		Save(ctx)
+	item, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -90,14 +85,12 @@ func (r *mutationResolver) CreateInventoryItem(ctx context.Context, input ent.Cr
 // UpdateInventoryItem is the resolver for the updateInventoryItem field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) UpdateInventoryItem(ctx context.Context, id uuid.UUID, input ent.UpdateInventoryItemInput) (*model.InventoryItemOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	update, dataType, err := tx.Item.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -125,10 +118,7 @@ func (r *mutationResolver) UpdateInventoryItem(ctx context.Context, id uuid.UUID
 		return nil, err
 	}
 
-	item, err := tx.Item.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
+	item, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -201,14 +191,12 @@ func (r *mutationResolver) DeleteInventoryItem(ctx context.Context, id uuid.UUID
 // CreateInventoryRepository is the resolver for the createInventoryRepository field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) CreateInventoryRepository(ctx context.Context, input ent.CreateRepositoryInput) (*model.InventoryRepositoryOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	create, dataType, err := tx.Repository.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -252,9 +240,7 @@ func (r *mutationResolver) CreateInventoryRepository(ctx context.Context, input 
 		return nil, err
 	}
 
-	repo, err := tx.Repository.Create().
-		SetInput(input).
-		Save(ctx)
+	repo, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -268,14 +254,12 @@ func (r *mutationResolver) CreateInventoryRepository(ctx context.Context, input 
 // UpdateInventoryRepository is the resolver for the updateInventoryRepository field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) UpdateInventoryRepository(ctx context.Context, id uuid.UUID, input ent.UpdateRepositoryInput) (*model.InventoryRepositoryOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	update, dataType, err := tx.Repository.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -314,10 +298,7 @@ func (r *mutationResolver) UpdateInventoryRepository(ctx context.Context, id uui
 		return nil, err
 	}
 
-	repo, err := tx.Repository.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
+	repo, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -387,11 +368,10 @@ func (r *mutationResolver) DeleteInventoryRepository(ctx context.Context, id uui
 // CreateInventoryItemMovement is the resolver for the createInventoryItemMovement field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) CreateInventoryItemMovement(ctx context.Context, input ent.CreateItemMovementInput) (*model.InventoryItemMovementOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, nil)
 	if err != nil {
 		return nil, err
 	}
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
 	if input.CollectionID == nil {
 		input.CollectionID = &uuid.UUID{}
 	}
@@ -405,9 +385,13 @@ func (r *mutationResolver) CreateInventoryItemMovement(ctx context.Context, inpu
 			TableName: itemmovement.Table, FieldName: itemmovement.FieldData,
 		})
 	}
-	movement, err := r.stock.CreateItemMovement(ctx, tx, stocksvc.CreateItemMovementInput{
+	itemMovementInput := stocksvc.CreateItemMovementInput{
 		Input: input, TenantID: request.ForContext(ctx).MutationTenantID(), ValidateUniquenessHook: uniqueness,
-	})
+	}
+	if dataType != nil {
+		itemMovementInput.DataTypeSlug = &dataType.Slug
+	}
+	movement, err := r.stock.CreateItemMovement(ctx, tx, itemMovementInput)
 	if err != nil {
 		return nil, err
 	}
@@ -417,14 +401,12 @@ func (r *mutationResolver) CreateInventoryItemMovement(ctx context.Context, inpu
 // UpdateInventoryItemMovement is the resolver for the updateInventoryItemMovement field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) UpdateInventoryItemMovement(ctx context.Context, id uuid.UUID, input ent.UpdateItemMovementInput) (*model.InventoryItemMovementOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	update, dataType, err := tx.ItemMovement.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +429,7 @@ func (r *mutationResolver) UpdateInventoryItemMovement(ctx context.Context, id u
 		return nil, err
 	}
 
-	movement, err := tx.ItemMovement.UpdateOneID(id).SetInput(input).Save(ctx)
+	movement, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -493,11 +475,10 @@ func (r *mutationResolver) DeleteInventoryItemMovement(ctx context.Context, id u
 // CreateInventoryRepositoryMovement is the resolver for the createInventoryRepositoryMovement field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) CreateInventoryRepositoryMovement(ctx context.Context, input ent.CreateRepositoryMovementInput) (*model.InventoryRepositoryMovementOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, nil)
 	if err != nil {
 		return nil, err
 	}
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
 	if input.CollectionID == nil {
 		input.CollectionID = &uuid.UUID{}
 	}
@@ -511,9 +492,13 @@ func (r *mutationResolver) CreateInventoryRepositoryMovement(ctx context.Context
 			TableName: repositorymovement.Table, FieldName: repositorymovement.FieldData,
 		})
 	}
-	movement, err := r.stock.CreateRepositoryMovement(ctx, tx, stocksvc.CreateRepositoryMovementInput{
+	repositoryMovementInput := stocksvc.CreateRepositoryMovementInput{
 		Input: input, TenantID: request.ForContext(ctx).MutationTenantID(), ValidateUniquenessHook: uniqueness,
-	})
+	}
+	if dataType != nil {
+		repositoryMovementInput.DataTypeSlug = &dataType.Slug
+	}
+	movement, err := r.stock.CreateRepositoryMovement(ctx, tx, repositoryMovementInput)
 	if err != nil {
 		return nil, err
 	}
@@ -523,14 +508,12 @@ func (r *mutationResolver) CreateInventoryRepositoryMovement(ctx context.Context
 // UpdateInventoryRepositoryMovement is the resolver for the updateInventoryRepositoryMovement field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) UpdateInventoryRepositoryMovement(ctx context.Context, id uuid.UUID, input ent.UpdateRepositoryMovementInput) (*model.InventoryRepositoryMovementOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	update, dataType, err := tx.RepositoryMovement.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -553,7 +536,7 @@ func (r *mutationResolver) UpdateInventoryRepositoryMovement(ctx context.Context
 		return nil, err
 	}
 
-	movement, err := tx.RepositoryMovement.UpdateOneID(id).SetInput(input).Save(ctx)
+	movement, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -599,30 +582,26 @@ func (r *mutationResolver) DeleteInventoryRepositoryMovement(ctx context.Context
 // CreateInventoryCollectionMovement is the resolver for the createInventoryCollectionMovement field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) CreateInventoryCollectionMovement(ctx context.Context, input model.CreateCollectionMovementInput) (*model.CreateCollectionMovementOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, nil)
 	if err != nil {
 		return nil, err
 	}
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	// Validate per-position data type and patch DataTypeID/DataTypeSlug onto the
-	// per-position GraphQL input. Carries the resolver-side validator
-	// responsibility; the stock service consumes the already-validated values.
+	// Validate per-position data type. The resolver owns this loop; the
+	// stock service consumes the already-validated values.
 	collection := make([]stocksvc.CreateCollectionMovementCollectionInput, len(input.Collection))
 	for i, position := range input.Collection {
-		collDataType, err := r.validator.ValidateDataTypeInput(ctx, true, position.Data, position.DataTypeID, position.DataTypeSlug)
+		collDataType, err := r.validator.ValidateDataTypeInput(ctx, true, position.Data, position.DataTypeID, nil)
 		if err != nil {
 			return nil, err
 		}
-		mixin.PatchDataTypeIdSlugInput(position, collDataType)
 		collection[i] = stocksvc.CreateCollectionMovementCollectionInput{
 			Handler:      position.Handler,
 			DataTypeID:   position.DataTypeID,
-			DataTypeSlug: position.DataTypeSlug,
 			Data:         position.Data,
 			FromID:       position.FromID,
 			ToID:         position.ToID,
@@ -631,11 +610,18 @@ func (r *mutationResolver) CreateInventoryCollectionMovement(ctx context.Context
 			RepositoryID: position.RepositoryID,
 			OrderID:      position.OrderID,
 		}
+		if collDataType != nil {
+			slug := collDataType.Slug
+			collection[i].DataTypeSlug = &slug
+		}
 	}
 
 	resolvedDataTypeID := input.DataTypeID
+	var resolvedDataTypeSlug *string
 	if dataType != nil {
 		resolvedDataTypeID = &dataType.ID
+		slug := dataType.Slug
+		resolvedDataTypeSlug = &slug
 	}
 	uniqueness := func() error {
 		return r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
@@ -644,7 +630,7 @@ func (r *mutationResolver) CreateInventoryCollectionMovement(ctx context.Context
 		})
 	}
 	out, err := r.stock.CreateCollectionMovement(ctx, tx, stocksvc.CreateCollectionMovementInput{
-		ID: uuidgql.GenerateV7UUID(), DataTypeID: resolvedDataTypeID, DataTypeSlug: input.DataTypeSlug,
+		ID: uuidgql.GenerateV7UUID(), DataTypeID: resolvedDataTypeID, DataTypeSlug: resolvedDataTypeSlug,
 		Data: input.Data, Handler: input.Handler, Collection: collection,
 		TenantID: request.ForContext(ctx).MutationTenantID(), PreInsertStockHook: uniqueness,
 	})
@@ -661,13 +647,6 @@ func (r *mutationResolver) CreateInventoryCollectionMovement(ctx context.Context
 // UpdateInventoryCollectionMovement is the resolver for the updateInventoryCollectionMovement field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) UpdateInventoryCollectionMovement(ctx context.Context, id uuid.UUID, input ent.UpdateInventoryCollectionInput) (*model.UpdateCollectionMovementOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
-	if err != nil {
-		return nil, err
-	}
-
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
@@ -677,6 +656,11 @@ func (r *mutationResolver) UpdateInventoryCollectionMovement(ctx context.Context
 
 	if input.Handler != nil && *input.Handler == "" {
 		input.Handler = nil
+	}
+
+	update, dataType, err := tx.Collection_Movement.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
+	if err != nil {
+		return nil, err
 	}
 
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
@@ -690,10 +674,7 @@ func (r *mutationResolver) UpdateInventoryCollectionMovement(ctx context.Context
 		return nil, err
 	}
 
-	collectionMovement, err := tx.Collection_Movement.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
+	collectionMovement, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -909,14 +890,12 @@ func (r *mutationResolver) RebuildInventoryStock(ctx context.Context) (*model.Re
 // CreateInventoryItemSet is the resolver for the createInventoryItemSet field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) CreateInventoryItemSet(ctx context.Context, input ent.CreateInventoryItemSetInput) (*model.InventoryItemSetOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	create, dataType, err := tx.ItemSet.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -958,10 +937,7 @@ func (r *mutationResolver) CreateInventoryItemSet(ctx context.Context, input ent
 		return nil, err
 	}
 
-	itemSet, err := tx.ItemSet.
-		Create().
-		SetInput(input).
-		Save(ctx)
+	itemSet, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -975,14 +951,12 @@ func (r *mutationResolver) CreateInventoryItemSet(ctx context.Context, input ent
 // UpdateInventoryItemSet is the resolver for the updateInventoryItemSet field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) UpdateInventoryItemSet(ctx context.Context, id uuid.UUID, input ent.UpdateInventoryItemSetInput) (*model.InventoryItemSetOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	update, dataType, err := tx.ItemSet.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -1032,7 +1006,7 @@ func (r *mutationResolver) UpdateInventoryItemSet(ctx context.Context, id uuid.U
 		return nil, err
 	}
 
-	itemSet, err := tx.ItemSet.UpdateOneID(id).SetInput(input).Save(ctx)
+	itemSet, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1071,12 +1045,10 @@ func (r *mutationResolver) DeleteInventoryItemSet(ctx context.Context, id uuid.U
 // CreateReplenishmentOrder is the resolver for the createReplenishmentOrder field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) CreateReplenishmentOrder(ctx context.Context, input model.CreateReplenishmentOrderWithItemsInput) (*model.ReplenishmentOrderOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
 
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
@@ -1100,9 +1072,12 @@ func (r *mutationResolver) CreateReplenishmentOrder(ctx context.Context, input m
 	orderInput.SupplierID = input.SupplierID
 	if dataType != nil {
 		orderInput.DataTypeID = &dataType.ID
-		orderInput.DataTypeSlug = &dataType.Slug
 	}
-	createdOrder, err := tx.ReplenishmentOrder.Create().SetInput(orderInput).Save(ctx)
+	orderCreate := tx.ReplenishmentOrder.Create().SetInput(orderInput)
+	if dataType != nil {
+		orderCreate.SetDataTypeSlug(dataType.Slug)
+	}
+	createdOrder, err := orderCreate.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1113,11 +1088,10 @@ func (r *mutationResolver) CreateReplenishmentOrder(ctx context.Context, input m
 		if item == nil {
 			continue
 		}
-		itemDataType, err := r.validator.ValidateDataTypeInput(ctx, true, item.Data, item.DataTypeID, item.DataTypeSlug)
+		itemDataType, err := r.validator.ValidateDataTypeInput(ctx, true, item.Data, item.DataTypeID, nil)
 		if err != nil {
 			return nil, err
 		}
-		mixin.PatchDataTypeIdSlugInput(item, itemDataType)
 		if err := r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 			Input:     item.Data,
 			DataType:  itemDataType,
@@ -1135,9 +1109,12 @@ func (r *mutationResolver) CreateReplenishmentOrder(ctx context.Context, input m
 		}
 		if itemDataType != nil {
 			createInput.DataTypeID = &itemDataType.ID
-			createInput.DataTypeSlug = &itemDataType.Slug
 		}
-		bulk = append(bulk, tx.ReplenishmentOrderItem.Create().SetInput(createInput))
+		itemCreate := tx.ReplenishmentOrderItem.Create().SetInput(createInput)
+		if itemDataType != nil {
+			itemCreate.SetDataTypeSlug(itemDataType.Slug)
+		}
+		bulk = append(bulk, itemCreate)
 	}
 
 	// Bulk create order items
@@ -1157,15 +1134,14 @@ func (r *mutationResolver) CreateReplenishmentOrder(ctx context.Context, input m
 // UpdateReplenishmentOrder is the resolver for the updateReplenishmentOrder field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) UpdateReplenishmentOrder(ctx context.Context, id uuid.UUID, input ent.UpdateReplenishmentOrderInput) (*model.ReplenishmentOrderOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
-	if err != nil {
-		log.ForContext(ctx).Err(err).Msg("Failed data type validation in UpdateReplenishmentOrder")
-		return nil, err
-	}
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
+		return nil, err
+	}
+
+	update, dataType, err := tx.ReplenishmentOrder.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
+	if err != nil {
+		log.ForContext(ctx).Err(err).Msg("Failed data type validation in UpdateReplenishmentOrder")
 		return nil, err
 	}
 
@@ -1190,10 +1166,7 @@ func (r *mutationResolver) UpdateReplenishmentOrder(ctx context.Context, id uuid
 		return nil, err
 	}
 
-	order, err := tx.ReplenishmentOrder.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
+	order, err := update.Save(ctx)
 	if err != nil {
 		log.ForContext(ctx).Err(err).Msg("Failed to update replenishment order in database")
 		return nil, err
@@ -1261,13 +1234,12 @@ func (r *mutationResolver) DeleteReplenishmentOrder(ctx context.Context, id uuid
 // CreateReplenishmentOrderItem is the resolver for the createReplenishmentOrderItem field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) CreateReplenishmentOrderItem(ctx context.Context, input ent.CreateReplenishmentOrderItemInput) (*model.ReplenishmentOrderItemOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
 
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	create, _, err := tx.ReplenishmentOrderItem.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -1279,9 +1251,7 @@ func (r *mutationResolver) CreateReplenishmentOrderItem(ctx context.Context, inp
 		return nil, fmt.Errorf("invalid replenishment order: %w", err)
 	}
 
-	orderItem, err := tx.ReplenishmentOrderItem.Create().
-		SetInput(input).
-		Save(ctx)
+	orderItem, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1295,13 +1265,12 @@ func (r *mutationResolver) CreateReplenishmentOrderItem(ctx context.Context, inp
 // UpdateReplenishmentOrderItem is the resolver for the updateReplenishmentOrderItem field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) UpdateReplenishmentOrderItem(ctx context.Context, id uuid.UUID, input ent.UpdateReplenishmentOrderItemInput) (*model.ReplenishmentOrderItemOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
 
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	update, dataType, err := tx.ReplenishmentOrderItem.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -1320,10 +1289,7 @@ func (r *mutationResolver) UpdateReplenishmentOrderItem(ctx context.Context, id 
 		return nil, err
 	}
 
-	orderItem, err := tx.ReplenishmentOrderItem.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
+	orderItem, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -1,0 +1,11 @@
+info:
+  name: Cross - Inventory Data Type Cache Versions
+  type: folder
+  seq: 1
+
+docs: |-
+  Deeper coverage of the inventory DataType cache beyond simple create/delete propagation: the cache holds multiple versions of one slug independently (each id enforces its own schema), deleting one version drops only that id and leaves sibling versions resolvable, and an entity write issued immediately after a datatype create (cache-miss window) still resolves via the management ReadByID fallback.
+
+
+request:
+  auth: inherit

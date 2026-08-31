@@ -585,11 +585,14 @@ func (s *service) createItemMovementViaGo(ctx context.Context, tx *ent.Tx, dto C
 		}
 	}
 
-	movement, err := tx.ItemMovement.
+	create := tx.ItemMovement.
 		Create().
 		SetInput(input).
-		SetExecuted(false).
-		Save(ctx)
+		SetExecuted(false)
+	if dto.DataTypeSlug != nil {
+		create.SetDataTypeSlug(*dto.DataTypeSlug)
+	}
+	movement, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -664,8 +667,8 @@ func (s *service) createItemMovementViaProc(ctx context.Context, tx *ent.Tx, dto
 		dataTypeID = *input.DataTypeID
 	}
 	var dataTypeSlug any
-	if input.DataTypeSlug != nil {
-		dataTypeSlug = *input.DataTypeSlug
+	if dto.DataTypeSlug != nil {
+		dataTypeSlug = *dto.DataTypeSlug
 	}
 
 	const procCall = `SELECT inventory.create_item_movement_proc(` +
@@ -1055,11 +1058,14 @@ func (s *service) CreateRepositoryMovement(ctx context.Context, tx *ent.Tx, dto 
 		}
 	}
 
-	movement, err := tx.RepositoryMovement.
+	create := tx.RepositoryMovement.
 		Create().
 		SetInput(input).
-		SetExecuted(false).
-		Save(ctx)
+		SetExecuted(false)
+	if dto.DataTypeSlug != nil {
+		create.SetDataTypeSlug(*dto.DataTypeSlug)
+	}
+	movement, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1486,6 +1492,10 @@ func (s *service) CreateCollectionMovement(ctx context.Context, tx *ent.Tx, dto 
 		SetTenantID(dto.TenantID).
 		SetCreatedAt(time.Now().UTC())
 
+	if dto.DataTypeSlug != nil {
+		movement.SetDataTypeSlug(*dto.DataTypeSlug)
+	}
+
 	if dto.Handler != nil && *dto.Handler != "" {
 		movement.SetHandler(*dto.Handler)
 	}
@@ -1521,7 +1531,6 @@ func (s *service) CreateCollectionMovement(ctx context.Context, tx *ent.Tx, dto 
 			itemMov, err := s.CreateItemMovement(deferredCtx, tx, CreateItemMovementInput{
 				Input: ent.CreateItemMovementInput{
 					DataTypeID:   collection.DataTypeID,
-					DataTypeSlug: collection.DataTypeSlug,
 					Data:         collection.Data,
 					Quantity:     *collection.Quantity,
 					Handler:      collection.Handler,
@@ -1532,7 +1541,8 @@ func (s *service) CreateCollectionMovement(ctx context.Context, tx *ent.Tx, dto 
 					Position:     &idx,
 					OrderID:      collection.OrderID,
 				},
-				TenantID: dto.TenantID,
+				DataTypeSlug: collection.DataTypeSlug,
+				TenantID:     dto.TenantID,
 			})
 			if err != nil {
 				return result, fmt.Errorf("failed creating item movement: %w", err)
@@ -1562,7 +1572,6 @@ func (s *service) CreateCollectionMovement(ctx context.Context, tx *ent.Tx, dto 
 			repoMov, err := s.CreateRepositoryMovement(deferredCtx, tx, CreateRepositoryMovementInput{
 				Input: ent.CreateRepositoryMovementInput{
 					DataTypeID:   collection.DataTypeID,
-					DataTypeSlug: collection.DataTypeSlug,
 					Data:         collection.Data,
 					Handler:      collection.Handler,
 					ToID:         collection.ToID,
@@ -1572,7 +1581,8 @@ func (s *service) CreateCollectionMovement(ctx context.Context, tx *ent.Tx, dto 
 					Position:     &idx,
 					OrderID:      collection.OrderID,
 				},
-				TenantID: dto.TenantID,
+				DataTypeSlug: collection.DataTypeSlug,
+				TenantID:     dto.TenantID,
 			})
 			if err != nil {
 				return result, err

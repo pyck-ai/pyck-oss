@@ -8,7 +8,7 @@ info:
   seq: 3
 
 docs: |-
-  Updates an existing inventory item. Supply any fields to change (sku, data, dataTypeID, dataTypeSlug); omitted fields are left unchanged.
+  Updates an existing inventory item. Supply any fields to change (sku, data, dataTypeID); omitted fields are left unchanged.
 
 
 graphql:

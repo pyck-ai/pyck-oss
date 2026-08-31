@@ -26,9 +26,10 @@ func RegisterEntities(r *importexport.Registry, c Client) error {
 
 func registerPickingOrder(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "PickingOrder",
-		Service:       "picking",
-		IdentityField: "",
+		TypeName:       "PickingOrder",
+		Service:        "picking",
+		IdentityFields: []string{},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *PickingOrderWhereInput
 			if where != nil {
@@ -71,9 +72,10 @@ func registerPickingOrder(r *importexport.Registry, c Client) error {
 
 func registerPickingOrderItem(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "PickingOrderItem",
-		Service:       "picking",
-		IdentityField: "",
+		TypeName:       "PickingOrderItem",
+		Service:        "picking",
+		IdentityFields: []string{},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *PickingOrderItemWhereInput
 			if where != nil {

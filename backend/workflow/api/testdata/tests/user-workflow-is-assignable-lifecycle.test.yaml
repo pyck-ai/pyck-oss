@@ -3,7 +3,9 @@ name: "User - Workflow IsAssignable Lifecycle"
 description: >
   Full toggle round-trip for the pyck_workflow_is_assignable search attribute,
   exercising the SDK's SetUpdateHandler end-to-end through the pyck gateway.
-  THIS SUITE WILL NOT WORK WITH THE DEFAULT ZITADEL LOGIN FLOW.
+  Requires a tenant that already has at least one running workflow execution —
+  the default seeded environment has none, so the suite only passes when run
+  against a tenant with real workflow activity.
 steps:
   - id: pickrun
     name: "Pick first running assignable workflow"

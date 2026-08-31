@@ -15,9 +15,9 @@ func newTestRegistry(t *testing.T) *importexport.Registry {
 
 	reg := importexport.NewRegistry()
 	require.NoError(t, reg.Register(&importexport.EntityDescriptor{
-		TypeName:      "Location",
-		Service:       "management",
-		IdentityField: "name",
+		TypeName:       "Location",
+		Service:        "management",
+		IdentityFields: []string{"name"},
 		List: func(_ context.Context, _ *string, _ *int, where map[string]any) (importexport.ListResult, error) {
 			// Simulate finding "Building-A" with ID "loc-123".
 			if where["name"] == "Building-A" {
@@ -29,9 +29,9 @@ func newTestRegistry(t *testing.T) *importexport.Registry {
 		},
 	}))
 	require.NoError(t, reg.Register(&importexport.EntityDescriptor{
-		TypeName:      "Repository",
-		Service:       "inventory",
-		IdentityField: "name",
+		TypeName:       "Repository",
+		Service:        "inventory",
+		IdentityFields: []string{"name"},
 		List: func(_ context.Context, _ *string, _ *int, where map[string]any) (importexport.ListResult, error) {
 			if where["name"] == "Warehouse-A" {
 				return importexport.ListResult{
@@ -104,9 +104,9 @@ func TestResolveRefs(t *testing.T) {
 		callCount := 0
 		reg2 := importexport.NewRegistry()
 		require.NoError(t, reg2.Register(&importexport.EntityDescriptor{
-			TypeName:      "Location",
-			Service:       "management",
-			IdentityField: "name",
+			TypeName:       "Location",
+			Service:        "management",
+			IdentityFields: []string{"name"},
 			List: func(_ context.Context, _ *string, _ *int, _ map[string]any) (importexport.ListResult, error) {
 				callCount++
 				return importexport.ListResult{

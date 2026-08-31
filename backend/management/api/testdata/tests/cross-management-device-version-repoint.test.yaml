@@ -1,0 +1,175 @@
+---
+name: "Cross - Device Data Type Version Re-point"
+description: >
+  Pins a device to version 1 of a DataType slug, then creates version 2 of
+  the same slug and re-points its dataTypeID via the update mutation. Verifies the
+  entity moves to the new version while the derived slug is unchanged.
+steps:
+  - id: v1
+    name: "Create data type v1"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Repoint Device Type v1"
+        slug: {$fake: "repoint-{{loremslug}}-{{nonce}}"}
+        entity: "device"
+        jsonSchema: '{"type":"object","properties":{"label":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "v1 created as version 1"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.version
+            equal: 1
+
+  - id: createEntity
+    name: "Create device pinned to v1"
+    operation: management.createDevice
+    vars:
+      input:
+        name: {$fake: "Repoint-{{uuid}}"}
+        dataTypeID: {$ref: "res[v1].body.data.createDataType.id"}
+        data:
+          label: "v1"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Entity pinned to v1"
+        assertions:
+          - ref: res.body.data.createDevice.device.id
+            nil: false
+          - ref: res.body.data.createDevice.device.dataTypeID
+            equal: {$ref: "res[v1].body.data.createDataType.id"}
+          - ref: res.body.data.createDevice.device.dataTypeSlug
+            equal: {$ref: "res[v1].body.data.createDataType.slug"}
+
+  - id: v2
+    name: "Create data type v2 (same slug)"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Repoint Device Type v2"
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+        entity: "device"
+        jsonSchema: '{"type":"object","properties":{"label":{"type":"string"},"extra":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "v2 created as version 2 of the same slug"
+        assertions:
+          - ref: res.body.data.createDataType.version
+            equal: 2
+          - ref: res.body.data.createDataType.slug
+            equal: {$ref: "res[v1].body.data.createDataType.slug"}
+
+  - name: "Re-point device to v2"
+    operation: management.updateDevice
+    vars:
+      id: {$ref: "res[createEntity].body.data.createDevice.device.id"}
+      input:
+        dataTypeID: {$ref: "res[v2].body.data.createDataType.id"}
+        data:
+          label: "v1"
+          extra: "v2"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Now pinned to v2"
+        assertions:
+          - ref: res.body.data.updateDevice.device.dataTypeID
+            equal: {$ref: "res[v2].body.data.createDataType.id"}
+      - msg: "Derived slug unchanged across versions"
+        assertions:
+          - ref: res.body.data.updateDevice.device.dataTypeSlug
+            equal: {$ref: "res[v1].body.data.createDataType.slug"}
+
+  - name: "Verify re-point persisted on query"
+    operation: management.getDevices
+    vars:
+      where:
+        id: {$ref: "res[createEntity].body.data.createDevice.device.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "DataTypeID is v2 on query"
+        assertions:
+          - ref: res.body.data.devices.edges[].node.dataTypeID
+            equal: {$ref: "res[v2].body.data.createDataType.id"}
+      - msg: "New-version data validated and persisted"
+        assertions:
+          - ref: res.body.data.devices.edges[].node.data.extra
+            equal: "v2"
+
+  - name: "Cleanup - delete device"
+    operation: management.deleteDevice
+    vars:
+      id: {$ref: "res[createEntity].body.data.createDevice.device.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete v2"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[v2].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete v1"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[v1].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

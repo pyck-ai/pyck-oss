@@ -172,10 +172,6 @@ type DataTypeWhereInput struct {
 	FrontendSchemaEqualFold    *string  `json:"frontendSchemaEqualFold,omitempty"`
 	FrontendSchemaContainsFold *string  `json:"frontendSchemaContainsFold,omitempty"`
 
-	// "default" field predicates.
-	Default    *bool `json:"default,omitempty"`
-	DefaultNEQ *bool `json:"defaultNEQ,omitempty"`
-
 	// "entity" field predicates.
 	Entity             *string  `json:"entity,omitempty"`
 	EntityNEQ          *string  `json:"entityNEQ,omitempty"`
@@ -190,6 +186,20 @@ type DataTypeWhereInput struct {
 	EntityHasSuffix    *string  `json:"entityHasSuffix,omitempty"`
 	EntityEqualFold    *string  `json:"entityEqualFold,omitempty"`
 	EntityContainsFold *string  `json:"entityContainsFold,omitempty"`
+
+	// "default" field predicates.
+	Default    *bool `json:"default,omitempty"`
+	DefaultNEQ *bool `json:"defaultNEQ,omitempty"`
+
+	// "version" field predicates.
+	Version      *int  `json:"version,omitempty"`
+	VersionNEQ   *int  `json:"versionNEQ,omitempty"`
+	VersionIn    []int `json:"versionIn,omitempty"`
+	VersionNotIn []int `json:"versionNotIn,omitempty"`
+	VersionGT    *int  `json:"versionGT,omitempty"`
+	VersionGTE   *int  `json:"versionGTE,omitempty"`
+	VersionLT    *int  `json:"versionLT,omitempty"`
+	VersionLTE   *int  `json:"versionLTE,omitempty"`
 }
 
 // AddPredicates adds custom predicates to the where input to be used during the filtering phase.
@@ -632,12 +642,6 @@ func (i *DataTypeWhereInput) P() (predicate.DataType, error) {
 	if i.FrontendSchemaContainsFold != nil {
 		predicates = append(predicates, datatype.FrontendSchemaContainsFold(*i.FrontendSchemaContainsFold))
 	}
-	if i.Default != nil {
-		predicates = append(predicates, datatype.DefaultEQ(*i.Default))
-	}
-	if i.DefaultNEQ != nil {
-		predicates = append(predicates, datatype.DefaultNEQ(*i.DefaultNEQ))
-	}
 	if i.Entity != nil {
 		predicates = append(predicates, datatype.EntityEQ(*i.Entity))
 	}
@@ -676,6 +680,36 @@ func (i *DataTypeWhereInput) P() (predicate.DataType, error) {
 	}
 	if i.EntityContainsFold != nil {
 		predicates = append(predicates, datatype.EntityContainsFold(*i.EntityContainsFold))
+	}
+	if i.Default != nil {
+		predicates = append(predicates, datatype.DefaultEQ(*i.Default))
+	}
+	if i.DefaultNEQ != nil {
+		predicates = append(predicates, datatype.DefaultNEQ(*i.DefaultNEQ))
+	}
+	if i.Version != nil {
+		predicates = append(predicates, datatype.VersionEQ(*i.Version))
+	}
+	if i.VersionNEQ != nil {
+		predicates = append(predicates, datatype.VersionNEQ(*i.VersionNEQ))
+	}
+	if len(i.VersionIn) > 0 {
+		predicates = append(predicates, datatype.VersionIn(i.VersionIn...))
+	}
+	if len(i.VersionNotIn) > 0 {
+		predicates = append(predicates, datatype.VersionNotIn(i.VersionNotIn...))
+	}
+	if i.VersionGT != nil {
+		predicates = append(predicates, datatype.VersionGT(*i.VersionGT))
+	}
+	if i.VersionGTE != nil {
+		predicates = append(predicates, datatype.VersionGTE(*i.VersionGTE))
+	}
+	if i.VersionLT != nil {
+		predicates = append(predicates, datatype.VersionLT(*i.VersionLT))
+	}
+	if i.VersionLTE != nil {
+		predicates = append(predicates, datatype.VersionLTE(*i.VersionLTE))
 	}
 
 	switch len(predicates) {

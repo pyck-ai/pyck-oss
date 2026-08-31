@@ -28,6 +28,7 @@ func (Inbound) Annotations() []schema.Annotation {
 		entgql.Directives(importexport.Importable("",
 			importexport.WithList("receivingInbounds"),
 			importexport.WithCreate("createReceivingInbound"),
+			importexport.WithDataTypeReference(),
 		)),
 		entgql.QueryField(),
 		entgql.Mutations(entgql.MutationCreate(), entgql.MutationUpdate()),

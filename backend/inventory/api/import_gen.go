@@ -31,9 +31,10 @@ func RegisterEntities(r *importexport.Registry, c Client) error {
 
 func registerInventoryItem(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "InventoryItem",
-		Service:       "inventory",
-		IdentityField: "sku",
+		TypeName:       "InventoryItem",
+		Service:        "inventory",
+		IdentityFields: []string{"sku"},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *InventoryItemWhereInput
 			if where != nil {
@@ -87,9 +88,10 @@ func registerInventoryItem(r *importexport.Registry, c Client) error {
 
 func registerInventoryItemSet(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "InventoryItemSet",
-		Service:       "inventory",
-		IdentityField: "sku",
+		TypeName:       "InventoryItemSet",
+		Service:        "inventory",
+		IdentityFields: []string{"sku"},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *InventoryItemSetWhereInput
 			if where != nil {
@@ -143,9 +145,10 @@ func registerInventoryItemSet(r *importexport.Registry, c Client) error {
 
 func registerItemMovement(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "ItemMovement",
-		Service:       "inventory",
-		IdentityField: "",
+		TypeName:       "ItemMovement",
+		Service:        "inventory",
+		IdentityFields: []string{},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}, {Field: "itemID", TargetType: "InventoryItem"}, {Field: "fromID", TargetType: "Repository"}, {Field: "toID", TargetType: "Repository"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *ItemMovementWhereInput
 			if where != nil {
@@ -188,9 +191,10 @@ func registerItemMovement(r *importexport.Registry, c Client) error {
 
 func registerReplenishmentOrder(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "ReplenishmentOrder",
-		Service:       "inventory",
-		IdentityField: "",
+		TypeName:       "ReplenishmentOrder",
+		Service:        "inventory",
+		IdentityFields: []string{},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *ReplenishmentOrderWhereInput
 			if where != nil {
@@ -233,9 +237,10 @@ func registerReplenishmentOrder(r *importexport.Registry, c Client) error {
 
 func registerReplenishmentOrderItem(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "ReplenishmentOrderItem",
-		Service:       "inventory",
-		IdentityField: "",
+		TypeName:       "ReplenishmentOrderItem",
+		Service:        "inventory",
+		IdentityFields: []string{},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *ReplenishmentOrderItemWhereInput
 			if where != nil {
@@ -278,9 +283,10 @@ func registerReplenishmentOrderItem(r *importexport.Registry, c Client) error {
 
 func registerRepository(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "Repository",
-		Service:       "inventory",
-		IdentityField: "name",
+		TypeName:       "Repository",
+		Service:        "inventory",
+		IdentityFields: []string{"name"},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}, {Field: "locationID", TargetType: "Location"}, {Field: "parentID", TargetType: "Repository"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *RepositoryWhereInput
 			if where != nil {
@@ -334,9 +340,10 @@ func registerRepository(r *importexport.Registry, c Client) error {
 
 func registerRepositoryMovement(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "RepositoryMovement",
-		Service:       "inventory",
-		IdentityField: "",
+		TypeName:       "RepositoryMovement",
+		Service:        "inventory",
+		IdentityFields: []string{},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}, {Field: "repositoryID", TargetType: "Repository"}, {Field: "fromID", TargetType: "Repository"}, {Field: "toID", TargetType: "Repository"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *RepositoryMovementWhereInput
 			if where != nil {

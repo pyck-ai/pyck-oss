@@ -4,7 +4,7 @@ info:
   seq: 1
 
 docs: |-
-  Tests JSON Patch (RFC 6902) operations on picking orders. Creates a data type and order with data, updates via full overwrite, patches individual fields, verifies changes persist, then cleans up.
+  Tests JSON Patch (RFC 6902) operations on picking orders and order items. Creates data types, order with data, and order item. Updates via full overwrite, patches individual fields, verifies changes persist, then cleans up.
 
 
 request:

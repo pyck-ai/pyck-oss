@@ -30,6 +30,10 @@ func (ItemMovement) Annotations() []schema.Annotation {
 		entgql.Directives(importexport.Importable("",
 			importexport.WithList("itemMovements"),
 			importexport.WithCreate("createInventoryItemMovement"),
+			importexport.WithDataTypeReference(),
+			importexport.WithReference("itemID", "InventoryItem"),
+			importexport.WithReference("fromID", "Repository"),
+			importexport.WithReference("toID", "Repository"),
 		)),
 	}
 }

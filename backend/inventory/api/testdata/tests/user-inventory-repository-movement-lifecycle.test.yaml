@@ -154,10 +154,12 @@ steps:
     - ref: res.body.data.executeInventoryRepositoryMovement.inventoryRepositoryMovement.executed
       equal: true
 - name: Verify child was re-parented to destination
+  # repository -> children connection isn't selected by the generated operations
+  # (apigen emits scalar node fields only); count repos whose parent is the dest.
   operation: inventory.getRepositories
   vars:
     where:
-      id:
+      parentID:
         $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
   tests:
   - msg: Status is 200
@@ -170,7 +172,7 @@ steps:
       nil: true
   - msg: Destination now has one child
     assertions:
-    - ref: res.body.data.repositories.edges[].node.children.totalCount
+    - ref: res.body.data.repositories.totalCount
       equal: 1
 - name: Verify executed repository movement cannot be deleted
   operation: inventory.deleteInventoryRepositoryMovement

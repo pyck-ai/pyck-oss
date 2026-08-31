@@ -2,7 +2,7 @@
 operation: UpdateInventoryItem
 name: "Update Inventory Item"
 description: >
-  Updates an existing inventory item. Supply any fields to change (sku, data, dataTypeID, dataTypeSlug);
+  Updates an existing inventory item. Supply any fields to change (sku, data, dataTypeID);
   omitted fields are left unchanged.
 vars:
   id: {$placeholder: "inventory item ID"}

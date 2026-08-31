@@ -2,7 +2,7 @@
 # BUILD
 # ==============================================================================
 
-FROM ghcr.io/pyck-ai/baseimages/golang:1.26-alpine AS builder
+FROM ghcr.io/pyck-ai/baseimages/golang:1.26.5-alpine AS builder
 
 ARG SERVICE_NAME
 

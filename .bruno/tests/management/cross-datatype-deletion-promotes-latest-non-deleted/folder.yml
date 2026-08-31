@@ -1,0 +1,11 @@
+info:
+  name: Cross - DataType Deletion Promotes Latest Non-Deleted
+  type: folder
+  seq: 1
+
+docs: |-
+  With three versions of one slug, verifies dataTypeBySlug always returns the highest NON-deleted version: deleting a non-latest version leaves the pointer unchanged, deleting the latest promotes the prior live version, and deleting all yields null. Also confirms a soft-deleted version number is never reused.
+
+
+request:
+  auth: inherit

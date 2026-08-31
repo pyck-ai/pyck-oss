@@ -4,7 +4,8 @@ info:
   seq: 1
 
 docs: |-
-  Verifies the new pyck_workflow_is_assignable search-attribute filter on the workflowExecutions query and its dedicated assignableWorkflowExecutions wrapper. The three filter variants must all return a valid connection envelope — no running workflow is required; this is a surface smoke test that the filter is plumbed through resolver, query builder, and Temporal client without errors.
+  Surface smoke test for the pyck_workflow_is_assignable filter on the workflowExecutions query and its dedicated assignableWorkflowExecutions wrapper. The three filter variants must all return a valid connection envelope — no running workflow is required; this is a plumbing check that the filter flows through resolver, query builder, and Temporal client without errors.
+  For the full toggle round trip (default=true, set false, filter drops the run, set true, filter includes it again) see the companion test user-workflow-is-assignable-lifecycle.test.yaml, which requires a running workflow implementing WorkflowIsAssignableSetter.
 
 
 request:

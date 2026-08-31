@@ -8,7 +8,7 @@ info:
   seq: 3
 
 docs: |-
-  Updates the name and JSON schema of an existing data type.
+  Updates a data type's name in place. `name` is the only mutable field on a DataType — every other field is immutable, so a schema change requires a new version via createDataType with the same slug.
 
 
 graphql:
@@ -44,6 +44,7 @@ graphql:
           tenantID
           updatedAt
           updatedBy
+          version
         }
       }
     variables: |-
@@ -60,7 +61,6 @@ graphql:
       {
         "id": null, // PLACEHOLDER: data type ID
         "input": {
-          "jsonSchema": "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"tier\":{\"type\":\"integer\"}}}",
           "name": "Updated Customer Type"
         }
       }
@@ -73,6 +73,7 @@ runtime:
         // Source: backend/management/api/testdata/examples/updatedatatype.example.yaml
 
         var body = res.body;
+        var vars = req.body.variables;
 
         test("Status is 200", function() {
           expect(res.status).to.equal(200);
@@ -82,8 +83,8 @@ runtime:
           expect(body?.errors).to.not.exist;
         });
 
-        test("Updated data type returned", function() {
-          expect(body?.data?.updateDataType?.id).to.exist;
+        test("Name updated in place", function() {
+          expect(body?.data?.updateDataType?.id).to.equal(vars.id);
           expect(body?.data?.updateDataType?.name).to.equal('Updated Customer Type');
         });
 

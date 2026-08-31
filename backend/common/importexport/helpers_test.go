@@ -17,9 +17,9 @@ func fakeDescriptor(typeName string) (*importexport.EntityDescriptor, *[]map[str
 	nextID := 0
 
 	return &importexport.EntityDescriptor{
-		TypeName:      typeName,
-		Service:       "test",
-		IdentityField: "name",
+		TypeName:       typeName,
+		Service:        "test",
+		IdentityFields: []string{"name"},
 		List: func(_ context.Context, _ *string, _ *int, where map[string]any) (importexport.ListResult, error) {
 			var nodes []map[string]any
 			for _, e := range *store {

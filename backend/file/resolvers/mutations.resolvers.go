@@ -14,7 +14,6 @@ import (
 
 	"entgo.io/ent/dialect"
 	"github.com/google/uuid"
-	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
 	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/request"
@@ -31,14 +30,12 @@ import (
 // CreateFile is the resolver for the createFile field.
 // MutationEventHook captures the mutation automatically.
 func (r *mutationResolver) CreateFile(ctx context.Context, input ent.CreateFileInput) (*model.CreateFileResult, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	create, dataType, err := tx.File.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -53,9 +50,7 @@ func (r *mutationResolver) CreateFile(ctx context.Context, input ent.CreateFileI
 		return nil, err
 	}
 
-	file, err := tx.File.Create().
-		SetInput(input).
-		Save(ctx)
+	file, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -75,14 +70,12 @@ func (r *mutationResolver) CreateFile(ctx context.Context, input ent.CreateFileI
 // UpdateFile is the resolver for the updateFile field.
 // MutationEventHook captures the mutation automatically with field-level events.
 func (r *mutationResolver) UpdateFile(ctx context.Context, id uuid.UUID, input ent.UpdateFileInput) (*ent.File, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	update, dataType, err := tx.File.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +91,7 @@ func (r *mutationResolver) UpdateFile(ctx context.Context, id uuid.UUID, input e
 		return nil, err
 	}
 
-	file, err := tx.File.UpdateOneID(id).SetInput(input).Save(ctx)
+	file, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +167,13 @@ func (r *mutationResolver) AnalyzeImageFile(ctx context.Context, id uuid.UUID) (
 		return nil, fmt.Errorf("failed to get image URL")
 	}
 
-	dataType, err := r.validator.ReadBySlug(ctx, file.DataTypeSlug)
+	// Analyze against the exact DataType version the file is pinned to via
+	// DataTypeID. A file references its DataType by id only — there is no slug
+	// fallback, so a file without a pinned id can't be analyzed.
+	if file.DataTypeID == uuid.Nil {
+		return nil, ErrFileHasNoDataType
+	}
+	dataType, err := r.validator.ReadByID(ctx, file.DataTypeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read data type: %w", err)
 	}

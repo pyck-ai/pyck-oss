@@ -25,9 +25,10 @@ func RegisterEntities(r *importexport.Registry, c Client) error {
 
 func registerCustomer(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "Customer",
-		Service:       "main-data",
-		IdentityField: "",
+		TypeName:       "Customer",
+		Service:        "main-data",
+		IdentityFields: []string{},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *CustomerWhereInput
 			if where != nil {
@@ -70,9 +71,10 @@ func registerCustomer(r *importexport.Registry, c Client) error {
 
 func registerSupplier(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "Supplier",
-		Service:       "main-data",
-		IdentityField: "",
+		TypeName:       "Supplier",
+		Service:        "main-data",
+		IdentityFields: []string{},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *SupplierWhereInput
 			if where != nil {

@@ -2,12 +2,13 @@
 operation: UpdateDataType
 name: "Update Data Type"
 description: >
-  Updates the name and JSON schema of an existing data type.
+  Updates a data type's name in place. `name` is the only mutable field on a
+  DataType — every other field is immutable, so a schema change requires a new
+  version via createDataType with the same slug.
 vars:
   id: { $placeholder: "data type ID" }
   input:
     name: "Updated Customer Type"
-    jsonSchema: '{"type":"object","properties":{"name":{"type":"string"},"tier":{"type":"integer"}}}'
 expect:
   - msg: "Status is 200"
     assertions:
@@ -17,9 +18,9 @@ expect:
     assertions:
       - ref: res.body.errors
         nil: true
-  - msg: "Updated data type returned"
+  - msg: "Name updated in place"
     assertions:
       - ref: res.body.data.updateDataType.id
-        nil: false
+        equal: {$ref: req.body.variables.id}
       - ref: res.body.data.updateDataType.name
         equal: "Updated Customer Type"

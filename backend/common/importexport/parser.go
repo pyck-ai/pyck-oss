@@ -12,9 +12,16 @@ import (
 )
 
 // StreamFiles returns an iterator that yields ImportRecords one at a time from
-// the given paths. Each path can be a .jsonl file or a directory. Directories
-// are expanded to their contained .jsonl files in C-locale alphabetical order.
-// Files are processed in the order given on the command line.
+// the given paths. Each path can be a .jsonl file or a directory. Files are
+// processed in the order given on the command line.
+//
+// A directory is expanded to its .jsonl files ordered by typeOrder, matching
+// them on the "<lowercase typename>.jsonl" names ExportToDir writes. Records
+// stream straight into the importer, which resolves a $ref by querying its
+// target, so a referrer file read before its target's file cannot resolve —
+// callers pass Registry.TypeNamesInDependencyOrder. Files whose name matches
+// no entry, and the whole directory when typeOrder is nil, fall back to
+// C-locale alphabetical order.
 //
 // The iterator stops on the first error and yields it as the final value.
 // Errors that stop iteration:
@@ -24,7 +31,7 @@ import (
 //   - I/O error while reading a file
 //   - malformed JSON on a line
 //   - missing or empty __typename field
-func StreamFiles(paths []string) iter.Seq2[ImportRecord, error] {
+func StreamFiles(paths []string, typeOrder []string) iter.Seq2[ImportRecord, error] {
 	return func(yield func(ImportRecord, error) bool) {
 		for _, path := range paths {
 			info, err := os.Stat(path)
@@ -35,7 +42,7 @@ func StreamFiles(paths []string) iter.Seq2[ImportRecord, error] {
 
 			var files []string
 			if info.IsDir() {
-				files, err = expandDirectory(path)
+				files, err = expandDirectory(path, typeOrder)
 				if err != nil {
 					yield(ImportRecord{}, err)
 					return
@@ -53,19 +60,27 @@ func StreamFiles(paths []string) iter.Seq2[ImportRecord, error] {
 	}
 }
 
-// expandDirectory returns the absolute paths of all .jsonl files in dir,
-// sorted alphabetically by filename. Subdirectories and non-.jsonl files are
-// ignored.
-func expandDirectory(dir string) ([]string, error) {
+// expandDirectory returns the paths of all .jsonl files in dir, ordered by
+// typeOrder (see StreamFiles) with unmatched names last in C-locale
+// alphabetical order. Subdirectories and non-.jsonl files are ignored.
+func expandDirectory(dir string, typeOrder []string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
 
-	// Sort entries by name in C locale (byte order, which is Go's default).
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Name() < entries[j].Name()
-	})
+	// Rank by the position of the file's type in typeOrder; names that match
+	// no registered type sort after every known one.
+	rank := make(map[string]int, len(typeOrder))
+	for i, typeName := range typeOrder {
+		rank[strings.ToLower(typeName)+".jsonl"] = i
+	}
+	rankOf := func(name string) int {
+		if i, ok := rank[strings.ToLower(name)]; ok {
+			return i
+		}
+		return len(typeOrder)
+	}
 
 	var files []string
 	for _, entry := range entries {
@@ -76,6 +91,15 @@ func expandDirectory(dir string) ([]string, error) {
 			files = append(files, filepath.Join(dir, entry.Name()))
 		}
 	}
+
+	sort.SliceStable(files, func(i, j int) bool {
+		ri, rj := rankOf(filepath.Base(files[i])), rankOf(filepath.Base(files[j]))
+		if ri != rj {
+			return ri < rj
+		}
+		// Byte order, which is Go's default string comparison.
+		return files[i] < files[j]
+	})
 	return files, nil
 }
 

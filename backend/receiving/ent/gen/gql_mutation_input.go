@@ -9,7 +9,6 @@ import (
 // CreateReceivingInboundInput represents a mutation input for creating receivinginbounds.
 type CreateReceivingInboundInput struct {
 	DataTypeID                     *uuid.UUID
-	DataTypeSlug                   *string
 	Data                           map[string]interface{}
 	OrderID                        *string
 	SupplierID                     *uuid.UUID
@@ -21,9 +20,6 @@ type CreateReceivingInboundInput struct {
 func (i *CreateReceivingInboundInput) Mutate(m *InboundMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -52,8 +48,6 @@ func (c *InboundCreate) SetInput(i CreateReceivingInboundInput) *InboundCreate {
 type UpdateReceivingInboundInput struct {
 	ClearDataTypeID                      bool
 	DataTypeID                           *uuid.UUID
-	ClearDataTypeSlug                    bool
-	DataTypeSlug                         *string
 	ClearData                            bool
 	Data                                 map[string]interface{}
 	ClearOrderID                         bool
@@ -74,12 +68,6 @@ func (i *UpdateReceivingInboundInput) Mutate(m *InboundMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -130,21 +118,17 @@ func (c *InboundUpdateOne) SetInput(i UpdateReceivingInboundInput) *InboundUpdat
 
 // CreateReceivingInboundItemInput represents a mutation input for creating receivinginbounditems.
 type CreateReceivingInboundItemInput struct {
-	DataTypeID   *uuid.UUID
-	DataTypeSlug *string
-	Data         map[string]interface{}
-	Sku          string
-	Quantity     int64
-	InboundID    uuid.UUID
+	DataTypeID *uuid.UUID
+	Data       map[string]interface{}
+	Sku        string
+	Quantity   int64
+	InboundID  uuid.UUID
 }
 
 // Mutate applies the CreateReceivingInboundItemInput on the InboundItemMutation builder.
 func (i *CreateReceivingInboundItemInput) Mutate(m *InboundItemMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -162,15 +146,13 @@ func (c *InboundItemCreate) SetInput(i CreateReceivingInboundItemInput) *Inbound
 
 // UpdateReceivingInboundItemInput represents a mutation input for updating receivinginbounditems.
 type UpdateReceivingInboundItemInput struct {
-	ClearDataTypeID   bool
-	DataTypeID        *uuid.UUID
-	ClearDataTypeSlug bool
-	DataTypeSlug      *string
-	ClearData         bool
-	Data              map[string]interface{}
-	Sku               *string
-	Quantity          *int64
-	InboundID         *uuid.UUID
+	ClearDataTypeID bool
+	DataTypeID      *uuid.UUID
+	ClearData       bool
+	Data            map[string]interface{}
+	Sku             *string
+	Quantity        *int64
+	InboundID       *uuid.UUID
 }
 
 // Mutate applies the UpdateReceivingInboundItemInput on the InboundItemMutation builder.
@@ -180,12 +162,6 @@ func (i *UpdateReceivingInboundItemInput) Mutate(m *InboundItemMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -218,19 +194,15 @@ func (c *InboundItemUpdateOne) SetInput(i UpdateReceivingInboundItemInput) *Inbo
 
 // CreateReceivingInboundShipmentNotificationInput represents a mutation input for creating receivinginboundshipmentnotifications.
 type CreateReceivingInboundShipmentNotificationInput struct {
-	DataTypeID   *uuid.UUID
-	DataTypeSlug *string
-	Data         map[string]interface{}
-	InboundID    uuid.UUID
+	DataTypeID *uuid.UUID
+	Data       map[string]interface{}
+	InboundID  uuid.UUID
 }
 
 // Mutate applies the CreateReceivingInboundShipmentNotificationInput on the InboundShipmentNotificationMutation builder.
 func (i *CreateReceivingInboundShipmentNotificationInput) Mutate(m *InboundShipmentNotificationMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -246,13 +218,11 @@ func (c *InboundShipmentNotificationCreate) SetInput(i CreateReceivingInboundShi
 
 // UpdateReceivingInboundShipmentNotificationInput represents a mutation input for updating receivinginboundshipmentnotifications.
 type UpdateReceivingInboundShipmentNotificationInput struct {
-	ClearDataTypeID   bool
-	DataTypeID        *uuid.UUID
-	ClearDataTypeSlug bool
-	DataTypeSlug      *string
-	ClearData         bool
-	Data              map[string]interface{}
-	InboundID         *uuid.UUID
+	ClearDataTypeID bool
+	DataTypeID      *uuid.UUID
+	ClearData       bool
+	Data            map[string]interface{}
+	InboundID       *uuid.UUID
 }
 
 // Mutate applies the UpdateReceivingInboundShipmentNotificationInput on the InboundShipmentNotificationMutation builder.
@@ -262,12 +232,6 @@ func (i *UpdateReceivingInboundShipmentNotificationInput) Mutate(m *InboundShipm
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()

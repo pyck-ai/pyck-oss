@@ -14,7 +14,7 @@ import (
 // collect drains a StreamFiles iterator into a slice for testing.
 func collect(paths []string) ([]importexport.ImportRecord, error) {
 	var records []importexport.ImportRecord
-	for record, err := range importexport.StreamFiles(paths) {
+	for record, err := range importexport.StreamFiles(paths, nil) {
 		if err != nil {
 			return records, err
 		}
@@ -187,7 +187,7 @@ func TestStreamProcessesRecordsOneAtATime(t *testing.T) {
 
 	// Verify we can break out of iteration early.
 	count := 0
-	for _, err := range importexport.StreamFiles([]string{path}) {
+	for _, err := range importexport.StreamFiles([]string{path}, nil) {
 		require.NoError(t, err)
 		count++
 		if count == 2 {

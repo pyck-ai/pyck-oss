@@ -17,6 +17,13 @@ var (
 	// ErrInvalidTypeName is returned when __typename is present but empty or not a string.
 	ErrInvalidTypeName = errors.New("__typename must be a non-empty string")
 
+	// ErrUnresolvedReference is returned when a row's reference points at a
+	// target that is inside the export set's types but absent from the
+	// exported rows — typically a soft-deleted row hidden from List. Emitting
+	// the record without the reference would silently unpin it, so the export
+	// fails instead.
+	ErrUnresolvedReference = errors.New("unresolved reference")
+
 	// ErrRefInvalidValue is returned when a $ref value is not an object.
 	ErrRefInvalidValue = errors.New("$ref value must be an object")
 

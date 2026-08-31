@@ -1,0 +1,236 @@
+---
+name: "User - Data Type Version Rules"
+description: >
+  End-to-end coverage for the PR #1236 DataType decisions: updateDataType
+  (name-only, in place), import idempotency on re-creating an existing
+  (slug, version) (identical = no-op, name-only = update, immutable diff =
+  conflict), append-only version ordering (gaps allowed above MAX, rejected
+  at-or-below MAX), and the restored `default` tenant-init flag.
+steps:
+  # ---------------------------------------------------------------------------
+  # B1 — updateDataType: name is the only mutable field, changed in place.
+  # ---------------------------------------------------------------------------
+  - id: rename
+    name: "Create a data type to rename"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Rename Me"
+        slug: {$fake: "rename-{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"x":{"type":"integer"}}}'
+    tests:
+      - msg: "Created as version 1"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.version
+            equal: 1
+
+  - name: "updateDataType changes name in place (same id, version unchanged)"
+    operation: management.updateDataType
+    vars:
+      id: {$ref: "res[rename].body.data.createDataType.id"}
+      input:
+        name: "Renamed In Place"
+    tests:
+      - msg: "Name updated, row identity + version preserved"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.updateDataType.id
+            equal: {$ref: "res[rename].body.data.createDataType.id"}
+          - ref: res.body.data.updateDataType.name
+            equal: "Renamed In Place"
+          - ref: res.body.data.updateDataType.version
+            equal: 1
+
+  - name: "Delete the data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[rename].body.data.createDataType.id"}
+    tests:
+      - msg: "Delete succeeds"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "updateDataType on a soft-deleted row is rejected"
+    operation: management.updateDataType
+    vars:
+      id: {$ref: "res[rename].body.data.createDataType.id"}
+      input:
+        name: "Too Late"
+    tests:
+      - msg: "Cannot update a deleted data type"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.errors[0].message
+            contains: "data type not found"
+
+  # ---------------------------------------------------------------------------
+  # B9 — import idempotency: re-creating an existing (slug, version).
+  # ---------------------------------------------------------------------------
+  - id: imp
+    name: "Import a pinned version (slug + explicit version 1)"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Import A"
+        slug: {$fake: "import-{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        version: 1
+        jsonSchema: '{"type":"object","properties":{"a":{"type":"string"}}}'
+    tests:
+      - msg: "Pinned version 1 created"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.version
+            equal: 1
+
+  - name: "Re-import identical (slug, version) is an idempotent no-op"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Import A"
+        slug: {$ref: "res[imp].body.data.createDataType.slug"}
+        entity: "customer"
+        version: 1
+        jsonSchema: '{"type":"object","properties":{"a":{"type":"string"}}}'
+    tests:
+      - msg: "Returns the existing row, no new version"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.id
+            equal: {$ref: "res[imp].body.data.createDataType.id"}
+          - ref: res.body.data.createDataType.version
+            equal: 1
+
+  - name: "Re-import with only a changed name updates in place"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Import A Renamed"
+        slug: {$ref: "res[imp].body.data.createDataType.slug"}
+        entity: "customer"
+        version: 1
+        jsonSchema: '{"type":"object","properties":{"a":{"type":"string"}}}'
+    tests:
+      - msg: "Same row, name updated"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.id
+            equal: {$ref: "res[imp].body.data.createDataType.id"}
+          - ref: res.body.data.createDataType.name
+            equal: "Import A Renamed"
+
+  - name: "Re-import with a changed immutable field (jsonSchema) is a conflict"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Import A"
+        slug: {$ref: "res[imp].body.data.createDataType.slug"}
+        entity: "customer"
+        version: 1
+        jsonSchema: '{"type":"object","properties":{"a":{"type":"integer"}}}'
+    tests:
+      - msg: "Rewriting an existing version's immutable fields is rejected"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.errors[0].message
+            contains: "different immutable fields"
+
+  # ---------------------------------------------------------------------------
+  # B9 — append-only ordering: gaps allowed above MAX, rejected at/below MAX.
+  # ---------------------------------------------------------------------------
+  - id: gap
+    name: "Create v1 (auto)"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Gap v1"
+        slug: {$fake: "gap-{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"g":{"type":"integer"}}}'
+    tests:
+      - msg: "v1"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.version
+            equal: 1
+
+  - name: "Pin version 3 above MAX (gap allowed — import preserves numbers)"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Gap v3"
+        slug: {$ref: "res[gap].body.data.createDataType.slug"}
+        entity: "customer"
+        version: 3
+        jsonSchema: '{"type":"object","properties":{"g":{"type":"integer"}}}'
+    tests:
+      - msg: "A version above the max is honored, gap and all"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.version
+            equal: 3
+
+  - name: "Backfilling version 2 (at or below MAX, no live row) is rejected"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Gap v2"
+        slug: {$ref: "res[gap].body.data.createDataType.slug"}
+        entity: "customer"
+        version: 2
+        jsonSchema: '{"type":"object","properties":{"g":{"type":"integer"}}}'
+    tests:
+      - msg: "Versions are append-only — cannot backfill a hole"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.errors[0].message
+            contains: "greater than the current maximum"
+
+  # ---------------------------------------------------------------------------
+  # B2 — the restored `default` tenant-init flag.
+  # ---------------------------------------------------------------------------
+  - name: "Create with default: true sets the flag"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Default Flagged"
+        slug: {$fake: "default-{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        default: true
+        jsonSchema: '{"type":"object","properties":{"d":{"type":"integer"}}}'
+    tests:
+      - msg: "default flag persisted as true"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.default
+            equal: true
+
+  - name: "Create without default leaves it false"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Default Unset"
+        slug: {$fake: "nodefault-{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"d":{"type":"integer"}}}'
+    tests:
+      - msg: "default defaults to false"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.default
+            equal: false

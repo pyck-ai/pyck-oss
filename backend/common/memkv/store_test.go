@@ -535,3 +535,78 @@ func TestCleanupCoexistsWithConcurrentOps(t *testing.T) {
 		t.Fatal("workers stuck — cleanup likely deadlocked with concurrent ops")
 	}
 }
+
+func TestSetWhereWritesOnlyWhenPredicateApproves(t *testing.T) {
+	t.Parallel()
+	kv := memkv.NewInMemoryKVStore(0)
+
+	kv.Set("k", 5, 0)
+
+	// Predicate rejects: the occupant must survive untouched.
+	if kv.SetWhere("k", 3, 0, func(existing any, exists bool) bool {
+		return exists && existing.(int) < 3
+	}) {
+		t.Fatal("SetWhere reported a write the predicate rejected")
+	}
+	if v, ok := kv.Get("k"); !ok || v.(int) != 5 {
+		t.Fatalf("occupant changed; got (%v, %v), want (5, true)", v, ok)
+	}
+
+	// Predicate approves: the value is replaced.
+	if !kv.SetWhere("k", 9, 0, func(existing any, exists bool) bool {
+		return exists && existing.(int) < 9
+	}) {
+		t.Fatal("SetWhere refused a write the predicate approved")
+	}
+	if v, ok := kv.Get("k"); !ok || v.(int) != 9 {
+		t.Fatalf("value not replaced; got (%v, %v), want (9, true)", v, ok)
+	}
+}
+
+func TestSetWhereSeesAbsentKey(t *testing.T) {
+	t.Parallel()
+	kv := memkv.NewInMemoryKVStore(0)
+
+	// The predicate must be able to distinguish "no occupant" from a nil value.
+	if !kv.SetWhere("fresh", 1, 0, func(_ any, exists bool) bool { return !exists }) {
+		t.Fatal("SetWhere refused to populate an empty slot")
+	}
+	if v, ok := kv.Get("fresh"); !ok || v.(int) != 1 {
+		t.Fatalf("slot not populated; got (%v, %v)", v, ok)
+	}
+	if kv.SetWhere("fresh", 2, 0, func(_ any, exists bool) bool { return !exists }) {
+		t.Fatal("SetWhere treated an occupied slot as empty")
+	}
+}
+
+// SetWhere must evaluate the predicate and write under one lock acquisition:
+// a get-then-set caller can lose a concurrent higher write, which is the
+// TOCTOU this primitive exists to remove.
+func TestSetWhereIsAtomicUnderContention(t *testing.T) {
+	t.Parallel()
+	kv := memkv.NewInMemoryKVStore(0)
+	kv.Set("max", 0, 0)
+
+	const writers = 32
+	var wg sync.WaitGroup
+	wg.Add(writers)
+	for i := 1; i <= writers; i++ {
+		go func(n int) {
+			defer wg.Done()
+			// Monotonic maximum: with an atomic predicate the slot can only ever grow.
+			kv.SetWhere("max", n, 0, func(existing any, exists bool) bool {
+				cur, ok := existing.(int)
+				return !exists || !ok || cur < n
+			})
+		}(i)
+	}
+	wg.Wait()
+
+	v, ok := kv.Get("max")
+	if !ok {
+		t.Fatal("slot missing")
+	}
+	if v.(int) != writers {
+		t.Fatalf("monotonic maximum regressed to %v; want %d", v, writers)
+	}
+}

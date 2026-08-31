@@ -7,10 +7,14 @@ import (
 	"time"
 )
 
-var caser = cases.Title(language.English)
-
+// Title upper-cases the first letter of every word.
+//
+// The Caser is built per call rather than kept in a package variable: cases.Title
+// returns a stateful transformer that "should not be shared between goroutines",
+// and a shared one corrupts its own buffer — a data race that surfaces as a slice
+// bounds panic once two callers overlap.
 func Title(s string) string {
-	return caser.String(s)
+	return cases.Title(language.English).String(s)
 }
 
 func GenerateRandomString(length int) string {

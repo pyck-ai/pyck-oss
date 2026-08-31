@@ -43,7 +43,7 @@ graphql:
             "code": "{{$randomLoremSlug}}-{{$timestamp}}-5-bbb",
             "priority": "high"
           },
-          "dataTypeSlug": "{{bru-test_cross-workflow-data-unique-update_4da9669e}}",
+          "dataTypeID": "{{bru-test_cross-workflow-data-unique-update_f216fba0}}",
           "name": "UniqWfB-{{$timestamp}}-6",
           "taskQueue": "{{bru-test_cross-workflow-data-unique-update_ad3d043b}}"
         }

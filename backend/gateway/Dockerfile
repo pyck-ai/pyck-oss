@@ -3,7 +3,7 @@
 #   build environment                           #
 #                                               #
 #################################################
-FROM ghcr.io/pyck-ai/baseimages/debian:latest AS builder
+FROM ghcr.io/pyck-ai/baseimages/rover:latest AS builder
 
 WORKDIR /backend
 COPY ./backend/ ./
@@ -15,7 +15,7 @@ RUN cd ./gateway && task generate
 #   runtime environment                         #
 #                                               #
 #################################################
-FROM ghcr.io/pyck-ai/baseimages/debian:latest
+FROM ghcr.io/pyck-ai/baseimages/base:debian
 
 WORKDIR /usr/local/bin/
 ENV APOLLO_TELEMETRY_DISABLED=true

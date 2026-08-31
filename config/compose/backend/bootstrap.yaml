@@ -2,7 +2,7 @@
 ---
 services:
   bootstrap:
-    image: busybox:latest
+    image: busybox:1.38.0
     command: ["true"]
     depends_on:
       bootstrap-zitadel: { condition: service_completed_successfully }

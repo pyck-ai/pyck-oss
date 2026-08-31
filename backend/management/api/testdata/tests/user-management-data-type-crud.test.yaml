@@ -78,31 +78,6 @@ steps:
           - ref: res.body.data.dataTypes.edges[].node.jsonSchema
             nil: false
 
-  - name: "Update data type"
-    operation: management.updateDataType
-    vars:
-      id: {$ref: "res[create].body.data.createDataType.id"}
-      input:
-        name: "Updated Customer Type"
-        jsonSchema: '{"type":"object","properties":{"tier":{"type":"integer"},"segment":{"type":"string"},"region":{"type":"string"}}}'
-    tests:
-      - msg: "Status is 200"
-        assertions:
-          - ref: res.status
-            equal: 200
-      - msg: "No GraphQL errors"
-        assertions:
-          - ref: res.body.errors
-            nil: true
-      - msg: "Updated data type returned"
-        assertions:
-          - ref: res.body.data.updateDataType.id
-            equal: {$ref: "res[create].body.data.createDataType.id"}
-      - msg: "Name updated"
-        assertions:
-          - ref: res.body.data.updateDataType.name
-            equal: "Updated Customer Type"
-
   - name: "Delete data type"
     operation: management.deleteDataType
     vars:

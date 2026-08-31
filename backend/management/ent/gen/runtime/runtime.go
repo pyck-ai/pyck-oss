@@ -59,14 +59,18 @@ func init() {
 	datatypeDescJSONSchema := datatypeFields[4].Descriptor()
 	// datatype.JSONSchemaValidator is a validator for the "json_schema" field. It is called by the builders before save.
 	datatype.JSONSchemaValidator = datatypeDescJSONSchema.Validators[0].(func(string) error)
-	// datatypeDescDefault is the schema descriptor for default field.
-	datatypeDescDefault := datatypeFields[6].Descriptor()
-	// datatype.DefaultDefault holds the default value on creation for the default field.
-	datatype.DefaultDefault = datatypeDescDefault.Default.(bool)
 	// datatypeDescEntity is the schema descriptor for entity field.
-	datatypeDescEntity := datatypeFields[7].Descriptor()
+	datatypeDescEntity := datatypeFields[6].Descriptor()
 	// datatype.EntityValidator is a validator for the "entity" field. It is called by the builders before save.
 	datatype.EntityValidator = datatypeDescEntity.Validators[0].(func(string) error)
+	// datatypeDescDefault is the schema descriptor for default field.
+	datatypeDescDefault := datatypeFields[7].Descriptor()
+	// datatype.DefaultDefault holds the default value on creation for the default field.
+	datatype.DefaultDefault = datatypeDescDefault.Default.(bool)
+	// datatypeDescVersion is the schema descriptor for version field.
+	datatypeDescVersion := datatypeFields[8].Descriptor()
+	// datatype.DefaultVersion holds the default value on creation for the version field.
+	datatype.DefaultVersion = datatypeDescVersion.Default.(int)
 	// datatypeDescID is the schema descriptor for id field.
 	datatypeDescID := datatypeFields[0].Descriptor()
 	// datatype.DefaultID holds the default value on creation for the id field.

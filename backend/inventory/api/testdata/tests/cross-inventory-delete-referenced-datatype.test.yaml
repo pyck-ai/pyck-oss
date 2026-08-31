@@ -1,0 +1,131 @@
+---
+name: "Cross - Delete DataType Still Referenced By An Item"
+description: >
+  A DataType can be (soft-)deleted even while an inventory item references it —
+  there is no FK/cascade. Verifies the post-delete contract: the delete succeeds,
+  the item still READS with its dataTypeID/slug/data intact, but a WRITE that
+  re-validates data against the now-deleted version is rejected.
+steps:
+  - id: dt
+    name: "Create data type for the item"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Delete-Referenced Type"
+        slug: {$fake: "delref-{{loremslug}}-{{nonce}}"}
+        entity: "inventoryitem"
+        jsonSchema: '{"type":"object","properties":{"weight":{"type":"number"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: item
+    name: "Create item referencing the data type"
+    operation: inventory.createInventoryItem
+    vars:
+      input:
+        sku: {$fake: "{{uuid}}"}
+        dataTypeID: {$ref: "res[dt].body.data.createDataType.id"}
+        data:
+          weight: 1.5
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item references the data type"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+          - ref: res.body.data.createInventoryItem.inventoryItem.dataTypeID
+            equal: {$ref: "res[dt].body.data.createDataType.id"}
+
+  - name: "Delete the data type while the item still references it"
+    operation: management.deleteDataType
+    wait_after_ms: 500
+    vars:
+      id: {$ref: "res[dt].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Delete succeeds — no FK/cascade blocks it"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.deleteDataType.deletedID
+            equal: {$ref: "res[dt].body.data.createDataType.id"}
+
+  - name: "Item still READS with its reference intact"
+    operation: inventory.getInventoryItems
+    vars:
+      where:
+        id: {$ref: "res[item].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors on read"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item still found"
+        assertions:
+          - ref: res.body.data.inventoryItems.totalCount
+            equal: 1
+      - msg: "Reference and data retained on the entity"
+        assertions:
+          - ref: res.body.data.inventoryItems.edges[].node.dataTypeID
+            equal: {$ref: "res[dt].body.data.createDataType.id"}
+          - ref: res.body.data.inventoryItems.edges[].node.data.weight
+            equal: 1.5
+
+  - name: "WRITE re-validating against the deleted data type is rejected"
+    operation: inventory.updateInventoryItem
+    vars:
+      id: {$ref: "res[item].body.data.createInventoryItem.inventoryItem.id"}
+      input:
+        dataTypeID: {$ref: "res[dt].body.data.createDataType.id"}
+        data:
+          weight: 2.5
+    tests:
+      - msg: "Status is 200 (GraphQL surfaces the failure in errors)"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Write blocked — deleted data type cannot validate"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.data.updateInventoryItem
+            nil: true
+
+  - name: "Cleanup - delete item"
+    operation: inventory.deleteInventoryItem
+    vars:
+      id: {$ref: "res[item].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

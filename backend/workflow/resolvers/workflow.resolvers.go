@@ -84,12 +84,28 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 		return nil, err
 	}
 
-	// Validate workflow data type and patch id/slug
-	wfDT, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	// Validate workflow data type and resolve slug (DataTypeID is the pin).
+	wfDT, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, nil)
 	if err != nil {
 		return nil, err
 	}
-	mixin.PatchDataTypeIdSlugInput(&input, wfDT)
+
+	// The payload the pinned version has to accept. A registration that carries
+	// no data but pins a different version repoints the row's schema, so the
+	// row's persisted data is what must satisfy that version — a new version
+	// exists precisely because its schema differs, and no read path would ever
+	// catch the divergence. Echoing the current data_type_id is not a repoint:
+	// the data was validated against that immutable version when it was
+	// written, so a worker heartbeat must not be forced through validation.
+	// Nil persisted data means the row carries no data (nothing to validate);
+	// an empty map is data and is validated like any other payload.
+	validationData := input.Data
+	if input.Data == nil && wf != nil && wfDT != nil && wfDT.ID != wf.DataTypeID && wf.Data != nil {
+		if _, err = r.validator.ValidateDataTypeInput(ctx, true, wf.Data, &wfDT.ID, nil); err != nil {
+			return nil, err
+		}
+		validationData = wf.Data
+	}
 
 	// Validate Data uniqueness before the write. On update we exclude the row
 	// being changed so its own current value is not counted as a collision;
@@ -99,7 +115,7 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 		excludeID = &wf.ID
 	}
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
-		Input:     input.Data,
+		Input:     validationData,
 		DataType:  wfDT,
 		TableName: entworkflow.Table,
 		FieldName: entworkflow.FieldData,
@@ -112,13 +128,16 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 	// Create / Update workflow
 	// MutationEventHook captures the mutation automatically.
 	if wf == nil {
-		wf, err = tx.Workflow.Create().SetInput(ent.CreateWorkflowInput{
-			DataTypeID:   input.DataTypeID,
-			DataTypeSlug: input.DataTypeSlug,
-			Data:         input.Data,
-			Name:         input.Name,
-			TaskQueue:    input.TaskQueue,
-		}).Save(ctx)
+		create := tx.Workflow.Create().SetInput(ent.CreateWorkflowInput{
+			DataTypeID: input.DataTypeID,
+			Data:       input.Data,
+			Name:       input.Name,
+			TaskQueue:  input.TaskQueue,
+		})
+		if wfDT != nil {
+			create.SetDataTypeSlug(wfDT.Slug)
+		}
+		wf, err = create.Save(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -126,11 +145,14 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 		// Only write the shared workflow row when its data actually changed. A
 		// no-op re-registration (a worker heartbeat) must not touch it — that
 		// would re-introduce write contention and emit a spurious CRUD event.
-		wf, err = tx.Workflow.UpdateOneID(wf.ID).SetInput(ent.UpdateWorkflowInput{
-			DataTypeID:   input.DataTypeID,
-			DataTypeSlug: input.DataTypeSlug,
-			Data:         input.Data,
-		}).Save(ctx)
+		update := tx.Workflow.UpdateOneID(wf.ID).SetInput(ent.UpdateWorkflowInput{
+			DataTypeID: input.DataTypeID,
+			Data:       input.Data,
+		})
+		if wfDT != nil {
+			update.SetDataTypeSlug(wfDT.Slug)
+		}
+		wf, err = update.Save(ctx)
 		if err != nil {
 			return nil, err
 		}

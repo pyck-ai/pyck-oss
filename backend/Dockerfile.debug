@@ -1,4 +1,4 @@
-FROM ghcr.io/pyck-ai/baseimages/golang:1.26-alpine
+FROM ghcr.io/pyck-ai/baseimages/golang:1.26.5-alpine
 
 ARG SERVICE_NAME
 ENV SERVICE_NAME=${SERVICE_NAME}

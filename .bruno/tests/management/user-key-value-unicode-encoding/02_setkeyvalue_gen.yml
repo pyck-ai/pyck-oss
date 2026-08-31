@@ -42,7 +42,7 @@ graphql:
           "data": {
             "note": "nfc-test"
           },
-          "dataTypeSlug": "{{bru-test_user-management-key-value-unicode-encoding_4da9669e}}",
+          "dataTypeID": "{{bru-test_user-management-key-value-unicode-encoding_f216fba0}}",
           "name": "Café Münchner"
         }
       }

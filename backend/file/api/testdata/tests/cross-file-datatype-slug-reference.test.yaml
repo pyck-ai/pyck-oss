@@ -1,8 +1,8 @@
 ---
-name: "Cross - File Data Type Slug Reference"
+name: "Cross - File Data Type ID Reference"
 description: >
-  Creates a data type with a slug, then creates a file that references it
-  via dataTypeSlug + custom data. Exercises the file service's data type
+  Creates a data type, then creates a file that references it via
+  dataTypeID + custom data. Exercises the file service's data type
   cache (cache is populated via the NATS event emitted by createDataType).
 steps:
   - id: createDT
@@ -34,7 +34,7 @@ steps:
             nil: false
 
   - id: create
-    name: "Create file via slug (resolves through cache)"
+    name: "Create file via ID (resolves through cache)"
     operation: file.createFile
     vars:
       input:
@@ -43,7 +43,7 @@ steps:
         name: "invoice-2026.pdf"
         size: 102400
         contentType: "application/pdf"
-        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         data:
           category: "invoice"
     tests:

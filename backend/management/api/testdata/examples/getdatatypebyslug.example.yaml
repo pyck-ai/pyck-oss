@@ -1,0 +1,17 @@
+---
+operation: GetDataTypeBySlug
+name: "Get Data Type By Slug"
+description: >
+  Returns the latest non-deleted DataType version for the given slug within
+  the caller's tenant, or null if no version exists.
+vars:
+  slug: { $placeholder: "data type slug, e.g. customer" }
+expect:
+  - msg: "Status is 200"
+    assertions:
+      - ref: res.status
+        equal: 200
+  - msg: "No GraphQL errors"
+    assertions:
+      - ref: res.body.errors
+        nil: true

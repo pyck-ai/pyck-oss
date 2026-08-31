@@ -64,8 +64,10 @@ type DataTypeMutation struct {
 	description     *string
 	json_schema     *string
 	frontend_schema *string
-	_default        *bool
 	entity          *string
+	_default        *bool
+	version         *int
+	addversion      *int
 	clearedFields   map[string]struct{}
 	done            bool
 	oldValue        func(context.Context) (*DataType, error)
@@ -699,42 +701,6 @@ func (m *DataTypeMutation) ResetFrontendSchema() {
 	delete(m.clearedFields, datatype.FieldFrontendSchema)
 }
 
-// SetDefault sets the "default" field.
-func (m *DataTypeMutation) SetDefault(b bool) {
-	m._default = &b
-}
-
-// Default returns the value of the "default" field in the mutation.
-func (m *DataTypeMutation) Default() (r bool, exists bool) {
-	v := m._default
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldDefault returns the old "default" field's value of the DataType entity.
-// If the DataType object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DataTypeMutation) OldDefault(ctx context.Context) (v bool, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldDefault is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldDefault requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldDefault: %w", err)
-	}
-	return oldValue.Default, nil
-}
-
-// ResetDefault resets all changes to the "default" field.
-func (m *DataTypeMutation) ResetDefault() {
-	m._default = nil
-}
-
 // SetEntity sets the "entity" field.
 func (m *DataTypeMutation) SetEntity(s string) {
 	m.entity = &s
@@ -771,6 +737,98 @@ func (m *DataTypeMutation) ResetEntity() {
 	m.entity = nil
 }
 
+// SetDefault sets the "default" field.
+func (m *DataTypeMutation) SetDefault(b bool) {
+	m._default = &b
+}
+
+// Default returns the value of the "default" field in the mutation.
+func (m *DataTypeMutation) Default() (r bool, exists bool) {
+	v := m._default
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDefault returns the old "default" field's value of the DataType entity.
+// If the DataType object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DataTypeMutation) OldDefault(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDefault is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDefault requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDefault: %w", err)
+	}
+	return oldValue.Default, nil
+}
+
+// ResetDefault resets all changes to the "default" field.
+func (m *DataTypeMutation) ResetDefault() {
+	m._default = nil
+}
+
+// SetVersion sets the "version" field.
+func (m *DataTypeMutation) SetVersion(i int) {
+	m.version = &i
+	m.addversion = nil
+}
+
+// Version returns the value of the "version" field in the mutation.
+func (m *DataTypeMutation) Version() (r int, exists bool) {
+	v := m.version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldVersion returns the old "version" field's value of the DataType entity.
+// If the DataType object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DataTypeMutation) OldVersion(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldVersion: %w", err)
+	}
+	return oldValue.Version, nil
+}
+
+// AddVersion adds i to the "version" field.
+func (m *DataTypeMutation) AddVersion(i int) {
+	if m.addversion != nil {
+		*m.addversion += i
+	} else {
+		m.addversion = &i
+	}
+}
+
+// AddedVersion returns the value that was added to the "version" field in this mutation.
+func (m *DataTypeMutation) AddedVersion() (r int, exists bool) {
+	v := m.addversion
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetVersion resets all changes to the "version" field.
+func (m *DataTypeMutation) ResetVersion() {
+	m.version = nil
+	m.addversion = nil
+}
+
 // Where appends a list predicates to the DataTypeMutation builder.
 func (m *DataTypeMutation) Where(ps ...predicate.DataType) {
 	m.predicates = append(m.predicates, ps...)
@@ -805,7 +863,7 @@ func (m *DataTypeMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DataTypeMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 15)
 	if m.tenant_id != nil {
 		fields = append(fields, datatype.FieldTenantID)
 	}
@@ -842,11 +900,14 @@ func (m *DataTypeMutation) Fields() []string {
 	if m.frontend_schema != nil {
 		fields = append(fields, datatype.FieldFrontendSchema)
 	}
+	if m.entity != nil {
+		fields = append(fields, datatype.FieldEntity)
+	}
 	if m._default != nil {
 		fields = append(fields, datatype.FieldDefault)
 	}
-	if m.entity != nil {
-		fields = append(fields, datatype.FieldEntity)
+	if m.version != nil {
+		fields = append(fields, datatype.FieldVersion)
 	}
 	return fields
 }
@@ -880,10 +941,12 @@ func (m *DataTypeMutation) Field(name string) (ent.Value, bool) {
 		return m.JSONSchema()
 	case datatype.FieldFrontendSchema:
 		return m.FrontendSchema()
-	case datatype.FieldDefault:
-		return m.Default()
 	case datatype.FieldEntity:
 		return m.Entity()
+	case datatype.FieldDefault:
+		return m.Default()
+	case datatype.FieldVersion:
+		return m.Version()
 	}
 	return nil, false
 }
@@ -917,10 +980,12 @@ func (m *DataTypeMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldJSONSchema(ctx)
 	case datatype.FieldFrontendSchema:
 		return m.OldFrontendSchema(ctx)
-	case datatype.FieldDefault:
-		return m.OldDefault(ctx)
 	case datatype.FieldEntity:
 		return m.OldEntity(ctx)
+	case datatype.FieldDefault:
+		return m.OldDefault(ctx)
+	case datatype.FieldVersion:
+		return m.OldVersion(ctx)
 	}
 	return nil, fmt.Errorf("unknown DataType field %s", name)
 }
@@ -1014,6 +1079,13 @@ func (m *DataTypeMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetFrontendSchema(v)
 		return nil
+	case datatype.FieldEntity:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntity(v)
+		return nil
 	case datatype.FieldDefault:
 		v, ok := value.(bool)
 		if !ok {
@@ -1021,12 +1093,12 @@ func (m *DataTypeMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetDefault(v)
 		return nil
-	case datatype.FieldEntity:
-		v, ok := value.(string)
+	case datatype.FieldVersion:
+		v, ok := value.(int)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetEntity(v)
+		m.SetVersion(v)
 		return nil
 	}
 	return fmt.Errorf("unknown DataType field %s", name)
@@ -1035,13 +1107,21 @@ func (m *DataTypeMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *DataTypeMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.addversion != nil {
+		fields = append(fields, datatype.FieldVersion)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *DataTypeMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case datatype.FieldVersion:
+		return m.AddedVersion()
+	}
 	return nil, false
 }
 
@@ -1050,6 +1130,13 @@ func (m *DataTypeMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *DataTypeMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case datatype.FieldVersion:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddVersion(v)
+		return nil
 	}
 	return fmt.Errorf("unknown DataType numeric field %s", name)
 }
@@ -1158,11 +1245,14 @@ func (m *DataTypeMutation) ResetField(name string) error {
 	case datatype.FieldFrontendSchema:
 		m.ResetFrontendSchema()
 		return nil
+	case datatype.FieldEntity:
+		m.ResetEntity()
+		return nil
 	case datatype.FieldDefault:
 		m.ResetDefault()
 		return nil
-	case datatype.FieldEntity:
-		m.ResetEntity()
+	case datatype.FieldVersion:
+		m.ResetVersion()
 		return nil
 	}
 	return fmt.Errorf("unknown DataType field %s", name)

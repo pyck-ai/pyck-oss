@@ -15,7 +15,7 @@ This file contains essential guidelines for AI agents working on this codebase.
 ### Architecture Overview
 
 **Technology Stack:**
-- **Backend**: Go 1.25+ with go.work monorepo structure
+- **Backend**: Go 1.26+ with go.work monorepo structure
 - **API**: GraphQL with Apollo Federation (gateway pattern)
 - **Database**: PostgreSQL with Ent ORM for code-first schema management
 - **Workflow Engine**: Temporal.io for durable workflows
@@ -130,7 +130,7 @@ and the poll-don't-sleep rule. Run with `task test:integration` (needs
 1. **Test** (`test.yml`): Lint, test, coverage analysis per service
 2. **Build** (`container-build.yml`): Build multi-arch Docker images
 3. **Deploy** (`deploy.yml`): Trigger deployment in separate repo
-4. **Version Check** (`go-version-check.yml`): Ensure Go version consistency
+4. **Linters** (`run-linters.yml`): Version-group consistency (`.github/renovate-versiongroups.yaml`), commit message standards, supergraph sync
 
 **Container Build:**
 - Multi-stage builds (builder + runtime)

@@ -37,8 +37,8 @@ func (r *RefResolver) Track(typeName string, data map[string]any, id string) {
 	if !ok {
 		return
 	}
-	if val, ok := data[desc.IdentityField]; ok {
-		r.cache[cacheKey(typeName, fmt.Sprint(val))] = id
+	if _, key, ok := desc.identity(data); ok {
+		r.cache[cacheKey(typeName, key)] = id
 	}
 }
 
@@ -128,13 +128,15 @@ func (r *RefResolver) resolve(ctx context.Context, fieldName string, ref map[str
 	if !ok {
 		return "", fmt.Errorf("field %q: %w %q", fieldName, ErrRefUnknownType, typeName)
 	}
-
-	// Extract the identity value from the ref.
-	identityVal, ok := ref[desc.IdentityField]
-	if !ok {
-		return "", fmt.Errorf("field %q: %w %q for %q", fieldName, ErrRefMissingIdentity, desc.IdentityField, typeName)
+	if len(desc.IdentityFields) == 0 {
+		return "", fmt.Errorf("field %q: %w for %q", fieldName, ErrRefMissingIdentity, typeName)
 	}
-	identityStr := fmt.Sprint(identityVal)
+
+	// Extract all identity-field values from the ref into a WhereInput filter.
+	where, identityStr, ok := desc.identity(ref)
+	if !ok {
+		return "", fmt.Errorf("field %q: %w %v for %q", fieldName, ErrRefMissingIdentity, desc.IdentityFields, typeName)
+	}
 
 	// Check local cache first.
 	key := cacheKey(typeName, identityStr)
@@ -143,18 +145,17 @@ func (r *RefResolver) resolve(ctx context.Context, fieldName string, ref map[str
 	}
 
 	// Query the API.
-	where := map[string]any{desc.IdentityField: identityVal}
 	first := 2 // Fetch 2 to detect ambiguity.
 	result, err := desc.List(ctx, nil, &first, where)
 	if err != nil {
-		return "", fmt.Errorf("field %q: resolve $ref %s{%s=%q}: %w",
-			fieldName, typeName, desc.IdentityField, identityVal, err)
+		return "", fmt.Errorf("field %q: resolve $ref %s{%s}: %w",
+			fieldName, typeName, desc.identityDisplay(where), err)
 	}
 
 	switch len(result.Nodes) {
 	case 0:
-		return "", fmt.Errorf("field %q: %w: no %s with %s=%q",
-			fieldName, ErrRefNotFound, typeName, desc.IdentityField, identityStr)
+		return "", fmt.Errorf("field %q: %w: no %s with %s",
+			fieldName, ErrRefNotFound, typeName, desc.identityDisplay(where))
 	case 1:
 		id, ok := result.Nodes[0]["id"].(string)
 		if !ok {
@@ -163,8 +164,8 @@ func (r *RefResolver) resolve(ctx context.Context, fieldName string, ref map[str
 		r.cache[key] = id
 		return id, nil
 	default:
-		return "", fmt.Errorf("field %q: %w: multiple %s entities match %s=%q",
-			fieldName, ErrRefAmbiguous, typeName, desc.IdentityField, identityStr)
+		return "", fmt.Errorf("field %q: %w: multiple %s entities match %s",
+			fieldName, ErrRefAmbiguous, typeName, desc.identityDisplay(where))
 	}
 }
 

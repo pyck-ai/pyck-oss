@@ -1,0 +1,11 @@
+info:
+  name: User - Data Type Versioning
+  type: folder
+  seq: 1
+
+docs: |-
+  Exercises pyck#990's append-only DataType model: same slug can repeat as a new version row, dataTypeBySlug always returns the latest non-deleted version, deleting the latest promotes the prior version into the slug slot, deleting all versions yields null.
+
+
+request:
+  auth: inherit

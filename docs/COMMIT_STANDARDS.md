@@ -27,6 +27,10 @@ Blank line
 Footer (e.g., references to issues: Fixes: #123, See also: #456)
 ```
 
+> **50 chars is a hard limit.** CI rejects any subject line over 50
+> characters (see [Enforcement](#enforcement) below) -- this isn't a
+> soft guideline.
+
 ### Examples
 
 **Simple Bug Fix:**
@@ -54,6 +58,63 @@ storage and applies it globally using CSS variables.
 
 Implements: #123
 ```
+
+## Enforcement
+
+CI lints every commit message on non-default, non-bot branches via
+[`scripts/check-commit-messages.sh`](../scripts/check-commit-messages.sh)
+(the `commit-message-standards` job in
+[`run-linters.yml`](../.github/workflows/run-linters.yml)). It checks the
+range from `git merge-base origin/main HEAD` to `HEAD`, so it only ever
+lints your unpushed/unmerged commits.
+
+Run it locally before pushing:
+
+```bash
+task lint:commits
+```
+
+This is a standalone task, deliberately not part of `task lint`: `task
+lint` runs constantly during normal development and must not fail on
+unpushed WIP commits.
+
+### Rules
+
+| Rule | Check | Severity |
+|------|-------|----------|
+| R1  | Subject line is non-empty | FAIL |
+| R2  | Subject is 50 chars or fewer (after stripping a trailing `(#123)` PR-merge suffix) | FAIL |
+| R4  | Subject starts with a capital letter | FAIL |
+| R5  | Subject has no trailing period (an ellipsis, `...`, is allowed) | FAIL |
+| R6  | Subject has no conventional-commit prefix (`feat:`, `fix(scope):`, ...) | FAIL |
+| R7  | Subject is in the imperative mood (not past tense/3rd-person/gerund) | FAIL |
+| R8  | Not a stray `fixup!`/`squash!` commit (autosquash before merging) | FAIL |
+| R9  | Line 2 is blank (subject/body separator) | FAIL |
+| R10 | Body lines are flush left (except bullet-list continuations) | FAIL |
+| R11 | Body lines are wrapped at 72 chars or fewer | FAIL |
+| R12 | No trailing blank lines at the end of the message | WARN |
+| R14 | Issue-footer lines (`Closes`, `Fixes`, `Refs`, `Resolves`, `Implements`, `See also`) use the canonical `Keyword: #123[, #456]` form | FAIL |
+
+`--strict` promotes WARN rules to FAIL; CI does not use it.
+
+### Exemptions
+
+Whole commits are skipped for:
+- Merge commits.
+- Bot authors (`*[bot]@users.noreply.github.com` or an author name ending in `[bot]`).
+- Git-generated reverts (subject starts with `Revert "` -- a hand-written
+  `Revert foo` without quotes is still linted).
+
+Rule-scoped exemption (R2 only, regardless of author): subjects matching
+`Update (module|... (Docker tag|action|monorepo|image)) ...`, i.e. a
+machine-shaped Renovate dependency bump. These commits still have to pass
+R4-R8.
+
+R11 additionally exempts, on a per-line basis: unwrappable single tokens
+(long URLs/identifiers), trailer lines (`Key: value`, e.g.
+`Co-authored-by:`, but not `BREAKING CHANGE:` which has a space in the
+key), fenced code blocks (` ``` ` or `~~~`), indented code blocks (4+
+spaces), and table rows (`| ... |`).
 
 ## Rebasing Strategy
 
@@ -159,7 +220,7 @@ BREAKING CHANGE: <detailed explanation> (Optional)
 
 ### Ideal Example
 ~~~
-Centralize build caches and update Docker base images
+Centralize caches and update Docker base images
 
 - Adopt shared base images for consistent Go and tool provisioning.
 - Move Go and module caches to unified Docker volumes.
@@ -167,8 +228,8 @@ Centralize build caches and update Docker base images
 
 The previous per-Dockerfile Go/tool provisioning led to version drift
 and duplicated setup across various builder images (renovate, backend
-builders, gateway). This makes builds inconsistent and harder to maintain
-at scale.
+builders, gateway). This makes builds inconsistent and harder to
+maintain at scale.
 
 This change moves all service definitions to derive from a single set
 of base images, ensuring all environments use the same Go version and

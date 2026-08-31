@@ -27,9 +27,9 @@ func RegisterEntities(r *importexport.Registry, c Client) error {
 
 func registerDataType(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "DataType",
-		Service:       "management",
-		IdentityField: "name",
+		TypeName:       "DataType",
+		Service:        "management",
+		IdentityFields: []string{"slug", "version"},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *DataTypeWhereInput
 			if where != nil {
@@ -67,7 +67,7 @@ func registerDataType(r *importexport.Registry, c Client) error {
 			}
 			return importexport.StructToMap(resp.GetCreateDataType())
 		},
-		ImmutableFields: []string{"entity"},
+		ImmutableFields: []string{"entity", "jsonSchema", "frontendSchema", "description", "default"},
 		Update: func(ctx context.Context, id string, input map[string]any) (map[string]any, error) {
 			typed, err := importexport.MapToStruct[UpdateDataTypeInput](input)
 			if err != nil {
@@ -84,9 +84,10 @@ func registerDataType(r *importexport.Registry, c Client) error {
 
 func registerDevice(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "Device",
-		Service:       "management",
-		IdentityField: "name",
+		TypeName:       "Device",
+		Service:        "management",
+		IdentityFields: []string{"name"},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *DeviceWhereInput
 			if where != nil {
@@ -140,9 +141,10 @@ func registerDevice(r *importexport.Registry, c Client) error {
 
 func registerDeviceLocation(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "DeviceLocation",
-		Service:       "management",
-		IdentityField: "",
+		TypeName:       "DeviceLocation",
+		Service:        "management",
+		IdentityFields: []string{},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}, {Field: "deviceID", TargetType: "Device"}, {Field: "locationID", TargetType: "Location"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *DeviceLocationWhereInput
 			if where != nil {
@@ -185,9 +187,10 @@ func registerDeviceLocation(r *importexport.Registry, c Client) error {
 
 func registerLocation(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "Location",
-		Service:       "management",
-		IdentityField: "name",
+		TypeName:       "Location",
+		Service:        "management",
+		IdentityFields: []string{"name"},
+		References:     []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}},
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *LocationWhereInput
 			if where != nil {

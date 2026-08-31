@@ -90,8 +90,6 @@ steps:
         assertions:
           - ref: res.body.data.createPickingOrder.pickingOrder.id
             nil: false
-          - ref: res.body.data.createPickingOrder.pickingOrder.orderItems.totalCount
-            equal: 3
 
   - id: order2
     name: "Create second picking order"

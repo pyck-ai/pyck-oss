@@ -16,39 +16,18 @@ func (m *MockDataTypeProvider) AddDataType(dataTypes ...json_schema.DataType) {
 	m.DataTypes = append(m.DataTypes, dataTypes...)
 }
 
-func (m *MockDataTypeProvider) ValidateDataTypeInput(ctx context.Context, strict bool, input map[string]interface{}, dataTypeID *uuid.UUID, dataTypeSlug *string) (*json_schema.DataType, error) {
-	if input == nil {
-		return nil, nil
-	}
+// MockDataTypeProvider implements validator.DataTypeReader (ReadByID +
+// ReadBySlug). Tests wrap it via validator.NewValidator(provider), so the
+// real Validator drives ValidateDataTypeInput / ValidateInputDataUniqueness —
+// the mock only supplies the reads.
 
-	var dataType *json_schema.DataType
-	if dataTypeSlug != nil && *dataTypeSlug != "" {
-		dt, err := m.ReadBySlug(ctx, *dataTypeSlug)
-		if err != nil {
-			return nil, err
-		}
-		dataType = dt
-	} else if dataTypeID != nil {
-		dt, err := m.ReadByID(ctx, *dataTypeID)
-		if err != nil {
-			return nil, err
-		}
-		dataType = dt
-	} else if strict {
-		return nil, validator.ErrDataTypeNotSet
-	}
-
-	return dataType, nil
-}
-
-func (m *MockDataTypeProvider) ValidateInputDataUniqueness(ctx context.Context, executor validator.QueryExecutor, params validator.UniquenessValidationParams) error {
-	return nil
-}
-
+// ReadBySlug returns the most-recently-added matching non-deleted DataType
+// (newest wins, mirroring the production cache + provider semantics).
 func (m *MockDataTypeProvider) ReadBySlug(ctx context.Context, slug string) (*json_schema.DataType, error) {
-	for _, dataType := range m.DataTypes {
-		if dataType.Slug == slug {
-			return &dataType, nil
+	for i := len(m.DataTypes) - 1; i >= 0; i-- {
+		dt := m.DataTypes[i]
+		if dt.Slug == slug && dt.DeletedAt == nil {
+			return &dt, nil
 		}
 	}
 

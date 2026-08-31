@@ -63,7 +63,16 @@ func ParseImportableEntities(schemaDir string) ([]types.ImportExportEntry, error
 				TypeName: typeDef.Name,
 			}
 			if identityField := dir.Arguments.ForName("identityField"); identityField != nil {
-				entry.IdentityField = identityField.Value.Raw
+				entry.IdentityFields, err = splitIdentityFields(identityField.Value.Raw)
+				if err != nil {
+					return nil, fmt.Errorf("%s: identityField: %w", typeDef.Name, err)
+				}
+			}
+			if refs := dir.Arguments.ForName("references"); refs != nil {
+				entry.References, err = parseReferences(refs.Value)
+				if err != nil {
+					return nil, fmt.Errorf("%s: references: %w", typeDef.Name, err)
+				}
 			}
 			if arg := dir.Arguments.ForName("list"); arg != nil {
 				entry.ListField = arg.Value.Raw
@@ -91,8 +100,9 @@ func ParseImportableEntities(schemaDir string) ([]types.ImportExportEntry, error
 // and UpdateMutation set from the @pyckImportable directive.
 func MatchEntity(entry types.ImportExportEntry, methods map[string]types.ClientMethod, clientPath string) (types.RegistryEntity, error) {
 	e := types.RegistryEntity{
-		TypeName:      entry.TypeName,
-		IdentityField: entry.IdentityField,
+		TypeName:       entry.TypeName,
+		IdentityFields: entry.IdentityFields,
+		References:     entry.References,
 	}
 
 	// Capitalize GraphQL names to get Go method names.
@@ -169,6 +179,43 @@ func HasModelPrefix(typeName string) bool {
 	return strings.HasPrefix(typeName, "model.")
 }
 
+// splitIdentityFields parses a @pyckImportable identityField argument into the
+// ordered list of identity fields. A single field stays a one-element slice
+// ("name" → ["name"]); a composite key is comma-separated ("slug,version" →
+// ["slug","version"]). An empty argument (create-only entities) yields nil. An
+// empty token among others (stray/trailing comma, e.g. "slug,") is a typo and
+// fails loudly at codegen rather than producing a silently-wrong key.
+func splitIdentityFields(raw string) ([]string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	var fields []string
+	for _, f := range strings.Split(raw, ",") {
+		if f = strings.TrimSpace(f); f == "" {
+			return nil, fmt.Errorf("%w: empty field in %q", types.ErrMalformedIdentityField, raw)
+		}
+		fields = append(fields, f)
+	}
+	return fields, nil
+}
+
+// parseReferences turns a @pyckImportable references list value (each element a
+// "field:TargetType" string) into typed reference edges. A malformed element
+// (no colon, or an empty field/target) fails loudly at codegen — otherwise a
+// typo'd annotation would silently drop the edge and surface only at runtime.
+func parseReferences(v *ast.Value) ([]types.Reference, error) {
+	refs := make([]types.Reference, 0, len(v.Children))
+	for _, child := range v.Children {
+		field, target, ok := strings.Cut(child.Value.Raw, ":")
+		field, target = strings.TrimSpace(field), strings.TrimSpace(target)
+		if !ok || field == "" || target == "" {
+			return nil, fmt.Errorf("%w: %q (want \"field:TargetType\")", types.ErrMalformedReference, child.Value.Raw)
+		}
+		refs = append(refs, types.Reference{Field: field, TargetType: target})
+	}
+	return refs, nil
+}
+
 func loadSchema(schemaDir string) (*ast.Schema, error) {
 	files, err := filepath.Glob(filepath.Join(schemaDir, "*.graphql"))
 	if err != nil {
@@ -212,6 +259,9 @@ func loadSchema(schemaDir string) (*ast.Schema, error) {
 // client interface, not the model package. Keep an entry here when a field
 // becomes immutable, or an import will silently drop changes to it.
 var immutableFields = map[string][]string{
-	// entity picks the slot pool a datatype's indices are validated against.
-	"DataType": {"entity"},
+	// A DataType is append-only: a (slug, version) pair names one fixed
+	// schema, so every content field is set at creation and a new schema is
+	// a new version. Only name is updatable. entity additionally picks the
+	// slot pool a datatype's indices are validated against.
+	"DataType": {"entity", "jsonSchema", "frontendSchema", "description", "default"},
 }

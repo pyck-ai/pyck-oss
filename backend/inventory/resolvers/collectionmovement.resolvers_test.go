@@ -580,6 +580,79 @@ func TestCollectionMovement_CreateInternallyInconsistentChain(t *testing.T) {
 	te.assertNoEvents(ctx)
 }
 
+// TestCollectionMovement_CreatePersistsDataTypeSlug pins (data_type_id,
+// data_type_slug) as one server-derived unit across every row a collection
+// create writes: the collection row itself and each position's movement row
+// carry the slug of the DataType version their id points at. A row that
+// stores the id but leaves the slug NULL is invisible to slug-keyed filters
+// and to consumers that read data types by slug.
+func TestCollectionMovement_CreatePersistsDataTypeSlug(t *testing.T) {
+	t.Parallel()
+	te := setup(t)
+	defer te.Close(t)
+
+	repos, itemID := setupRepositoryHierarchy(t, te)
+	ctx := te.ctx(userA)
+
+	te.newStock(ctx, userA, itemID, repos["repo11"]).Quantity(20).Create()
+	te.clearEvents(ctx)
+
+	positionData := `{
+		type: "custom",
+		sum: 15,
+		meta: {
+			name: "SlugPinning",
+			weight: 50,
+			tags: ["test"]
+		}
+	}`
+
+	data := execOK[createCollectionMovementData](te, ctx, createCollectionMovement, map[string]any{
+		"DataTypeID": itemDataTypeID,
+		"Collection": []collectionMovementItem{
+			{
+				ItemID:     &itemID,
+				FromID:     repos["repo11"],
+				ToID:       repos["repo8"],
+				Handler:    testHandler,
+				Quantity:   ptrInt64(10),
+				DataTypeID: ptrUUID(itemDataTypeID),
+				Data:       ptrString(positionData),
+			},
+			{
+				RepositoryID: ptrUUID(repos["repo7"]),
+				FromID:       repos["repo5"],
+				ToID:         repos["repo4"],
+				Handler:      testHandler,
+				DataTypeID:   ptrUUID(itemDataTypeID),
+			},
+		},
+	})
+
+	collection, err := te.Ent.Collection_Movement.Get(ctx, data.CreateInventoryCollectionMovement.ID)
+	require.NoError(t, err)
+	assert.Equal(t, itemDataTypeID, collection.DataTypeID)
+	assert.Equal(t, itemDataTypeSlug, collection.DataTypeSlug, "collection row must carry the resolved data type slug")
+
+	require.Len(t, data.CreateInventoryCollectionMovement.Movements, 2)
+	for _, movement := range data.CreateInventoryCollectionMovement.Movements {
+		switch movement.MovementType {
+		case "itemMovement":
+			row, err := te.Ent.ItemMovement.Get(ctx, movement.ID)
+			require.NoError(t, err)
+			assert.Equal(t, itemDataTypeID, row.DataTypeID)
+			assert.Equal(t, itemDataTypeSlug, row.DataTypeSlug, "item movement position must carry the resolved data type slug")
+		case "repositoryMovement":
+			row, err := te.Ent.RepositoryMovement.Get(ctx, movement.ID)
+			require.NoError(t, err)
+			assert.Equal(t, itemDataTypeID, row.DataTypeID)
+			assert.Equal(t, itemDataTypeSlug, row.DataTypeSlug, "repository movement position must carry the resolved data type slug")
+		default:
+			t.Fatalf("unexpected movement type %q", movement.MovementType)
+		}
+	}
+}
+
 // =============================================================================
 // UPDATE TESTS
 // =============================================================================

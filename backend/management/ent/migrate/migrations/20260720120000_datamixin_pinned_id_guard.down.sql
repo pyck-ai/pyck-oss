@@ -1,0 +1,2 @@
+-- No-op: the up migration is a read-only precondition check (RAISE on bad data).
+-- It makes no schema change, so there is nothing to reverse.

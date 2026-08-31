@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,137 @@ import (
 
 	"github.com/pyck-ai/pyck/backend/common/importexport"
 )
+
+// fakeCompositeDescriptor builds a create-only descriptor keyed on a composite
+// identity (e.g. DataType's (slug, version)). It mirrors fakeDescriptor but with
+// no Update func, so an existing match is skipped rather than updated.
+func fakeCompositeDescriptor(typeName string, identity ...string) (*importexport.EntityDescriptor, *[]map[string]any) {
+	store := &[]map[string]any{}
+	nextID := 0
+	return &importexport.EntityDescriptor{
+		TypeName:       typeName,
+		Service:        "test",
+		IdentityFields: identity,
+		List: func(_ context.Context, _ *string, _ *int, where map[string]any) (importexport.ListResult, error) {
+			var nodes []map[string]any
+			for _, e := range *store {
+				match := true
+				for k, v := range where {
+					if e[k] != v {
+						match = false
+						break
+					}
+				}
+				if match {
+					nodes = append(nodes, e)
+				}
+			}
+			return importexport.ListResult{Nodes: nodes}, nil
+		},
+		Create: func(_ context.Context, input map[string]any) (map[string]any, error) {
+			nextID++
+			e := make(map[string]any, len(input)+1)
+			for k, v := range input {
+				e[k] = v
+			}
+			e["id"] = fmt.Sprintf("id-%d", nextID)
+			*store = append(*store, e)
+			return e, nil
+		},
+	}, store
+}
+
+// TestImporterFoundButUnusableIDErrorsNotDuplicate verifies that when the
+// existence-check List returns a matching row whose id is unusable (missing /
+// non-string), the importer fails loudly instead of treating it as not-found
+// and creating a duplicate of an entity that already exists.
+func TestImporterFoundButUnusableIDErrorsNotDuplicate(t *testing.T) {
+	t.Parallel()
+
+	created := 0
+	desc := &importexport.EntityDescriptor{
+		TypeName:       "Location",
+		Service:        "test",
+		IdentityFields: []string{"name"},
+		List: func(_ context.Context, _ *string, _ *int, _ map[string]any) (importexport.ListResult, error) {
+			// Row matches, but its id is not a usable string.
+			return importexport.ListResult{Nodes: []map[string]any{{"name": "A", "id": nil}}}, nil
+		},
+		Create: func(_ context.Context, _ map[string]any) (map[string]any, error) {
+			created++
+			return map[string]any{"id": "new-id"}, nil
+		},
+	}
+	reg := importexport.NewRegistry()
+	if err := reg.Register(desc); err != nil {
+		t.Fatal(err)
+	}
+
+	imp := importexport.NewImporter(reg, importexport.WithOutput(&bytes.Buffer{}), importexport.WithContinueOnError(true))
+	dir := t.TempDir()
+	path := writeJSONL(t, dir, "test.jsonl", `{"__typename":"Location","name":"A"}`)
+
+	result, err := imp.ImportFiles(context.Background(), []string{path})
+	if err != nil {
+		t.Fatalf("ImportFiles returned a hard error: %v", err)
+	}
+	if created != 0 {
+		t.Errorf("created %d duplicate(s) of an existing row; want a loud error instead", created)
+	}
+	if len(result.Errors) != 1 {
+		t.Fatalf("Errors = %d, want 1", len(result.Errors))
+	}
+	if !errors.Is(result.Errors[0].Err, importexport.ErrRefNoID) {
+		t.Errorf("error = %v, want ErrRefNoID", result.Errors[0].Err)
+	}
+}
+
+// TestImporterCompositeIdentitySkipsDuplicateVersion verifies that a create-only
+// entity keyed on (slug, version) treats different versions of one slug as
+// distinct rows, while re-importing the exact same (slug, version) is skipped —
+// the import side of DataType's append-only versioning.
+func TestImporterCompositeIdentitySkipsDuplicateVersion(t *testing.T) {
+	t.Parallel()
+
+	desc, store := fakeCompositeDescriptor("DataType", "slug", "version")
+	reg := importexport.NewRegistry()
+	if err := reg.Register(desc); err != nil {
+		t.Fatal(err)
+	}
+
+	imp := importexport.NewImporter(reg, importexport.WithOutput(&bytes.Buffer{}))
+	dir := t.TempDir()
+	path := writeJSONL(t, dir, "dt.jsonl", `{"__typename":"DataType","slug":"widget","version":1,"jsonSchema":"{}"}
+{"__typename":"DataType","slug":"widget","version":1,"jsonSchema":"{}"}
+{"__typename":"DataType","slug":"widget","version":2,"jsonSchema":"{}"}
+`)
+
+	result, err := imp.ImportFiles(context.Background(), []string{path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Created != 2 {
+		t.Errorf("Created = %d, want 2 (v1 + v2)", result.Created)
+	}
+	if result.Skipped != 1 {
+		t.Errorf("Skipped = %d, want 1 (duplicate v1)", result.Skipped)
+	}
+	if len(*store) != 2 {
+		t.Errorf("store has %d rows, want 2", len(*store))
+	}
+
+	// A record missing a composite-identity field has no identity → always
+	// created (can't existence-check), never skipped.
+	path2 := writeJSONL(t, dir, "dt2.jsonl",
+		`{"__typename":"DataType","slug":"widget","jsonSchema":"{}"}`)
+	result2, err := imp.ImportFiles(context.Background(), []string{path2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result2.Created != 1 || result2.Skipped != 0 {
+		t.Errorf("incomplete-identity record: created=%d skipped=%d, want created=1 skipped=0", result2.Created, result2.Skipped)
+	}
+}
 
 func TestImporterCreateAndUpdate(t *testing.T) {
 	t.Parallel()
@@ -643,5 +775,104 @@ func TestImporterRefusesImmutableFieldChange(t *testing.T) {
 	}
 	if (*store)[0]["data"] != "y" {
 		t.Errorf("data = %v, want 'y' — the refused import must not apply the rest", (*store)[0]["data"])
+	}
+}
+
+// TestImporterRefusesImmutableFieldChangeOnCreateOnly covers the skip path: a
+// create-only entity (DataType) that already exists under its identity is
+// skipped, and a skip would drop a changed fixed-at-creation field just as
+// silently as an update would.
+func TestImporterRefusesImmutableFieldChangeOnCreateOnly(t *testing.T) {
+	t.Parallel()
+
+	desc, store := fakeCompositeDescriptor("DataType", "slug", "version")
+	desc.ImmutableFields = []string{"jsonSchema"}
+	reg := importexport.NewRegistry()
+	if err := reg.Register(desc); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	imp := importexport.NewImporter(reg, importexport.WithOutput(&buf))
+	dir := t.TempDir()
+
+	create := writeJSONL(t, dir, "create.jsonl",
+		`{"__typename": "DataType", "slug": "item", "version": 1, "jsonSchema": "{}"}`+"\n")
+	if _, err := imp.ImportFiles(context.Background(), []string{create}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Same schema: skipped as already existing.
+	same := writeJSONL(t, dir, "same.jsonl",
+		`{"__typename": "DataType", "slug": "item", "version": 1, "jsonSchema": "{}"}`+"\n")
+	res, err := imp.ImportFiles(context.Background(), []string{same})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Skipped != 1 {
+		t.Errorf("Skipped = %d, want 1", res.Skipped)
+	}
+
+	// Different schema under the same (slug, version): refused, not skipped.
+	changed := writeJSONL(t, dir, "changed.jsonl",
+		`{"__typename": "DataType", "slug": "item", "version": 1, "jsonSchema": "{\"type\":\"object\"}"}`+"\n")
+	if _, err := imp.ImportFiles(context.Background(), []string{changed}); err == nil {
+		t.Fatal("expected the import to be refused")
+	} else if !errors.Is(err, importexport.ErrImmutableField) {
+		t.Errorf("error = %q, want ErrImmutableField", err)
+	}
+	if len(*store) != 1 {
+		t.Errorf("store has %d entities, want 1 — the refused import must not create a duplicate", len(*store))
+	}
+}
+
+// A directory produced by ExportToDir must be importable by passing the
+// directory itself: the exporter names files after their type, so plain
+// alphabetical expansion feeds a referrer to the importer before its
+// reference target ("customer.jsonl" sorts before "datatype.jsonl"), and the
+// $ref cannot resolve. Directory expansion must follow the registry's
+// dependency order instead.
+func TestImporterDirectoryExpandsInDependencyOrder(t *testing.T) {
+	t.Parallel()
+
+	var order []string
+	record := func(typeName string) *importexport.EntityDescriptor {
+		desc, _ := fakeCompositeDescriptor(typeName, "name")
+		inner := desc.Create
+		desc.Create = func(ctx context.Context, input map[string]any) (map[string]any, error) {
+			order = append(order, typeName)
+			return inner(ctx, input)
+		}
+		return desc
+	}
+
+	dataType := record("DataType")
+	customer := record("Customer")
+	customer.References = []importexport.Reference{{Field: "dataTypeID", TargetType: "DataType"}}
+
+	reg := importexport.NewRegistry()
+	for _, d := range []*importexport.EntityDescriptor{customer, dataType} {
+		if err := reg.Register(d); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// File names as ExportToDir writes them.
+	dir := t.TempDir()
+	writeJSONL(t, dir, "customer.jsonl", `{"__typename":"Customer","name":"c1"}`)
+	writeJSONL(t, dir, "datatype.jsonl", `{"__typename":"DataType","name":"widget"}`)
+
+	imp := importexport.NewImporter(reg, importexport.WithOutput(&bytes.Buffer{}))
+	result, err := imp.ImportFiles(context.Background(), []string{dir})
+	if err != nil {
+		t.Fatalf("import directory: %v", err)
+	}
+	if len(result.Errors) != 0 {
+		t.Fatalf("unexpected import errors: %v", result.Errors)
+	}
+
+	want := []string{"DataType", "Customer"}
+	if len(order) != len(want) || order[0] != want[0] || order[1] != want[1] {
+		t.Errorf("processing order = %v, want %v (target before referrer)", order, want)
 	}
 }

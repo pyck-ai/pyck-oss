@@ -53,6 +53,7 @@ type Client interface {
 	GetTenants(ctx context.Context, input GetTenantsArgs) (*GetTenants, error)
 	GetUsers(ctx context.Context, input GetUsersArgs) (*GetUsers, error)
 	GetDataTypeEntities(ctx context.Context) (*GetDataTypeEntities, error)
+	GetDataTypeBySlug(ctx context.Context, input GetDataTypeBySlugArgs) (*GetDataTypeBySlug, error)
 	GetOrganization(ctx context.Context, input GetOrganizationArgs) (*GetOrganization, error)
 	GetServiceRoles(ctx context.Context) (*GetServiceRoles, error)
 	GetUserServiceRoles(ctx context.Context, input GetUserServiceRolesArgs) (*GetUserServiceRoles, error)
@@ -217,6 +218,15 @@ func (c *client) GetUsers(ctx context.Context, input GetUsersArgs) (*GetUsers, e
 
 func (c *client) GetDataTypeEntities(ctx context.Context) (*GetDataTypeEntities, error) {
 	return c.api.GetDataTypeEntities(ctx)
+}
+
+// GetDataTypeBySlugArgs is a sparse struct for GetDataTypeBySlug parameters
+type GetDataTypeBySlugArgs struct {
+	Slug string
+}
+
+func (c *client) GetDataTypeBySlug(ctx context.Context, input GetDataTypeBySlugArgs) (*GetDataTypeBySlug, error) {
+	return c.api.GetDataTypeBySlug(ctx, input.Slug)
 }
 
 // GetOrganizationArgs is a sparse struct for GetOrganization parameters

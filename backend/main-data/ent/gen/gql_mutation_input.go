@@ -8,18 +8,14 @@ import (
 
 // CreateCustomerInput represents a mutation input for creating customers.
 type CreateCustomerInput struct {
-	DataTypeID   *uuid.UUID
-	DataTypeSlug *string
-	Data         map[string]interface{}
+	DataTypeID *uuid.UUID
+	Data       map[string]interface{}
 }
 
 // Mutate applies the CreateCustomerInput on the CustomerMutation builder.
 func (i *CreateCustomerInput) Mutate(m *CustomerMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -34,12 +30,10 @@ func (c *CustomerCreate) SetInput(i CreateCustomerInput) *CustomerCreate {
 
 // UpdateCustomerInput represents a mutation input for updating customers.
 type UpdateCustomerInput struct {
-	ClearDataTypeID   bool
-	DataTypeID        *uuid.UUID
-	ClearDataTypeSlug bool
-	DataTypeSlug      *string
-	ClearData         bool
-	Data              map[string]interface{}
+	ClearDataTypeID bool
+	DataTypeID      *uuid.UUID
+	ClearData       bool
+	Data            map[string]interface{}
 }
 
 // Mutate applies the UpdateCustomerInput on the CustomerMutation builder.
@@ -49,12 +43,6 @@ func (i *UpdateCustomerInput) Mutate(m *CustomerMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -78,18 +66,14 @@ func (c *CustomerUpdateOne) SetInput(i UpdateCustomerInput) *CustomerUpdateOne {
 
 // CreateSupplierInput represents a mutation input for creating suppliers.
 type CreateSupplierInput struct {
-	DataTypeID   *uuid.UUID
-	DataTypeSlug *string
-	Data         map[string]interface{}
+	DataTypeID *uuid.UUID
+	Data       map[string]interface{}
 }
 
 // Mutate applies the CreateSupplierInput on the SupplierMutation builder.
 func (i *CreateSupplierInput) Mutate(m *SupplierMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -104,12 +88,10 @@ func (c *SupplierCreate) SetInput(i CreateSupplierInput) *SupplierCreate {
 
 // UpdateSupplierInput represents a mutation input for updating suppliers.
 type UpdateSupplierInput struct {
-	ClearDataTypeID   bool
-	DataTypeID        *uuid.UUID
-	ClearDataTypeSlug bool
-	DataTypeSlug      *string
-	ClearData         bool
-	Data              map[string]interface{}
+	ClearDataTypeID bool
+	DataTypeID      *uuid.UUID
+	ClearData       bool
+	Data            map[string]interface{}
 }
 
 // Mutate applies the UpdateSupplierInput on the SupplierMutation builder.
@@ -119,12 +101,6 @@ func (i *UpdateSupplierInput) Mutate(m *SupplierMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()

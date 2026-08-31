@@ -56,6 +56,14 @@ type CreateItemMovementInput struct {
 	// resolver builds it from the GraphQL request before calling.
 	Input ent.CreateItemMovementInput
 
+	// DataTypeSlug carries the resolver-resolved data type slug. The
+	// resolver derives it from validator.ValidateDataTypeInput (which
+	// resolves the DataType from the GraphQL input's DataTypeID). It is
+	// applied to the ItemMovementCreate builder via SetDataTypeSlug and
+	// forwarded to the Postgres proc path verbatim. nil means "data type
+	// not set" (legacy rows or no-data movements).
+	DataTypeSlug *string
+
 	// TenantID is the tenant the movement is created under. The resolver
 	// pulls it from request.ForContext(ctx).MutationTenantID().
 	TenantID uuid.UUID
@@ -121,6 +129,13 @@ type CreateRepositoryMovementInput struct {
 	// second mapping layer; it is still service-internal because the
 	// resolver builds it from the GraphQL request before calling.
 	Input ent.CreateRepositoryMovementInput
+
+	// DataTypeSlug carries the resolver-resolved data type slug. The
+	// resolver derives it from validator.ValidateDataTypeInput (which
+	// resolves the DataType from the GraphQL input's DataTypeID). It is
+	// applied to the RepositoryMovementCreate builder via SetDataTypeSlug.
+	// nil means "data type not set" (legacy rows or no-data movements).
+	DataTypeSlug *string
 
 	// TenantID is the tenant the movement is created under. The resolver
 	// pulls it from request.ForContext(ctx).MutationTenantID().
@@ -203,8 +218,9 @@ type CreateCollectionMovementCollectionInput struct {
 	DataTypeID   *uuid.UUID
 	DataTypeSlug *string
 
-	// Data is the per-position custom data field; validated and patched by
-	// the resolver via mixin.PatchDataTypeIdSlugInput.
+	// Data is the per-position custom data field; validated by the resolver
+	// via validator.ValidateDataTypeInput, which also derives DataTypeSlug
+	// from the pinned DataTypeID.
 	Data map[string]any
 
 	// FromID is the source repository for the movement at this position.
@@ -237,10 +253,9 @@ type CreateCollectionMovementCollectionInput struct {
 // Service.CreateCollectionMovement. The resolver:
 //   - generates the collection ID (so it can be returned without an extra
 //     round-trip),
-//   - validates the collection-level data type and patches it back into the
-//     GraphQL input,
-//   - validates each position's data type (and patches DataTypeID/DataTypeSlug
-//     onto each CollectionMovementArrayInput),
+//   - validates the collection-level data type via ValidateDataTypeInput,
+//   - validates each position's data type and copies the resolved
+//     DataTypeID/DataTypeSlug onto each CreateCollectionMovementCollectionInput,
 //   - copies each position into a CreateCollectionMovementCollectionInput.
 //
 // The service then owns the rest: repository/parent map walks, stock map
@@ -253,8 +268,9 @@ type CreateCollectionMovementInput struct {
 	ID uuid.UUID
 
 	// DataTypeID and DataTypeSlug carry the validated collection-level data
-	// type. The resolver runs validator.ValidateDataTypeInput and patches the
-	// result onto its own GraphQL input before constructing the DTO.
+	// type. The resolver runs validator.ValidateDataTypeInput on its GraphQL
+	// input, which validates the data and resolves the (id, slug); the DTO is
+	// then constructed from the resolved values.
 	DataTypeID   *uuid.UUID
 	DataTypeSlug *string
 

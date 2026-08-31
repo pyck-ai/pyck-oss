@@ -5,6 +5,7 @@ package dataindex
 import (
 	"fmt"
 
+	managementapi "github.com/pyck-ai/pyck/backend/management/api"
 	pickingapi "github.com/pyck-ai/pyck/backend/picking/api"
 	pickingmodel "github.com/pyck-ai/pyck/backend/picking/model"
 )
@@ -44,3 +45,23 @@ func (s *DataIndexSuite) ordersByOverlaps(serials []string) ([]string, error) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// latestVersionID returns the id of the suite slug's highest live version —
+// the row the next deleteDataType targets.
+func (s *DataIndexSuite) latestVersionID() (string, error) {
+	one := 1
+	orderField := managementapi.DataTypeOrderFieldVersion
+	res, err := s.management.GetDataTypes(s.Ctx, managementapi.GetDataTypesArgs{
+		First:   &one,
+		OrderBy: &managementapi.DataTypeOrder{Direction: managementapi.OrderDirectionDesc, Field: &orderField},
+		Where:   &managementapi.DataTypeWhereInput{Slug: &s.slug},
+	})
+	if err != nil {
+		return "", err
+	}
+	edges := res.GetDataTypes().GetEdges()
+	if len(edges) == 0 {
+		return "", fmt.Errorf("no live version of %q", s.slug)
+	}
+	return edges[0].GetNode().ID, nil
+}

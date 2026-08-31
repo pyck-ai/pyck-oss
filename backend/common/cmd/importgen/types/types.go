@@ -5,10 +5,18 @@ type (
 	// ImportExportEntry describes one pyckImportable entity parsed from the GraphQL schema.
 	ImportExportEntry struct {
 		TypeName       string
-		IdentityField  string
-		ListField      string // GraphQL query field name (e.g., "repositories")
-		CreateMutation string // GraphQL mutation name (e.g., "createInventoryRepository")
-		UpdateMutation string // GraphQL mutation name (e.g., "updateInventoryRepository")
+		IdentityFields []string    // identity fields (e.g., ["name"] or ["slug","version"])
+		References     []Reference // declared outgoing FK edges
+		ListField      string      // GraphQL query field name (e.g., "repositories")
+		CreateMutation string      // GraphQL mutation name (e.g., "createInventoryRepository")
+		UpdateMutation string      // GraphQL mutation name (e.g., "updateInventoryRepository")
+	}
+
+	// Reference is a declared FK edge parsed from a @pyckImportable references arg
+	// entry of the form "field:TargetType".
+	Reference struct {
+		Field      string
+		TargetType string
 	}
 
 	// ClientMethod represents a parsed method from the API client interface.
@@ -26,7 +34,8 @@ type (
 	// RegistryEntity holds all derived information for one entity's registry entry.
 	RegistryEntity struct {
 		TypeName            string
-		IdentityField       string
+		IdentityFields      []string
+		References          []Reference
 		ListMethod          string
 		CreateMethod        string
 		UpdateMethod        string

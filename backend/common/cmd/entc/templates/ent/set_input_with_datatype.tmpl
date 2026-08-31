@@ -1,0 +1,102 @@
+{{/* gotype: entgo.io/ent/entc/gen.Graph */}}
+
+{{/*
+  SetInputWithDataType — generated for every entity that embeds DataMixin
+  (detected by the data_type_slug field). It replaces the per-resolver
+  ApplyDataType + SetInput + SetDataTypeSlug glue (and the reflection it relied
+  on) with one type-safe call: set the input, resolve + validate the referenced
+  DataType by data_type_id, and pin data_type_id/data_type_slug to the resolved
+  version. The resolved DataType is returned so callers can feed it to the
+  downstream uniqueness check.
+*/}}
+{{ define "set_input_with_datatype" }}
+{{ template "header" $ }}
+
+import (
+	"context"
+
+	json_schema "github.com/pyck-ai/pyck/backend/common/json-schema"
+)
+
+{{ range $node := $.Nodes }}
+	{{- $isDataMixin := false }}
+	{{- range $f := $node.Fields }}{{ if eq $f.Name "data_type_slug" }}{{ $isDataMixin = true }}{{ end }}{{- end }}
+	{{- if $isDataMixin }}
+	{{- $gqlType := $node.Name }}
+	{{- with $node.Annotations.EntGQL }}{{ if .Type }}{{ $gqlType = .Type }}{{ end }}{{- end }}
+	{{- with $node.Annotations.EntGQL }}
+	{{- range $mi := .MutationInputs }}
+	{{- if $mi.IsCreate }}
+
+// SetInputWithDataType applies i to the builder, then resolves and validates the
+// DataType referenced by i.DataTypeID and pins data_type_id/data_type_slug to
+// the resolved version. Returns the resolved DataType (nil when none is
+// referenced) for the caller's uniqueness check.
+func (c *{{ $node.CreateName }}) SetInputWithDataType(ctx context.Context, i Create{{ $gqlType }}Input, v json_schema.DataTypeValidator) (*{{ $node.CreateName }}, *json_schema.DataType, error) {
+	c.SetInput(i)
+	dt, err := v.ValidateDataTypeInput(ctx, true, i.Data, i.DataTypeID, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	if dt != nil {
+		c.SetDataTypeID(dt.ID).SetDataTypeSlug(dt.Slug)
+	}
+	return c, dt, nil
+}
+	{{- else }}
+
+// SetInputWithDataType is the UpdateOne counterpart of the Create method.
+// Two update-only invariants live here: (id, slug) stay one unit when the
+// ent-level input clears the id (GraphQL never exposes the clear — see the
+// entc dropClearDataTypeID schema hook — but programmatic callers can), and
+// a repoint without a data payload revalidates the row's persisted data
+// against the newly pinned version, since a new version exists precisely
+// because its schema differs and nothing on the read path would ever catch
+// the divergence.
+func (u *{{ $node.UpdateOneName }}) SetInputWithDataType(ctx context.Context, i Update{{ $gqlType }}Input, v json_schema.DataTypeValidator) (*{{ $node.UpdateOneName }}, *json_schema.DataType, error) {
+	u.SetInput(i)
+	dt, err := v.ValidateDataTypeInput(ctx, true, i.Data, i.DataTypeID, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	if i.ClearDataTypeID {
+		u.ClearDataTypeSlug()
+	}
+	if dt != nil {
+		// Revalidate persisted data only on a GENUINE repoint without a new
+		// payload: skip when the mutation also clears the data (nothing will
+		// remain to validate), and skip when the pinned id is unchanged (the
+		// row's data was validated against this exact immutable version when
+		// it was written — clients that echo the current dataTypeID on every
+		// update must not be forced back through validation).
+		if i.Data == nil && !i.ClearData {
+			currentID, err := u.Mutation().OldDataTypeID(ctx)
+			if err != nil {
+				return nil, nil, err
+			}
+			if currentID != dt.ID {
+				persisted, err := u.Mutation().OldData(ctx)
+				if err != nil {
+					return nil, nil, err
+				}
+				// nil means the row carries no data (mirrors create-without-
+				// data, which validates nothing); an EMPTY map is data and is
+				// validated like any other payload.
+				if persisted != nil {
+					if _, err := v.ValidateDataTypeInput(ctx, true, persisted, &dt.ID, nil); err != nil {
+						return nil, nil, err
+					}
+				}
+			}
+		}
+		u.SetDataTypeID(dt.ID).SetDataTypeSlug(dt.Slug)
+	}
+	return u, dt, nil
+}
+	{{- end }}
+	{{- end }}
+	{{- end }}
+	{{- end }}
+{{- end }}
+
+{{ end }}

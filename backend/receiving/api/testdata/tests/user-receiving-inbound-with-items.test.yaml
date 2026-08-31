@@ -29,10 +29,6 @@ steps:
         assertions:
           - ref: res.body.data.createReceivingInbound.receivingInbound.id
             nil: false
-      - msg: "Inbound has 2 items"
-        assertions:
-          - ref: res.body.data.createReceivingInbound.receivingInbound.inboundItems.totalCount
-            equal: 2
 
   - name: "Query items by inboundID"
     operation: receiving.getReceivingInboundItems
@@ -110,10 +106,6 @@ steps:
         assertions:
           - ref: res.body.errors
             nil: true
-      - msg: "Inbound found with nested items"
-        assertions:
-          - ref: res.body.data.receivingInbounds.edges[].node.inboundItems.totalCount
-            equal: 2
 
   - name: "Delete inbound (cascade)"
     operation: receiving.deleteReceivingInbound

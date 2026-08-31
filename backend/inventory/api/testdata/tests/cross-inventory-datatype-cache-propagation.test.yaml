@@ -1,13 +1,13 @@
 ---
 name: "Cross - Inventory Data Type Cache Propagation"
 description: >
-  Verifies that DataType create, update, and delete events emitted by
-  management propagate through NATS to the inventory service's in-memory
-  cache. Each phase mutates the data type in management and proves the
-  resulting cache state by issuing a slug-based mutation in inventory.
+  Verifies that DataType create and delete events emitted by management
+  propagate through NATS to the inventory service's in-memory cache. Each
+  phase mutates the data type in management and proves the resulting cache
+  state by issuing an ID-based mutation in inventory.
 steps:
   # ---------------------------------------------------------------------------
-  # CREATE event: cache must populate so the slug becomes resolvable.
+  # CREATE event: cache must populate so the ID becomes resolvable.
   # ---------------------------------------------------------------------------
   - id: createDT
     name: "Create data type (emits create event -> cache.Update)"
@@ -36,11 +36,11 @@ steps:
             nil: false
 
   - id: createItemAfterCreate
-    name: "Resolve slug after create event (cache hit -> schema A accepts 'red')"
+    name: "Resolve ID after create event (cache hit -> schema A accepts 'red')"
     operation: inventory.createInventoryItem
     vars:
       input:
-        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         sku: {$fake: "{{uuid}}"}
         data:
           color: "red"
@@ -49,7 +49,7 @@ steps:
         assertions:
           - ref: res.status
             equal: 200
-      - msg: "No GraphQL errors (slug resolved through cache)"
+      - msg: "No GraphQL errors (ID resolved through cache)"
         assertions:
           - ref: res.body.errors
             nil: true
@@ -64,7 +64,7 @@ steps:
     operation: inventory.createInventoryItem
     vars:
       input:
-        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         sku: {$fake: "{{uuid}}"}
         data:
           color: "purple"
@@ -79,74 +79,7 @@ steps:
             nil: false
 
   # ---------------------------------------------------------------------------
-  # UPDATE event: cache must replace the entry so the new schema is enforced.
-  # ---------------------------------------------------------------------------
-  - name: "Update data type schema (emits update event -> cache.Update)"
-    operation: management.updateDataType
-    # Hold the next step until the update event has been applied to the cache.
-    wait_after_ms: 500
-    vars:
-      id: {$ref: "res[createDT].body.data.createDataType.id"}
-      input:
-        name: "Cache Propagation Type (B)"
-        jsonSchema: '{"type":"object","properties":{"weight":{"type":"integer","minimum":1,"maximum":100}},"required":["weight"],"additionalProperties":false}'
-    tests:
-      - msg: "Status is 200"
-        assertions:
-          - ref: res.status
-            equal: 200
-      - msg: "No GraphQL errors"
-        assertions:
-          - ref: res.body.errors
-            nil: true
-      - msg: "Data type updated"
-        assertions:
-          - ref: res.body.data.updateDataType.id
-            equal: {$ref: "res[createDT].body.data.createDataType.id"}
-
-  - name: "Schema B rejects old-shape payload (proves cache replaced entry)"
-    operation: inventory.createInventoryItem
-    vars:
-      input:
-        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
-        sku: {$fake: "{{uuid}}"}
-        data:
-          color: "red"
-    tests:
-      - msg: "Status is 200"
-        assertions:
-          - ref: res.status
-            equal: 200
-      - msg: "Validation error returned (color no longer allowed under schema B)"
-        assertions:
-          - ref: res.body.errors
-            nil: false
-
-  - id: createItemAfterUpdate
-    name: "Schema B accepts new-shape payload (cache holds schema B)"
-    operation: inventory.createInventoryItem
-    vars:
-      input:
-        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
-        sku: {$fake: "{{uuid}}"}
-        data:
-          weight: 42
-    tests:
-      - msg: "Status is 200"
-        assertions:
-          - ref: res.status
-            equal: 200
-      - msg: "No GraphQL errors"
-        assertions:
-          - ref: res.body.errors
-            nil: true
-      - msg: "Item validated against schema B and created"
-        assertions:
-          - ref: res.body.data.createInventoryItem.inventoryItem.id
-            nil: false
-
-  # ---------------------------------------------------------------------------
-  # DELETE event: cache must drop the entry so the slug stops resolving.
+  # DELETE event: cache must drop the entry so the ID stops resolving.
   # ---------------------------------------------------------------------------
   - name: "Delete data type (emits delete event -> cache.Delete)"
     operation: management.deleteDataType
@@ -164,11 +97,11 @@ steps:
           - ref: res.body.errors
             nil: true
 
-  - name: "Slug no longer resolves (proves cache dropped entry)"
+  - name: "ID no longer resolves (proves cache dropped entry)"
     operation: inventory.createInventoryItem
     vars:
       input:
-        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         sku: {$fake: "{{uuid}}"}
         data:
           weight: 42
@@ -189,20 +122,6 @@ steps:
     operation: inventory.deleteInventoryItem
     vars:
       id: {$ref: "res[createItemAfterCreate].body.data.createInventoryItem.inventoryItem.id"}
-    tests:
-      - msg: "Status is 200"
-        assertions:
-          - ref: res.status
-            equal: 200
-      - msg: "No GraphQL errors"
-        assertions:
-          - ref: res.body.errors
-            nil: true
-
-  - name: "Cleanup - delete item created under schema B"
-    operation: inventory.deleteInventoryItem
-    vars:
-      id: {$ref: "res[createItemAfterUpdate].body.data.createInventoryItem.inventoryItem.id"}
     tests:
       - msg: "Status is 200"
         assertions:

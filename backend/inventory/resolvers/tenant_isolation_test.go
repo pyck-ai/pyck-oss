@@ -355,7 +355,7 @@ func seedCollectionMovements(t *testing.T, te *testEnv, collections []collection
 		entries := buildCollectionEntries(t, cs.Tenant, cs.Collection, ids)
 
 		data := execOK[createCollectionMovementData](te, te.ctx(user), createCollectionMovement, map[string]any{
-			"DataTypeID": itemDataTypeID,
+			"DataTypeID": dataTypeForTenant(t, cs.Tenant),
 			"Collection": entries,
 		})
 
@@ -479,17 +479,17 @@ func checkCrossUpdate(t *testing.T, te *testEnv, ctx context.Context, check tena
 	case "repository":
 		execErr(te, ctx, updateRepository, map[string]any{"ID": targetID, "Name": "cross-tenant-test"}, check.ExpectError)
 	case "item":
-		execErr(te, ctx, updateItem, map[string]any{"ID": targetID, "DataTypeID": itemDataTypeID}, check.ExpectError)
+		execErr(te, ctx, updateItem, map[string]any{"ID": targetID, "DataTypeID": dataTypeForTenant(t, check.Tenant)}, check.ExpectError)
 	case "itemMovement":
 		execErr(te, ctx, updateItemMovement, map[string]any{"ID": targetID, "Handler": "cross-tenant-test"}, check.ExpectError)
 	case "repositoryMovement":
-		execErr(te, ctx, updateRepositoryMovement, map[string]any{"ID": targetID, "DataTypeID": itemDataTypeID, "Data": true}, check.ExpectError)
+		execErr(te, ctx, updateRepositoryMovement, map[string]any{"ID": targetID, "DataTypeID": dataTypeForTenant(t, check.Tenant), "Data": true}, check.ExpectError)
 	case "collectionMovement":
 		execErr(te, ctx, updateCollectionMovement, map[string]any{"ID": targetID, "Handler": "cross-tenant-test"}, check.ExpectError)
 	case "itemSet":
 		execErr(te, ctx, updateItemSet, map[string]any{"ID": targetID, "ItemID": targetID}, check.ExpectError)
 	case "replenishmentOrder":
-		execErr(te, ctx, updateReplenishmentOrderTpl, map[string]any{"ID": targetID, "DataTypeID": itemDataTypeID}, check.ExpectError)
+		execErr(te, ctx, updateReplenishmentOrderTpl, map[string]any{"ID": targetID, "DataTypeID": dataTypeForTenant(t, check.Tenant)}, check.ExpectError)
 	case "replenishmentOrderItem":
 		execErr(te, ctx, updateReplenishmentOrderItemTpl, map[string]any{"ID": targetID, "Quantity": 999}, check.ExpectError)
 	default:
@@ -549,7 +549,7 @@ func checkCrossCreate(t *testing.T, te *testEnv, ctx context.Context, check tena
 			"Quantity":   mustArgInt(t, check.Args, "quantity"),
 			"Handler":    mustArg(t, check.Args, "handler"),
 			"BlockedBy":  testBlockedBy,
-			"DataTypeID": itemDataTypeID,
+			"DataTypeID": dataTypeForTenant(t, check.Tenant),
 		}, check.ExpectError)
 
 	case "repositoryMovement":
@@ -562,9 +562,9 @@ func checkCrossCreate(t *testing.T, te *testEnv, ctx context.Context, check tena
 		}, check.ExpectError)
 
 	case "collectionMovement":
-		entries := buildCollectionEntriesFromArgs(t, check.Args, ids)
+		entries := buildCollectionEntriesFromArgs(t, check.Tenant, check.Args, ids)
 		execErr(te, ctx, createCollectionMovement, map[string]any{
-			"DataTypeID": itemDataTypeID,
+			"DataTypeID": dataTypeForTenant(t, check.Tenant),
 			"Collection": entries,
 		}, check.ExpectError)
 
@@ -574,13 +574,13 @@ func checkCrossCreate(t *testing.T, te *testEnv, ctx context.Context, check tena
 		execErr(te, ctx, createItemSet, map[string]any{
 			"Sku":        mustArg(t, check.Args, "sku"),
 			"ItemID":     mustResolve(t, ids, itemRefs[0].(string)),
-			"DataTypeID": itemDataTypeID,
+			"DataTypeID": dataTypeForTenant(t, check.Tenant),
 		}, check.ExpectError)
 
 	case "replenishmentOrder":
 		args := map[string]any{
 			"SupplierID": mustResolve(t, ids, mustArg(t, check.Args, "supplierID")),
-			"DataTypeID": itemDataTypeID,
+			"DataTypeID": dataTypeForTenant(t, check.Tenant),
 		}
 		if check.ExpectError == "none" {
 			execOK[any](te, ctx, createReplenishmentOrderTpl, args)
@@ -624,6 +624,24 @@ func mustTenantUser(t *testing.T, name string) *authn.User {
 	user, ok := tenantUsers[name]
 	require.True(t, ok, "unknown tenant %q", name)
 	return user
+}
+
+// dataTypeForTenant returns the seeded DataType ID owned by the given
+// isolation-test tenant. Under #990 the validator rejects cross-tenant
+// data_type_id references, so seeding/asserting for a tenant must use that
+// tenant's own DataType — otherwise the validator fails on the DataType
+// before the intended entity-level isolation check is reached.
+func dataTypeForTenant(t *testing.T, tenant string) uuid.UUID {
+	t.Helper()
+	switch tenant {
+	case "alpha":
+		return itemDataTypeID // seeded with TenantID: tenantA
+	case "beta":
+		return itemDataTypeIDTenantB // seeded with TenantID: tenantB
+	default:
+		t.Fatalf("no seeded DataType for tenant %q", tenant)
+		return uuid.Nil
+	}
 }
 
 func mustResolve(t *testing.T, ids map[string]uuid.UUID, key string) uuid.UUID {
@@ -684,13 +702,18 @@ func buildCollectionEntries(t *testing.T, tenant string, entries []collectionEnt
 			"ToID":       mustResolve(t, ids, tenant+"/"+e.To),
 			"Quantity":   e.Quantity,
 			"Handler":    e.Handler,
-			"DataTypeID": itemDataTypeID,
+			"DataTypeID": dataTypeForTenant(t, tenant),
 		})
 	}
 	return result
 }
 
-func buildCollectionEntriesFromArgs(t *testing.T, args map[string]any, ids map[string]uuid.UUID) []map[string]any {
+// buildCollectionEntriesFromArgs builds collection entries for a cross-create
+// check acting as `tenant`. The per-entry DataType is the acting tenant's own,
+// so the rejection under test is the cross-tenant *entity* reference (the
+// referenced item/repo belongs to another tenant) rather than a cross-tenant
+// DataType reference.
+func buildCollectionEntriesFromArgs(t *testing.T, tenant string, args map[string]any, ids map[string]uuid.UUID) []map[string]any {
 	t.Helper()
 	raw := mustArgSlice(t, args, "collection")
 	result := make([]map[string]any, 0, len(raw))
@@ -703,7 +726,7 @@ func buildCollectionEntriesFromArgs(t *testing.T, args map[string]any, ids map[s
 			"ToID":       mustResolve(t, ids, entry["to"].(string)),
 			"Quantity":   entry["quantity"],
 			"Handler":    entry["handler"],
-			"DataTypeID": itemDataTypeID,
+			"DataTypeID": dataTypeForTenant(t, tenant),
 		})
 	}
 	return result

@@ -36,6 +36,7 @@ func (ReplenishmentOrderItem) Annotations() []schema.Annotation {
 		entgql.Directives(keyDirective, importexport.Importable("",
 			importexport.WithList("replenishmentOrderItems"),
 			importexport.WithCreate("createReplenishmentOrderItem"),
+			importexport.WithDataTypeReference(),
 		)),
 		entgql.QueryField(),
 		entgql.Mutations(entgql.MutationCreate(), entgql.MutationUpdate()),

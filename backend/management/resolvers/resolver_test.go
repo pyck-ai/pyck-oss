@@ -28,6 +28,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/validator"
 
 	"github.com/pyck-ai/pyck/backend/management/ent/gen"
+	entdatatype "github.com/pyck-ai/pyck/backend/management/ent/gen/datatype"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/entityeventsoutbox"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/enttest"
 	"github.com/pyck-ai/pyck/backend/management/resolvers"
@@ -533,6 +534,7 @@ type dataTypeBuilder struct {
 	description string
 	entity      string
 	jsonSchema  string
+	version     int // 0 = auto-assign MAX(version)+1 for the (tenant, slug) family
 	deleted     bool
 }
 
@@ -580,24 +582,53 @@ func (b *dataTypeBuilder) Deleted() *dataTypeBuilder {
 	return b
 }
 
+// Version pins an explicit version number (mirrors the import path). When
+// unset, Create auto-assigns MAX(version)+1 for the (tenant, slug) family.
+func (b *dataTypeBuilder) Version(v int) *dataTypeBuilder {
+	b.version = v
+	return b
+}
+
 func (b *dataTypeBuilder) Create() *gen.DataType {
 	b.te.t.Helper()
 	var dt *gen.DataType
 	err := b.te.withTx(b.ctx, func(tx *gen.Tx) error {
+		txCtx := gen.NewTxContext(txid.With(b.ctx, txid.New()), tx)
+
+		version := b.version
+		if version == 0 {
+			// Mirror the resolver: next version in the (tenant, slug) family.
+			// Spans soft-deleted rows (FEATURE_SHOW_DELETED) so version numbers
+			// are never reused.
+			latest, err := tx.DataType.Query().
+				Where(entdatatype.TenantID(b.user.TenantID), entdatatype.Slug(b.slug)).
+				Order(gen.Desc(entdatatype.FieldVersion)).
+				First(feature.Context(txCtx, feature.FEATURE_SHOW_DELETED))
+			switch {
+			case gen.IsNotFound(err):
+				version = 1
+			case err != nil:
+				return err
+			default:
+				version = latest.Version + 1
+			}
+		}
+
 		builder := tx.DataType.Create().
 			SetTenantID(b.user.TenantID).
 			SetName(b.name).
 			SetSlug(b.slug).
 			SetDescription(b.description).
 			SetEntity(b.entity).
-			SetJSONSchema(b.jsonSchema)
+			SetJSONSchema(b.jsonSchema).
+			SetVersion(version)
 
 		if b.deleted {
 			builder.SetDeletedAt(time.Now()).SetDeletedBy(b.user.ID)
 		}
 
 		var err error
-		dt, err = builder.Save(gen.NewTxContext(txid.With(b.ctx, txid.New()), tx))
+		dt, err = builder.Save(txCtx)
 		return err
 	})
 	require.NoError(b.te.t, err)

@@ -9,7 +9,6 @@ import (
 // CreatePickingOrderInput represents a mutation input for creating pickingorders.
 type CreatePickingOrderInput struct {
 	DataTypeID                      *uuid.UUID
-	DataTypeSlug                    *string
 	Data                            map[string]interface{}
 	CustomerID                      *uuid.UUID
 	OrderItemIDs                    []uuid.UUID
@@ -20,9 +19,6 @@ type CreatePickingOrderInput struct {
 func (i *CreatePickingOrderInput) Mutate(m *OrderMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -48,8 +44,6 @@ func (c *OrderCreate) SetInput(i CreatePickingOrderInput) *OrderCreate {
 type UpdatePickingOrderInput struct {
 	ClearDataTypeID                       bool
 	DataTypeID                            *uuid.UUID
-	ClearDataTypeSlug                     bool
-	DataTypeSlug                          *string
 	ClearData                             bool
 	Data                                  map[string]interface{}
 	CustomerID                            *uuid.UUID
@@ -68,12 +62,6 @@ func (i *UpdatePickingOrderInput) Mutate(m *OrderMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -118,21 +106,17 @@ func (c *OrderUpdateOne) SetInput(i UpdatePickingOrderInput) *OrderUpdateOne {
 
 // CreatePickingOrderItemInput represents a mutation input for creating pickingorderitems.
 type CreatePickingOrderItemInput struct {
-	DataTypeID   *uuid.UUID
-	DataTypeSlug *string
-	Data         map[string]interface{}
-	Sku          string
-	Quantity     int64
-	OrderID      uuid.UUID
+	DataTypeID *uuid.UUID
+	Data       map[string]interface{}
+	Sku        string
+	Quantity   int64
+	OrderID    uuid.UUID
 }
 
 // Mutate applies the CreatePickingOrderItemInput on the OrderItemsMutation builder.
 func (i *CreatePickingOrderItemInput) Mutate(m *OrderItemsMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -150,15 +134,13 @@ func (c *OrderItemsCreate) SetInput(i CreatePickingOrderItemInput) *OrderItemsCr
 
 // UpdatePickingOrderItemInput represents a mutation input for updating pickingorderitems.
 type UpdatePickingOrderItemInput struct {
-	ClearDataTypeID   bool
-	DataTypeID        *uuid.UUID
-	ClearDataTypeSlug bool
-	DataTypeSlug      *string
-	ClearData         bool
-	Data              map[string]interface{}
-	Sku               *string
-	Quantity          *int64
-	OrderID           *uuid.UUID
+	ClearDataTypeID bool
+	DataTypeID      *uuid.UUID
+	ClearData       bool
+	Data            map[string]interface{}
+	Sku             *string
+	Quantity        *int64
+	OrderID         *uuid.UUID
 }
 
 // Mutate applies the UpdatePickingOrderItemInput on the OrderItemsMutation builder.
@@ -168,12 +150,6 @@ func (i *UpdatePickingOrderItemInput) Mutate(m *OrderItemsMutation) {
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()
@@ -206,19 +182,15 @@ func (c *OrderItemsUpdateOne) SetInput(i UpdatePickingOrderItemInput) *OrderItem
 
 // CreatePickingOutboundShipmentNotificationInput represents a mutation input for creating pickingoutboundshipmentnotifications.
 type CreatePickingOutboundShipmentNotificationInput struct {
-	DataTypeID   *uuid.UUID
-	DataTypeSlug *string
-	Data         map[string]interface{}
-	OrderID      uuid.UUID
+	DataTypeID *uuid.UUID
+	Data       map[string]interface{}
+	OrderID    uuid.UUID
 }
 
 // Mutate applies the CreatePickingOutboundShipmentNotificationInput on the OutboundShipmentNotificationMutation builder.
 func (i *CreatePickingOutboundShipmentNotificationInput) Mutate(m *OutboundShipmentNotificationMutation) {
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if v := i.Data; v != nil {
 		m.SetData(v)
@@ -234,13 +206,11 @@ func (c *OutboundShipmentNotificationCreate) SetInput(i CreatePickingOutboundShi
 
 // UpdatePickingOutboundShipmentNotificationInput represents a mutation input for updating pickingoutboundshipmentnotifications.
 type UpdatePickingOutboundShipmentNotificationInput struct {
-	ClearDataTypeID   bool
-	DataTypeID        *uuid.UUID
-	ClearDataTypeSlug bool
-	DataTypeSlug      *string
-	ClearData         bool
-	Data              map[string]interface{}
-	OrderID           *uuid.UUID
+	ClearDataTypeID bool
+	DataTypeID      *uuid.UUID
+	ClearData       bool
+	Data            map[string]interface{}
+	OrderID         *uuid.UUID
 }
 
 // Mutate applies the UpdatePickingOutboundShipmentNotificationInput on the OutboundShipmentNotificationMutation builder.
@@ -250,12 +220,6 @@ func (i *UpdatePickingOutboundShipmentNotificationInput) Mutate(m *OutboundShipm
 	}
 	if v := i.DataTypeID; v != nil {
 		m.SetDataTypeID(*v)
-	}
-	if i.ClearDataTypeSlug {
-		m.ClearDataTypeSlug()
-	}
-	if v := i.DataTypeSlug; v != nil {
-		m.SetDataTypeSlug(*v)
 	}
 	if i.ClearData {
 		m.ClearData()

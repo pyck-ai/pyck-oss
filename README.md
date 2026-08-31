@@ -17,7 +17,7 @@ pyck is the logistical backbone and API for future warehousing. Built as a modul
 
 ## Technology
 
-pyck is built with **Go 1.25+** using a monorepo structure. It uses **GraphQL** with Apollo Federation for a unified API, **PostgreSQL** with Ent ORM for data management, **Temporal.io** for workflows, and **NATS.io** for messaging. Authentication is handled by **Zitadel** (OIDC/OAuth2), with observability via **OpenTelemetry** and **Jaeger**.
+pyck is built with **Go 1.26+** using a monorepo structure. It uses **GraphQL** with Apollo Federation for a unified API, **PostgreSQL** with Ent ORM for data management, **Temporal.io** for workflows, and **NATS.io** for messaging. Authentication is handled by **Zitadel** (OIDC/OAuth2), with observability via **OpenTelemetry** and **Jaeger**.
 
 The platform enforces **multi-tenancy** at the database level and uses **UUID v7** for time-ordered entity IDs. All data models use **soft deletes** and are managed through **code-first schemas** that auto-generate database access code.
 

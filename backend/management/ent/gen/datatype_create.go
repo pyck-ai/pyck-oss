@@ -160,6 +160,12 @@ func (_c *DataTypeCreate) SetNillableFrontendSchema(v *string) *DataTypeCreate {
 	return _c
 }
 
+// SetEntity sets the "entity" field.
+func (_c *DataTypeCreate) SetEntity(v string) *DataTypeCreate {
+	_c.mutation.SetEntity(v)
+	return _c
+}
+
 // SetDefault sets the "default" field.
 func (_c *DataTypeCreate) SetDefault(v bool) *DataTypeCreate {
 	_c.mutation.SetDefault(v)
@@ -174,9 +180,17 @@ func (_c *DataTypeCreate) SetNillableDefault(v *bool) *DataTypeCreate {
 	return _c
 }
 
-// SetEntity sets the "entity" field.
-func (_c *DataTypeCreate) SetEntity(v string) *DataTypeCreate {
-	_c.mutation.SetEntity(v)
+// SetVersion sets the "version" field.
+func (_c *DataTypeCreate) SetVersion(v int) *DataTypeCreate {
+	_c.mutation.SetVersion(v)
+	return _c
+}
+
+// SetNillableVersion sets the "version" field if the given value is not nil.
+func (_c *DataTypeCreate) SetNillableVersion(v *int) *DataTypeCreate {
+	if v != nil {
+		_c.SetVersion(*v)
+	}
 	return _c
 }
 
@@ -239,6 +253,10 @@ func (_c *DataTypeCreate) defaults() error {
 		v := datatype.DefaultDefault
 		_c.mutation.SetDefault(v)
 	}
+	if _, ok := _c.mutation.Version(); !ok {
+		v := datatype.DefaultVersion
+		_c.mutation.SetVersion(v)
+	}
 	if _, ok := _c.mutation.ID(); !ok {
 		if datatype.DefaultID == nil {
 			return fmt.Errorf("gen: uninitialized datatype.DefaultID (forgotten import gen/runtime?)")
@@ -276,9 +294,6 @@ func (_c *DataTypeCreate) check() error {
 			return &ValidationError{Name: "json_schema", err: fmt.Errorf(`gen: validator failed for field "DataType.json_schema": %w`, err)}
 		}
 	}
-	if _, ok := _c.mutation.Default(); !ok {
-		return &ValidationError{Name: "default", err: errors.New(`gen: missing required field "DataType.default"`)}
-	}
 	if _, ok := _c.mutation.Entity(); !ok {
 		return &ValidationError{Name: "entity", err: errors.New(`gen: missing required field "DataType.entity"`)}
 	}
@@ -286,6 +301,12 @@ func (_c *DataTypeCreate) check() error {
 		if err := datatype.EntityValidator(v); err != nil {
 			return &ValidationError{Name: "entity", err: fmt.Errorf(`gen: validator failed for field "DataType.entity": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.Default(); !ok {
+		return &ValidationError{Name: "default", err: errors.New(`gen: missing required field "DataType.default"`)}
+	}
+	if _, ok := _c.mutation.Version(); !ok {
+		return &ValidationError{Name: "version", err: errors.New(`gen: missing required field "DataType.version"`)}
 	}
 	return nil
 }
@@ -372,13 +393,17 @@ func (_c *DataTypeCreate) createSpec() (*DataType, *sqlgraph.CreateSpec) {
 		_spec.SetField(datatype.FieldFrontendSchema, field.TypeString, value)
 		_node.FrontendSchema = value
 	}
+	if value, ok := _c.mutation.Entity(); ok {
+		_spec.SetField(datatype.FieldEntity, field.TypeString, value)
+		_node.Entity = value
+	}
 	if value, ok := _c.mutation.Default(); ok {
 		_spec.SetField(datatype.FieldDefault, field.TypeBool, value)
 		_node.Default = value
 	}
-	if value, ok := _c.mutation.Entity(); ok {
-		_spec.SetField(datatype.FieldEntity, field.TypeString, value)
-		_node.Entity = value
+	if value, ok := _c.mutation.Version(); ok {
+		_spec.SetField(datatype.FieldVersion, field.TypeInt, value)
+		_node.Version = value
 	}
 	return _node, _spec
 }
@@ -516,66 +541,6 @@ func (u *DataTypeUpsert) UpdateName() *DataTypeUpsert {
 	return u
 }
 
-// SetDescription sets the "description" field.
-func (u *DataTypeUpsert) SetDescription(v string) *DataTypeUpsert {
-	u.Set(datatype.FieldDescription, v)
-	return u
-}
-
-// UpdateDescription sets the "description" field to the value that was provided on create.
-func (u *DataTypeUpsert) UpdateDescription() *DataTypeUpsert {
-	u.SetExcluded(datatype.FieldDescription)
-	return u
-}
-
-// ClearDescription clears the value of the "description" field.
-func (u *DataTypeUpsert) ClearDescription() *DataTypeUpsert {
-	u.SetNull(datatype.FieldDescription)
-	return u
-}
-
-// SetJSONSchema sets the "json_schema" field.
-func (u *DataTypeUpsert) SetJSONSchema(v string) *DataTypeUpsert {
-	u.Set(datatype.FieldJSONSchema, v)
-	return u
-}
-
-// UpdateJSONSchema sets the "json_schema" field to the value that was provided on create.
-func (u *DataTypeUpsert) UpdateJSONSchema() *DataTypeUpsert {
-	u.SetExcluded(datatype.FieldJSONSchema)
-	return u
-}
-
-// SetFrontendSchema sets the "frontend_schema" field.
-func (u *DataTypeUpsert) SetFrontendSchema(v string) *DataTypeUpsert {
-	u.Set(datatype.FieldFrontendSchema, v)
-	return u
-}
-
-// UpdateFrontendSchema sets the "frontend_schema" field to the value that was provided on create.
-func (u *DataTypeUpsert) UpdateFrontendSchema() *DataTypeUpsert {
-	u.SetExcluded(datatype.FieldFrontendSchema)
-	return u
-}
-
-// ClearFrontendSchema clears the value of the "frontend_schema" field.
-func (u *DataTypeUpsert) ClearFrontendSchema() *DataTypeUpsert {
-	u.SetNull(datatype.FieldFrontendSchema)
-	return u
-}
-
-// SetDefault sets the "default" field.
-func (u *DataTypeUpsert) SetDefault(v bool) *DataTypeUpsert {
-	u.Set(datatype.FieldDefault, v)
-	return u
-}
-
-// UpdateDefault sets the "default" field to the value that was provided on create.
-func (u *DataTypeUpsert) UpdateDefault() *DataTypeUpsert {
-	u.SetExcluded(datatype.FieldDefault)
-	return u
-}
-
 // UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
 // Using this option is equivalent to using:
 //
@@ -605,8 +570,23 @@ func (u *DataTypeUpsertOne) UpdateNewValues() *DataTypeUpsertOne {
 		if _, exists := u.create.mutation.Slug(); exists {
 			s.SetIgnore(datatype.FieldSlug)
 		}
+		if _, exists := u.create.mutation.Description(); exists {
+			s.SetIgnore(datatype.FieldDescription)
+		}
+		if _, exists := u.create.mutation.JSONSchema(); exists {
+			s.SetIgnore(datatype.FieldJSONSchema)
+		}
+		if _, exists := u.create.mutation.FrontendSchema(); exists {
+			s.SetIgnore(datatype.FieldFrontendSchema)
+		}
 		if _, exists := u.create.mutation.Entity(); exists {
 			s.SetIgnore(datatype.FieldEntity)
+		}
+		if _, exists := u.create.mutation.Default(); exists {
+			s.SetIgnore(datatype.FieldDefault)
+		}
+		if _, exists := u.create.mutation.Version(); exists {
+			s.SetIgnore(datatype.FieldVersion)
 		}
 	}))
 	return u
@@ -734,76 +714,6 @@ func (u *DataTypeUpsertOne) SetName(v string) *DataTypeUpsertOne {
 func (u *DataTypeUpsertOne) UpdateName() *DataTypeUpsertOne {
 	return u.Update(func(s *DataTypeUpsert) {
 		s.UpdateName()
-	})
-}
-
-// SetDescription sets the "description" field.
-func (u *DataTypeUpsertOne) SetDescription(v string) *DataTypeUpsertOne {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.SetDescription(v)
-	})
-}
-
-// UpdateDescription sets the "description" field to the value that was provided on create.
-func (u *DataTypeUpsertOne) UpdateDescription() *DataTypeUpsertOne {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.UpdateDescription()
-	})
-}
-
-// ClearDescription clears the value of the "description" field.
-func (u *DataTypeUpsertOne) ClearDescription() *DataTypeUpsertOne {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.ClearDescription()
-	})
-}
-
-// SetJSONSchema sets the "json_schema" field.
-func (u *DataTypeUpsertOne) SetJSONSchema(v string) *DataTypeUpsertOne {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.SetJSONSchema(v)
-	})
-}
-
-// UpdateJSONSchema sets the "json_schema" field to the value that was provided on create.
-func (u *DataTypeUpsertOne) UpdateJSONSchema() *DataTypeUpsertOne {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.UpdateJSONSchema()
-	})
-}
-
-// SetFrontendSchema sets the "frontend_schema" field.
-func (u *DataTypeUpsertOne) SetFrontendSchema(v string) *DataTypeUpsertOne {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.SetFrontendSchema(v)
-	})
-}
-
-// UpdateFrontendSchema sets the "frontend_schema" field to the value that was provided on create.
-func (u *DataTypeUpsertOne) UpdateFrontendSchema() *DataTypeUpsertOne {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.UpdateFrontendSchema()
-	})
-}
-
-// ClearFrontendSchema clears the value of the "frontend_schema" field.
-func (u *DataTypeUpsertOne) ClearFrontendSchema() *DataTypeUpsertOne {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.ClearFrontendSchema()
-	})
-}
-
-// SetDefault sets the "default" field.
-func (u *DataTypeUpsertOne) SetDefault(v bool) *DataTypeUpsertOne {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.SetDefault(v)
-	})
-}
-
-// UpdateDefault sets the "default" field to the value that was provided on create.
-func (u *DataTypeUpsertOne) UpdateDefault() *DataTypeUpsertOne {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.UpdateDefault()
 	})
 }
 
@@ -1002,8 +912,23 @@ func (u *DataTypeUpsertBulk) UpdateNewValues() *DataTypeUpsertBulk {
 			if _, exists := b.mutation.Slug(); exists {
 				s.SetIgnore(datatype.FieldSlug)
 			}
+			if _, exists := b.mutation.Description(); exists {
+				s.SetIgnore(datatype.FieldDescription)
+			}
+			if _, exists := b.mutation.JSONSchema(); exists {
+				s.SetIgnore(datatype.FieldJSONSchema)
+			}
+			if _, exists := b.mutation.FrontendSchema(); exists {
+				s.SetIgnore(datatype.FieldFrontendSchema)
+			}
 			if _, exists := b.mutation.Entity(); exists {
 				s.SetIgnore(datatype.FieldEntity)
+			}
+			if _, exists := b.mutation.Default(); exists {
+				s.SetIgnore(datatype.FieldDefault)
+			}
+			if _, exists := b.mutation.Version(); exists {
+				s.SetIgnore(datatype.FieldVersion)
 			}
 		}
 	}))
@@ -1132,76 +1057,6 @@ func (u *DataTypeUpsertBulk) SetName(v string) *DataTypeUpsertBulk {
 func (u *DataTypeUpsertBulk) UpdateName() *DataTypeUpsertBulk {
 	return u.Update(func(s *DataTypeUpsert) {
 		s.UpdateName()
-	})
-}
-
-// SetDescription sets the "description" field.
-func (u *DataTypeUpsertBulk) SetDescription(v string) *DataTypeUpsertBulk {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.SetDescription(v)
-	})
-}
-
-// UpdateDescription sets the "description" field to the value that was provided on create.
-func (u *DataTypeUpsertBulk) UpdateDescription() *DataTypeUpsertBulk {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.UpdateDescription()
-	})
-}
-
-// ClearDescription clears the value of the "description" field.
-func (u *DataTypeUpsertBulk) ClearDescription() *DataTypeUpsertBulk {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.ClearDescription()
-	})
-}
-
-// SetJSONSchema sets the "json_schema" field.
-func (u *DataTypeUpsertBulk) SetJSONSchema(v string) *DataTypeUpsertBulk {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.SetJSONSchema(v)
-	})
-}
-
-// UpdateJSONSchema sets the "json_schema" field to the value that was provided on create.
-func (u *DataTypeUpsertBulk) UpdateJSONSchema() *DataTypeUpsertBulk {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.UpdateJSONSchema()
-	})
-}
-
-// SetFrontendSchema sets the "frontend_schema" field.
-func (u *DataTypeUpsertBulk) SetFrontendSchema(v string) *DataTypeUpsertBulk {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.SetFrontendSchema(v)
-	})
-}
-
-// UpdateFrontendSchema sets the "frontend_schema" field to the value that was provided on create.
-func (u *DataTypeUpsertBulk) UpdateFrontendSchema() *DataTypeUpsertBulk {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.UpdateFrontendSchema()
-	})
-}
-
-// ClearFrontendSchema clears the value of the "frontend_schema" field.
-func (u *DataTypeUpsertBulk) ClearFrontendSchema() *DataTypeUpsertBulk {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.ClearFrontendSchema()
-	})
-}
-
-// SetDefault sets the "default" field.
-func (u *DataTypeUpsertBulk) SetDefault(v bool) *DataTypeUpsertBulk {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.SetDefault(v)
-	})
-}
-
-// UpdateDefault sets the "default" field to the value that was provided on create.
-func (u *DataTypeUpsertBulk) UpdateDefault() *DataTypeUpsertBulk {
-	return u.Update(func(s *DataTypeUpsert) {
-		s.UpdateDefault()
 	})
 }
 

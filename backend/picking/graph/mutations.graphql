@@ -21,7 +21,6 @@ type Mutation {
 
 input CreatePickingOrderItemsInput {
   dataTypeID: UUID
-  dataTypeSlug: String
   data: Map
   sku: String!
   quantity: Int64!
@@ -29,7 +28,6 @@ input CreatePickingOrderItemsInput {
 
 input CreatePickingOrderWithItemsInput {
   dataTypeID: UUID
-  dataTypeSlug: String
   data: Map
   customerID: UUID
   orderItems: [CreatePickingOrderItemsInput]

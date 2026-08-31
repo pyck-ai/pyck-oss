@@ -49,91 +49,137 @@ func (r *mutationResolver) CreateDataType(ctx context.Context, input ent.CreateD
 		return nil, err
 	}
 
-	if input.Slug == nil {
-		if input.Name == nil {
-			return nil, fmt.Errorf("slug or name is required")
+	if input.Slug == nil || *input.Slug == "" {
+		if input.Name == nil || *input.Name == "" {
+			return nil, ErrDataTypeSlugRequired
 		}
 
 		newSlug := std.ToSlug(*input.Name)
 		input.Slug = &newSlug
 	}
 
-	// Use transaction provided by global middleware
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	req := request.ForContext(ctx)
-
-	// If this will be default, clear existing defaults in the same tenant/entity
-	if input.Default != nil && *input.Default {
-		if _, err := tx.DataType.
-			Update().
-			SetDefault(false).
-			Where(datatype.EntityEQ(input.Entity)).
-			Where(datatype.TenantID(req.MutationTenantID())).
-			Save(ctx); err != nil {
+	// Assign the next version within the (tenant, slug) family unless the
+	// client pinned one explicitly. Import/export sets version explicitly to
+	// preserve numbering across environments; interactive creates leave it
+	// nil and get MAX(version)+1.
+	tenantID := request.ForContext(ctx).MutationTenantID()
+	if input.Version == nil {
+		nextVersion, err := nextDataTypeVersion(ctx, tx, tenantID, *input.Slug)
+		if err != nil {
 			return nil, err
+		}
+		input.Version = &nextVersion
+	} else {
+		// Pinned version: re-import idempotency + append-only ordering.
+		// A re-import resolves here (no-op or name-only update); a brand-new
+		// version is allowed through only when it is above the current max
+		// (gaps allowed so import preserves a source's exact version numbers).
+		row, handled, err := reconcileExplicitVersion(ctx, tx, tenantID, input)
+		if err != nil {
+			return nil, err
+		}
+		if handled {
+			return row, nil
 		}
 	}
 
-	// Create entity inside the same tx
 	entity, err := tx.DataType.
 		Create().
 		SetInput(input).
 		Save(ctx)
 	if err != nil {
-		return nil, err
+		// A collision on the (tenant, slug, version) unique index means this
+		// insert lost a race with a concurrent create — for BOTH paths.
+		// Auto-assigned: retrying recomputes MAX(version)+1. Pinned: the
+		// duplicate landed between reconcileExplicitVersion's read and this
+		// insert (an already-committed duplicate would have been resolved
+		// there as the idempotent no-op), so retrying re-enters the
+		// reconcile, which now sees the committed row and either no-ops or
+		// surfaces a clean ErrDataTypeImmutableChange. Surface it as an OCC
+		// conflict so the gqltx middleware retries the whole mutation
+		// instead of leaking a raw duplicate-key error.
+		return nil, datatypeVersionConflict(err)
 	}
 
 	return entity, nil
 }
 
-// UpdateDataType is the resolver for the updateDataType field.
+// UpdateDataType updates a DataType in place. `name` is the only mutable
+// business field under #990, so `UpdateDataTypeInput` (entgql MutationUpdate)
+// exposes only `name` — changing slug, json_schema, frontend_schema, entity,
+// version, or default requires `createDataType` with the same slug to produce
+// a new version row. MutationEventHook captures the write as an OpUpdate event
+// and the DataType cache applies it — re-upserting the cached row and firing
+// its onUpdate hook — but the fields validation keys off (slug, version,
+// json_schema) are all immutable, so a rename is a label change, not a schema
+// change.
+//
+// Soft-deleted DataTypes cannot be updated: this matches the write-block
+// semantic that entity mutations referencing deleted DataTypes also fail.
 func (r *mutationResolver) UpdateDataType(ctx context.Context, id uuid.UUID, input ent.UpdateDataTypeInput) (*ent.DataType, error) {
-	// MutationEventHook captures the mutation automatically.
-	if input.JSONSchema != nil {
-		_, err := jsonschema.CompileString("schema.json", *input.JSONSchema)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
-
-	oldEntity, err := tx.DataType.Get(ctx, id)
+	// The tenant predicate is explicit: TenantMixin's query and mutation
+	// filters scope regular users but SKIP system users, so relying on them
+	// alone would let a system-token caller read (leaking json_schema) and
+	// rename another tenant's row by id. DeletedAtIsNil enforces the live-row
+	// constraint; a missing, deleted or foreign row all read as not-found.
+	tenantID := request.ForContext(ctx).MutationTenantID()
+	existing, err := tx.DataType.Query().
+		Where(datatype.ID(id), datatype.TenantID(tenantID), datatype.DeletedAtIsNil()).
+		First(ctx)
 	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, ErrDataTypeNotFound
+		}
 		return nil, err
 	}
-
-	if input.Default != nil && *input.Default {
-		_, err = tx.DataType.
-			Update().
-			SetDefault(false).
-			Where(datatype.EntityEQ(oldEntity.Entity)).
-			Where(datatype.TenantID(oldEntity.TenantID)).
-			Save(ctx)
-		if err != nil {
-			return nil, err
-		}
+	// Idempotent no-op when the name is unchanged: `name` is the only
+	// updatable field, and a same-name UPDATE would still bump updated_at
+	// and emit a datatype event whose consumers do real work (cache fan-out
+	// in every service, a full data-index backfill walk in picking). The
+	// import path re-sends every DataType on re-import, so an unchanged
+	// re-import must stay side-effect free.
+	if input.Name == nil || *input.Name == existing.Name {
+		return existing, nil
 	}
 
-	entity, err := tx.DataType.
-		UpdateOneID(id).
+	// Restate the predicate in the UPDATE: a concurrent deleteDataType may
+	// tombstone the row between the lookup and the write, and an unguarded
+	// UpdateOneID would rename the tombstone anyway. UpdateOneID (not the
+	// bulk builder) because its Save returns the ROW, which the mutation
+	// hook publishes as the event payload — the bulk builder returns the
+	// affected-row count, and a numeric data_after breaks every downstream
+	// DataType cache decode. An unmatched predicate surfaces as NotFound.
+	updated, err := tx.DataType.UpdateOneID(id).
+		Where(datatype.TenantID(tenantID), datatype.DeletedAtIsNil()).
 		SetInput(input).
 		Save(ctx)
 	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, ErrDataTypeNotFound
+		}
 		return nil, err
 	}
 
-	return entity, nil
+	return updated, nil
 }
 
-// DeleteDataType is the resolver for the deleteDataType field.
+// DeleteDataType soft-deletes one DataType version.
+//
+// The tenant predicate is explicit: TenantMixin's mutation filter scopes
+// regular users but SKIPS system users, so relying on it alone would let a
+// system-token caller tombstone another tenant's row by id — which fans out
+// cache eviction and entity write-blocks across every service for that tenant.
+// A missing, already-deleted or foreign row all match zero rows and surface as
+// ErrDataTypeNotFound.
 func (r *mutationResolver) DeleteDataType(ctx context.Context, id uuid.UUID) (*model.DataTypeDeletePayload, error) {
 	// MutationEventHook captures the mutation automatically.
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
@@ -141,9 +187,25 @@ func (r *mutationResolver) DeleteDataType(ctx context.Context, id uuid.UUID) (*m
 		return nil, err
 	}
 
+	// UpdateOneID (not the bulk builder) so Save returns the ROW: the hook
+	// publishes the mutation's return value, and downstream delete-promotion
+	// re-points the slug slot from the payload's slug — a numeric
+	// affected-row count would leave the deleted version serving forever.
+	// The restated predicates keep the tenant scoping and the concurrent-
+	// delete guard; an unmatched predicate surfaces as NotFound.
 	req := request.ForContext(ctx)
-	_, err = tx.DataType.UpdateOneID(id).SetDeletedAt(time.Now().UTC()).SetDeletedBy(req.User().ID).Save(ctx)
+	_, err = tx.DataType.UpdateOneID(id).
+		Where(
+			datatype.TenantID(req.MutationTenantID()),
+			datatype.DeletedAtIsNil(),
+		).
+		SetDeletedAt(time.Now().UTC()).
+		SetDeletedBy(req.User().ID).
+		Save(ctx)
 	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, ErrDataTypeNotFound
+		}
 		return nil, err
 	}
 
@@ -703,14 +765,16 @@ func (r *mutationResolver) DeleteUser(ctx context.Context, id uuid.UUID) (bool, 
 // SetKeyValue is the resolver for the setKeyValue field.
 func (r *mutationResolver) SetKeyValue(ctx context.Context, input model.SetKeyValueInput) (*ent.KeyValue, error) {
 	// MutationEventHook captures the mutation automatically.
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	create, dataType, err := tx.KeyValue.Create().SetInputWithDataType(ctx, ent.CreateKeyValueInput{
+		DataTypeID: input.DataTypeID,
+		Data:       input.Data,
+		Name:       &input.Name,
+	}, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -749,20 +813,12 @@ func (r *mutationResolver) SetKeyValue(ctx context.Context, input model.SetKeyVa
 		return nil, err
 	}
 
-	keyValueID, err := tx.KeyValue.
-		Create().
-		SetInput(ent.CreateKeyValueInput{
-			DataTypeID:   &dataType.ID,
-			DataTypeSlug: &dataType.Slug,
-			Data:         input.Data,
-			Name:         &input.Name,
-		}).
-		OnConflict(
-			sql.ConflictColumns(keyvalue.FieldTenantID, keyvalue.FieldUserID, keyvalue.FieldName),
-			sql.ConflictWhere(sql.IsNull(keyvalue.FieldDeletedAt)),
-			mixin.HistoryMixinResolveWithNewValues(ctx),
-		).
-		ID(ctx)
+	upsert := create.OnConflict(
+		sql.ConflictColumns(keyvalue.FieldTenantID, keyvalue.FieldUserID, keyvalue.FieldName),
+		sql.ConflictWhere(sql.IsNull(keyvalue.FieldDeletedAt)),
+		mixin.HistoryMixinResolveWithNewValues(ctx),
+	)
+	keyValueID, err := upsert.ID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -795,22 +851,17 @@ func (r *mutationResolver) DeleteKeyValue(ctx context.Context, id uuid.UUID) (*m
 // CreateLocation is the resolver for the createLocation field.
 func (r *mutationResolver) CreateLocation(ctx context.Context, input ent.CreateLocationInput) (*model.LocationOutput, error) {
 	// MutationEventHook captures the mutation automatically.
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
-	if err != nil {
-		return nil, err
-	}
-
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	location, err := tx.Location.
-		Create().
-		SetInput(input).
-		Save(ctx)
+	create, _, err := tx.Location.Create().SetInputWithDataType(ctx, input, r.validator)
+	if err != nil {
+		return nil, err
+	}
+
+	location, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -821,22 +872,17 @@ func (r *mutationResolver) CreateLocation(ctx context.Context, input ent.CreateL
 // UpdateLocation is the resolver for the updateLocation field.
 func (r *mutationResolver) UpdateLocation(ctx context.Context, id uuid.UUID, input ent.UpdateLocationInput) (*model.LocationOutput, error) {
 	// MutationEventHook captures the mutation automatically.
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
-	if err != nil {
-		return nil, err
-	}
-
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	location, err := tx.Location.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
+	update, _, err := tx.Location.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
+	if err != nil {
+		return nil, err
+	}
+
+	location, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -868,22 +914,17 @@ func (r *mutationResolver) DeleteLocation(ctx context.Context, id uuid.UUID) (*m
 // CreateDevice is the resolver for the createDevice field.
 func (r *mutationResolver) CreateDevice(ctx context.Context, input ent.CreateDeviceInput) (*model.DeviceOutput, error) {
 	// MutationEventHook captures the mutation automatically.
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
-	if err != nil {
-		return nil, err
-	}
-
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	device, err := tx.Device.
-		Create().
-		SetInput(input).
-		Save(ctx)
+	create, _, err := tx.Device.Create().SetInputWithDataType(ctx, input, r.validator)
+	if err != nil {
+		return nil, err
+	}
+
+	device, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -894,22 +935,17 @@ func (r *mutationResolver) CreateDevice(ctx context.Context, input ent.CreateDev
 // UpdateDevice is the resolver for the updateDevice field.
 func (r *mutationResolver) UpdateDevice(ctx context.Context, id uuid.UUID, input ent.UpdateDeviceInput) (*model.DeviceOutput, error) {
 	// MutationEventHook captures the mutation automatically.
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
-	if err != nil {
-		return nil, err
-	}
-
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	device, err := tx.Device.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
+	update, _, err := tx.Device.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
+	if err != nil {
+		return nil, err
+	}
+
+	device, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -941,14 +977,12 @@ func (r *mutationResolver) DeleteDevice(ctx context.Context, id uuid.UUID) (*mod
 // SetDeviceLocation is the resolver for the setDeviceLocation field.
 func (r *mutationResolver) SetDeviceLocation(ctx context.Context, input ent.CreateDeviceLocationInput) (*model.DeviceLocationOutput, error) {
 	// MutationEventHook captures the mutation automatically.
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	create, _, err := tx.DeviceLocation.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -960,10 +994,7 @@ func (r *mutationResolver) SetDeviceLocation(ctx context.Context, input ent.Crea
 		return nil, fmt.Errorf("invalid location: %w", err)
 	}
 
-	deviceLocation, err := tx.DeviceLocation.
-		Create().
-		SetInput(input).
-		Save(ctx)
+	deviceLocation, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}

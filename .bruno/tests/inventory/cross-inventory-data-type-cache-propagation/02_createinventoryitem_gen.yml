@@ -2,7 +2,7 @@
 # Source: backend/inventory/api/testdata/tests/cross-inventory-datatype-cache-propagation.test.yaml
 
 info:
-  #name: Create Inventory Item - Resolve slug after create event (cache hit -> schema A accepts 'red')
+  #name: Create Inventory Item - Resolve ID after create event (cache hit -> schema A accepts 'red')
   name: Create Inventory Item
   type: graphql
   seq: 2
@@ -48,7 +48,7 @@ graphql:
           "data": {
             "color": "red"
           },
-          "dataTypeSlug": "{{bru-test_cross-inventory-datatype-cache-propagation_4da9669e}}",
+          "dataTypeID": "{{bru-test_cross-inventory-datatype-cache-propagation_f216fba0}}",
           "sku": "{{$randomUUID}}"
         }
       }
@@ -69,7 +69,7 @@ runtime:
           expect(res.status).to.equal(200);
         });
 
-        test("No GraphQL errors (slug resolved through cache)", function() {
+        test("No GraphQL errors (ID resolved through cache)", function() {
           expect(body?.errors).to.not.exist;
         });
 

@@ -50,10 +50,6 @@ steps:
     - ref: res.body.data.createInventoryItemSet.inventoryItemSet.sku
       equal:
         $ref: req.body.variables.input.sku
-  - msg: Item associated
-    assertions:
-    - ref: res.body.data.createInventoryItemSet.inventoryItemSet.items.totalCount
-      equal: 1
 - name: Get created item set
   operation: inventory.getInventoryItemSets
   vars:
@@ -78,9 +74,27 @@ steps:
     - ref: res.body.data.inventoryItemSets.edges[].node.id
       equal:
         $ref: res[createItemSet].body.data.createInventoryItemSet.inventoryItemSet.id
+- name: Verify item is associated with the set
+  # itemSet -> items connection isn't selected by the generated operations
+  # (apigen emits scalar node fields only); verify from the item side instead.
+  operation: inventory.getInventoryItems
+  vars:
+    where:
+      hasItemSetWith:
+      - id:
+          $ref: res[createItemSet].body.data.createInventoryItemSet.inventoryItemSet.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
   - msg: Item association persisted
     assertions:
-    - ref: res.body.data.inventoryItemSets.edges[].node.items.totalCount
+    - ref: res.body.data.inventoryItems.totalCount
       equal: 1
 - name: Update item set
   operation: inventory.updateInventoryItemSet

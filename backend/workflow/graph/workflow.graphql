@@ -515,7 +515,6 @@ extend type Mutation {
 
 input RegisterWorkflowWithSignalsInput {
     dataTypeID: UUID
-    dataTypeSlug: String
     data: Map
     name: String!
     taskQueue: String!

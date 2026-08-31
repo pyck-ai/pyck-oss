@@ -1,0 +1,11 @@
+info:
+  name: Cross - Customer Data Type ID Reference
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a data type and references it by ID when creating and updating customers. Verifies dataTypeID and dataTypeSlug are persisted.
+
+
+request:
+  auth: inherit

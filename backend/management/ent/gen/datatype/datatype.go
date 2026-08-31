@@ -37,10 +37,12 @@ const (
 	FieldJSONSchema = "json_schema"
 	// FieldFrontendSchema holds the string denoting the frontend_schema field in the database.
 	FieldFrontendSchema = "frontend_schema"
-	// FieldDefault holds the string denoting the default field in the database.
-	FieldDefault = "default"
 	// FieldEntity holds the string denoting the entity field in the database.
 	FieldEntity = "entity"
+	// FieldDefault holds the string denoting the default field in the database.
+	FieldDefault = "default"
+	// FieldVersion holds the string denoting the version field in the database.
+	FieldVersion = "version"
 	// Table holds the table name of the datatype in the database.
 	Table = "datatypes"
 )
@@ -60,8 +62,9 @@ var Columns = []string{
 	FieldDescription,
 	FieldJSONSchema,
 	FieldFrontendSchema,
-	FieldDefault,
 	FieldEntity,
+	FieldDefault,
+	FieldVersion,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -89,10 +92,12 @@ var (
 	SlugValidator func(string) error
 	// JSONSchemaValidator is a validator for the "json_schema" field. It is called by the builders before save.
 	JSONSchemaValidator func(string) error
-	// DefaultDefault holds the default value on creation for the "default" field.
-	DefaultDefault bool
 	// EntityValidator is a validator for the "entity" field. It is called by the builders before save.
 	EntityValidator func(string) error
+	// DefaultDefault holds the default value on creation for the "default" field.
+	DefaultDefault bool
+	// DefaultVersion holds the default value on creation for the "version" field.
+	DefaultVersion int
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -165,12 +170,17 @@ func ByFrontendSchema(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldFrontendSchema, opts...).ToFunc()
 }
 
+// ByEntity orders the results by the entity field.
+func ByEntity(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEntity, opts...).ToFunc()
+}
+
 // ByDefault orders the results by the default field.
 func ByDefault(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDefault, opts...).ToFunc()
 }
 
-// ByEntity orders the results by the entity field.
-func ByEntity(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldEntity, opts...).ToFunc()
+// ByVersion orders the results by the version field.
+func ByVersion(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVersion, opts...).ToFunc()
 }

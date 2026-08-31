@@ -1,6 +1,12 @@
 
 extend type Query {
   dataTypeEntities: [String!]
+  """
+  Returns the latest non-deleted DataType version for the given slug within
+  the caller's tenant, or null if no version exists. Convenience wrapper
+  for the relay query ``dataTypes(where: {slug}, orderBy: {field: VERSION, direction: DESC}, first: 1)``.
+  """
+  dataTypeBySlug(slug: String!): DataType
 }
 
 type DataTypeDeletePayload {

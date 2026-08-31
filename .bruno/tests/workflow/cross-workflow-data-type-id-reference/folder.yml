@@ -1,0 +1,11 @@
+info:
+  name: Cross - Workflow Data Type ID Reference
+  type: folder
+  seq: 1
+
+docs: |-
+  Creates a data type, then registers a workflow that references it via dataTypeID + custom data. Exercises the workflow service's data type cache (cache is populated via the NATS event emitted by createDataType).
+
+
+request:
+  auth: inherit

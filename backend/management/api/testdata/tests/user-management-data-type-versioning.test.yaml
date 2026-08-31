@@ -1,0 +1,164 @@
+---
+name: "User - Data Type Versioning"
+description: >
+  Exercises pyck#990's append-only DataType model: same slug can repeat as a
+  new version row, dataTypeBySlug always returns the latest non-deleted
+  version, deleting the latest promotes the prior version into the slug
+  slot, deleting all versions yields null.
+steps:
+  - id: v1
+    name: "Create v1"
+    operation: management.createDataType
+    # Wait for the create event to propagate so subsequent slug lookups see v1.
+    wait_after_ms: 300
+    vars:
+      input:
+        name: "Versioning Test v1"
+        slug: {$fake: "versioning-{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"x":{"type":"integer"}}}'
+    tests:
+      - msg: "v1 created as version 1"
+        assertions:
+          - ref: res.status
+            equal: 200
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.version
+            equal: 1
+
+  - name: "dataTypeBySlug returns v1"
+    operation: management.getDataTypeBySlug
+    vars:
+      slug: {$ref: "res[v1].body.data.createDataType.slug"}
+    tests:
+      - msg: "v1 is the latest"
+        assertions:
+          - ref: res.body.data.dataTypeBySlug.id
+            equal: {$ref: "res[v1].body.data.createDataType.id"}
+
+  - id: v2
+    name: "Create v2 with the same slug"
+    operation: management.createDataType
+    wait_after_ms: 300
+    vars:
+      input:
+        name: "Versioning Test v2"
+        # Reuse v1's slug — append-only allows this.
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"y":{"type":"string"}}}'
+    tests:
+      - msg: "v2 created as version 2"
+        assertions:
+          - ref: res.status
+            equal: 200
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.version
+            equal: 2
+
+  - name: "dataTypeBySlug now returns v2 (latest wins)"
+    operation: management.getDataTypeBySlug
+    vars:
+      slug: {$ref: "res[v1].body.data.createDataType.slug"}
+    tests:
+      - msg: "Latest version wins on slug lookup"
+        assertions:
+          - ref: res.body.data.dataTypeBySlug.id
+            equal: {$ref: "res[v2].body.data.createDataType.id"}
+
+  - name: "Both versions are listable via the relay query"
+    operation: management.getDataTypes
+    vars:
+      where:
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+    tests:
+      - msg: "Two versions returned"
+        assertions:
+          - ref: res.body.data.dataTypes.totalCount
+            equal: 2
+
+  - name: "Delete v2"
+    operation: management.deleteDataType
+    wait_after_ms: 300
+    vars:
+      id: {$ref: "res[v2].body.data.createDataType.id"}
+    tests:
+      - msg: "Delete succeeds"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "dataTypeBySlug now returns v1 (delete promotes prior)"
+    operation: management.getDataTypeBySlug
+    vars:
+      slug: {$ref: "res[v1].body.data.createDataType.slug"}
+    tests:
+      - msg: "Prior version surfaces after the latest is deleted"
+        assertions:
+          - ref: res.body.data.dataTypeBySlug.id
+            equal: {$ref: "res[v1].body.data.createDataType.id"}
+
+  - name: "Delete v1"
+    operation: management.deleteDataType
+    wait_after_ms: 300
+    vars:
+      id: {$ref: "res[v1].body.data.createDataType.id"}
+    tests:
+      - msg: "Delete succeeds"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "dataTypeBySlug returns null when all versions are deleted"
+    operation: management.getDataTypeBySlug
+    vars:
+      slug: {$ref: "res[v1].body.data.createDataType.slug"}
+    tests:
+      - msg: "No live version → null"
+        assertions:
+          - ref: res.body.data.dataTypeBySlug
+            nil: true
+
+  # Import path: a caller may pin an explicit version (export preserves the
+  # number across environments — created_at can't be set on insert). A
+  # subsequent auto-assigned create continues numbering from MAX(version).
+  - id: imported
+    name: "Create with an explicit version (import path)"
+    operation: management.createDataType
+    wait_after_ms: 300
+    vars:
+      input:
+        name: "Imported v5"
+        slug: {$fake: "imported-{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        version: 5
+        jsonSchema: '{"type":"object","properties":{"z":{"type":"integer"}}}'
+    tests:
+      - msg: "Explicit version is honored"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.version
+            equal: 5
+
+  - name: "Auto-assign continues from the explicit version"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Imported next"
+        slug: {$ref: "res[imported].body.data.createDataType.slug"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"z":{"type":"integer"}}}'
+    tests:
+      - msg: "Next auto version is MAX(version)+1 = 6"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.version
+            equal: 6

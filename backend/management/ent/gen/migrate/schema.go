@@ -24,8 +24,9 @@ var (
 		{Name: "description", Type: field.TypeString, Nullable: true},
 		{Name: "json_schema", Type: field.TypeString},
 		{Name: "frontend_schema", Type: field.TypeString, Nullable: true},
-		{Name: "default", Type: field.TypeBool, Default: false},
 		{Name: "entity", Type: field.TypeString},
+		{Name: "default", Type: field.TypeBool, Default: false},
+		{Name: "version", Type: field.TypeInt, Default: 1},
 	}
 	// DatatypesTable holds the schema information for the "datatypes" table.
 	DatatypesTable = &schema.Table{
@@ -34,10 +35,18 @@ var (
 		PrimaryKey: []*schema.Column{DatatypesColumns[0]},
 		Indexes: []*schema.Index{
 			{
-				Name:    "datatype_tenant_id_slug",
+				Name:    "datatype_tenant_id_slug_version_uniq",
 				Unique:  true,
-				Columns: []*schema.Column{DatatypesColumns[1], DatatypesColumns[9]},
+				Columns: []*schema.Column{DatatypesColumns[1], DatatypesColumns[9], DatatypesColumns[15]},
+			},
+			{
+				Name:    "datatype_tenant_id_slug_version_desc",
+				Unique:  false,
+				Columns: []*schema.Column{DatatypesColumns[1], DatatypesColumns[9], DatatypesColumns[15]},
 				Annotation: &entsql.IndexAnnotation{
+					DescColumns: map[string]bool{
+						DatatypesColumns[15].Name: true,
+					},
 					Where: "deleted_at IS NULL",
 				},
 			},

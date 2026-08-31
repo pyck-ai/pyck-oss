@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
+	common_jsonschema "github.com/pyck-ai/pyck/backend/common/json-schema"
 	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/validator"
@@ -28,12 +29,10 @@ import (
 
 // CreateReceivingInbound is the resolver for the createReceivingInbound field.
 func (r *mutationResolver) CreateReceivingInbound(ctx context.Context, input model.CreateReceivingInboundWithItemsInput) (*model.ReceivingInboundOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
 
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
@@ -51,17 +50,18 @@ func (r *mutationResolver) CreateReceivingInbound(ctx context.Context, input mod
 		return nil, err
 	}
 
-	// Prepare and validate inbound items first
-	var bulk []*ent.InboundItemCreate
-	for _, item := range input.InboundItems {
+	// Prepare and validate inbound items first; collect resolved data types so
+	// we can stamp the slug on each row below without re-resolving.
+	itemDataTypes := make([]*common_jsonschema.DataType, len(input.InboundItems))
+	for i, item := range input.InboundItems {
 		if item == nil {
 			continue
 		}
-		itemDataType, err := r.validator.ValidateDataTypeInput(ctx, true, item.Data, item.DataTypeID, item.DataTypeSlug)
+		itemDataType, err := r.validator.ValidateDataTypeInput(ctx, true, item.Data, item.DataTypeID, nil)
 		if err != nil {
 			return nil, err
 		}
-		mixin.PatchDataTypeIdSlugInput(item, itemDataType)
+		itemDataTypes[i] = itemDataType
 		if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 			Input:     item.Data,
 			DataType:  itemDataType,
@@ -75,32 +75,39 @@ func (r *mutationResolver) CreateReceivingInbound(ctx context.Context, input mod
 
 	// Create inbound (MutationEventHook captures automatically, WorkflowReplyMiddleware handles reply)
 	inboundInput := ent.CreateReceivingInboundInput{
-		DataTypeID:   input.DataTypeID,
-		DataTypeSlug: input.DataTypeSlug,
-		Data:         input.Data,
-		OrderID:      input.OrderID,
-		SupplierID:   input.SupplierID,
+		DataTypeID: input.DataTypeID,
+		Data:       input.Data,
+		OrderID:    input.OrderID,
+		SupplierID: input.SupplierID,
 	}
 
-	receivedInbound, err := tx.Inbound.Create().SetInput(inboundInput).Save(ctx)
+	inboundCreate := tx.Inbound.Create().SetInput(inboundInput)
+	if dataType != nil {
+		inboundCreate.SetDataTypeSlug(dataType.Slug)
+	}
+	receivedInbound, err := inboundCreate.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create inbound items (hook captures automatically)
-	for _, item := range input.InboundItems {
+	var bulk []*ent.InboundItemCreate
+	for i, item := range input.InboundItems {
 		if item == nil {
 			continue
 		}
 		createInput := ent.CreateReceivingInboundItemInput{
-			DataTypeID:   item.DataTypeID,
-			DataTypeSlug: item.DataTypeSlug,
-			Data:         item.Data,
-			Sku:          item.Sku,
-			Quantity:     item.Quantity,
-			InboundID:    receivedInbound.ID,
+			DataTypeID: item.DataTypeID,
+			Data:       item.Data,
+			Sku:        item.Sku,
+			Quantity:   item.Quantity,
+			InboundID:  receivedInbound.ID,
 		}
-		bulk = append(bulk, tx.InboundItem.Create().SetInput(createInput))
+		itemCreate := tx.InboundItem.Create().SetInput(createInput)
+		if itemDataTypes[i] != nil {
+			itemCreate.SetDataTypeSlug(itemDataTypes[i].Slug)
+		}
+		bulk = append(bulk, itemCreate)
 	}
 
 	if _, err := tx.InboundItem.CreateBulk(bulk...).Save(ctx); err != nil {
@@ -114,14 +121,12 @@ func (r *mutationResolver) CreateReceivingInbound(ctx context.Context, input mod
 func (r *mutationResolver) UpdateReceivingInbound(ctx context.Context, id uuid.UUID, input ent.UpdateReceivingInboundInput) (*model.ReceivingInboundOutput, error) {
 	req := request.ForContext(ctx)
 
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	update, dataType, err := tx.Inbound.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -150,10 +155,7 @@ func (r *mutationResolver) UpdateReceivingInbound(ctx context.Context, id uuid.U
 	}
 
 	// Update inbound (MutationEventHook captures automatically with field-level events)
-	receivingInbound, err := tx.Inbound.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
+	receivingInbound, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -205,14 +207,12 @@ func (r *mutationResolver) DeleteReceivingInbound(ctx context.Context, id uuid.U
 
 // CreateReceivingInboundItem is the resolver for the createReceivingInboundItem field.
 func (r *mutationResolver) CreateReceivingInboundItem(ctx context.Context, input ent.CreateReceivingInboundItemInput) (*model.ReceivingInboundItemOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	create, dataType, err := tx.InboundItem.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -233,10 +233,7 @@ func (r *mutationResolver) CreateReceivingInboundItem(ctx context.Context, input
 	}
 
 	// Create item (MutationEventHook captures automatically, WorkflowReplyMiddleware handles reply)
-	inboundItem, err := tx.InboundItem.
-		Create().
-		SetInput(input).
-		Save(ctx)
+	inboundItem, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -246,14 +243,12 @@ func (r *mutationResolver) CreateReceivingInboundItem(ctx context.Context, input
 
 // UpdateReceivingInboundItem is the resolver for the updateReceivingInboundItem field.
 func (r *mutationResolver) UpdateReceivingInboundItem(ctx context.Context, id uuid.UUID, input ent.UpdateReceivingInboundItemInput) (*model.ReceivingInboundItemOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	update, dataType, err := tx.InboundItem.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -276,10 +271,7 @@ func (r *mutationResolver) UpdateReceivingInboundItem(ctx context.Context, id uu
 	}
 
 	// Update item (MutationEventHook captures automatically with field-level events)
-	inboundItem, err := tx.InboundItem.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
+	inboundItem, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -309,14 +301,12 @@ func (r *mutationResolver) DeleteReceivingInboundItem(ctx context.Context, id uu
 
 // CreateReceivingInboundShipmentNotification is the resolver for the createReceivingInboundShipmentNotification field.
 func (r *mutationResolver) CreateReceivingInboundShipmentNotification(ctx context.Context, input ent.CreateReceivingInboundShipmentNotificationInput) (*model.ReceivingInboundShipmentNotificationOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	create, dataType, err := tx.InboundShipmentNotification.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -337,10 +327,7 @@ func (r *mutationResolver) CreateReceivingInboundShipmentNotification(ctx contex
 	}
 
 	// Create notification (MutationEventHook captures automatically, WorkflowReplyMiddleware handles reply)
-	notification, err := tx.InboundShipmentNotification.
-		Create().
-		SetInput(input).
-		Save(ctx)
+	notification, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -350,14 +337,12 @@ func (r *mutationResolver) CreateReceivingInboundShipmentNotification(ctx contex
 
 // UpdateReceivingInboundShipmentNotification is the resolver for the updateReceivingInboundShipmentNotification field.
 func (r *mutationResolver) UpdateReceivingInboundShipmentNotification(ctx context.Context, id uuid.UUID, input ent.UpdateReceivingInboundShipmentNotificationInput) (*model.ReceivingInboundShipmentNotificationOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	update, dataType, err := tx.InboundShipmentNotification.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -381,10 +366,7 @@ func (r *mutationResolver) UpdateReceivingInboundShipmentNotification(ctx contex
 	}
 
 	// Update notification (MutationEventHook captures automatically with field-level events)
-	notification, err := tx.InboundShipmentNotification.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
+	notification, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}

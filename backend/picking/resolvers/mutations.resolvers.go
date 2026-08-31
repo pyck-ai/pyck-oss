@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
+	common_jsonschema "github.com/pyck-ai/pyck/backend/common/json-schema"
 	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/validator"
@@ -30,12 +31,10 @@ import (
 func (r *mutationResolver) CreatePickingOrder(ctx context.Context, input model.CreatePickingOrderWithItemsInput) (*model.PickingOrderOutput, error) {
 	// MutationEventHook captures the mutation automatically.
 
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
 
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
@@ -53,16 +52,18 @@ func (r *mutationResolver) CreatePickingOrder(ctx context.Context, input model.C
 		return nil, err
 	}
 
-	// Prepare and validate order items first
-	for _, item := range input.OrderItems {
+	// Prepare and validate order items first; collect resolved data types so we
+	// can stamp the slug on each row below without re-resolving.
+	itemDataTypes := make([]*common_jsonschema.DataType, len(input.OrderItems))
+	for i, item := range input.OrderItems {
 		if item == nil {
 			continue
 		}
-		itemDataType, err := r.validator.ValidateDataTypeInput(ctx, true, item.Data, item.DataTypeID, item.DataTypeSlug)
+		itemDataType, err := r.validator.ValidateDataTypeInput(ctx, true, item.Data, item.DataTypeID, nil)
 		if err != nil {
 			return nil, err
 		}
-		mixin.PatchDataTypeIdSlugInput(item, itemDataType)
+		itemDataTypes[i] = itemDataType
 		if err := r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 			Input:     item.Data,
 			DataType:  itemDataType,
@@ -76,31 +77,37 @@ func (r *mutationResolver) CreatePickingOrder(ctx context.Context, input model.C
 
 	// Create picking order (MutationEventHook captures automatically, WorkflowReplyMiddleware handles reply)
 	orderInput := ent.CreatePickingOrderInput{
-		DataTypeID:   input.DataTypeID,
-		DataTypeSlug: input.DataTypeSlug,
-		Data:         input.Data,
-		CustomerID:   input.CustomerID,
+		DataTypeID: input.DataTypeID,
+		Data:       input.Data,
+		CustomerID: input.CustomerID,
 	}
-	createdOrder, err := tx.Order.Create().SetInput(orderInput).Save(ctx)
+	orderCreate := tx.Order.Create().SetInput(orderInput)
+	if dataType != nil {
+		orderCreate.SetDataTypeSlug(dataType.Slug)
+	}
+	createdOrder, err := orderCreate.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create order items (hook captures automatically)
 	var bulk []*ent.OrderItemsCreate
-	for _, item := range input.OrderItems {
+	for i, item := range input.OrderItems {
 		if item == nil {
 			continue
 		}
 		createInput := ent.CreatePickingOrderItemInput{
-			DataTypeID:   item.DataTypeID,
-			DataTypeSlug: item.DataTypeSlug,
-			Data:         item.Data,
-			Sku:          item.Sku,
-			Quantity:     item.Quantity,
-			OrderID:      createdOrder.ID,
+			DataTypeID: item.DataTypeID,
+			Data:       item.Data,
+			Sku:        item.Sku,
+			Quantity:   item.Quantity,
+			OrderID:    createdOrder.ID,
 		}
-		bulk = append(bulk, tx.OrderItems.Create().SetInput(createInput))
+		itemCreate := tx.OrderItems.Create().SetInput(createInput)
+		if itemDataTypes[i] != nil {
+			itemCreate.SetDataTypeSlug(itemDataTypes[i].Slug)
+		}
+		bulk = append(bulk, itemCreate)
 	}
 
 	if _, err := tx.OrderItems.CreateBulk(bulk...).Save(ctx); err != nil {
@@ -114,14 +121,12 @@ func (r *mutationResolver) CreatePickingOrder(ctx context.Context, input model.C
 func (r *mutationResolver) UpdatePickingOrder(ctx context.Context, id uuid.UUID, input ent.UpdatePickingOrderInput) (*model.PickingOrderOutput, error) {
 	// MutationEventHook captures the mutation automatically with field-level events.
 
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	update, dataType, err := tx.Order.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -138,10 +143,7 @@ func (r *mutationResolver) UpdatePickingOrder(ctx context.Context, id uuid.UUID,
 	}
 
 	// Update picking order (MutationEventHook captures automatically with field-level events)
-	updated, err := tx.Order.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
+	updated, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -196,14 +198,12 @@ func (r *mutationResolver) DeletePickingOrder(ctx context.Context, id uuid.UUID)
 func (r *mutationResolver) CreatePickingOrderItem(ctx context.Context, input ent.CreatePickingOrderItemInput) (*model.PickingOrderItemOutput, error) {
 	// MutationEventHook captures the mutation automatically.
 
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	create, dataType, err := tx.OrderItems.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -224,10 +224,7 @@ func (r *mutationResolver) CreatePickingOrderItem(ctx context.Context, input ent
 	}
 
 	// Create item (MutationEventHook captures automatically, WorkflowReplyMiddleware handles reply)
-	orderItem, err := tx.OrderItems.
-		Create().
-		SetInput(input).
-		Save(ctx)
+	orderItem, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -239,14 +236,12 @@ func (r *mutationResolver) CreatePickingOrderItem(ctx context.Context, input ent
 func (r *mutationResolver) UpdatePickingOrderItem(ctx context.Context, id uuid.UUID, input ent.UpdatePickingOrderItemInput) (*model.PickingOrderItemOutput, error) {
 	// MutationEventHook captures the mutation automatically with field-level events.
 
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	update, dataType, err := tx.OrderItems.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -269,10 +264,7 @@ func (r *mutationResolver) UpdatePickingOrderItem(ctx context.Context, id uuid.U
 	}
 
 	// Update item (MutationEventHook captures automatically with field-level events)
-	orderItem, err := tx.OrderItems.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
+	orderItem, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -304,14 +296,12 @@ func (r *mutationResolver) DeletePickingOrderItem(ctx context.Context, id uuid.U
 
 // CreatePickingOutboundShipmentNotification is the resolver for the createPickingOutboundShipmentNotification field.
 func (r *mutationResolver) CreatePickingOutboundShipmentNotification(ctx context.Context, input ent.CreatePickingOutboundShipmentNotificationInput) (*model.PickingOutboundShipmentNotificationOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	create, dataType, err := tx.OutboundShipmentNotification.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -332,10 +322,7 @@ func (r *mutationResolver) CreatePickingOutboundShipmentNotification(ctx context
 	}
 
 	// Create notification (MutationEventHook captures automatically, WorkflowReplyMiddleware handles reply)
-	notification, err := tx.OutboundShipmentNotification.
-		Create().
-		SetInput(input).
-		Save(ctx)
+	notification, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -345,14 +332,12 @@ func (r *mutationResolver) CreatePickingOutboundShipmentNotification(ctx context
 
 // UpdatePickingOutboundShipmentNotification is the resolver for the updatePickingOutboundShipmentNotification field.
 func (r *mutationResolver) UpdatePickingOutboundShipmentNotification(ctx context.Context, id uuid.UUID, input ent.UpdatePickingOutboundShipmentNotificationInput) (*model.PickingOutboundShipmentNotificationOutput, error) {
-	dataType, err := r.validator.ValidateDataTypeInput(ctx, true, input.Data, input.DataTypeID, input.DataTypeSlug)
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
 
-	mixin.PatchDataTypeIdSlugInput(&input, dataType)
-
-	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	update, dataType, err := tx.OutboundShipmentNotification.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -376,10 +361,7 @@ func (r *mutationResolver) UpdatePickingOutboundShipmentNotification(ctx context
 	}
 
 	// Update notification (MutationEventHook captures automatically with field-level events)
-	notification, err := tx.OutboundShipmentNotification.
-		UpdateOneID(id).
-		SetInput(input).
-		Save(ctx)
+	notification, err := update.Save(ctx)
 	if err != nil {
 		return nil, err
 	}

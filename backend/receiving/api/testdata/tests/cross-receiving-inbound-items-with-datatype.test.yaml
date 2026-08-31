@@ -88,8 +88,6 @@ steps:
         assertions:
           - ref: res.body.data.createReceivingInbound.receivingInbound.id
             nil: false
-          - ref: res.body.data.createReceivingInbound.receivingInbound.inboundItems.totalCount
-            equal: 2
       - msg: "Inbound data persisted"
         assertions:
           - ref: res.body.data.createReceivingInbound.receivingInbound.data.carrier

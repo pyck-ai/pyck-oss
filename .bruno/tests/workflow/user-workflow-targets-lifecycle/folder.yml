@@ -4,7 +4,8 @@ info:
   seq: 1
 
 docs: |-
-  Full round-trip of the pyck_workflow_targets KeywordList search attribute on a running TargetsExample workflow. Sets targets, verifies via the getter, verifies via the targets-IN filter, then replaces the targets and verifies the new value matches. Requires at least one running TargetsExample execution in the target tenant, and a tenant-scoped PAT in env_pyck_token / env_pyck_tenant_id.
+  Full round-trip of the pyck_workflow_targets KeywordList search attribute on a running TargetsExample workflow. Sets targets, verifies via the getter, verifies via the targets-IN filter, then replaces the targets and verifies the filter now matches the new value.
+  Prereq: at least one TargetsExample workflow execution must be running in the target tenant before this suite is run. Set env_pyck_token and env_pyck_tenant_id in the Bruno environment to a tenant-scoped PAT and tenant id that can reach that workflow.
 
 
 request:

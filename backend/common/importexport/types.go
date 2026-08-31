@@ -7,12 +7,22 @@ package importexport
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"strconv"
+	"strings"
 )
 
 // ErrImmutableField is returned when an import asks to change a field the
 // update input cannot express because it is fixed at creation.
 var ErrImmutableField = errors.New("field is fixed at creation")
+
+// progressf writes best-effort progress output to the caller-supplied
+// writer. Progress reporting must never abort an import or export, so a
+// failing writer is deliberately ignored rather than propagated.
+func progressf(w io.Writer, format string, args ...any) {
+	_, _ = fmt.Fprintf(w, format, args...) //nolint:errcheck // best-effort progress output
+}
 
 // EntityDescriptor describes how to list, create, and update one entity type.
 // Each importable entity type registers one descriptor with the [Registry].
@@ -23,10 +33,12 @@ type EntityDescriptor struct {
 	// Service identifies which service owns this entity (e.g., "management").
 	Service string
 
-	// IdentityField is the WhereInput field used for existence checks during
-	// import (e.g., "name", "slug", "sku"). This field must uniquely identify
-	// an entity within a tenant.
-	IdentityField string
+	// IdentityFields are the WhereInput fields that together uniquely identify
+	// an entity within a tenant (e.g. ["name"], ["sku"], or ["slug","version"]
+	// for a versioned DataType). They drive both $ref resolution and the
+	// import-time existence check. Empty for create-only entities with no
+	// natural key, whose existence is checked by "id" instead.
+	IdentityFields []string
 
 	// List queries entities matching a filter. The where parameter is a
 	// map that will be converted to the service's WhereInput type via JSON
@@ -46,10 +58,61 @@ type EntityDescriptor struct {
 
 	// ImmutableFields names fields the create input accepts but the update
 	// input cannot express, because they are fixed at creation. An import
-	// carrying a different value for one of them is refused: the update would
-	// otherwise apply the rest and report success while silently dropping the
-	// difference the operator asked for.
+	// carrying a different value for one of them on an existing entity is
+	// refused: the update (or, for a create-only entity, the skip) would
+	// otherwise report success while silently dropping the difference the
+	// operator asked for.
 	ImmutableFields []string
+
+	// References are this entity's outgoing FK edges. They drive export
+	// ordering (a referenced entity is emitted before its referrers) and the
+	// rewrite of a raw FK id into a portable $ref. Federated FK targets cannot
+	// be inferred from the schema, so edges are declared via @pyckImportable.
+	References []Reference
+}
+
+// Reference is a declared FK edge: Field on the owning entity holds the id of an
+// entity of type TargetType. The target's identity (for the $ref payload) is read
+// from the target's own descriptor at runtime, so it is not repeated here.
+type Reference struct {
+	Field      string
+	TargetType string
+}
+
+// identityKeySep separates identity-field values when building a cache key. It
+// is a non-printable byte so it can never appear inside a field value.
+const identityKeySep = "\x1f"
+
+// identity extracts this descriptor's identity-field values from src — a
+// record's data map or a $ref map — returning a WhereInput-shaped filter and a
+// stable cache key. ok is false when the descriptor declares no identity fields
+// or src is missing one of them (absent or explicitly nil) — a nil value can't
+// build a usable filter (e.g. `{version: nil}`), matching buildReferenceIndex.
+func (d *EntityDescriptor) identity(src map[string]any) (where map[string]any, key string, ok bool) {
+	if len(d.IdentityFields) == 0 {
+		return nil, "", false
+	}
+	where = make(map[string]any, len(d.IdentityFields))
+	parts := make([]string, 0, len(d.IdentityFields))
+	for _, f := range d.IdentityFields {
+		v, present := src[f]
+		if !present || v == nil {
+			return nil, "", false
+		}
+		where[f] = v
+		parts = append(parts, fmt.Sprint(v))
+	}
+	return where, strings.Join(parts, identityKeySep), true
+}
+
+// identityDisplay renders the identity fields as a deterministic "k=v" string
+// for log and dry-run output.
+func (d *EntityDescriptor) identityDisplay(where map[string]any) string {
+	parts := make([]string, 0, len(d.IdentityFields))
+	for _, f := range d.IdentityFields {
+		parts = append(parts, fmt.Sprintf("%s=%v", f, where[f]))
+	}
+	return strings.Join(parts, " ")
 }
 
 // ListResult holds a page of entities from a List call.

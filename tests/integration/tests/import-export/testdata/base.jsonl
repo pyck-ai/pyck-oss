@@ -8,29 +8,34 @@
 // These entities are tested via export only (they can be created via
 // CollectionMovement operations in normal workflows).
 
-// DataTypes (must come first — referenced by everything via dataTypeSlug)
-{"__typename": "DataType", "name": "Default Location", "slug": "default-location", "entity": "Location", "default": true, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"address\":{\"type\":\"string\"},\"floor\":{\"type\":\"integer\"},\"zone\":{\"type\":\"string\"}}}"}
-{"__typename": "DataType", "name": "Default Device", "slug": "default-device", "entity": "Device", "default": true, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"model\":{\"type\":\"string\"},\"serialNumber\":{\"type\":\"string\"},\"firmwareVersion\":{\"type\":\"string\"}}}"}
-{"__typename": "DataType", "name": "Default Repository", "slug": "default-repository", "entity": "Repository", "default": true, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"zone\":{\"type\":\"string\"},\"aisle\":{\"type\":\"string\"},\"level\":{\"type\":\"integer\"}}}"}
-{"__typename": "DataType", "name": "Cold Storage Repository", "slug": "cold-storage-repository", "entity": "Repository", "default": false, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"zone\":{\"type\":\"string\"},\"temperatureMin\":{\"type\":\"number\"},\"temperatureMax\":{\"type\":\"number\"}}}"}
-{"__typename": "DataType", "name": "Default InventoryItem", "slug": "default-inventory-item", "entity": "InventoryItem", "default": true, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"weight\":{\"type\":\"number\"},\"dimensions\":{\"type\":\"string\"},\"material\":{\"type\":\"string\"}}}"}
-{"__typename": "DataType", "name": "Fragile InventoryItem", "slug": "fragile-inventory-item", "entity": "InventoryItem", "default": false, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"weight\":{\"type\":\"number\"},\"fragility\":{\"type\":\"string\"},\"handlingNotes\":{\"type\":\"string\"}}}"}
-{"__typename": "DataType", "name": "Default InventoryItemSet", "slug": "default-inventory-item-set", "entity": "InventoryItemSet", "default": true, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"description\":{\"type\":\"string\"}}}"}
-{"__typename": "DataType", "name": "Default Customer", "slug": "default-customer", "entity": "Customer", "default": true, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"code\":{\"type\":\"string\"},\"address\":{\"type\":\"string\"}}}"}
-{"__typename": "DataType", "name": "Default Supplier", "slug": "default-supplier", "entity": "Supplier", "default": true, "jsonSchema": "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"code\":{\"type\":\"string\"},\"address\":{\"type\":\"string\"}}}"}
+// DataTypes (must come first — entities reference an exact (slug, version) via $ref).
+// The "default-inventory-item" slug is append-only across three versions (v1/v2/v3,
+// each a superset schema) so the round-trip exercises multiple versions of one slug
+// plus entities pinned to different versions.
+{"__typename": "DataType", "name": "Default Location", "slug": "default-location", "version": 1, "entity": "Location", "jsonSchema": "{\"type\":\"object\",\"properties\":{\"address\":{\"type\":\"string\"},\"floor\":{\"type\":\"integer\"},\"zone\":{\"type\":\"string\"}}}"}
+{"__typename": "DataType", "name": "Default Device", "slug": "default-device", "version": 1, "entity": "Device", "jsonSchema": "{\"type\":\"object\",\"properties\":{\"model\":{\"type\":\"string\"},\"serialNumber\":{\"type\":\"string\"},\"firmwareVersion\":{\"type\":\"string\"}}}"}
+{"__typename": "DataType", "name": "Default Repository", "slug": "default-repository", "version": 1, "entity": "Repository", "jsonSchema": "{\"type\":\"object\",\"properties\":{\"zone\":{\"type\":\"string\"},\"aisle\":{\"type\":\"string\"},\"level\":{\"type\":\"integer\"}}}"}
+{"__typename": "DataType", "name": "Cold Storage Repository", "slug": "cold-storage-repository", "version": 1, "entity": "Repository", "jsonSchema": "{\"type\":\"object\",\"properties\":{\"zone\":{\"type\":\"string\"},\"temperatureMin\":{\"type\":\"number\"},\"temperatureMax\":{\"type\":\"number\"}}}"}
+{"__typename": "DataType", "name": "Default InventoryItem", "slug": "default-inventory-item", "version": 1, "entity": "InventoryItem", "jsonSchema": "{\"type\":\"object\",\"properties\":{\"weight\":{\"type\":\"number\"},\"dimensions\":{\"type\":\"string\"},\"material\":{\"type\":\"string\"}}}"}
+{"__typename": "DataType", "name": "Default InventoryItem v2 (adds grade)", "slug": "default-inventory-item", "version": 2, "entity": "InventoryItem", "jsonSchema": "{\"type\":\"object\",\"properties\":{\"weight\":{\"type\":\"number\"},\"dimensions\":{\"type\":\"string\"},\"material\":{\"type\":\"string\"},\"grade\":{\"type\":\"string\"}}}"}
+{"__typename": "DataType", "name": "Default InventoryItem v3 (adds batch)", "slug": "default-inventory-item", "version": 3, "entity": "InventoryItem", "jsonSchema": "{\"type\":\"object\",\"properties\":{\"weight\":{\"type\":\"number\"},\"dimensions\":{\"type\":\"string\"},\"material\":{\"type\":\"string\"},\"grade\":{\"type\":\"string\"},\"batch\":{\"type\":\"string\"}}}"}
+{"__typename": "DataType", "name": "Fragile InventoryItem", "slug": "fragile-inventory-item", "version": 1, "entity": "InventoryItem", "jsonSchema": "{\"type\":\"object\",\"properties\":{\"weight\":{\"type\":\"number\"},\"fragility\":{\"type\":\"string\"},\"handlingNotes\":{\"type\":\"string\"}}}"}
+{"__typename": "DataType", "name": "Default InventoryItemSet", "slug": "default-inventory-item-set", "version": 1, "entity": "InventoryItemSet", "jsonSchema": "{\"type\":\"object\",\"properties\":{\"description\":{\"type\":\"string\"}}}"}
+{"__typename": "DataType", "name": "Default Customer", "slug": "default-customer", "version": 1, "entity": "Customer", "jsonSchema": "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"code\":{\"type\":\"string\"},\"address\":{\"type\":\"string\"}}}"}
+{"__typename": "DataType", "name": "Default Supplier", "slug": "default-supplier", "version": 1, "entity": "Supplier", "jsonSchema": "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"code\":{\"type\":\"string\"},\"address\":{\"type\":\"string\"}}}"}
 
 // Locations
-{"__typename": "Location", "name": "Warehouse Alpha", "dataTypeSlug": "default-location", "data": {"address": "100 Alpha Industrial Park", "floor": 1, "zone": "A"}}
-{"__typename": "Location", "name": "Warehouse Beta", "dataTypeSlug": "default-location", "data": {"address": "200 Beta Commerce Blvd", "floor": 1, "zone": "B"}}
-{"__typename": "Location", "name": "Warehouse Gamma", "dataTypeSlug": "default-location", "data": {"address": "300 Gamma Logistics Way", "floor": 1, "zone": "C"}}
-{"__typename": "Location", "name": "Cold Storage Facility", "dataTypeSlug": "default-location", "data": {"address": "400 Cold Chain Ave", "floor": 0, "zone": "COLD"}}
-{"__typename": "Location", "name": "Receiving Dock A", "dataTypeSlug": "default-location", "data": {"address": "100 Alpha Industrial Park", "floor": 0, "zone": "RECV-A"}}
-{"__typename": "Location", "name": "Shipping Bay 1", "dataTypeSlug": "default-location", "data": {"address": "100 Alpha Industrial Park", "floor": 0, "zone": "SHIP-1"}}
+{"__typename": "Location", "name": "Warehouse Alpha", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-location", "version": 1}}, "data": {"address": "100 Alpha Industrial Park", "floor": 1, "zone": "A"}}
+{"__typename": "Location", "name": "Warehouse Beta", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-location", "version": 1}}, "data": {"address": "200 Beta Commerce Blvd", "floor": 1, "zone": "B"}}
+{"__typename": "Location", "name": "Warehouse Gamma", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-location", "version": 1}}, "data": {"address": "300 Gamma Logistics Way", "floor": 1, "zone": "C"}}
+{"__typename": "Location", "name": "Cold Storage Facility", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-location", "version": 1}}, "data": {"address": "400 Cold Chain Ave", "floor": 0, "zone": "COLD"}}
+{"__typename": "Location", "name": "Receiving Dock A", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-location", "version": 1}}, "data": {"address": "100 Alpha Industrial Park", "floor": 0, "zone": "RECV-A"}}
+{"__typename": "Location", "name": "Shipping Bay 1", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-location", "version": 1}}, "data": {"address": "100 Alpha Industrial Park", "floor": 0, "zone": "SHIP-1"}}
 
 // Devices
-{"__typename": "Device", "name": "Scanner-Alpha-001", "dataTypeSlug": "default-device", "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}, "data": {"model": "Zebra TC72", "serialNumber": "SN-A001", "firmwareVersion": "v3.2.1"}}
-{"__typename": "Device", "name": "Scanner-Beta-001", "dataTypeSlug": "default-device", "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Beta"}}, "data": {"model": "Honeywell CT60", "serialNumber": "SN-B001", "firmwareVersion": "v2.5.0"}}
-{"__typename": "Device", "name": "Forklift-Terminal-001", "dataTypeSlug": "default-device", "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}, "data": {"model": "Zebra VC8300", "serialNumber": "SN-FT001", "firmwareVersion": "v4.1.0"}}
+{"__typename": "Device", "name": "Scanner-Alpha-001", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-device", "version": 1}}, "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}, "data": {"model": "Zebra TC72", "serialNumber": "SN-A001", "firmwareVersion": "v3.2.1"}}
+{"__typename": "Device", "name": "Scanner-Beta-001", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-device", "version": 1}}, "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Beta"}}, "data": {"model": "Honeywell CT60", "serialNumber": "SN-B001", "firmwareVersion": "v2.5.0"}}
+{"__typename": "Device", "name": "Forklift-Terminal-001", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-device", "version": 1}}, "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}, "data": {"model": "Zebra VC8300", "serialNumber": "SN-FT001", "firmwareVersion": "v4.1.0"}}
 
 // DeviceLocations (create-only)
 {"__typename": "DeviceLocation", "deviceID": {"$ref": {"__typename": "Device", "name": "Scanner-Alpha-001"}}, "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}}
@@ -38,29 +43,32 @@
 {"__typename": "DeviceLocation", "deviceID": {"$ref": {"__typename": "Device", "name": "Forklift-Terminal-001"}}, "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}}
 
 // Repositories (hierarchy)
-{"__typename": "Repository", "name": "Warehouse-Alpha-Main", "dataTypeSlug": "default-repository", "type": "static", "virtualRepo": false, "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}, "data": {"zone": "A", "aisle": "MAIN", "level": 0}}
-{"__typename": "Repository", "name": "Alpha-Aisle-1", "dataTypeSlug": "default-repository", "type": "static", "virtualRepo": false, "parentID": {"$ref": {"__typename": "Repository", "name": "Warehouse-Alpha-Main"}}, "data": {"zone": "A", "aisle": "1", "level": 0}}
-{"__typename": "Repository", "name": "Alpha-A1-Shelf-1", "dataTypeSlug": "default-repository", "type": "static", "virtualRepo": false, "parentID": {"$ref": {"__typename": "Repository", "name": "Alpha-Aisle-1"}}, "data": {"zone": "A", "aisle": "1", "level": 1}}
-{"__typename": "Repository", "name": "Staging-Area-Alpha", "dataTypeSlug": "default-repository", "type": "static", "virtualRepo": false, "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}, "data": {"zone": "A", "aisle": "STAGING", "level": 0}}
-{"__typename": "Repository", "name": "Pick-Cart-001", "dataTypeSlug": "default-repository", "type": "dynamic", "virtualRepo": false, "data": {"zone": "MOBILE", "aisle": "", "level": 0}}
+{"__typename": "Repository", "name": "Warehouse-Alpha-Main", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-repository", "version": 1}}, "type": "static", "virtualRepo": false, "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}, "data": {"zone": "A", "aisle": "MAIN", "level": 0}}
+{"__typename": "Repository", "name": "Alpha-Aisle-1", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-repository", "version": 1}}, "type": "static", "virtualRepo": false, "parentID": {"$ref": {"__typename": "Repository", "name": "Warehouse-Alpha-Main"}}, "data": {"zone": "A", "aisle": "1", "level": 0}}
+{"__typename": "Repository", "name": "Alpha-A1-Shelf-1", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-repository", "version": 1}}, "type": "static", "virtualRepo": false, "parentID": {"$ref": {"__typename": "Repository", "name": "Alpha-Aisle-1"}}, "data": {"zone": "A", "aisle": "1", "level": 1}}
+{"__typename": "Repository", "name": "Staging-Area-Alpha", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-repository", "version": 1}}, "type": "static", "virtualRepo": false, "locationID": {"$ref": {"__typename": "Location", "name": "Warehouse Alpha"}}, "data": {"zone": "A", "aisle": "STAGING", "level": 0}}
+{"__typename": "Repository", "name": "Pick-Cart-001", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-repository", "version": 1}}, "type": "dynamic", "virtualRepo": false, "data": {"zone": "MOBILE", "aisle": "", "level": 0}}
 
-// Inventory Items
-{"__typename": "InventoryItem", "sku": "BOLT-M8-50", "dataTypeSlug": "default-inventory-item", "data": {"weight": 0.025, "dimensions": "M8x50mm", "material": "steel"}}
-{"__typename": "InventoryItem", "sku": "NUT-M8-HEX", "dataTypeSlug": "default-inventory-item", "data": {"weight": 0.008, "dimensions": "M8 hex", "material": "steel"}}
-{"__typename": "InventoryItem", "sku": "WASHER-M8-FLAT", "dataTypeSlug": "default-inventory-item", "data": {"weight": 0.003, "dimensions": "M8 flat", "material": "steel"}}
-{"__typename": "InventoryItem", "sku": "BEARING-6205", "dataTypeSlug": "default-inventory-item", "data": {"weight": 0.12, "dimensions": "25x52x15mm", "material": "chrome steel"}}
-{"__typename": "InventoryItem", "sku": "SENSOR-TEMP-PT100", "dataTypeSlug": "default-inventory-item", "data": {"weight": 0.05, "dimensions": "6x50mm probe", "material": "platinum"}}
+// Inventory Items — the BOLT-M8-50 family is the same item pinned across three
+// versions of the default-inventory-item slug (v1 scalar, v2 +grade, v3 +batch).
+{"__typename": "InventoryItem", "sku": "BOLT-M8-50", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-inventory-item", "version": 1}}, "data": {"weight": 0.025, "dimensions": "M8x50mm", "material": "steel"}}
+{"__typename": "InventoryItem", "sku": "BOLT-M8-50-V2", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-inventory-item", "version": 2}}, "data": {"weight": 0.026, "dimensions": "M8x50mm", "material": "steel", "grade": "8.8"}}
+{"__typename": "InventoryItem", "sku": "BOLT-M8-50-V3", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-inventory-item", "version": 3}}, "data": {"weight": 0.027, "dimensions": "M8x50mm", "material": "steel", "grade": "10.9", "batch": "2026-Q2"}}
+{"__typename": "InventoryItem", "sku": "NUT-M8-HEX", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-inventory-item", "version": 1}}, "data": {"weight": 0.008, "dimensions": "M8 hex", "material": "steel"}}
+{"__typename": "InventoryItem", "sku": "WASHER-M8-FLAT", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-inventory-item", "version": 1}}, "data": {"weight": 0.003, "dimensions": "M8 flat", "material": "steel"}}
+{"__typename": "InventoryItem", "sku": "BEARING-6205", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-inventory-item", "version": 1}}, "data": {"weight": 0.12, "dimensions": "25x52x15mm", "material": "chrome steel"}}
+{"__typename": "InventoryItem", "sku": "SENSOR-TEMP-PT100", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-inventory-item", "version": 1}}, "data": {"weight": 0.05, "dimensions": "6x50mm probe", "material": "platinum"}}
 
 // Item Sets
-{"__typename": "InventoryItemSet", "dataTypeSlug": "default-inventory-item-set", "sku": "SET-FASTENER-M8", "data": {"description": "M8 fastener kit"}, "itemIDs": [{"$ref": {"__typename": "InventoryItem", "sku": "BOLT-M8-50"}}, {"$ref": {"__typename": "InventoryItem", "sku": "NUT-M8-HEX"}}, {"$ref": {"__typename": "InventoryItem", "sku": "WASHER-M8-FLAT"}}]}
+{"__typename": "InventoryItemSet", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-inventory-item-set", "version": 1}}, "sku": "SET-FASTENER-M8", "data": {"description": "M8 fastener kit"}, "itemIDs": [{"$ref": {"__typename": "InventoryItem", "sku": "BOLT-M8-50"}}, {"$ref": {"__typename": "InventoryItem", "sku": "NUT-M8-HEX"}}, {"$ref": {"__typename": "InventoryItem", "sku": "WASHER-M8-FLAT"}}]}
 
 // Customers (create-only, tagged with $refid for order references)
-{"__typename": "Customer", "$refid": "customer-acme", "dataTypeSlug": "default-customer", "data": {"name": "Acme Manufacturing", "code": "ACME-001", "address": "123 Industrial Blvd"}}
-{"__typename": "Customer", "$refid": "customer-global", "dataTypeSlug": "default-customer", "data": {"name": "Global Parts Inc", "code": "GLOB-002", "address": "456 Commerce Ave"}}
+{"__typename": "Customer", "$refid": "customer-acme", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-customer", "version": 1}}, "data": {"name": "Acme Manufacturing", "code": "ACME-001", "address": "123 Industrial Blvd"}}
+{"__typename": "Customer", "$refid": "customer-global", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-customer", "version": 1}}, "data": {"name": "Global Parts Inc", "code": "GLOB-002", "address": "456 Commerce Ave"}}
 
 // Suppliers (create-only, tagged with $refid for order references)
-{"__typename": "Supplier", "$refid": "supplier-fastbolt", "dataTypeSlug": "default-supplier", "data": {"name": "FastBolt Supply Co", "code": "FBSC-001", "address": "100 Supplier Lane"}}
-{"__typename": "Supplier", "$refid": "supplier-precision", "dataTypeSlug": "default-supplier", "data": {"name": "PrecisionParts Ltd", "code": "PPLT-002", "address": "200 Parts Blvd"}}
+{"__typename": "Supplier", "$refid": "supplier-fastbolt", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-supplier", "version": 1}}, "data": {"name": "FastBolt Supply Co", "code": "FBSC-001", "address": "100 Supplier Lane"}}
+{"__typename": "Supplier", "$refid": "supplier-precision", "dataTypeID": {"$ref": {"__typename": "DataType", "slug": "default-supplier", "version": 1}}, "data": {"name": "PrecisionParts Ltd", "code": "PPLT-002", "address": "200 Parts Blvd"}}
 
 // =============================================================================
 // Orders — reference Customer/Supplier via $refid aliases (single-pass import)

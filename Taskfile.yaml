@@ -140,7 +140,7 @@ tasks:
   lint:
     desc: Lint all modules
     cmds:
-      - ./scripts/check-go-versions.sh
+      - go run ./hack/versiongroups
       - task: common:{{.TASK}}
       - task: file:{{.TASK}}
       - task: inventory:{{.TASK}}
@@ -151,6 +151,13 @@ tasks:
       - task: workflow:{{.TASK}}
       - task: workflowsdk:{{.TASK}}
       - task: temporal:{{.TASK}}
+
+  # Standalone by design, not wired into `lint`: that task runs constantly
+  # during development and must not fail on unpushed WIP commits.
+  lint:commits:
+    desc: Check commit messages against docs/COMMIT_STANDARDS.md
+    cmds:
+      - ./scripts/check-commit-messages.sh {{.CLI_ARGS}}
 
   scan:
     desc: Scan all modules for known vulnerabilities
@@ -184,7 +191,7 @@ tasks:
   lint:fix:
     desc: Lint all modules and fix issues
     cmds:
-      - ./scripts/check-go-versions.sh --fix
+      - go run ./hack/versiongroups --fix
       - task: common:{{.TASK}}
       - task: file:{{.TASK}}
       - task: inventory:{{.TASK}}

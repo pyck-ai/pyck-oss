@@ -76,3 +76,57 @@ func (r *Registry) TypeNames() []string {
 	sort.Strings(names)
 	return names
 }
+
+// TypeNamesInDependencyOrder returns all registered type names with each
+// type's reference targets before it (alphabetical among peers, so the order
+// is deterministic). Import consumes records in stream order and resolves a
+// $ref by querying its target, so a referrer read before its target cannot
+// resolve.
+func (r *Registry) TypeNamesInDependencyOrder() []string {
+	names := r.TypeNames()
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return dependencyOrder(names, func(typeName string) []Reference {
+		if desc, ok := r.descriptors[typeName]; ok {
+			return desc.References
+		}
+		return nil
+	})
+}
+
+// dependencyOrder topologically orders names so that a name's reference
+// targets precede it, preserving the caller's order among independent peers.
+// Targets outside names are ignored, self-references are skipped (they order
+// rows within a type, not the types themselves), and a reference cycle breaks
+// at the first revisited type rather than recursing.
+func dependencyOrder(names []string, refsOf func(string) []Reference) []string {
+	inSet := make(map[string]bool, len(names))
+	for _, name := range names {
+		inSet[name] = true
+	}
+
+	order := make([]string, 0, len(names))
+	visited := make(map[string]bool, len(names))
+
+	var visit func(typeName string)
+	visit = func(typeName string) {
+		if visited[typeName] {
+			return
+		}
+		visited[typeName] = true
+		for _, ref := range refsOf(typeName) {
+			if ref.TargetType == typeName || !inSet[ref.TargetType] {
+				continue
+			}
+			visit(ref.TargetType)
+		}
+		order = append(order, typeName)
+	}
+
+	for _, name := range names {
+		visit(name)
+	}
+	return order
+}

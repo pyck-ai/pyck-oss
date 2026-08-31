@@ -21,6 +21,7 @@ type APIClient interface {
 	GetTenants(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *TenantOrder, where *TenantWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetTenants, error)
 	GetUsers(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *UserOrder, where *UserWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetUsers, error)
 	GetDataTypeEntities(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetDataTypeEntities, error)
+	GetDataTypeBySlug(ctx context.Context, slug string, interceptors ...clientv2.RequestInterceptor) (*GetDataTypeBySlug, error)
 	GetOrganization(ctx context.Context, sub string, interceptors ...clientv2.RequestInterceptor) (*GetOrganization, error)
 	GetServiceRoles(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetServiceRoles, error)
 	GetUserServiceRoles(ctx context.Context, input model.UserServiceRolesInput, interceptors ...clientv2.RequestInterceptor) (*GetUserServiceRoles, error)
@@ -114,6 +115,7 @@ type GetDataTypes_DataTypes_Edges_Node struct {
 	TenantID       uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
 	UpdatedAt      *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
 	UpdatedBy      *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+	Version        int        "json:\"version\" graphql:\"version\""
 }
 
 func (t *GetDataTypes_DataTypes_Edges_Node) GetCreatedAt() *time.Time {
@@ -205,6 +207,12 @@ func (t *GetDataTypes_DataTypes_Edges_Node) GetUpdatedBy() *uuid.UUID {
 		t = &GetDataTypes_DataTypes_Edges_Node{}
 	}
 	return t.UpdatedBy
+}
+func (t *GetDataTypes_DataTypes_Edges_Node) GetVersion() int {
+	if t == nil {
+		t = &GetDataTypes_DataTypes_Edges_Node{}
+	}
+	return t.Version
 }
 
 type GetDataTypes_DataTypes_Edges struct {
@@ -1433,6 +1441,122 @@ func (t *GetUsers_Users) GetTotalCount() int {
 	return t.TotalCount
 }
 
+type GetDataTypeBySlug_DataTypeBySlug struct {
+	CreatedAt      time.Time  "json:\"createdAt\" graphql:\"createdAt\""
+	CreatedBy      uuid.UUID  "json:\"createdBy\" graphql:\"createdBy\""
+	Default        bool       "json:\"default\" graphql:\"default\""
+	DeletedAt      *time.Time "json:\"deletedAt,omitempty\" graphql:\"deletedAt\""
+	DeletedBy      *uuid.UUID "json:\"deletedBy,omitempty\" graphql:\"deletedBy\""
+	Description    *string    "json:\"description,omitempty\" graphql:\"description\""
+	Entity         string     "json:\"entity\" graphql:\"entity\""
+	FrontendSchema *string    "json:\"frontendSchema,omitempty\" graphql:\"frontendSchema\""
+	ID             string     "json:\"id\" graphql:\"id\""
+	JSONSchema     string     "json:\"jsonSchema\" graphql:\"jsonSchema\""
+	Name           string     "json:\"name\" graphql:\"name\""
+	Slug           *string    "json:\"slug,omitempty\" graphql:\"slug\""
+	TenantID       uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
+	UpdatedAt      *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
+	UpdatedBy      *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+	Version        int        "json:\"version\" graphql:\"version\""
+}
+
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetCreatedAt() *time.Time {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return &t.CreatedAt
+}
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetCreatedBy() *uuid.UUID {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return &t.CreatedBy
+}
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetDefault() bool {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return t.Default
+}
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetDeletedAt() *time.Time {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return t.DeletedAt
+}
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetDeletedBy() *uuid.UUID {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return t.DeletedBy
+}
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetDescription() *string {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return t.Description
+}
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetEntity() string {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return t.Entity
+}
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetFrontendSchema() *string {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return t.FrontendSchema
+}
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetID() string {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return t.ID
+}
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetJSONSchema() string {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return t.JSONSchema
+}
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetName() string {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return t.Name
+}
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetSlug() *string {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return t.Slug
+}
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetTenantID() *uuid.UUID {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return &t.TenantID
+}
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetUpdatedAt() *time.Time {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return t.UpdatedAt
+}
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetUpdatedBy() *uuid.UUID {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return t.UpdatedBy
+}
+func (t *GetDataTypeBySlug_DataTypeBySlug) GetVersion() int {
+	if t == nil {
+		t = &GetDataTypeBySlug_DataTypeBySlug{}
+	}
+	return t.Version
+}
+
 type GetOrganization_Organization struct {
 	Active bool    "json:\"active\" graphql:\"active\""
 	ID     *string "json:\"id,omitempty\" graphql:\"id\""
@@ -1606,6 +1730,7 @@ type CreateDataType_CreateDataType struct {
 	TenantID       uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
 	UpdatedAt      *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
 	UpdatedBy      *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+	Version        int        "json:\"version\" graphql:\"version\""
 }
 
 func (t *CreateDataType_CreateDataType) GetCreatedAt() *time.Time {
@@ -1698,6 +1823,12 @@ func (t *CreateDataType_CreateDataType) GetUpdatedBy() *uuid.UUID {
 	}
 	return t.UpdatedBy
 }
+func (t *CreateDataType_CreateDataType) GetVersion() int {
+	if t == nil {
+		t = &CreateDataType_CreateDataType{}
+	}
+	return t.Version
+}
 
 type UpdateDataType_UpdateDataType struct {
 	CreatedAt      time.Time  "json:\"createdAt\" graphql:\"createdAt\""
@@ -1715,6 +1846,7 @@ type UpdateDataType_UpdateDataType struct {
 	TenantID       uuid.UUID  "json:\"tenantID\" graphql:\"tenantID\""
 	UpdatedAt      *time.Time "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
 	UpdatedBy      *uuid.UUID "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
+	Version        int        "json:\"version\" graphql:\"version\""
 }
 
 func (t *UpdateDataType_UpdateDataType) GetCreatedAt() *time.Time {
@@ -1806,6 +1938,12 @@ func (t *UpdateDataType_UpdateDataType) GetUpdatedBy() *uuid.UUID {
 		t = &UpdateDataType_UpdateDataType{}
 	}
 	return t.UpdatedBy
+}
+func (t *UpdateDataType_UpdateDataType) GetVersion() int {
+	if t == nil {
+		t = &UpdateDataType_UpdateDataType{}
+	}
+	return t.Version
 }
 
 type DeleteDataType_DeleteDataType struct {
@@ -3942,6 +4080,17 @@ func (t *GetDataTypeEntities) GetDataTypeEntities() []string {
 	return t.DataTypeEntities
 }
 
+type GetDataTypeBySlug struct {
+	DataTypeBySlug *GetDataTypeBySlug_DataTypeBySlug "json:\"dataTypeBySlug,omitempty\" graphql:\"dataTypeBySlug\""
+}
+
+func (t *GetDataTypeBySlug) GetDataTypeBySlug() *GetDataTypeBySlug_DataTypeBySlug {
+	if t == nil {
+		t = &GetDataTypeBySlug{}
+	}
+	return t.DataTypeBySlug
+}
+
 type GetOrganization struct {
 	Organization GetOrganization_Organization "json:\"organization\" graphql:\"organization\""
 }
@@ -4009,14 +4158,14 @@ func (t *CreateDataType) GetCreateDataType() *CreateDataType_CreateDataType {
 }
 
 type UpdateDataType struct {
-	UpdateDataType *UpdateDataType_UpdateDataType "json:\"updateDataType,omitempty\" graphql:\"updateDataType\""
+	UpdateDataType UpdateDataType_UpdateDataType "json:\"updateDataType\" graphql:\"updateDataType\""
 }
 
 func (t *UpdateDataType) GetUpdateDataType() *UpdateDataType_UpdateDataType {
 	if t == nil {
 		t = &UpdateDataType{}
 	}
-	return t.UpdateDataType
+	return &t.UpdateDataType
 }
 
 type DeleteDataType struct {
@@ -4354,6 +4503,7 @@ const GetDataTypesDocument = `query GetDataTypes ($after: Cursor, $first: Int, $
 				tenantID
 				updatedAt
 				updatedBy
+				version
 			}
 		}
 	}
@@ -4772,6 +4922,45 @@ func (c *Client) GetDataTypeEntities(ctx context.Context, interceptors ...client
 	return &res, nil
 }
 
+const GetDataTypeBySlugDocument = `query GetDataTypeBySlug ($slug: String!) {
+	dataTypeBySlug(slug: $slug) {
+		createdAt
+		createdBy
+		default
+		deletedAt
+		deletedBy
+		description
+		entity
+		frontendSchema
+		id
+		jsonSchema
+		name
+		slug
+		tenantID
+		updatedAt
+		updatedBy
+		version
+	}
+}
+`
+
+func (c *Client) GetDataTypeBySlug(ctx context.Context, slug string, interceptors ...clientv2.RequestInterceptor) (*GetDataTypeBySlug, error) {
+	vars := map[string]any{
+		"slug": slug,
+	}
+
+	var res GetDataTypeBySlug
+	if err := c.Client.Post(ctx, "GetDataTypeBySlug", GetDataTypeBySlugDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 const GetOrganizationDocument = `query GetOrganization ($sub: String!) {
 	organization(sub: $sub) {
 		active
@@ -4918,6 +5107,7 @@ const CreateDataTypeDocument = `mutation CreateDataType ($input: CreateDataTypeI
 		tenantID
 		updatedAt
 		updatedBy
+		version
 	}
 }
 `
@@ -4956,6 +5146,7 @@ const UpdateDataTypeDocument = `mutation UpdateDataType ($id: ID!, $input: Updat
 		tenantID
 		updatedAt
 		updatedBy
+		version
 	}
 }
 `
@@ -5921,6 +6112,7 @@ var DocumentOperationNames = map[string]string{
 	GetTenantsDocument:               "GetTenants",
 	GetUsersDocument:                 "GetUsers",
 	GetDataTypeEntitiesDocument:      "GetDataTypeEntities",
+	GetDataTypeBySlugDocument:        "GetDataTypeBySlug",
 	GetOrganizationDocument:          "GetOrganization",
 	GetServiceRolesDocument:          "GetServiceRoles",
 	GetUserServiceRolesDocument:      "GetUserServiceRoles",

@@ -33,6 +33,7 @@ graphql:
           tenantID
           updatedAt
           updatedBy
+          version
         }
       }
     variables: |-

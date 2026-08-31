@@ -33,7 +33,7 @@ steps:
     vars:
       input:
         name: "ui.theme"
-        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         data:
           theme: "dark"
           density: "compact"
@@ -80,7 +80,7 @@ steps:
     vars:
       input:
         name: "ui.theme"
-        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         data:
           theme: "light"
           density: "comfortable"

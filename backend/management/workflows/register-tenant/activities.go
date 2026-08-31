@@ -41,8 +41,8 @@ type DataTypeDefinition struct {
 	Slug        string      `json:"slug"`
 	Description string      `json:"description"`
 	Entity      string      `json:"entity"`
-	Default     bool        `json:"default"`
 	JSONSchema  interface{} `json:"jsonSchema"`
+	Default     bool        `json:"default"`
 }
 
 // Activities struct for methods that need dependencies
@@ -135,8 +135,8 @@ func (a Activities) AddDefaultDataTypesActivity(ctx context.Context, input AddDe
 			Slug:        &dataTypeDef.Slug,
 			Description: &dataTypeDef.Description,
 			JSONSchema:  string(jsonSchemaBytes),
-			Default:     &dataTypeDef.Default,
 			Entity:      dataTypeDef.Entity,
+			Default:     &dataTypeDef.Default,
 		}); err != nil {
 			return fmt.Errorf("failed to create DataType %s: %w", dataTypeDef.Name, err)
 		}

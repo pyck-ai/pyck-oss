@@ -1,0 +1,162 @@
+---
+name: "Cross - DataType Deletion Promotes Latest Non-Deleted"
+description: >
+  With three versions of one slug, verifies dataTypeBySlug always returns the
+  highest NON-deleted version: deleting a non-latest version leaves the pointer
+  unchanged, deleting the latest promotes the prior live version, and deleting
+  all yields null. Also confirms a soft-deleted version number is never reused.
+steps:
+  - id: v1
+    name: "Create v1 (auto version 1)"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Deletion Test v1"
+        slug: {$fake: "deletion-{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"a":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "v1 is version 1"
+        assertions:
+          - ref: res.body.data.createDataType.version
+            equal: 1
+
+  - id: v2
+    name: "Create v2 (auto version 2, same slug)"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Deletion Test v2"
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"a":{"type":"string"}}}'
+    tests:
+      - msg: "v2 is version 2"
+        assertions:
+          - ref: res.body.data.createDataType.version
+            equal: 2
+
+  - id: v3
+    name: "Create v3 (auto version 3, same slug)"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Deletion Test v3"
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"a":{"type":"string"}}}'
+    tests:
+      - msg: "v3 is version 3"
+        assertions:
+          - ref: res.body.data.createDataType.version
+            equal: 3
+
+  - name: "Latest is v3"
+    operation: management.getDataTypeBySlug
+    vars:
+      slug: {$ref: "res[v1].body.data.createDataType.slug"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "dataTypeBySlug returns the highest version"
+        assertions:
+          - ref: res.body.data.dataTypeBySlug.id
+            equal: {$ref: "res[v3].body.data.createDataType.id"}
+
+  - name: "Delete v1 (a non-latest version)"
+    operation: management.deleteDataType
+    wait_after_ms: 300
+    vars:
+      id: {$ref: "res[v1].body.data.createDataType.id"}
+    tests:
+      - msg: "Delete succeeds"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Latest is still v3 (deleting an old version does not change it)"
+    operation: management.getDataTypeBySlug
+    vars:
+      slug: {$ref: "res[v1].body.data.createDataType.slug"}
+    tests:
+      - msg: "Pointer unchanged after deleting a non-latest version"
+        assertions:
+          - ref: res.body.data.dataTypeBySlug.id
+            equal: {$ref: "res[v3].body.data.createDataType.id"}
+
+  - name: "Delete v3 (the latest)"
+    operation: management.deleteDataType
+    wait_after_ms: 300
+    vars:
+      id: {$ref: "res[v3].body.data.createDataType.id"}
+    tests:
+      - msg: "Delete succeeds"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Latest is now v2 (highest LIVE version, not the deleted v3 or v1)"
+    operation: management.getDataTypeBySlug
+    vars:
+      slug: {$ref: "res[v1].body.data.createDataType.slug"}
+    tests:
+      - msg: "Promotes to the highest non-deleted version"
+        assertions:
+          - ref: res.body.data.dataTypeBySlug.id
+            equal: {$ref: "res[v2].body.data.createDataType.id"}
+
+  - name: "Delete v2 (the last live version)"
+    operation: management.deleteDataType
+    wait_after_ms: 300
+    vars:
+      id: {$ref: "res[v2].body.data.createDataType.id"}
+    tests:
+      - msg: "Delete succeeds"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "No live version left → null"
+    operation: management.getDataTypeBySlug
+    vars:
+      slug: {$ref: "res[v1].body.data.createDataType.slug"}
+    tests:
+      - msg: "dataTypeBySlug is null when every version is deleted"
+        assertions:
+          - ref: res.body.data.dataTypeBySlug
+            nil: true
+
+  - id: v4
+    name: "Recreate the slug — version 4, deleted numbers not reused"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Deletion Test v4"
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"a":{"type":"string"}}}'
+    tests:
+      - msg: "Next version clears the deleted MAX (4, not a reused 1/2/3)"
+        assertions:
+          - ref: res.body.data.createDataType.version
+            equal: 4
+
+  - name: "Cleanup - delete v4"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[v4].body.data.createDataType.id"}
+    tests:
+      - msg: "Delete succeeds"
+        assertions:
+          - ref: res.body.errors
+            nil: true

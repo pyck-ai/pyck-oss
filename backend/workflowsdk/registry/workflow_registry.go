@@ -92,9 +92,8 @@ type WorkflowRegistryEntry struct {
 
 	Signals []signal.Signal
 
-	Data         map[string]any
-	DataTypeID   uuid.UUID
-	DataTypeSlug string
+	Data       map[string]any
+	DataTypeID uuid.UUID
 
 	RegisterOptions workflow.RegisterOptions
 	StartOptions    client.StartWorkflowOptions
@@ -123,10 +122,12 @@ func WithWorkflowSignals(signals ...*signal.Signal) WorkflowRegistryOption {
 	}
 }
 
-func WithWorkflowData(dataTypeID uuid.UUID, dataTypeSlug string, data map[string]any) WorkflowRegistryOption {
+// WithWorkflowData pins the workflow's registration to a DataType version and
+// supplies the data validated against it. data_type_slug is derived server-side
+// from the id, so the registration never carries a slug.
+func WithWorkflowData(dataTypeID uuid.UUID, data map[string]any) WorkflowRegistryOption {
 	return func(w *WorkflowRegistryEntry) {
 		w.DataTypeID = dataTypeID
-		w.DataTypeSlug = dataTypeSlug
 		w.Data = data
 	}
 }

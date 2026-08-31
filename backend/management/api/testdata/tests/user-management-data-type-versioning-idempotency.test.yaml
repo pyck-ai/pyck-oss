@@ -1,0 +1,156 @@
+---
+name: "User - Data Type Versioning Idempotency"
+description: >
+  Exercises the interaction between pyck#990's append-only DataType model and
+  the Idempotency-Key middleware. createDataType is append-only — reusing a
+  slug normally publishes a new version row — so a replayed create with the
+  same idempotency key MUST return the cached response and MUST NOT append a
+  duplicate version. A create with a different key is a genuine new call and
+  still appends the next version. This guards against the middleware and the
+  versioning hook double-counting or silently dropping versions.
+
+  Two distinct per-run key namespaces (bru_idem_mgmtveridem / *2) keep this
+  suite's keys independent of user-management-idempotency, which also drives
+  createDataType. The slug is generated once via $fake and referenced by every
+  later step, so it is unique per run (no cross-run version-count pollution)
+  yet identical across the fresh/replay pair (so the replay fingerprint
+  matches).
+steps:
+  - id: v1
+    name: "Create v1 with an idempotency key"
+    operation: management.createDataType
+    # Wait for the create event to propagate so slug lookups see v1.
+    wait_after_ms: 300
+    headers:
+      Idempotency-Key: "{{bru_idem_mgmtveridem}}"
+    vars:
+      input:
+        name: "Versioning Idem v1"
+        slug: {$fake: "versioning-idem-{{loremslug}}-{{nonce}}"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"x":{"type":"integer"}}}'
+    tests:
+      - msg: "v1 created as version 1"
+        assertions:
+          - ref: res.status
+            equal: 200
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.id
+            nil: false
+          - ref: res.body.data.createDataType.version
+            equal: 1
+
+  - id: replay
+    name: "Replay with the same key — no new version"
+    operation: management.createDataType
+    wait_after_ms: 300
+    headers:
+      Idempotency-Key: "{{bru_idem_mgmtveridem}}"
+    vars:
+      input:
+        name: "Versioning Idem v1"
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"x":{"type":"integer"}}}'
+    tests:
+      - msg: "Replay returns the cached v1 (same id)"
+        assertions:
+          - ref: res.status
+            equal: 200
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.id
+            equal: {$ref: "res[v1].body.data.createDataType.id"}
+      - msg: "Replay keeps version 1 (not appended as 2)"
+        assertions:
+          - ref: res.body.data.createDataType.version
+            equal: 1
+
+  - name: "Only one version exists after the replay"
+    operation: management.getDataTypes
+    vars:
+      where:
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+    tests:
+      - msg: "Replay did not append a duplicate version"
+        assertions:
+          - ref: res.body.data.dataTypes.totalCount
+            equal: 1
+
+  - id: v2
+    name: "Genuine create with a different key appends v2"
+    operation: management.createDataType
+    wait_after_ms: 300
+    headers:
+      Idempotency-Key: "{{bru_idem_mgmtveridem2}}"
+    vars:
+      input:
+        name: "Versioning Idem v2"
+        # Reuse v1's slug — a different key is a genuine new call, so
+        # append-only publishes the next version.
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"y":{"type":"string"}}}'
+    tests:
+      - msg: "Different key creates version 2"
+        assertions:
+          - ref: res.status
+            equal: 200
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.version
+            equal: 2
+
+  - name: "Two versions exist after the genuine create"
+    operation: management.getDataTypes
+    vars:
+      where:
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+    tests:
+      - msg: "Idempotency and append-only coexist"
+        assertions:
+          - ref: res.body.data.dataTypes.totalCount
+            equal: 2
+
+  - name: "Replay v2 with its key — still no new version"
+    operation: management.createDataType
+    wait_after_ms: 300
+    headers:
+      Idempotency-Key: "{{bru_idem_mgmtveridem2}}"
+    vars:
+      input:
+        name: "Versioning Idem v2"
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+        entity: "customer"
+        jsonSchema: '{"type":"object","properties":{"y":{"type":"string"}}}'
+    tests:
+      - msg: "Replay returns the cached v2 (same id)"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+          - ref: res.body.data.createDataType.id
+            equal: {$ref: "res[v2].body.data.createDataType.id"}
+          - ref: res.body.data.createDataType.version
+            equal: 2
+
+  - name: "Still exactly two versions after the v2 replay"
+    operation: management.getDataTypes
+    vars:
+      where:
+        slug: {$ref: "res[v1].body.data.createDataType.slug"}
+    tests:
+      - msg: "Replay of v2 did not append v3"
+        assertions:
+          - ref: res.body.data.dataTypes.totalCount
+            equal: 2
+
+  - name: "dataTypeBySlug returns the latest version (v2)"
+    operation: management.getDataTypeBySlug
+    vars:
+      slug: {$ref: "res[v1].body.data.createDataType.slug"}
+    tests:
+      - msg: "Latest live version wins on slug lookup"
+        assertions:
+          - ref: res.body.data.dataTypeBySlug.id
+            equal: {$ref: "res[v2].body.data.createDataType.id"}

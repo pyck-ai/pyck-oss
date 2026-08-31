@@ -10,16 +10,14 @@ import (
 )
 
 type CreateReceivingInboundItemsInput struct {
-	DataTypeID   *uuid.UUID     `json:"dataTypeID,omitempty"`
-	DataTypeSlug *string        `json:"dataTypeSlug,omitempty"`
-	Data         map[string]any `json:"data,omitempty"`
-	Sku          string         `json:"sku"`
-	Quantity     int64          `json:"quantity"`
+	DataTypeID *uuid.UUID     `json:"dataTypeID,omitempty"`
+	Data       map[string]any `json:"data,omitempty"`
+	Sku        string         `json:"sku"`
+	Quantity   int64          `json:"quantity"`
 }
 
 type CreateReceivingInboundWithItemsInput struct {
 	DataTypeID   *uuid.UUID                          `json:"dataTypeID,omitempty"`
-	DataTypeSlug *string                             `json:"dataTypeSlug,omitempty"`
 	Data         map[string]any                      `json:"data,omitempty"`
 	SupplierID   *uuid.UUID                          `json:"supplierID,omitempty"`
 	OrderID      *string                             `json:"orderID,omitempty"`

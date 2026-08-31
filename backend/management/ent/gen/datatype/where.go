@@ -115,14 +115,19 @@ func FrontendSchema(v string) predicate.DataType {
 	return predicate.DataType(sql.FieldEQ(FieldFrontendSchema, v))
 }
 
+// Entity applies equality check predicate on the "entity" field. It's identical to EntityEQ.
+func Entity(v string) predicate.DataType {
+	return predicate.DataType(sql.FieldEQ(FieldEntity, v))
+}
+
 // Default applies equality check predicate on the "default" field. It's identical to DefaultEQ.
 func Default(v bool) predicate.DataType {
 	return predicate.DataType(sql.FieldEQ(FieldDefault, v))
 }
 
-// Entity applies equality check predicate on the "entity" field. It's identical to EntityEQ.
-func Entity(v string) predicate.DataType {
-	return predicate.DataType(sql.FieldEQ(FieldEntity, v))
+// Version applies equality check predicate on the "version" field. It's identical to VersionEQ.
+func Version(v int) predicate.DataType {
+	return predicate.DataType(sql.FieldEQ(FieldVersion, v))
 }
 
 // TenantIDEQ applies the EQ predicate on the "tenant_id" field.
@@ -800,16 +805,6 @@ func FrontendSchemaContainsFold(v string) predicate.DataType {
 	return predicate.DataType(sql.FieldContainsFold(FieldFrontendSchema, v))
 }
 
-// DefaultEQ applies the EQ predicate on the "default" field.
-func DefaultEQ(v bool) predicate.DataType {
-	return predicate.DataType(sql.FieldEQ(FieldDefault, v))
-}
-
-// DefaultNEQ applies the NEQ predicate on the "default" field.
-func DefaultNEQ(v bool) predicate.DataType {
-	return predicate.DataType(sql.FieldNEQ(FieldDefault, v))
-}
-
 // EntityEQ applies the EQ predicate on the "entity" field.
 func EntityEQ(v string) predicate.DataType {
 	return predicate.DataType(sql.FieldEQ(FieldEntity, v))
@@ -873,6 +868,56 @@ func EntityEqualFold(v string) predicate.DataType {
 // EntityContainsFold applies the ContainsFold predicate on the "entity" field.
 func EntityContainsFold(v string) predicate.DataType {
 	return predicate.DataType(sql.FieldContainsFold(FieldEntity, v))
+}
+
+// DefaultEQ applies the EQ predicate on the "default" field.
+func DefaultEQ(v bool) predicate.DataType {
+	return predicate.DataType(sql.FieldEQ(FieldDefault, v))
+}
+
+// DefaultNEQ applies the NEQ predicate on the "default" field.
+func DefaultNEQ(v bool) predicate.DataType {
+	return predicate.DataType(sql.FieldNEQ(FieldDefault, v))
+}
+
+// VersionEQ applies the EQ predicate on the "version" field.
+func VersionEQ(v int) predicate.DataType {
+	return predicate.DataType(sql.FieldEQ(FieldVersion, v))
+}
+
+// VersionNEQ applies the NEQ predicate on the "version" field.
+func VersionNEQ(v int) predicate.DataType {
+	return predicate.DataType(sql.FieldNEQ(FieldVersion, v))
+}
+
+// VersionIn applies the In predicate on the "version" field.
+func VersionIn(vs ...int) predicate.DataType {
+	return predicate.DataType(sql.FieldIn(FieldVersion, vs...))
+}
+
+// VersionNotIn applies the NotIn predicate on the "version" field.
+func VersionNotIn(vs ...int) predicate.DataType {
+	return predicate.DataType(sql.FieldNotIn(FieldVersion, vs...))
+}
+
+// VersionGT applies the GT predicate on the "version" field.
+func VersionGT(v int) predicate.DataType {
+	return predicate.DataType(sql.FieldGT(FieldVersion, v))
+}
+
+// VersionGTE applies the GTE predicate on the "version" field.
+func VersionGTE(v int) predicate.DataType {
+	return predicate.DataType(sql.FieldGTE(FieldVersion, v))
+}
+
+// VersionLT applies the LT predicate on the "version" field.
+func VersionLT(v int) predicate.DataType {
+	return predicate.DataType(sql.FieldLT(FieldVersion, v))
+}
+
+// VersionLTE applies the LTE predicate on the "version" field.
+func VersionLTE(v int) predicate.DataType {
+	return predicate.DataType(sql.FieldLTE(FieldVersion, v))
 }
 
 // And groups predicates with the AND operator between them.

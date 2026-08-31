@@ -484,6 +484,20 @@ var (
 			}
 		},
 	}
+	// DataTypeOrderFieldEntity orders DataType by entity.
+	DataTypeOrderFieldEntity = &DataTypeOrderField{
+		Value: func(_m *DataType) (ent.Value, error) {
+			return _m.Entity, nil
+		},
+		column: datatype.FieldEntity,
+		toTerm: datatype.ByEntity,
+		toCursor: func(_m *DataType) Cursor {
+			return Cursor{
+				ID:    _m.ID,
+				Value: _m.Entity,
+			}
+		},
+	}
 	// DataTypeOrderFieldDefault orders DataType by default.
 	DataTypeOrderFieldDefault = &DataTypeOrderField{
 		Value: func(_m *DataType) (ent.Value, error) {
@@ -498,17 +512,17 @@ var (
 			}
 		},
 	}
-	// DataTypeOrderFieldEntity orders DataType by entity.
-	DataTypeOrderFieldEntity = &DataTypeOrderField{
+	// DataTypeOrderFieldVersion orders DataType by version.
+	DataTypeOrderFieldVersion = &DataTypeOrderField{
 		Value: func(_m *DataType) (ent.Value, error) {
-			return _m.Entity, nil
+			return _m.Version, nil
 		},
-		column: datatype.FieldEntity,
-		toTerm: datatype.ByEntity,
+		column: datatype.FieldVersion,
+		toTerm: datatype.ByVersion,
 		toCursor: func(_m *DataType) Cursor {
 			return Cursor{
 				ID:    _m.ID,
-				Value: _m.Entity,
+				Value: _m.Version,
 			}
 		},
 	}
@@ -542,10 +556,12 @@ func (f DataTypeOrderField) String() string {
 		str = "JSON_SCHEMA"
 	case DataTypeOrderFieldFrontendSchema.column:
 		str = "FRONTEND_SCHEMA"
-	case DataTypeOrderFieldDefault.column:
-		str = "DEFAULT"
 	case DataTypeOrderFieldEntity.column:
 		str = "ENTITY"
+	case DataTypeOrderFieldDefault.column:
+		str = "DEFAULT"
+	case DataTypeOrderFieldVersion.column:
+		str = "VERSION"
 	}
 	return str
 }
@@ -586,10 +602,12 @@ func (f *DataTypeOrderField) UnmarshalGQL(v interface{}) error {
 		*f = *DataTypeOrderFieldJSONSchema
 	case "FRONTEND_SCHEMA":
 		*f = *DataTypeOrderFieldFrontendSchema
-	case "DEFAULT":
-		*f = *DataTypeOrderFieldDefault
 	case "ENTITY":
 		*f = *DataTypeOrderFieldEntity
+	case "DEFAULT":
+		*f = *DataTypeOrderFieldDefault
+	case "VERSION":
+		*f = *DataTypeOrderFieldVersion
 	default:
 		return fmt.Errorf("%s is not a valid DataTypeOrderField", str)
 	}

@@ -1,0 +1,54 @@
+-- ROLLBACK PRECONDITION: prune every (tenant_id, slug) family down to a single
+-- live row BEFORE running this migration. It is not safe to run unattended.
+--
+-- The last statement recreates the pre-versioning partial unique index
+-- datatype_tenant_id_slug ON (tenant_id, slug) WHERE deleted_at IS NULL.
+-- Versioned DataTypes routinely keep several live rows per (tenant_id, slug)
+-- -- that is what the up migration exists to allow -- so from the moment a
+-- second version is created, the CREATE UNIQUE INDEX fails with
+-- "could not create unique index ... Key (tenant_id, slug)=(...) is
+-- duplicated" and the rollback stops there.
+--
+-- OPERATOR NOTES:
+--   * List the families that block the rollback:
+--       SELECT tenant_id, slug, count(*), array_agg(version ORDER BY version)
+--       FROM   management.datatypes
+--       WHERE  deleted_at IS NULL
+--       GROUP  BY tenant_id, slug
+--       HAVING count(*) > 1;
+--   * Repoint the data before pruning. DataMixin rows in every service schema
+--     carry data_type_id values pinned to the versions being pruned. Once
+--     those rows are no longer live, id-based resolution fails with "data type
+--     not found", and the pre-#990 slug fallback resolves such a row against
+--     the surviving version's json_schema, which is not the schema its data
+--     was validated against. Either backfill data_type_id on the affected rows
+--     to the surviving version, or choose the survivor so the fewest rows have
+--     to move.
+--   * Prune each family to one live row. Keeping the highest version matches
+--     what new writes pin to; soft-delete the rest (set deleted_at,
+--     deleted_by) rather than deleting them, so the rows remain inspectable.
+--   * Record (id, tenant_id, slug, version) first if the rollback may itself
+--     need reversing: this migration drops the version column, and the numbers
+--     cannot be reconstructed afterwards.
+--   * Recovery if it fails anyway: golang-migrate sends the whole file as one
+--     statement batch, so Postgres rolls the entire body back as a single
+--     implicit transaction -- the schema stays in its post-version state
+--     (version column plus both new indexes intact) while schema_migrations is
+--     left at version 20260720120000 with dirty = true, and every subsequent
+--     boot fails with "Dirty database version 20260720120000". Point the
+--     ledger back at the state the schema is actually in:
+--       migrate force 20260720120100
+--     (equivalently: UPDATE management.schema_migrations
+--        SET version = 20260720120100, dirty = false;)
+--     Then prune and re-run the rollback. Confirm the schema first: if the
+--     statements were replayed one at a time by hand, the leading DROPs
+--     committed and the schema matches 20260720120000 instead.
+--
+-- reverse: create index "datatype_tenant_id_slug_version_uniq" to table: "datatypes"
+DROP INDEX "datatype_tenant_id_slug_version_uniq";
+-- reverse: create index "datatype_tenant_id_slug_version_desc" to table: "datatypes"
+DROP INDEX "datatype_tenant_id_slug_version_desc";
+-- reverse: modify "datatypes" table
+ALTER TABLE "datatypes" DROP COLUMN "version";
+-- reverse: drop index "datatype_tenant_id_slug" from table: "datatypes"
+CREATE UNIQUE INDEX "datatype_tenant_id_slug" ON "datatypes" ("tenant_id", "slug") WHERE (deleted_at IS NULL);

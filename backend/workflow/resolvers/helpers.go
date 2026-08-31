@@ -798,9 +798,6 @@ func workflowDataChanged(wf *ent.Workflow, input model.RegisterWorkflowWithSigna
 	if input.DataTypeID != nil && *input.DataTypeID != wf.DataTypeID {
 		return true
 	}
-	if input.DataTypeSlug != nil && *input.DataTypeSlug != wf.DataTypeSlug {
-		return true
-	}
 	if input.Data == nil {
 		return false
 	}

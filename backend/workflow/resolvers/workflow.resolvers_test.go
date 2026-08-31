@@ -18,6 +18,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/pyck-ai/pyck/backend/common/feature"
+	json_schema "github.com/pyck-ai/pyck/backend/common/json-schema"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 
@@ -1614,5 +1615,157 @@ func TestWorkflow_QueryOrderByJSONData(t *testing.T) {
 		require.Equal(t, 2, data.Workflows.TotalCount)
 		assert.Equal(t, w2.ID, data.Workflows.Edges[0].Node.ID)
 		assert.Equal(t, w1.ID, data.Workflows.Edges[1].Node.ID)
+	})
+}
+
+// =============================================================================
+// DATATYPE VERSION REPOINT TESTS
+// =============================================================================
+
+var (
+	registerWorkflowPinOnly = resolver.ParseTemplate(`mutation {
+		registerWorkflow(input: {
+			name: "{{.Name}}",
+			taskQueue: "test-queue",
+			dataTypeID: "{{.DataTypeID}}"
+		}) {
+			id
+			dataTypeID
+			data
+		}
+	}`)
+
+	registerWorkflowLabelData = resolver.ParseTemplate(`mutation {
+		registerWorkflow(input: {
+			name: "{{.Name}}",
+			taskQueue: "test-queue",
+			dataTypeID: "{{.DataTypeID}}",
+			data: { label: "{{.Label}}" }
+		}) {
+			id
+			dataTypeID
+			data
+		}
+	}`)
+)
+
+const (
+	// labelSchema accepts any object carrying an optional string "label".
+	labelSchema = `{
+	"$schema": "https://json-schema.org/draft/2019-09/schema",
+	"$id": "http://example.com/label.json",
+	"type": "object",
+	"properties": { "label": { "type": "string" } }
+}`
+
+	// labelSchemaRequiringCode is the incompatible successor of labelSchema:
+	// data written under labelSchema lacks "code" and therefore violates it.
+	labelSchemaRequiringCode = `{
+	"$schema": "https://json-schema.org/draft/2019-09/schema",
+	"$id": "http://example.com/label-code.json",
+	"type": "object",
+	"required": ["code"],
+	"properties": {
+		"label": { "type": "string" },
+		"code": { "type": "string" }
+	}
+}`
+)
+
+// addLabelDataType registers a "label"-slugged DataType version with the given
+// schema and returns its id.
+func addLabelDataType(te *testEnv, jsonSchema string) uuid.UUID {
+	te.t.Helper()
+	id := uuid.New()
+	te.DataTypeProvider.AddDataType(json_schema.DataType{
+		ID:         id,
+		Slug:       "label",
+		TenantID:   tenantA,
+		JsonSchema: jsonSchema,
+	})
+	return id
+}
+
+func TestWorkflowRegister_DataTypeRepoint(t *testing.T) {
+	t.Parallel()
+
+	t.Run("rejects repoint to a version the persisted data violates", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		v1 := addLabelDataType(te, labelSchema)
+		v2 := addLabelDataType(te, labelSchemaRequiringCode)
+
+		created := execOK[registerWorkflowData](te, ctx, registerWorkflowLabelData, map[string]any{
+			"Name":       "wf_repoint_incompatible",
+			"DataTypeID": v1,
+			"Label":      "first",
+		})
+		require.Equal(t, v1, created.RegisterWorkflow.DataTypeID)
+
+		// The registration omits data, so the row's persisted data is what the
+		// newly pinned version has to accept — and it does not.
+		execErr(te, ctx, registerWorkflowPinOnly, map[string]any{
+			"Name":       "wf_repoint_incompatible",
+			"DataTypeID": v2,
+		}, "jsonschema validation failed")
+
+		stored := te.Ent.Workflow.GetX(ctx, created.RegisterWorkflow.ID)
+		assert.Equal(t, v1, stored.DataTypeID, "rejected repoint must leave the pin untouched")
+	})
+
+	t.Run("allows repoint to a compatible version", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		v1 := addLabelDataType(te, labelSchema)
+		v2 := addLabelDataType(te, labelSchema)
+
+		created := execOK[registerWorkflowData](te, ctx, registerWorkflowLabelData, map[string]any{
+			"Name":       "wf_repoint_compatible",
+			"DataTypeID": v1,
+			"Label":      "first",
+		})
+
+		repointed := execOK[registerWorkflowData](te, ctx, registerWorkflowPinOnly, map[string]any{
+			"Name":       "wf_repoint_compatible",
+			"DataTypeID": v2,
+		})
+
+		assert.Equal(t, created.RegisterWorkflow.ID, repointed.RegisterWorkflow.ID)
+		assert.Equal(t, v2, repointed.RegisterWorkflow.DataTypeID)
+		assert.Equal(t, map[string]any{"label": "first"}, repointed.RegisterWorkflow.Data,
+			"repoint without data must leave the row's data untouched")
+	})
+
+	t.Run("allows heartbeat under the pinned version with unvalidatable data", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		strict := addLabelDataType(te, labelSchemaRequiringCode)
+
+		// A legacy row whose data its own pinned version rejects: re-registering
+		// under that same version is a heartbeat, not a repoint, so it must not
+		// be forced through validation.
+		wf := te.newWorkflow(ctx, userA).
+			Name("wf_repoint_heartbeat").
+			Data(map[string]any{"label": "legacy"}).
+			DataType(strict, "label").
+			Create()
+		te.clearEvents(ctx)
+
+		got := execOK[registerWorkflowData](te, ctx, registerWorkflowPinOnly, map[string]any{
+			"Name":       "wf_repoint_heartbeat",
+			"DataTypeID": strict,
+		})
+
+		assert.Equal(t, wf.ID, got.RegisterWorkflow.ID)
+		te.assertNoEvents(ctx)
 	})
 }

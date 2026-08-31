@@ -1,9 +1,8 @@
 ---
-name: "Cross - Supplier Data Type Slug Reference"
+name: "Cross - Supplier Data Type ID Reference"
 description: >
-  Creates a data type with a slug and references it by slug when
-  creating suppliers. Verifies dataTypeID and dataTypeSlug are
-  persisted.
+  Creates a data type and references it by ID when creating suppliers.
+  Verifies dataTypeID and dataTypeSlug are persisted.
 steps:
   - id: createDT
     name: "Create data type with slug for suppliers"
@@ -31,11 +30,11 @@ steps:
             nil: false
 
   - id: create
-    name: "Create supplier via slug"
+    name: "Create supplier via ID"
     operation: main-data.createSupplier
     vars:
       input:
-        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         data:
           leadTime: 14
           certified: true
@@ -52,7 +51,7 @@ steps:
         assertions:
           - ref: res.body.data.createSupplier.id
             nil: false
-      - msg: "DataTypeID persisted from slug"
+      - msg: "DataTypeID persisted"
         assertions:
           - ref: res.body.data.createSupplier.dataTypeID
             equal: {$ref: "res[createDT].body.data.createDataType.id"}

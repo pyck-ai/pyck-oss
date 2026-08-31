@@ -73,6 +73,53 @@ func (kv *InMemoryKVStore) Set(key string, value any, ttl time.Duration) {
 	}
 }
 
+// SetWhere stores value under key only when pred approves the slot's current
+// occupant, evaluating the predicate and writing under a single lock
+// acquisition. Callers that must not clobber a concurrently-written newer
+// value (a version tiebreak, a monotonic maximum) need this rather than
+// Get-then-Set, whose two acquisitions leave a window for the newer write to
+// land in between and be overwritten. pred receives the current value and
+// whether the slot was occupied at all, so an absent slot and a stored nil
+// stay distinguishable. Reports whether the write happened.
+func (kv *InMemoryKVStore) SetWhere(key string, value any, ttl time.Duration, pred func(existing any, exists bool) bool) bool {
+	// Negative TTL is already expired; drop it rather than store it as the ttl==0 "never expires" sentinel (#1169).
+	if ttl < 0 {
+		return false
+	}
+
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+
+	old, ok := kv.store[key]
+	if ok && old.expiration != 0 && time.Now().UnixNano() > old.expiration {
+		ok = false
+	}
+	var existing any
+	if ok {
+		existing = old.value
+	}
+	if !pred(existing, ok) {
+		return false
+	}
+
+	// Drop any prior secondary-index link so DeleteBySecondaryKey
+	// can't later resurface a key that has been rebound.
+	if ok && old.secondaryKey != "" {
+		kv.unindexLocked(key, old.secondaryKey)
+	}
+
+	expiration := int64(0)
+	if ttl > 0 {
+		expiration = time.Now().Add(ttl).UnixNano()
+	}
+
+	kv.store[key] = entry{
+		value:      value,
+		expiration: expiration,
+	}
+	return true
+}
+
 func (kv *InMemoryKVStore) Get(key string) (any, bool) {
 	kv.mu.RLock()
 	defer kv.mu.RUnlock()

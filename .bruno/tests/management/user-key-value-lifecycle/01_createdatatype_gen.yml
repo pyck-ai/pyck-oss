@@ -33,6 +33,7 @@ graphql:
           tenantID
           updatedAt
           updatedBy
+          version
         }
       }
     variables: |-
@@ -52,7 +53,6 @@ runtime:
   scripts:
     - type: before-request
       code: |-
-        bru.deleteVar('bru-test_user-management-keyvalue-lifecycle_4da9669e');
         bru.deleteVar('bru-test_user-management-keyvalue-lifecycle_f216fba0');
     - type: tests
       code: |-
@@ -78,7 +78,6 @@ runtime:
         // Source: backend/management/api/testdata/tests/user-management-keyvalue-lifecycle.test.yaml
 
         var body = res.body;
-        bru.setVar('bru-test_user-management-keyvalue-lifecycle_4da9669e', body?.data?.createDataType?.slug);
         bru.setVar('bru-test_user-management-keyvalue-lifecycle_f216fba0', body?.data?.createDataType?.id);
 
 settings:

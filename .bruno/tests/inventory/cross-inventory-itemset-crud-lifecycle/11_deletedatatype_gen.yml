@@ -2,7 +2,7 @@
 # Source: backend/inventory/api/testdata/tests/cross-inventory-itemset-crud.test.yaml
 
 info:
-  #name: Delete Data Type - Cleanup - delete set data type
+  #name: Delete Data Type - Cleanup - delete item data type
   name: Delete Data Type
   type: graphql
   seq: 11
@@ -26,7 +26,7 @@ graphql:
       // Source: backend/inventory/api/testdata/tests/cross-inventory-itemset-crud.test.yaml
 
       {
-        "id": "{{bru-test_cross-inventory-itemset-crud_683892dc}}"
+        "id": "{{bru-test_cross-inventory-itemset-crud_0885119d}}"
       }
 
 runtime:
@@ -47,7 +47,7 @@ runtime:
         });
 
         test("Deleted ID returned", function() {
-          expect(body?.data?.deleteDataType?.deletedID).to.equal(bru.getVar('bru-test_cross-inventory-itemset-crud_683892dc'));
+          expect(body?.data?.deleteDataType?.deletedID).to.equal(bru.getVar('bru-test_cross-inventory-itemset-crud_0885119d'));
         });
 
 settings:

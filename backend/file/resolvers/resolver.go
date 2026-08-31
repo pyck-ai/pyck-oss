@@ -1,6 +1,8 @@
 package resolvers
 
 import (
+	"errors"
+
 	"github.com/99designs/gqlgen/graphql"
 
 	"github.com/pyck-ai/pyck/backend/common/validator"
@@ -10,6 +12,10 @@ import (
 	"github.com/pyck-ai/pyck/backend/file/exec"
 	"github.com/pyck-ai/pyck/backend/file/services"
 )
+
+// ErrFileHasNoDataType reports a file that names no DataType version, so there
+// is no schema to analyze its image against.
+var ErrFileHasNoDataType = errors.New("file has no data type id")
 
 // Resolver is the resolver root.
 type Resolver struct {

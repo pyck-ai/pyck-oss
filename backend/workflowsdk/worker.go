@@ -462,7 +462,18 @@ func (w *worker) registerAllWorkers(ctx context.Context, activities []registry.A
 }
 
 func (w *worker) registerWorker(ctx context.Context, taskQueue string) {
-	w.workers[taskQueue] = temporalworker.New(w.client, taskQueue, w.workerOptions)
+	// Per task queue, not once for all of them: slot suppliers hold a semaphore,
+	// so a shared tuner would pool every queue's slots into one budget.
+	options := w.workerOptions
+	if err := setHostInfoTuner(&options); err != nil {
+		pycklog.ForContext(ctx).Fatal().
+			Err(err).
+			Msg("worker tuner")
+
+		return
+	}
+
+	w.workers[taskQueue] = temporalworker.New(w.client, taskQueue, options)
 
 	pycklog.ForContext(ctx).Debug().
 		Str("task-queue", taskQueue).
@@ -732,12 +743,10 @@ func (w *worker) registerWorkflowWithPyck(ctx context.Context, wf registry.Workf
 		input.Data = wf.Data
 	}
 
+	// data_type_id is the pin; the workflow service's validator derives
+	// data_type_slug from it.
 	if wf.DataTypeID != uuid.Nil {
 		input.DataTypeID = &wf.DataTypeID
-	}
-
-	if wf.DataTypeSlug != "" {
-		input.DataTypeSlug = &wf.DataTypeSlug
 	}
 
 	if _, err := w.pyckWorkflowAPI.RegisterWorkflow(ctx, pyckworkflowapi.RegisterWorkflowArgs{

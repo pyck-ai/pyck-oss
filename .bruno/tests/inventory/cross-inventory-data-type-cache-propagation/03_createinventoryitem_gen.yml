@@ -48,7 +48,7 @@ graphql:
           "data": {
             "color": "purple"
           },
-          "dataTypeSlug": "{{bru-test_cross-inventory-datatype-cache-propagation_4da9669e}}",
+          "dataTypeID": "{{bru-test_cross-inventory-datatype-cache-propagation_f216fba0}}",
           "sku": "{{$randomUUID}}"
         }
       }

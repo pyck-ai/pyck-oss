@@ -8,7 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	json_schema "github.com/pyck-ai/pyck/backend/common/json-schema"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
+	"github.com/pyck-ai/pyck/backend/common/txid"
+	"github.com/pyck-ai/pyck/backend/common/validator"
+
+	ent "github.com/pyck-ai/pyck/backend/main-data/ent/gen"
 )
 
 // =============================================================================
@@ -646,4 +651,247 @@ func TestCustomer_QueryOrderByJSONData(t *testing.T) {
 		assert.Equal(t, c2.ID, data.Customers.Edges[0].Node.ID)
 		assert.Equal(t, c1.ID, data.Customers.Edges[1].Node.ID)
 	})
+}
+
+// =============================================================================
+// REPOINT TESTS (#990 — changing dataTypeID without re-sending data)
+// =============================================================================
+
+var repointCustomer = resolver.ParseTemplate(`mutation {
+	updateCustomer(id: "{{.ID}}", input: { dataTypeID: "{{.DataTypeID}}" }) {
+		id
+		dataTypeID
+		data
+	}
+}`)
+
+// createCustomerNoData pins a DataType without sending any payload, so the
+// row's data column stays NULL.
+var createCustomerNoData = resolver.ParseTemplate(`mutation {
+	createCustomer(input: { dataTypeID: "{{.DataTypeID}}" }) {
+		id
+		dataTypeID
+		data
+	}
+}`)
+
+// Re-pinning a row to another DataType version without re-sending data must
+// revalidate the row's PERSISTED data against the newly pinned schema: a new
+// version exists precisely because its schema differs, so skipping
+// validation could leave the row permanently invalid against the version it
+// now claims — silently, since reads and exports never revalidate.
+func TestCustomer_RepointRevalidatesPersistedData(t *testing.T) {
+	t.Parallel()
+
+	newVersion := func(te *testEnv, id uuid.UUID, jsonSchema string) uuid.UUID {
+		te.DataTypeProvider.AddDataType(json_schema.DataType{
+			ID: id, Slug: "item", TenantID: tenantA, Version: 2, JsonSchema: jsonSchema,
+		})
+		return id
+	}
+
+	t.Run("rejects repoint when persisted data violates the new schema", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		created := execOK[createCustomerData](te, ctx, createCustomer, map[string]any{
+			"DataTypeID": dataTypeIDTenantA,
+		}).CreateCustomer
+
+		// v2 requires a property the persisted row does not have.
+		v2 := newVersion(te, uuid.New(),
+			`{"type":"object","properties":{"category":{"type":"string"}},"required":["category"]}`)
+
+		execErr(te, ctx, repointCustomer, map[string]any{
+			"ID": created.ID, "DataTypeID": v2,
+		}, "category")
+
+		// The row must be untouched.
+		stored, err := te.Ent.Customer.Get(ctx, created.ID)
+		require.NoError(t, err)
+		assert.Equal(t, dataTypeIDTenantA, stored.DataTypeID)
+	})
+
+	t.Run("allows repoint with clearData even when old data violates the new schema", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		created := execOK[createCustomerData](te, ctx, createCustomer, map[string]any{
+			"DataTypeID": dataTypeIDTenantA,
+		}).CreateCustomer
+
+		v2 := newVersion(te, uuid.New(),
+			`{"type":"object","properties":{"category":{"type":"string"}},"required":["category"]}`)
+
+		// The data being cleared is never validated against the new version —
+		// "switch version and drop the incompatible payload" must work.
+		updated := execOK[updateCustomerData](te, ctx, resolver.ParseTemplate(`mutation {
+			updateCustomer(id: "{{.ID}}", input: { dataTypeID: "{{.DataTypeID}}", clearData: true }) {
+				id
+				dataTypeID
+				data
+			}
+		}`), map[string]any{"ID": created.ID, "DataTypeID": v2}).UpdateCustomer
+		assert.Equal(t, v2, updated.DataTypeID)
+		assert.Empty(t, updated.Data, "data must be cleared")
+	})
+
+	t.Run("echoing the unchanged dataTypeID skips revalidation", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		created := execOK[createCustomerData](te, ctx, createCustomer, map[string]any{
+			"DataTypeID": dataTypeIDTenantA,
+		}).CreateCustomer
+
+		// Simulate a legacy row whose persisted data no longer satisfies its
+		// own pinned schema (written before validation tightened). Clients
+		// that echo the current dataTypeID on metadata-only updates must not
+		// be locked out of the row.
+		require.NoError(t, te.withTx(ctx, func(tx *ent.Tx) error {
+			return tx.Customer.UpdateOneID(created.ID).
+				SetData(map[string]any{"sum": -999}).
+				Exec(ent.NewTxContext(txid.With(ctx, txid.New()), tx))
+		}))
+
+		updated := execOK[updateCustomerData](te, ctx, repointCustomer, map[string]any{
+			"ID": created.ID, "DataTypeID": dataTypeIDTenantA,
+		}).UpdateCustomer
+		assert.Equal(t, dataTypeIDTenantA, updated.DataTypeID)
+	})
+
+	t.Run("allows repoint when persisted data satisfies the new schema", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		created := execOK[createCustomerData](te, ctx, createCustomer, map[string]any{
+			"DataTypeID": dataTypeIDTenantA,
+			"Sum":        100,
+		}).CreateCustomer
+
+		// v2 is a compatible widening of the original schema.
+		v2 := newVersion(te, uuid.New(),
+			`{"type":"object","properties":{"sum":{"type":"number"}}}`)
+
+		updated := execOK[updateCustomerData](te, ctx, repointCustomer, map[string]any{
+			"ID": created.ID, "DataTypeID": v2,
+		}).UpdateCustomer
+		assert.Equal(t, v2, updated.DataTypeID)
+		assert.InDelta(t, float64(100), updated.Data["sum"], 0.001, "persisted data must survive the repoint")
+	})
+
+	t.Run("repoint of a row without data validates nothing", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		// A row that carries no data has no payload to check, mirroring
+		// create-without-data. If the repoint validated the absent payload
+		// anyway, every schema with a required property would become
+		// unreachable for such rows.
+		created := execOK[createCustomerData](te, ctx, createCustomerNoData, map[string]any{
+			"DataTypeID": dataTypeIDTenantA,
+		}).CreateCustomer
+
+		stored, err := te.Ent.Customer.Get(ctx, created.ID)
+		require.NoError(t, err)
+		require.Nil(t, stored.Data, "precondition: the row must hold NULL data, not an empty object")
+
+		v2 := newVersion(te, uuid.New(),
+			`{"type":"object","properties":{"category":{"type":"string"}},"required":["category"]}`)
+
+		updated := execOK[updateCustomerData](te, ctx, repointCustomer, map[string]any{
+			"ID": created.ID, "DataTypeID": v2,
+		}).UpdateCustomer
+		assert.Equal(t, v2, updated.DataTypeID)
+	})
+
+	t.Run("repoint of a row whose data is an empty object is validated", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		created := execOK[createCustomerData](te, ctx, createCustomerNoData, map[string]any{
+			"DataTypeID": dataTypeIDTenantA,
+		}).CreateCustomer
+
+		// An empty object is a payload, not the absence of one: it must go
+		// through validation like any other, or a row could be pinned to a
+		// version whose required properties it does not satisfy. The empty
+		// map is written at the ent layer so the stored shape is
+		// unambiguous: {} in the column, never NULL.
+		require.NoError(t, te.withTx(ctx, func(tx *ent.Tx) error {
+			return tx.Customer.UpdateOneID(created.ID).
+				SetData(map[string]any{}).
+				Exec(ent.NewTxContext(txid.With(ctx, txid.New()), tx))
+		}))
+
+		stored, err := te.Ent.Customer.Get(ctx, created.ID)
+		require.NoError(t, err)
+		require.NotNil(t, stored.Data, "precondition: an empty object must persist as {}, distinct from NULL")
+		require.Empty(t, stored.Data)
+
+		v2 := newVersion(te, uuid.New(),
+			`{"type":"object","properties":{"category":{"type":"string"}},"required":["category"]}`)
+
+		execErr(te, ctx, repointCustomer, map[string]any{
+			"ID": created.ID, "DataTypeID": v2,
+		}, "category")
+	})
+}
+
+// =============================================================================
+// DATA TYPE UNPIN TESTS
+// =============================================================================
+
+// data_type_id and data_type_slug are one unit: an input that clears the id
+// must clear the server-derived slug in the same statement. A row left with a
+// NULL data_type_id and a non-empty data_type_slug claims a schema it no
+// longer references, and the migration precondition check refuses to run
+// against a table holding that shape. GraphQL does not expose the clear (the
+// entc schema hook drops clearDataTypeID from the update input), so the
+// invariant is only reachable through the ent-level builder that programmatic
+// callers use.
+func TestCustomer_ClearingDataTypeIDAlsoClearsSlug(t *testing.T) {
+	t.Parallel()
+
+	te := setup(t)
+	defer te.Close(t)
+	ctx := te.ctx(userA)
+
+	created := execOK[createCustomerData](te, ctx, createCustomer, map[string]any{
+		"DataTypeID": dataTypeIDTenantA,
+	}).CreateCustomer
+
+	before, err := te.Ent.Customer.Get(ctx, created.ID)
+	require.NoError(t, err)
+	require.Equal(t, dataTypeIDTenantA, before.DataTypeID)
+	require.NotEmpty(t, before.DataTypeSlug, "precondition: a pinned row carries the derived slug")
+
+	v := validator.NewValidator(te.DataTypeProvider)
+	require.NoError(t, te.withTx(ctx, func(tx *ent.Tx) error {
+		txCtx := ent.NewTxContext(txid.With(ctx, txid.New()), tx)
+		update, dataType, err := tx.Customer.UpdateOneID(created.ID).
+			SetInputWithDataType(txCtx, ent.UpdateCustomerInput{ClearDataTypeID: true}, v)
+		if err != nil {
+			return err
+		}
+		assert.Nil(t, dataType, "clearing the pin resolves no DataType")
+		return update.Exec(txCtx)
+	}))
+
+	after, err := te.Ent.Customer.Get(ctx, created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, uuid.Nil, after.DataTypeID, "data_type_id must be NULL after the clear")
+	assert.Empty(t, after.DataTypeSlug, "data_type_slug must be cleared together with the id")
 }

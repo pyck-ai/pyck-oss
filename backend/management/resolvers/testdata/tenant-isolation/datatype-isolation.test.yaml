@@ -25,18 +25,16 @@ checks:
     description: "beta sees only own data types"
     expectCount: 1
 
+  # DataType is append-only, so updateDataType is a name-only rename — that
+  # rename is still a write and must respect tenant boundaries. Cross-tenant
+  # slug collisions on createDataType are covered by TestDataType_BySlug's
+  # tenant-scoping case.
   - type: cross-update
     entity: dataType
     tenant: alpha
     target: beta/dt-beta
-    description: "alpha cannot update beta's data type"
+    description: "alpha cannot rename beta's data type"
     expectError: "not found"
-
-  - type: query
-    entity: dataType
-    tenant: beta
-    description: "beta still has 1 data type after failed cross-update"
-    expectCount: 1
 
   - type: cross-delete
     entity: dataType

@@ -2,9 +2,11 @@
 name: "User - Management Data Type X-Indices"
 description: >
   Pins the frozen-binding contract at the API layer. A slot's meaning is fixed
-  for the life of a slug, so adding an index is accepted while moving an existing
-  one to another slot, or dropping it, is refused — rows already projected under
-  the old mapping would otherwise answer for a key they no longer carry, and no
+  for the life of a slug, across every version of it: a DataType is append-only,
+  so a changed binding set arrives as a new version of the same slug. Adding an
+  index in a new version is accepted while moving an existing one to another
+  slot, or dropping it, is refused — rows already projected under the old
+  mapping would otherwise answer for a key they no longer carry, and no
   backfill can repair that.
 steps:
   - id: createDataType
@@ -25,16 +27,20 @@ steps:
         assertions:
           - ref: res.body.errors
             nil: true
-      - msg: "Data type created"
+      - msg: "Data type created as version 1"
         assertions:
           - ref: res.body.data.createDataType.id
             nil: false
+          - ref: res.body.data.createDataType.version
+            equal: 1
 
-  - name: "Adding a second index is accepted"
-    operation: management.updateDataType
+  - name: "A new version adding a second index is accepted"
+    operation: management.createDataType
     vars:
-      id: {$ref: "res[createDataType].body.data.createDataType.id"}
       input:
+        name: "X-Indices Contract Type"
+        slug: {$ref: "res[createDataType].body.data.createDataType.slug"}
+        entity: "picking_order"
         jsonSchema: '{"type":"object","properties":{"serials":{"type":"array"},"carrier":{"type":"string"}},"x-indices":{"serialNumbers":{"source":"/serials","slot":"data_ix_list1"},"carrierName":{"source":"/carrier","slot":"data_ix_text1"}}}'
     tests:
       - msg: "Status is 200"
@@ -45,12 +51,18 @@ steps:
         assertions:
           - ref: res.body.errors
             nil: true
+      - msg: "Created as version 2 of the same slug"
+        assertions:
+          - ref: res.body.data.createDataType.version
+            equal: 2
 
-  - name: "Moving an existing index to another slot is refused"
-    operation: management.updateDataType
+  - name: "A new version moving an existing index to another slot is refused"
+    operation: management.createDataType
     vars:
-      id: {$ref: "res[createDataType].body.data.createDataType.id"}
       input:
+        name: "X-Indices Contract Type"
+        slug: {$ref: "res[createDataType].body.data.createDataType.slug"}
+        entity: "picking_order"
         jsonSchema: '{"type":"object","properties":{"serials":{"type":"array"},"carrier":{"type":"string"}},"x-indices":{"serialNumbers":{"source":"/serials","slot":"data_ix_list2"},"carrierName":{"source":"/carrier","slot":"data_ix_text1"}}}'
     tests:
       - msg: "Rejected: the binding is frozen"
@@ -58,11 +70,13 @@ steps:
           - ref: res.body.errors
             nil: false
 
-  - name: "Dropping an existing index is refused"
-    operation: management.updateDataType
+  - name: "A new version dropping an existing index is refused"
+    operation: management.createDataType
     vars:
-      id: {$ref: "res[createDataType].body.data.createDataType.id"}
       input:
+        name: "X-Indices Contract Type"
+        slug: {$ref: "res[createDataType].body.data.createDataType.slug"}
+        entity: "picking_order"
         jsonSchema: '{"type":"object","properties":{"serials":{"type":"array"}},"x-indices":{}}'
     tests:
       - msg: "Rejected: its slot may still hold rows"
@@ -71,10 +85,12 @@ steps:
             nil: false
 
   - name: "Binding an index to a slot the entity does not have is refused"
-    operation: management.updateDataType
+    operation: management.createDataType
     vars:
-      id: {$ref: "res[createDataType].body.data.createDataType.id"}
       input:
+        name: "X-Indices Contract Type"
+        slug: {$ref: "res[createDataType].body.data.createDataType.slug"}
+        entity: "picking_order"
         jsonSchema: '{"type":"object","properties":{"serials":{"type":"array"},"carrier":{"type":"string"}},"x-indices":{"serialNumbers":{"source":"/serials","slot":"data_ix_list1"},"carrierName":{"source":"/carrier","slot":"data_ix_text1"},"bogus":{"source":"/carrier","slot":"data_ix_text9"}}}'
     tests:
       - msg: "Rejected: unknown slot"

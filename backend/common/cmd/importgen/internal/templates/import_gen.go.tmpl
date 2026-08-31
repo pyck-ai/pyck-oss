@@ -29,9 +29,12 @@ func RegisterEntities(r *importexport.Registry, c Client) error {
 {{ range .Entities }}
 func register{{ .TypeName }}(r *importexport.Registry, c Client) error {
 	return r.Register(&importexport.EntityDescriptor{
-		TypeName:      "{{ .TypeName }}",
-		Service:       "{{ $.ServiceName }}",
-		IdentityField: "{{ .IdentityField }}",
+		TypeName:       "{{ .TypeName }}",
+		Service:        "{{ $.ServiceName }}",
+		IdentityFields: []string{ {{- range .IdentityFields }}"{{ . }}",{{- end }} },
+		{{- if .References }}
+		References: []importexport.Reference{ {{- range .References }}{Field: "{{ .Field }}", TargetType: "{{ .TargetType }}"},{{- end }} },
+		{{- end }}
 		List: func(ctx context.Context, after *string, first *int, where map[string]any) (importexport.ListResult, error) {
 			var w *{{ .WhereInputType }}
 			if where != nil {

@@ -32,7 +32,7 @@ steps:
     vars:
       input:
         name: "Caf\u00E9 M\u00FCnchner"
-        dataTypeSlug: {$ref: "res[createDT].body.data.createDataType.slug"}
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         data: {note: "nfc-test"}
     tests:
       - msg: Status is 200

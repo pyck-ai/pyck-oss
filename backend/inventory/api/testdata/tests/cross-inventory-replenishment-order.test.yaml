@@ -59,10 +59,6 @@ steps:
         assertions:
           - ref: res.body.data.createReplenishmentOrder.replenishmentOrder.supplierID
             equal: {$ref: req.body.variables.input.supplierID}
-      - msg: "Two items created"
-        assertions:
-          - ref: res.body.data.createReplenishmentOrder.replenishmentOrder.replenishmentOrderItems.totalCount
-            equal: 2
       - msg: "DataTypeID persisted"
         assertions:
           - ref: res.body.data.createReplenishmentOrder.replenishmentOrder.dataTypeID
@@ -92,9 +88,25 @@ steps:
             equal: "high"
           - ref: res.body.data.replenishmentOrders.edges[].node.data.expectedDate
             equal: "2026-04-01"
+  - name: "Verify two order items are persisted"
+    # order -> replenishmentOrderItems connection isn't selected by the generated
+    # operations (apigen emits scalar node fields only); count items by parent.
+    operation: inventory.getReplenishmentOrderItems
+    vars:
+      where:
+        replenishmentOrderID: {$ref: "res[create].body.data.createReplenishmentOrder.replenishmentOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
       - msg: "Items persisted"
         assertions:
-          - ref: res.body.data.replenishmentOrders.edges[].node.replenishmentOrderItems.totalCount
+          - ref: res.body.data.replenishmentOrderItems.totalCount
             equal: 2
 
   - name: "Cleanup - delete replenishment order"

@@ -31,6 +31,7 @@ func (Location) Annotations() []schema.Annotation {
 			importexport.WithList("locations"),
 			importexport.WithCreate("createLocation"),
 			importexport.WithUpdate("updateLocation"),
+			importexport.WithDataTypeReference(),
 		)),
 	}
 }

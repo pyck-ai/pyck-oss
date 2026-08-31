@@ -10,6 +10,7 @@ type Option func(*options)
 
 type options struct {
 	list, create, update string
+	references           []string // "field:TargetType" entries
 }
 
 // WithList sets the GraphQL query field name for listing entities
@@ -23,6 +24,18 @@ func WithCreate(name string) Option { return func(o *options) { o.create = name 
 // WithUpdate sets the GraphQL mutation name for updating entities
 // (e.g., "updateInventoryRepository", "updateLocation").
 func WithUpdate(name string) Option { return func(o *options) { o.update = name } }
+
+// WithReference declares an outgoing FK edge: field holds the id of an entity of
+// type targetType. Repeatable. Used to order exports (target before referrer)
+// and to rewrite the raw FK into a portable $ref. Required for federated FK
+// targets, whose type cannot be inferred from the schema.
+func WithReference(field, targetType string) Option {
+	return func(o *options) { o.references = append(o.references, field+":"+targetType) }
+}
+
+// WithDataTypeReference is shorthand for the DataMixin's universal
+// dataTypeID -> DataType edge. Declare it on every importable DataMixin entity.
+func WithDataTypeReference() Option { return WithReference("dataTypeID", "DataType") }
 
 // Importable returns an entgql Directive that marks an entity as
 // importable/exportable.
@@ -57,8 +70,25 @@ func Importable(identityField string, opts ...Option) entgql.Directive {
 		stringArg("create", o.create),
 		stringArg("update", o.update),
 	}
+	if len(o.references) > 0 {
+		args = append(args, listArg("references", o.references))
+	}
 
 	return entgql.NewDirective("pyckImportable", args...)
+}
+
+// listArg builds a GraphQL list-of-strings directive argument.
+func listArg(name string, values []string) *ast.Argument {
+	children := make(ast.ChildValueList, 0, len(values))
+	for _, v := range values {
+		children = append(children, &ast.ChildValue{
+			Value: &ast.Value{Raw: v, Kind: ast.StringValue},
+		})
+	}
+	return &ast.Argument{
+		Name:  name,
+		Value: &ast.Value{Kind: ast.ListValue, Children: children},
+	}
 }
 
 func stringArg(name, value string) *ast.Argument {

@@ -38,6 +38,7 @@ func (Item) Annotations() []schema.Annotation {
 			importexport.WithList("inventoryItems"),
 			importexport.WithCreate("createInventoryItem"),
 			importexport.WithUpdate("updateInventoryItem"),
+			importexport.WithDataTypeReference(),
 		)),
 		entgql.QueryField(),
 		entgql.Mutations(entgql.MutationCreate(), entgql.MutationUpdate()),

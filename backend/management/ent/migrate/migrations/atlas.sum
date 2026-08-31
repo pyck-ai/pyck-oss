@@ -1,4 +1,4 @@
-h1:d6fhqgbWH+zgOVorT9iFRGRWSJ4vDv0K70r71wOYfDY=
+h1:w6KfeT6Ws+mkfEgvafFNv3BhPtgtXa8tuqBoZhyJvnQ=
 20250526120900_default_state.up.sql h1:wfAc2FMiHjfEhzyLCx63+2U8x2pZL0UuJ0oz3thlNq4=
 20250619222848_consistent_nulls.up.sql h1:i01oh6RM6LBXr3V5c/n3EJf7fqzt63VE7OmT6ndvVZA=
 20250716121615_rbac.up.sql h1:rPKy0351zwGED8BK4IdvE7qO7AD422L/tFaPyEaWnNA=
@@ -22,3 +22,5 @@ h1:d6fhqgbWH+zgOVorT9iFRGRWSJ4vDv0K70r71wOYfDY=
 20260622134058_reconcile_idempotency_schema_drift.up.sql h1:o6yhl/WzuWaxaaoDmNEYSEPACg7kf6OEHX7muHe1kEw=
 20260701120000_remove_rbac.up.sql h1:3YwSl94sNcS/r9zXJpMMRRGF4i5Ay3xh5nJNVXK+G/4=
 20260716120000_drop_events_table.up.sql h1:ufoLaXsIsr2DFeCmMohgZx0RRkKRtqx6JYBFQvoewZw=
+20260720120000_datamixin_pinned_id_guard.up.sql h1:doQF/Yik6TK+W/s0HNDmzqNtyNt0jUky9CtBeOwNea4=
+20260720120100_datatype_version.up.sql h1:XHoObX9yCviOQ4ASP4z81xxzDc726qCGmlohnrUAnjs=

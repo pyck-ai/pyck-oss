@@ -31,6 +31,7 @@ func (Device) Annotations() []schema.Annotation {
 			importexport.WithList("devices"),
 			importexport.WithCreate("createDevice"),
 			importexport.WithUpdate("updateDevice"),
+			importexport.WithDataTypeReference(),
 		)),
 	}
 }
