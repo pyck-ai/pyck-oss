@@ -4,6 +4,8 @@ package predicate
 
 import (
 	"entgo.io/ent/dialect/sql"
+
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 )
 
 // Customer is the predicate function for customer builders.
@@ -17,3 +19,21 @@ type IdempotencyKey func(*sql.Selector)
 
 // Supplier is the predicate function for supplier builders.
 type Supplier func(*sql.Selector)
+
+// ScopeNeighborToTenants narrows the sub-select of a relation predicate
+// (Has<Edge>With, and the plain Has<Edge>()) to the tenants the caller may
+// read. Generated where.go files apply it in every relation predicate whose
+// target entity carries tenant_id; the tenant privacy filter itself never
+// reaches those sub-selects.
+func ScopeNeighborToTenants(s *sql.Selector) {
+	mixin.ScopeNeighborToTenants(s)
+}
+
+// ScopeNeighborToLive drops soft-deleted rows from the sub-select of a
+// relation predicate (Has<Edge>With, and the plain Has<Edge>()). Generated
+// where.go files apply it in every relation predicate whose target entity
+// carries deleted_at; the soft-delete privacy filter itself never reaches
+// those sub-selects.
+func ScopeNeighborToLive(s *sql.Selector) {
+	mixin.ScopeNeighborToLive(s)
+}

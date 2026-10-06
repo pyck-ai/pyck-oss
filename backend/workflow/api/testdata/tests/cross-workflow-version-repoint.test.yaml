@@ -42,6 +42,7 @@ steps:
       input:
         name: {$fake: "RepointWf-{{nonce}}"}
         taskQueue: {$fake: "repoint-wf-queue-{{nonce}}"}
+        workerID: "scenario-cross-workflow-version-repoint"
         dataTypeID: {$ref: "res[v1].body.data.createDataType.id"}
         data:
           label: "v1"
@@ -96,6 +97,7 @@ steps:
       input:
         name: {$ref: "res[createEntity].body.data.registerWorkflow.name"}
         taskQueue: {$ref: "res[createEntity].body.data.registerWorkflow.taskQueue"}
+        workerID: "scenario-cross-workflow-version-repoint"
         dataTypeID: {$ref: "res[v2].body.data.createDataType.id"}
         data:
           label: "v1"

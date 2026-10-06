@@ -294,12 +294,14 @@ type CreateCollectionMovementInput struct {
 	// request.ForContext(ctx).MutationTenantID().
 	TenantID uuid.UUID
 
-	// PreInsertStockHook, if non-nil, is invoked after the
-	// tx.Collection_Movement.Create succeeds and before the per-position
-	// fan-out runs. Returning a non-nil error aborts the create and
-	// propagates the error verbatim. Used by the resolver to run
-	// validator.ValidateInputDataUniqueness with the collection-level
-	// already-validated DataType against the collection_movements table.
+	// PreInsertStockHook, if non-nil, is invoked BEFORE the
+	// tx.Collection_Movement.Create runs, inside the same transaction.
+	// Returning a non-nil error aborts the create and propagates the error
+	// verbatim, with no collection row or per-position movement written.
+	// Used by the resolver to run validator.ValidateInputDataUniqueness
+	// with the collection-level already-validated DataType against the
+	// collection_movements table; invoked after the insert, the new row
+	// would count against itself and refuse every unique value.
 	PreInsertStockHook func() error
 }
 

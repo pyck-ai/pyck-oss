@@ -1,24 +1,37 @@
-type InventoryItem @key(fields: "id") {
+# The file service contributes `file` to entities of other services: the
+# files whose refid names the entity. refid is not a foreign key, so a file of
+# one tenant can name another tenant's row. Each entity is therefore keyed on
+# its id and tenantID, and the lookup lists only files of the entity's own
+# tenant, for every reader: the system user skips the tenant filter and a
+# multi-tenant reader's filter spans several tenants, so neither narrows the
+# lookup on its own.
+
+type InventoryItem @key(fields: "id tenantID") {
   id: ID!
+  tenantID: UUID!
   file: [File]
 }
 
-type Supplier @key(fields: "id") {
+type Supplier @key(fields: "id tenantID") {
   id: ID!
+  tenantID: UUID!
   file: [File]
 }
 
-type Customer @key(fields: "id") {
+type Customer @key(fields: "id tenantID") {
   id: ID!
+  tenantID: UUID!
   file: [File]
 }
 
-type Repository @key(fields: "id") {
+type Repository @key(fields: "id tenantID") {
   id: ID!
+  tenantID: UUID!
   file: [File]
 }
 
-type PickingOrder @key(fields: "id") {
+type PickingOrder @key(fields: "id tenantID") {
   id: ID!
+  tenantID: UUID!
   file: [File]
 }

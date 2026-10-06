@@ -401,6 +401,9 @@ func (_q *InboundShipmentNotificationQuery) sqlAll(ctx context.Context, hooks ..
 	}
 	_spec.Node.Schema = _q.schemaConfig.InboundShipmentNotification
 	ctx = internal.NewSchemaConfigContext(ctx, _q.schemaConfig)
+	if _spec.From != nil {
+		_spec.From.WithContext(ctx)
+	}
 	if len(_q.modifiers) > 0 {
 		_spec.Modifiers = _q.modifiers
 	}
@@ -461,6 +464,9 @@ func (_q *InboundShipmentNotificationQuery) sqlCount(ctx context.Context) (int, 
 	_spec := _q.querySpec()
 	_spec.Node.Schema = _q.schemaConfig.InboundShipmentNotification
 	ctx = internal.NewSchemaConfigContext(ctx, _q.schemaConfig)
+	if _spec.From != nil {
+		_spec.From.WithContext(ctx)
+	}
 	if len(_q.modifiers) > 0 {
 		_spec.Modifiers = _q.modifiers
 	}

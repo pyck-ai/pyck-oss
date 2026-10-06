@@ -3,8 +3,6 @@ package gqltx
 import (
 	"context"
 	"sync"
-
-	"github.com/99designs/gqlgen/graphql"
 )
 
 // AddPostCommit registers a hook to run if the surrounding transaction succeeds.
@@ -34,14 +32,12 @@ func AddPostCommit(ctx context.Context, fn func() error) {
 // postCommitKey is the private context key for the post-commit container.
 type postCommitKey struct{}
 
-// postCommitContainer stores post-commit hooks and response patches for a single request/tx.
+// postCommitContainer stores post-commit hooks for a single request/tx.
 // Safe for concurrent use: resolvers may register hooks in parallel.
 type postCommitContainer struct {
-	mu            sync.Mutex
-	hooks         []func() error
-	closed        bool // set to true by RunPostCommit to block further hook registrations
-	patches       []func(*graphql.Response) error
-	patchesClosed bool // set to true by RunResponsePatches to block further patch registrations
+	mu     sync.Mutex
+	hooks  []func() error
+	closed bool // set to true by RunPostCommit to block further hook registrations
 }
 
 // getPostCommitContainer retrieves the container from ctx if present.
@@ -61,8 +57,7 @@ func EnsurePostCommitContainer(ctx context.Context) context.Context {
 		return ctx
 	}
 	c := &postCommitContainer{
-		hooks:   make([]func() error, 0, 2),
-		patches: make([]func(*graphql.Response) error, 0, 2),
+		hooks: make([]func() error, 0, 2),
 	}
 	return context.WithValue(ctx, postCommitKey{}, c)
 }
@@ -74,8 +69,7 @@ func EnsurePostCommitContainer(ctx context.Context) context.Context {
 // hooks from a rolled-back attempt to fire after the successful retry's commit.
 func WithFreshPostCommitContainer(ctx context.Context) context.Context {
 	c := &postCommitContainer{
-		hooks:   make([]func() error, 0, 2),
-		patches: make([]func(*graphql.Response) error, 0, 2),
+		hooks: make([]func() error, 0, 2),
 	}
 	return context.WithValue(ctx, postCommitKey{}, c)
 }
@@ -109,61 +103,4 @@ func RunPostCommit(ctx context.Context) error {
 	}
 
 	return firstErr
-}
-
-// AddResponsePatch registers a function that can modify the serialized GraphQL response.
-// Patches run after post-commit hooks, so they can incorporate data that only becomes
-// available after commit (e.g., workflow IDs from async signal replies).
-// No-op when fn is nil or the container is missing/closed.
-func AddResponsePatch(ctx context.Context, fn func(*graphql.Response) error) {
-	if fn == nil {
-		return
-	}
-
-	c, ok := getPostCommitContainer(ctx)
-	if !ok {
-		return
-	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.patchesClosed {
-		return
-	}
-	c.patches = append(c.patches, fn)
-}
-
-// HasResponsePatches reports whether the post-commit container exists in ctx.
-func HasResponsePatches(ctx context.Context) bool {
-	_, ok := getPostCommitContainer(ctx)
-	return ok
-}
-
-// RunResponsePatches executes all registered patches against the response.
-// Returns immediately on the first error encountered. Marks the container closed.
-func RunResponsePatches(ctx context.Context, r *graphql.Response) error {
-	c, ok := getPostCommitContainer(ctx)
-	if !ok {
-		return ErrNoPostCommitContainer
-	}
-
-	c.mu.Lock()
-	if c.patchesClosed {
-		c.mu.Unlock()
-		return ErrResponsePatchAlreadyClosed
-	}
-	patches := make([]func(*graphql.Response) error, len(c.patches))
-	copy(patches, c.patches)
-	c.patches = nil // allow GC
-	c.patchesClosed = true
-	c.mu.Unlock()
-
-	for _, p := range patches {
-		if err := p(r); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

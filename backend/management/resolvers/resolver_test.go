@@ -27,6 +27,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 
+	"github.com/pyck-ai/pyck/backend/management/core"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen"
 	entdatatype "github.com/pyck-ai/pyck/backend/management/ent/gen/datatype"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/entityeventsoutbox"
@@ -98,10 +99,11 @@ func setup(t *testing.T) *testEnv {
 	).Debug()
 
 	client.Use(events.MutationEventHook(events.HookConfig{
-		Service:        "management",
-		StreamName:     "pyck",
-		EntityFetcher:  events.BuildEntityFetcher(gen.TxFromContext, events.FieldData),
-		OutboxInserter: events.NewEntOutboxInserter(gen.TxFromContext),
+		Service:           "management",
+		StreamName:        "pyck",
+		EntityFetcher:     events.BuildEntityFetcher(gen.TxFromContext, events.FieldData),
+		OutboxInserter:    events.NewEntOutboxInserter(gen.TxFromContext),
+		SelfTenantSchemas: core.SelfTenantSchemas(),
 	}))
 
 	v := validator.NewValidator(te.DataTypeProvider)

@@ -202,7 +202,7 @@ func TestParse_AmbiguousTopic(t *testing.T) {
 		},
 		{
 			name:              "unambiguous temporal workflow event",
-			topic:             "pyck.my-namespace.temporal.my-queue.MyWorkflow.wf-123.run-456.completed",
+			topic:             "pyck.00000000-0000-0000-0000-000000000001.temporal.my-queue.MyWorkflow.wf-123.run-456.completed",
 			shouldBeAmbiguous: false,
 		},
 		{
@@ -519,7 +519,7 @@ func TestTopicRoundTrip(t *testing.T) {
 			name: "TemporalWorkflowStateChangeTopic",
 			topic: TemporalWorkflowStateChangeTopic{
 				StreamName:       "pyck",
-				Namespace:        "my-namespace",
+				Namespace:        tenantID.String(),
 				TaskQueue:        "my-queue",
 				WorkflowTypeName: "myworkflow", // lowercase since formatTopicPart lowercases
 				WorkflowID:       "wf-123",
@@ -719,4 +719,160 @@ func TestTopicMatches_Symmetry(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWithTenant(t *testing.T) {
+	t.Parallel()
+	tid := uuid.MustParse("0198a6b2-0000-7000-8000-000000000001")
+
+	testCases := []struct {
+		name    string
+		subject string
+		want    string
+		event   string
+	}{
+		{
+			name:    "mutation with reply keeps every other wildcard",
+			subject: "request.reply.pyck.*.crud.inventory.*.*.created",
+			want:    "request.reply.pyck." + tid.String() + ".crud.inventory.*.*.created",
+			event:   "request.reply.pyck." + tid.String() + ".crud.inventory.item." + uuid.NewString() + ".created",
+		},
+		{
+			name:    "temporal state change sets the namespace token",
+			subject: "pyck.*.temporal.*.childworkflow.*.*.completed",
+			want:    "pyck." + tid.String() + ".temporal.*.childworkflow.*.*.completed",
+			event:   "pyck." + tid.String() + ".temporal.my-queue.childworkflow.wf-1.run-1.completed",
+		},
+		{
+			name:    "custom stream name is kept",
+			subject: "request.reply.custom.*.crud.inventory.item.*.created",
+			want:    "request.reply.custom." + tid.String() + ".crud.inventory.item.*.created",
+			event:   "request.reply.custom." + tid.String() + ".crud.inventory.item." + uuid.NewString() + ".created",
+		},
+		{
+			name:    "trailing full wildcard after the tenant is kept",
+			subject: "request.reply.pyck.*.crud.>",
+			want:    "request.reply.pyck." + tid.String() + ".crud.>",
+			event:   "request.reply.pyck." + tid.String() + ".crud.inventory.item." + uuid.NewString() + ".updated",
+		},
+		{
+			name:    "full wildcard covering the tenant is split",
+			subject: "request.reply.pyck.>",
+			want:    "request.reply.pyck." + tid.String() + ".>",
+			event:   "request.reply.pyck." + tid.String() + ".crud.inventory.item." + uuid.NewString() + ".deleted",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := WithTenant(tc.subject, tid)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+
+			parsed, err := Parse(got)
+			require.NoError(t, err)
+			assert.True(t, parsed.Matches(MustParse(tc.event)), "%q must match %q", got, tc.event)
+		})
+	}
+
+	t.Run("topic without tenant token fails", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := WithTenant("pyck.custom-events", tid)
+		require.ErrorIs(t, err, ErrInvalidTopic)
+	})
+}
+
+func TestMatchable(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		subject string
+		want    bool
+	}{
+		{"request.reply.pyck.*.crud.inventory.*.*.created", true},
+		{"request.reply.pyck.0198A6B2-0000-7000-8000-000000000001.crud.inventory.item.*.created", true},
+		{"pyck.*.temporal.my-queue.childworkflow.*.*.completed", true},
+		{"request.reply.pyck.>", true},
+		{"pyck.*.temporal.*.ChildWorkflow.*.*.completed", false},
+		{"pyck.*.temporal.my_queue.childworkflow.*.*.completed", false},
+		{"request.reply.PYCK.*.crud.inventory.*.*.created", false},
+		{"pyck.0198a6b2-0000-7000-8000-000000000001.temporal.q.t.w.r.s", true},
+		{"pyck.0198a6b2000070008000000000000001.temporal.q.t.w.r.s", false},
+		{"pyck.0198A6B2-0000-7000-8000-000000000001.temporal.q.t.w.r.s", false},
+		{"pyck.{0198a6b2-0000-7000-8000-000000000001}.temporal.q.t.w.r.s", false},
+		{"not.a.known.topic", false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.subject, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, Matchable(tc.subject))
+		})
+	}
+}
+
+func TestParse_TemporalNamespace(t *testing.T) {
+	t.Parallel()
+	tid := uuid.MustParse("0198a6b2-0000-7000-8000-000000000001")
+
+	valid := []string{
+		"pyck.*.temporal.q.t.w.r.s",
+		"pyck." + tid.String() + ".temporal.q.t.w.r.s",
+		"pyck.*.temporal.>",
+	}
+	for _, subject := range valid {
+		t.Run("accepts "+subject, func(t *testing.T) {
+			t.Parallel()
+
+			parsed, err := Parse(subject)
+			require.NoError(t, err)
+			_, ok := parsed.(*TemporalWorkflowStateChangeTopic)
+			require.True(t, ok, "%q must parse as a temporal state-change topic, got %T", subject, parsed)
+		})
+	}
+
+	invalid := []string{
+		"pyck..temporal.q.t.w.r.s",
+		"pyck.default.temporal.q.t.w.r.s",
+		"pyck.temporal-system.temporal.q.t.w.r.s",
+		"pyck.0198a6b2-0000-7000-8000.temporal.q.t.w.r.s",
+	}
+	for _, subject := range invalid {
+		t.Run("refuses "+subject, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := Parse(subject)
+			require.ErrorIs(t, err, ErrInvalidUUID)
+		})
+	}
+
+	t.Run("GetTenantID", func(t *testing.T) {
+		t.Parallel()
+
+		for ns, want := range map[string]uuid.UUID{"": uuid.Nil, "*": uuid.Nil, tid.String(): tid} {
+			got, err := TemporalWorkflowStateChangeTopic{Namespace: ns}.GetTenantID()
+			require.NoError(t, err, "namespace %q", ns)
+			assert.Equal(t, want, got, "namespace %q", ns)
+		}
+
+		_, err := TemporalWorkflowStateChangeTopic{Namespace: "default"}.GetTenantID()
+		require.ErrorIs(t, err, ErrInvalidUUID, "a non-UUID namespace must not read as a wildcard")
+	})
+}
+
+// badTenant is a TenantProvider whose tenant cannot be read.
+type badTenant struct{}
+
+func (badTenant) GetTenantID() (uuid.UUID, error) { return uuid.Nil, ErrInvalidUUID }
+func (badTenant) SetTenantID(uuid.UUID)           {}
+
+func TestMatchesTenant_UnreadableTenantNeverMatches(t *testing.T) {
+	t.Parallel()
+	tid := uuid.MustParse("0198a6b2-0000-7000-8000-000000000001")
+
+	assert.False(t, matchesTenant(badTenant{}, &MutationEventTopic{TenantID: tid}))
+	assert.False(t, matchesTenant(&MutationEventTopic{}, badTenant{}))
 }

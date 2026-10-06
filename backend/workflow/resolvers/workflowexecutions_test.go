@@ -173,6 +173,12 @@ var (
 				{{- if ne .Where.DataIdNotNil nil }}
 				dataIdNotNil: {{.Where.DataIdNotNil}}
 				{{- end }}
+				{{- if .Where.TransactionID }}
+				transactionID: "{{.Where.TransactionID}}"
+				{{- end }}
+				{{- if .Where.TransactionIDIn }}
+				transactionIDIn: [{{range $i, $v := .Where.TransactionIDIn}}{{if $i}}, {{end}}"{{$v}}"{{end}}]
+				{{- end }}
 				{{- if .Where.Targets }}
 				targets: [{{range $i, $v := .Where.Targets}}{{if $i}}, {{end}}{{$v}}{{end}}]
 				{{- end }}
@@ -370,6 +376,8 @@ type workflowExecutionsWhereInput struct {
 	DataIdHasSuffix      *string
 	DataIdIsNil          *bool
 	DataIdNotNil         *bool
+	TransactionID        *string
+	TransactionIDIn      []string
 	Targets              []string
 	TargetsNotIn         []string
 	Title                *string
@@ -1001,6 +1009,91 @@ func TestWorkflowExecutions_DataIdFilters(t *testing.T) {
 		})
 
 		assert.Contains(t, capturedQuery, `pyck_data_id STARTS_WITH "order-"`)
+	})
+}
+
+// =============================================================================
+// TRANSACTION ID FILTER TESTS (handle lookup)
+// =============================================================================
+
+// TestWorkflowExecutions_TransactionIDFilter covers the lookup mutations'
+// handle flow relies on: filtering executions by the transaction ID a
+// mutation returned, always scoped to the caller's tenant, and tolerating
+// the "not started / not visible yet" state as an empty connection.
+func TestWorkflowExecutions_TransactionIDFilter(t *testing.T) {
+	t.Parallel()
+
+	t.Run("transactionID equals is tenant-scoped", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		handle := "01920b5a-0000-7000-8000-000000000001"
+
+		var capturedQuery string
+		te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+			capturedQuery = request.GetQuery()
+			return &workflowservice.ListWorkflowExecutionsResponse{
+				Executions: []*workflowpb.WorkflowExecutionInfo{},
+			}, nil
+		}
+
+		execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+			"Where": &workflowExecutionsWhereInput{
+				TransactionID: stringPtr(handle),
+			},
+		})
+
+		assert.Equal(t,
+			fmt.Sprintf(`pyck_tenant_id IN (%q) AND pyck_transaction_id = %q`, userA.TenantID.String(), handle),
+			capturedQuery)
+	})
+
+	t.Run("transactionID IN", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		var capturedQuery string
+		te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+			capturedQuery = request.GetQuery()
+			return &workflowservice.ListWorkflowExecutionsResponse{
+				Executions: []*workflowpb.WorkflowExecutionInfo{},
+			}, nil
+		}
+
+		execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+			"Where": &workflowExecutionsWhereInput{
+				TransactionIDIn: []string{"01920b5a-0000-7000-8000-000000000001", "01920b5a-0000-7000-8000-000000000002"},
+			},
+		})
+
+		assert.Contains(t, capturedQuery, `pyck_transaction_id IN ("01920b5a-0000-7000-8000-000000000001", "01920b5a-0000-7000-8000-000000000002")`)
+	})
+
+	t.Run("no match returns empty connection without error", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		te.MockTemporalClient.ListWorkflowFunc = func(ctx context.Context, request *workflowservice.ListWorkflowExecutionsRequest) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+			return &workflowservice.ListWorkflowExecutionsResponse{
+				Executions: []*workflowpb.WorkflowExecutionInfo{},
+			}, nil
+		}
+
+		data := execOK[workflowExecutionsData](te, ctx, workflowExecutions, map[string]any{
+			"Where": &workflowExecutionsWhereInput{
+				TransactionID: stringPtr("01920b5a-0000-7000-8000-00000000dead"),
+			},
+		})
+
+		require.NotNil(t, data.WorkflowExecutions)
+		assert.Empty(t, data.WorkflowExecutions.Edges,
+			"not-started-yet must surface as an empty connection clients can poll on")
 	})
 }
 

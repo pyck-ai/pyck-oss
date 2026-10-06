@@ -1,0 +1,126 @@
+---
+name: "Cross - Customer File Relation"
+description: >
+  Verifies the federated Customer.file relation (resolved by the file
+  subgraph from the customer's id and tenantID). Creates a customer and a file
+  whose refid names it, confirms `file` lists exactly that file with the
+  customer's tenant, then deletes the file and confirms `file` lists nothing.
+  Cleans up the customer.
+steps:
+  - id: createCustomer
+    name: "Create customer"
+    operation: main-data.createCustomer
+    vars:
+      input: {}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Customer created"
+        assertions:
+          - ref: res.body.data.createCustomer.id
+            nil: false
+
+  - id: createFile
+    name: "Create a file attached to the customer"
+    operation: file.createFile
+    vars:
+      input:
+        refid: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+        reftype: customer
+        name: {$fake: "{{loremslug}}-{{nonce}}.txt"}
+        contentType: "text/plain"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "File created"
+        assertions:
+          - ref: res.body.data.createFile.id
+            nil: false
+
+  # =========================================================================
+  # RELATION: the customer lists its own tenant's file
+  # =========================================================================
+  - name: "file relation lists the customer's file"
+    operation: main-data.getCustomerWithFile
+    vars:
+      where:
+        id: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "file relation holds exactly the attached file, in the customer's tenant"
+        assertions:
+          - ref: res.body.data.customers.edges[].node.file
+            len: 1
+          - ref: res.body.data.customers.edges[0].node.file[].id
+            equal: {$ref: "res[createFile].body.data.createFile.id"}
+          - ref: res.body.data.customers.edges[0].node.file[].tenantID
+            equal: {$ref: "res[createCustomer].body.data.createCustomer.tenantID"}
+
+  - name: "Delete the file"
+    operation: file.deleteFile
+    vars:
+      id: {$ref: "res[createFile].body.data.createFile.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  # =========================================================================
+  # RELATION: a deleted file no longer appears
+  # =========================================================================
+  - name: "file relation is empty after the file is deleted"
+    operation: main-data.getCustomerWithFile
+    vars:
+      where:
+        id: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "file relation lists no file (an empty relation reads null)"
+        assertions:
+          - ref: res.body.data.customers.edges[].node.file
+            nil: true
+
+  - name: "Delete the customer"
+    operation: main-data.deleteCustomer
+    vars:
+      id: {$ref: "res[createCustomer].body.data.createCustomer.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

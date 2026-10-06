@@ -56,6 +56,8 @@ var (
 	Parse                      = topic.Parse
 	MustParse                  = topic.MustParse
 	ParseTenantFromTopic       = topic.ParseTenantFromTopic
+	WithTenant                 = topic.WithTenant
+	Matchable                  = topic.Matchable
 	IsValidSubscriptionSubject = topic.IsValidSubscriptionSubject
 )
 

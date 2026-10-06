@@ -1,0 +1,11 @@
+info:
+  name: User - Workflow Signal Topic Wildcards
+  type: folder
+  seq: 1
+
+docs: |-
+  Registers a signal topic with a wildcard tenant and wildcard string tokens, verifies only the tenant token is expanded, then verifies a topic with a token publishers never emit (uppercase) is refused.
+
+
+request:
+  auth: inherit

@@ -61,8 +61,9 @@ type (
 	//     worker does on Start)
 	//   - worker registers the test workflow with Temporal and starts
 	//     polling
-	//   - publishing a MutationEventWithReplyTopic message lands a RUNNING
-	//     execution after travelling through the signalrouter
+	//   - publishing a fire-and-forget mutation event lands a RUNNING
+	//     execution after travelling through the signalrouter, resolved
+	//     via the pyck_transaction_id handle
 	//   - is_assignable defaults to true: SetupDefaults' first-run
 	//     upsert wires both the in-process state field (gateway-visible)
 	//     and the durable typed search attribute (Describe-visible)

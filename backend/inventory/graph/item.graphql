@@ -4,29 +4,60 @@ extend input InventoryItemWhereInput {
   DataHasKey: String
   DataIn: [String!]
   DataContains: [String!]
+  "Items with (true) or without (false) at least one non-empty current stock row. Current = the highest version per repository; a deleted head hides its pair; empty rows never count."
+  hasCurrentStock: Boolean
+  "Items with at least one non-empty current stock row matching all of the given inputs (ANDed on one row, like hasItemStocksWith). Value filters such as quantityGT apply to the current row only. Current = the highest version per repository; a deleted head hides its pair; empty rows never match. A time cutoff in an input selects the as-of row."
+  hasCurrentStockWith: [StockWhereInput!]
 }
 
 
 type InventoryItemOutput
 {
   inventoryItem: InventoryItem
-  workflows: [TemporalWorkflow]
+  "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+  transactionID: ID!
+  "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+  eventCount: Int!
 }
 
 type InventoryRepositoryOutput
 {
   inventoryRepository: Repository
-  workflows: [TemporalWorkflow]
+  "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+  transactionID: ID!
+  "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+  eventCount: Int!
 }
 
 type InventoryItemMovementOutput
 {
   inventoryItemMovement: ItemMovement
-  workflows: [TemporalWorkflow]
+  "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+  transactionID: ID!
+  "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+  eventCount: Int!
 }
 
 type InventoryRepositoryMovementOutput
 {
   inventoryRepositoryMovement: RepositoryMovement
-  workflows: [TemporalWorkflow]
+  "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+  transactionID: ID!
+  "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+  eventCount: Int!
+}
+
+extend type InventoryItem {
+  """
+  The current stock row of each repository where the item has stock: rows whose
+  stock values are all zero are omitted. Refused above 10000 rows; query
+  currentStocks for such items. The stock history is available through stocks.
+  """
+  itemstocks: [Stock!]
+  "The item's 200 most recent movements."
+  itemmovementitems: [ItemMovement!]
+    @deprecated(reason: "Capped at 200 rows; query itemMovements(where: {itemID}) to paginate.")
+  "The item's 200 most recent transactions."
+  itemtransactions: [Transaction!]
+    @deprecated(reason: "Capped at 200 rows; query transactions(where: {itemID}) to paginate.")
 }

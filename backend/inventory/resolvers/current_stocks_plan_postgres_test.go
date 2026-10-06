@@ -130,6 +130,60 @@ func TestCurrentStocksIndexPlanPostgres(t *testing.T) {
 		}
 	})
 
+	// #1572: inventoryItems(where: {hasCurrentStockWith: [{quantityGT: 0}]}) as
+	// itemHasCurrentStockPredicate emits it (see item_current_stock_test.go).
+	// The correlated EXISTS must reach the item's rows through the
+	// (tenant_id, item_id, repository_id, version DESC) index, not a scan of
+	// the tenant's ledger.
+	t.Run("items with current stock are served by the (tenant, item) index", func(t *testing.T) {
+		itemsSQL := `
+			SELECT i.id FROM items i
+			WHERE EXISTS (
+				SELECT 1 FROM stocks cs
+				WHERE cs.item_id = i.id AND cs.tenant_id = i.tenant_id
+				  AND cs.tenant_id IN ($1)
+				  AND (cs.deleted_at IS NULL OR cs.deleted_at = '0001-01-01 00:00:00')
+				  AND NOT EXISTS (
+					SELECT 1 FROM stocks s2
+					WHERE s2.repository_id = cs.repository_id AND s2.item_id = cs.item_id
+					  AND s2.version > cs.version AND s2.tenant_id = i.tenant_id)
+				  AND (cs.quantity <> 0 OR cs.incoming_stock <> 0 OR cs.outgoing_stock <> 0
+					OR cs.own_quantity <> 0 OR cs.own_incoming_stock <> 0 OR cs.own_outgoing_stock <> 0)
+				  AND cs.quantity > 0)
+			AND i.tenant_id IN ($1) AND i.deleted_at IS NULL
+			ORDER BY i.id LIMIT 51`
+
+		// Besides the hot item, clone 2,000 items with 3 repositories x 4
+		// versions each, so item_id is selective like in prod, then ANALYZE.
+		pgExec(t, ctx, te, `INSERT INTO items
+			SELECT (jsonb_populate_record(i, jsonb_build_object('id', gen_random_uuid(), 'sku', 'plan-' || g))).*
+			FROM items i, generate_series(1, 2000) g WHERE i.id = $1`, item.ID)
+		pgExec(t, ctx, te, `INSERT INTO stocks (id, tenant_id, created_at, created_by, quantity, item_id, repository_id, version)
+			SELECT gen_random_uuid(), i.tenant_id, now(), $1::uuid, v, i.id, r, v
+			FROM items i, unnest($2::uuid[]) r, generate_series(0, 3) v
+			WHERE i.sku LIKE 'plan-%'`, userA.ID, "{"+strings.ReplaceAll(uuidInList(repoIDs[:3]), "'", "")+"}")
+		pgExec(t, ctx, te, "ANALYZE items")
+		pgExec(t, ctx, te, "ANALYZE stocks")
+
+		// Forbid hash/merge joins and bitmap scans: the item side is a page of
+		// 51 rows, so the plan to check is the nested loop that probes stocks
+		// per item.
+		plan, ms := pgExplainWith(t, ctx, te,
+			[]string{"enable_seqscan = off", "enable_hashjoin = off", "enable_mergejoin = off", "enable_bitmapscan = off"},
+			itemsSQL, userA.TenantID)
+		t.Logf("items with current stock plan (nested loop forced), %.3f ms:\n%s", ms, plan)
+
+		const wantIndex = "stock_tenant_id_item_id_repository_id_version"
+		assert.Contains(t, plan, "using "+wantIndex+" on stocks cs",
+			"the current-row lookup must use the (tenant_id, item_id, repository_id, version DESC) index")
+		// The superseding-row probe is correlated on tenant, repository and
+		// item, so either tenant-led index serves it (the planner picks the
+		// created_at one here: 4 rows per pair); it must not scan.
+		assert.Regexp(t, `Index (Only )?Scan using stock_tenant_id_\w+ on stocks s2`, plan,
+			"the superseding-row lookup must use a tenant-led index")
+		assert.NotContains(t, plan, "Seq Scan on stocks")
+	})
+
 	t.Run("report natural plans and execution times", func(t *testing.T) {
 		nePlan, neMs := pgExplain(t, ctx, te, false, notExistsSQL, userA.TenantID, item.ID)
 		doPlan, doMs := pgExplain(t, ctx, te, false, distinctOnSQL, userA.TenantID, item.ID)
@@ -214,12 +268,23 @@ func pgExec(t *testing.T, ctx context.Context, te *testEnv, query string, args .
 // on a small table where the planner would legitimately prefer a seq scan.
 func pgExplain(t *testing.T, ctx context.Context, te *testEnv, forceIndex bool, query string, args ...any) (plan string, execMs float64) {
 	t.Helper()
+	var settings []string
+	if forceIndex {
+		settings = append(settings, "enable_seqscan = off")
+	}
+	return pgExplainWith(t, ctx, te, settings, query, args...)
+}
+
+// pgExplainWith is pgExplain with arbitrary SET LOCAL settings, e.g.
+// "enable_seqscan = off".
+func pgExplainWith(t *testing.T, ctx context.Context, te *testEnv, settings []string, query string, args ...any) (plan string, execMs float64) {
+	t.Helper()
 	tx, err := te.Ent.Tx(ctx)
 	require.NoError(t, err)
 	defer rollbackAfterCommit(t, tx)
 
-	if forceIndex {
-		_, err = tx.ExecContext(ctx, "SET LOCAL enable_seqscan = off")
+	for _, setting := range settings {
+		_, err = tx.ExecContext(ctx, "SET LOCAL "+setting)
 		require.NoError(t, err)
 	}
 

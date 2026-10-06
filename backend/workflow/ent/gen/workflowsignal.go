@@ -44,9 +44,11 @@ type WorkflowSignal struct {
 	// FilterRule holds the value of the "filter_rule" field.
 	FilterRule string `json:"filter_rule,omitempty"`
 	// WorkerID holds the value of the "worker_id" field.
-	WorkerID *string `json:"worker_id,omitempty"`
+	WorkerID string `json:"worker_id,omitempty"`
 	// ExpiresAt holds the value of the "expires_at" field.
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	ExpiresAt time.Time `json:"expires_at,omitempty"`
+	// StoppedAt holds the value of the "stopped_at" field.
+	StoppedAt *time.Time `json:"stopped_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the WorkflowSignalQuery when eager-loading is set.
 	Edges        WorkflowSignalEdges `json:"edges"`
@@ -82,7 +84,7 @@ func (*WorkflowSignal) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case workflowsignal.FieldNatsTopic, workflowsignal.FieldTemporalSignal, workflowsignal.FieldTemporalSignalType, workflowsignal.FieldFilterRule, workflowsignal.FieldWorkerID:
 			values[i] = new(sql.NullString)
-		case workflowsignal.FieldCreatedAt, workflowsignal.FieldUpdatedAt, workflowsignal.FieldDeletedAt, workflowsignal.FieldExpiresAt:
+		case workflowsignal.FieldCreatedAt, workflowsignal.FieldUpdatedAt, workflowsignal.FieldDeletedAt, workflowsignal.FieldExpiresAt, workflowsignal.FieldStoppedAt:
 			values[i] = new(sql.NullTime)
 		case workflowsignal.FieldID, workflowsignal.FieldTenantID, workflowsignal.FieldCreatedBy, workflowsignal.FieldUpdatedBy, workflowsignal.FieldDeletedBy, workflowsignal.FieldWorkflowID:
 			values[i] = new(uuid.UUID)
@@ -183,15 +185,20 @@ func (_m *WorkflowSignal) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field worker_id", values[i])
 			} else if value.Valid {
-				_m.WorkerID = new(string)
-				*_m.WorkerID = value.String
+				_m.WorkerID = value.String
 			}
 		case workflowsignal.FieldExpiresAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field expires_at", values[i])
 			} else if value.Valid {
-				_m.ExpiresAt = new(time.Time)
-				*_m.ExpiresAt = value.Time
+				_m.ExpiresAt = value.Time
+			}
+		case workflowsignal.FieldStoppedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field stopped_at", values[i])
+			} else if value.Valid {
+				_m.StoppedAt = new(time.Time)
+				*_m.StoppedAt = value.Time
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -270,13 +277,14 @@ func (_m *WorkflowSignal) String() string {
 	builder.WriteString("filter_rule=")
 	builder.WriteString(_m.FilterRule)
 	builder.WriteString(", ")
-	if v := _m.WorkerID; v != nil {
-		builder.WriteString("worker_id=")
-		builder.WriteString(*v)
-	}
+	builder.WriteString("worker_id=")
+	builder.WriteString(_m.WorkerID)
 	builder.WriteString(", ")
-	if v := _m.ExpiresAt; v != nil {
-		builder.WriteString("expires_at=")
+	builder.WriteString("expires_at=")
+	builder.WriteString(_m.ExpiresAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	if v := _m.StoppedAt; v != nil {
+		builder.WriteString("stopped_at=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
 	builder.WriteByte(')')

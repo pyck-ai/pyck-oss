@@ -34,12 +34,8 @@ func init() {
 	entityeventsoutboxDescTopic := entityeventsoutboxMixinFields0[7].Descriptor()
 	// entityeventsoutbox.TopicValidator is a validator for the "topic" field. It is called by the builders before save.
 	entityeventsoutbox.TopicValidator = entityeventsoutboxDescTopic.Validators[0].(func(string) error)
-	// entityeventsoutboxDescWithReply is the schema descriptor for with_reply field.
-	entityeventsoutboxDescWithReply := entityeventsoutboxMixinFields0[9].Descriptor()
-	// entityeventsoutbox.DefaultWithReply holds the default value on creation for the with_reply field.
-	entityeventsoutbox.DefaultWithReply = entityeventsoutboxDescWithReply.Default.(bool)
 	// entityeventsoutboxDescRetryCount is the schema descriptor for retry_count field.
-	entityeventsoutboxDescRetryCount := entityeventsoutboxMixinFields0[10].Descriptor()
+	entityeventsoutboxDescRetryCount := entityeventsoutboxMixinFields0[9].Descriptor()
 	// entityeventsoutbox.DefaultRetryCount holds the default value on creation for the retry_count field.
 	entityeventsoutbox.DefaultRetryCount = entityeventsoutboxDescRetryCount.Default.(int)
 	// entityeventsoutboxDescID is the schema descriptor for id field.
@@ -131,10 +127,13 @@ func init() {
 	}
 	workflowsignalMixinHooks0 := workflowsignalMixin[0].Hooks()
 	workflowsignalMixinHooks1 := workflowsignalMixin[1].Hooks()
+	workflowsignalHooks := schema.WorkflowSignal{}.Hooks()
 
 	workflowsignal.Hooks[1] = workflowsignalMixinHooks0[0]
 
 	workflowsignal.Hooks[2] = workflowsignalMixinHooks1[0]
+
+	workflowsignal.Hooks[3] = workflowsignalHooks[0]
 	workflowsignalMixinInters2 := workflowsignalMixin[2].Interceptors()
 	workflowsignal.Interceptors[0] = workflowsignalMixinInters2[0]
 	workflowsignalFields := schema.WorkflowSignal{}.Fields()
@@ -143,6 +142,10 @@ func init() {
 	workflowsignalDescNatsTopic := workflowsignalFields[2].Descriptor()
 	// workflowsignal.NatsTopicValidator is a validator for the "nats_topic" field. It is called by the builders before save.
 	workflowsignal.NatsTopicValidator = workflowsignalDescNatsTopic.Validators[0].(func(string) error)
+	// workflowsignalDescWorkerID is the schema descriptor for worker_id field.
+	workflowsignalDescWorkerID := workflowsignalFields[6].Descriptor()
+	// workflowsignal.WorkerIDValidator is a validator for the "worker_id" field. It is called by the builders before save.
+	workflowsignal.WorkerIDValidator = workflowsignalDescWorkerID.Validators[0].(func(string) error)
 	// workflowsignalDescID is the schema descriptor for id field.
 	workflowsignalDescID := workflowsignalFields[0].Descriptor()
 	// workflowsignal.DefaultID holds the default value on creation for the id field.

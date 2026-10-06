@@ -19,11 +19,8 @@ graphql:
       mutation DeleteDevice($id: ID!) {
         deleteDevice(id: $id) {
           deletedID
-          workflows {
-            id
-            runID
-            type
-          }
+          eventCount
+          transactionID
         }
       }
     variables: |-

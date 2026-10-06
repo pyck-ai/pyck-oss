@@ -18,6 +18,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pyck-ai/pyck/backend/common/log"
+	"github.com/pyck-ai/pyck/backend/common/std"
 )
 
 // ErrNoDeploymentVersion is returned when an execution is not pinned to a
@@ -37,9 +38,9 @@ var ErrUIBundleMetadataMissing = errors.New("UI bundle metadata not found on dep
 // wire.
 var ErrRemoteUIUnavailable = errors.New("remote UI temporarily unavailable")
 
-// ErrInvalidUIBundleValue is returned when a slug/version from deployment-version
-// metadata contains characters unsafe to splice into a URL.
-var ErrInvalidUIBundleValue = errors.New("invalid UI bundle metadata value")
+// ErrInvalidUIBundleValue is returned when a render dimension is missing or not
+// a single safe path segment.
+var ErrInvalidUIBundleValue = errors.New("invalid UI bundle URL value")
 
 // ErrRenderedURLInvalid is returned when a rendered UI bundle URL is not a
 // well-formed absolute http(s) URL.
@@ -62,6 +63,12 @@ const (
 	// URL template.
 	RemoteMobileUITemplateKey = "remoteMobileUITemplate"
 
+	// TemporalWorkerDeploymentKey and TemporalWorkerDeploymentVersionKey are the
+	// Temporal system search attributes naming the Worker Deployment Version an
+	// execution runs on; visibility listings carry them.
+	TemporalWorkerDeploymentKey        = "TemporalWorkerDeployment"
+	TemporalWorkerDeploymentVersionKey = "TemporalWorkerDeploymentVersion"
+
 	// deploymentVersionsCacheKey is the single cache key for the full listing
 	// (one Client serves one namespace); deploymentVersionsCacheTTL bounds its
 	// staleness.
@@ -71,6 +78,15 @@ const (
 	// deploymentVersionDescribeConcurrency bounds the parallel per-version
 	// DescribeVersion calls when (re)building the listing.
 	deploymentVersionDescribeConcurrency = 8
+
+	// DefaultUnstampedVersionCacheTTL is how long a version observed without a
+	// UI bundle is remembered as such: short enough to pick up CI stamping,
+	// long enough that a listing does not re-describe it on every request.
+	DefaultUnstampedVersionCacheTTL = 30 * time.Second
+
+	// versionLookupTimeout bounds a DescribeVersion call, which runs detached
+	// from the requesting context (see resolveVersionBundle).
+	versionLookupTimeout = 10 * time.Second
 )
 
 // UIBundleMetadataKey returns the deployment-version metadata key holding the
@@ -91,6 +107,35 @@ func UIBundleVersionKey(workflowType string) string {
 
 func UIBundleSlugKey(workflowType string) string {
 	return UIBundleMetadataKey(workflowType, uiBundleSlugField)
+}
+
+// DeploymentVersionRef identifies a Worker Deployment Version.
+type DeploymentVersionRef struct {
+	DeploymentName string
+	BuildID        string
+}
+
+// ParseDeploymentVersionSA splits a TemporalWorkerDeploymentVersion search
+// attribute value ("<deployment>:<build>"; older servers wrote
+// "<deployment>.<build>") into its parts. Either part may contain the other
+// delimiter, so a known deployment name (the TemporalWorkerDeployment
+// attribute) anchors the split; otherwise the first ':' wins, then the first
+// '.'. Returns false for an empty or unparseable value, i.e. unversioned.
+func ParseDeploymentVersionSA(value, deploymentName string) (DeploymentVersionRef, bool) {
+	if value == "" {
+		return DeploymentVersionRef{}, false
+	}
+	if deploymentName != "" {
+		if rest, ok := strings.CutPrefix(value, deploymentName); ok && len(rest) > 1 && (rest[0] == ':' || rest[0] == '.') {
+			return DeploymentVersionRef{DeploymentName: deploymentName, BuildID: rest[1:]}, true
+		}
+	}
+	for _, delim := range []string{":", "."} {
+		if name, build, ok := strings.Cut(value, delim); ok && name != "" && build != "" {
+			return DeploymentVersionRef{DeploymentName: name, BuildID: build}, true
+		}
+	}
+	return DeploymentVersionRef{}, false
 }
 
 // UIBundle identifies the UI bundle (slug + version) that a workflow
@@ -114,10 +159,9 @@ type UIBundleURLs struct {
 }
 
 // UITemplateContext is the data a UI bundle URL template renders against: the
-// bundle slug/version plus the tenant dimensions. Slug/Version come from
-// deployment-version metadata and Flavour from Zitadel; all three are sanitized
-// before rendering since they are spliced into a URL path. TenantID is a
-// server-derived UUID and Env is operator config, both trusted.
+// bundle slug/version plus the tenant dimensions. Version and TenantID are
+// required, and every set dimension must be a single path segment, whatever its
+// source. Owner is derived from TenantID/Flavour.
 type UITemplateContext struct {
 	Slug     string
 	Version  string
@@ -159,8 +203,8 @@ func DetectFlavour(data map[string]any) string {
 // describe); it runs off any workflow goroutine and has no determinism
 // constraints.
 func (c *Client) ResolveRemoteUIBundle(ctx context.Context, workflowID, runID string, defaultBundle *UIBundle) (*UIBundle, error) {
-	if workflowID == "" {
-		return nil, ErrInvalidWorkflowID
+	if err := ValidateWorkflowID(workflowID); err != nil {
+		return nil, err
 	}
 
 	resp, err := c.temporal.DescribeWorkflowExecution(ctx, workflowID, runID)
@@ -174,24 +218,36 @@ func (c *Client) ResolveRemoteUIBundle(ctx context.Context, workflowID, runID st
 	// version, so GetDeploymentVersion is the version it actually runs. Revisit if
 	// we move to AutoUpgrade (which reports the current version, not the replayed
 	// one).
-	version := info.GetVersioningInfo().GetDeploymentVersion()
+	var version *DeploymentVersionRef
+	if v := info.GetVersioningInfo().GetDeploymentVersion(); v != nil {
+		version = &DeploymentVersionRef{DeploymentName: v.GetDeploymentName(), BuildID: v.GetBuildId()}
+	}
+
+	return c.ResolveVersionUIBundle(ctx, version, info.GetType().GetName(), defaultBundle)
+}
+
+// ResolveVersionUIBundle is ResolveRemoteUIBundle for an execution whose pinned
+// version (nil = unversioned) and workflow type are already known, e.g. from a
+// listing's search attributes, so no DescribeWorkflowExecution is paid.
+func (c *Client) ResolveVersionUIBundle(ctx context.Context, version *DeploymentVersionRef, workflowType string, defaultBundle *UIBundle) (*UIBundle, error) {
 	if version == nil {
 		if defaultBundle != nil {
-			log.ForContext(ctx).Warn().Str("workflow_id", workflowID).
+			log.ForContext(ctx).Debug().Str("workflow_type", workflowType).
 				Msg("remoteUI: execution has no pinned deployment version, serving default UI bundle")
 			return defaultBundle, nil
 		}
 		return nil, ErrNoDeploymentVersion
 	}
-	workflowType := info.GetType().GetName()
 
-	bundle, err := c.resolveVersionBundle(ctx, version.GetDeploymentName(), version.GetBuildId(), workflowType)
+	bundle, err := c.resolveVersionBundle(ctx, version.DeploymentName, version.BuildID, workflowType)
 	if err != nil {
 		// Pinned but this workflow type isn't stamped yet (#1132 rollout): fall
-		// back to the default, like an unversioned execution.
+		// back to the default, like an unversioned execution. Debug here; the
+		// first observation per version warns in resolveVersionBundle.
 		if errors.Is(err, ErrUIBundleMetadataMissing) && defaultBundle != nil {
-			log.ForContext(ctx).Warn().
-				Str("deployment", version.GetDeploymentName()).Str("build_id", version.GetBuildId()).
+			log.ForContext(ctx).Debug().
+				Str("deployment", version.DeploymentName).Str("build_id", version.BuildID).
+				Str("workflow_type", workflowType).
 				Msg("remoteUI: pinned version has no stamped UI bundle for this workflow type, serving default")
 			return defaultBundle, nil
 		}
@@ -202,33 +258,70 @@ func (c *Client) ResolveRemoteUIBundle(ctx context.Context, workflowID, runID st
 }
 
 // resolveVersionBundle resolves the UI bundle for (deployment, buildID,
-// workflowType), caching only a complete resolve (no TTL). An unstamped tier
-// resolves to ErrUIBundleMetadataMissing and is not cached, so a later read
-// picks it up once CI stamps it — covering incremental per-type stamping during
-// the #1132 rollout.
+// workflowType). A complete resolve is cached for good (stamped metadata is
+// immutable); an unstamped tier (ErrUIBundleMetadataMissing) only for
+// unstampedVersionCacheTTL, so CI stamping is picked up; an infrastructure
+// failure is never cached.
+//
+// Concurrent misses on one key share a single DescribeVersion (std.SharedCall).
 func (c *Client) resolveVersionBundle(ctx context.Context, deploymentName, buildID, workflowType string) (*UIBundle, error) {
 	key := "version-bundle:" + deploymentName + "/" + buildID + "/" + workflowType
-	if cached, ok := c.remoteUICache.Get(key); ok {
-		if b, ok := cached.(UIBundle); ok {
-			return &b, nil
+	if bundle, ok, err := c.cachedVersionBundle(key); ok {
+		return bundle, err
+	}
+
+	bundle, err := std.SharedCall(ctx, &c.versionFlight, key, versionLookupTimeout, func(callCtx context.Context) (UIBundle, error) {
+		if bundle, ok, err := c.cachedVersionBundle(key); ok {
+			if err != nil {
+				return UIBundle{}, err
+			}
+			return *bundle, nil
 		}
-	}
 
-	desc, err := c.temporal.WorkerDeploymentClient().
-		GetHandle(deploymentName).
-		DescribeVersion(ctx, temporalclient.WorkerDeploymentDescribeVersionOptions{BuildID: buildID})
-	if err != nil {
-		log.ForContext(ctx).Error().Err(err).Msg("describe deployment version")
-		return nil, ErrRemoteUIUnavailable
-	}
+		desc, err := c.temporal.WorkerDeploymentClient().
+			GetHandle(deploymentName).
+			DescribeVersion(callCtx, temporalclient.WorkerDeploymentDescribeVersionOptions{BuildID: buildID})
+		if err != nil {
+			log.ForContext(callCtx).Error().Err(err).Msg("describe deployment version")
+			return UIBundle{}, ErrRemoteUIUnavailable
+		}
 
-	bundle, err := resolveUIBundle(desc.Info.Metadata, workflowType)
+		bundle, err := resolveUIBundle(desc.Info.Metadata, workflowType)
+		if err != nil {
+			if errors.Is(err, ErrUIBundleMetadataMissing) {
+				log.ForContext(callCtx).Warn().
+					Str("deployment", deploymentName).Str("build_id", buildID).Str("workflow_type", workflowType).
+					Dur("recheck_after", c.unstampedVersionCacheTTL).
+					Msg("remoteUI: pinned version has no stamped UI bundle for this workflow type")
+				// A zero TTL never expires in the store, so zero must not be set.
+				if c.unstampedVersionCacheTTL > 0 {
+					c.remoteUICache.Set(key, err, c.unstampedVersionCacheTTL)
+				}
+			}
+			return UIBundle{}, err
+		}
+
+		c.remoteUICache.Set(key, bundle, 0)
+		return bundle, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	c.remoteUICache.Set(key, bundle, 0)
 	return &bundle, nil
+}
+
+// cachedVersionBundle returns the memoized bundle, or the memoized negative
+// verdict as err. ok is false on a miss.
+func (c *Client) cachedVersionBundle(key string) (bundle *UIBundle, ok bool, err error) {
+	cached, _ := c.remoteUICache.Get(key)
+	switch v := cached.(type) {
+	case UIBundle:
+		return &v, true, nil
+	case error:
+		return nil, true, v
+	default:
+		return nil, false, nil
+	}
 }
 
 // RenderRemoteUI resolves the execution's UI bundle and renders the tenant (or
@@ -242,25 +335,40 @@ func (c *Client) RenderRemoteUI(ctx context.Context, workflowID, runID string, t
 	if err != nil {
 		return nil, err
 	}
+	return renderUIBundleURLs(*bundle, templates, render)
+}
+
+// RenderVersionRemoteUI is RenderRemoteUI for an execution whose pinned version
+// (nil = unversioned) and workflow type are already known; see
+// ResolveVersionUIBundle.
+func (c *Client) RenderVersionRemoteUI(ctx context.Context, version *DeploymentVersionRef, workflowType string, templates UIBundleTemplate, render UITemplateContext, defaultBundle *UIBundle) (*UIBundleURLs, error) {
+	bundle, err := c.ResolveVersionUIBundle(ctx, version, workflowType, defaultBundle)
+	if err != nil {
+		return nil, err
+	}
+	return renderUIBundleURLs(*bundle, templates, render)
+}
+
+// renderUIBundleURLs renders the web + mobile templates for a resolved bundle.
+// Every dimension is spliced into a URL the frontend loads, so each is validated
+// and the result checked (a stray "../" or "://" must never reach the client).
+func renderUIBundleURLs(bundle UIBundle, templates UIBundleTemplate, render UITemplateContext) (*UIBundleURLs, error) {
 	render.Slug = bundle.Slug
 	render.Version = bundle.Version
 
-	// slug/version (deployment metadata) and flavour (Zitadel metadata) are
-	// spliced into a URL the frontend loads as a microfrontend manifest. Sanitize
-	// them and validate the rendered URL before handing it out (defense in depth:
-	// a stray "../" or "://" must never reach the client). slug is optional (empty
-	// for per-tenant bundles, whose template omits {{.Slug}}), so validate it only
-	// when present.
-	if render.Slug != "" {
-		if err := validateUIBundleValue("slug", render.Slug); err != nil {
+	type dimension struct{ field, value string }
+	// An empty tenant would collapse its path segment and shift the next one
+	// into the tenant slot.
+	for _, dim := range [...]dimension{{"version", render.Version}, {"tenant_id", render.TenantID}} {
+		if err := validateUIBundleValue(dim.field, dim.value); err != nil {
 			return nil, err
 		}
 	}
-	if err := validateUIBundleValue("version", render.Version); err != nil {
-		return nil, err
-	}
-	if render.Flavour != "" {
-		if err := validateUIBundleValue("flavour", render.Flavour); err != nil {
+	for _, dim := range [...]dimension{{"slug", render.Slug}, {"flavour", render.Flavour}, {"env", render.Env}} {
+		if dim.value == "" {
+			continue
+		}
+		if err := validateUIBundleValue(dim.field, dim.value); err != nil {
 			return nil, err
 		}
 	}
@@ -324,9 +432,14 @@ func renderRemoteUIURL(tmpl string, render UITemplateContext) (string, error) {
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return "", fmt.Errorf("%w: %s", ErrRenderedURLInvalid, rendered)
 	}
+	// path.Clean would resolve a ".." (u.Path is already percent-decoded)
+	// instead of refusing it.
+	if slices.Contains(strings.Split(u.Path, "/"), "..") {
+		return "", fmt.Errorf("%w: %s", ErrRenderedURLInvalid, rendered)
+	}
 	// Collapse the empty segment an unset optional placeholder (slug/env/flavour)
 	// leaves behind, so it yields a clean URL instead of "//". Also drops a
-	// trailing slash. Traversal is already blocked at the value level.
+	// trailing slash.
 	if u.Path != "" {
 		u.Path = path.Clean(u.Path)
 		u.RawPath = "" // stale encoding of the pre-Clean path
@@ -525,13 +638,15 @@ func resolveUIBundle(meta map[string]*commonpb.Payload, workflowType string) (UI
 // the version-wide default. version is required; slug is optional (workers stamp
 // it only for shared "flavour" bundles whose URL template uses {{.Slug}};
 // per-tenant bundles are keyed by version alone). ok is true when version is
-// present, so a slug-only tier is treated as absent.
+// present, so a slug-only tier is treated as absent. An empty per-type version
+// is absent too, so it cannot shadow the default; an empty default has nothing
+// to fall back to and fails at render.
 func uiBundleAtTier(meta map[string]*commonpb.Payload, workflowType string) (UIBundle, bool, error) {
 	version, okVersion, err := payloadString(meta, UIBundleMetadataKey(workflowType, uiBundleVerField))
 	if err != nil {
 		return UIBundle{}, false, err
 	}
-	if !okVersion {
+	if !okVersion || (version == "" && workflowType != "") {
 		return UIBundle{}, false, nil
 	}
 	slug, _, err := payloadString(meta, UIBundleMetadataKey(workflowType, uiBundleSlugField))

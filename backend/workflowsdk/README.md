@@ -249,14 +249,14 @@ func (w *MyWorkflow) Signals(ctx context.Context) []*workflowsdk.Signal {
 
     return []*workflowsdk.Signal{
         workflowsdk.NewStartSignal(
-            events.MutationEventWithReplyTopic{
+            events.MutationEventTopic{
                 TenantID:      tenantID,
                 ServiceName:   "data",
                 OperationName: "created",
             },
         ),
         workflowsdk.NewIntermediateSignal(
-            events.MutationEventWithReplyTopic{
+            events.MutationEventTopic{
                 TenantID:      tenantID,
                 ServiceName:   "approval",
                 OperationName: "received",
@@ -266,16 +266,108 @@ func (w *MyWorkflow) Signals(ctx context.Context) []*workflowsdk.Signal {
 }
 ```
 
-Signal types:
-- **Start**: Triggers workflow creation
-- **Intermediate**: Sent to running workflows
+Signal types (constructor, target, may start):
+
+| Type | Constructor | Target | Starts |
+|---|---|---|---|
+| Start | `NewStartSignal` | `<workflow>_<entity ID>` | yes |
+| Intermediate (broadcast) | `NewIntermediateSignal` | every running execution of the workflow | no |
+| Signal-With-Start | `NewSignalWithStartSignal` | `<workflow>_<entity ID>` | yes, with the event as input and as signal |
+| Signal by ID | `NewSignalByIDSignal` | `<workflow>_<entity ID>` | no; without a running execution the event is dropped and recorded |
+
+`<entity ID>` is the event's `id`: the entity's ID for data changes. It is not the event's `event_id` (the outbox entry ID).
 
 
 > **Note on Sparse Topic Structs**:
 > - **Omitted fields become wildcards**: Only set the fields you need to match. For example, omitting `SchemaName` will match events from any schema.
 > - **Tenant ID is special**: If `TenantID` is not set (or set to zero), it will be automatically replaced with ALL tenant IDs the current user is authorized for. This ensures proper multi-tenant isolation.
-> - **Available fields**: `MutationEventWithReplyTopic` supports `TenantID`, `ServiceName`, `SchemaName`, `EntityID`, and `OperationName`.
+> - **Available fields**: `MutationEventTopic` supports `TenantID`, `ServiceName`, `SchemaName`, `EntityID`, and `OperationName`. (Legacy `request.reply.*` registrations are still accepted and normalized to this form.)
 > - **Other topic types**: See [backend/common/events](../common/events) for `CustomEventTopic`, `WorkflowEventTopic`, etc.
+
+#### Filter rules and payloads
+
+A `workflowsdk.WithFilterRule("...")` FEEL expression is evaluated against the
+event, and the same data is delivered to the workflow (start input or signal
+payload). An empty rule matches every event on the topic.
+
+| Topic | Filter variables (top-level JSON fields) | Start input / signal payload |
+|-------|------------------------------------------|------------------------------|
+| `MutationEventTopic` | the fields of the entity after the change (`DataAfter`) | `DataAfter` |
+| `TemporalWorkflowStateChangeTopic` | `namespace`, `task_queue`, `workflow_id`, `workflow_type_name`, `run_id`, `status` | the state-change message, with the same six fields |
+
+For state changes, `status` is the Temporal status the run entered (for example
+`RUNNING`, `COMPLETED`, `FAILED`), so `status = "COMPLETED"` matches a finished
+run. The payload is **not** the pyck workflow record: read the state-change
+fields from the message.
+
+### Event IDs and deduplication
+
+Design background: [ADR-0002](../../docs/adr/0002-workflow-event-routing-and-delivery.md).
+
+Every event the signal router delivers has an event ID (the `event_id` of the
+mutation event, stable across redeliveries). The router sends it to Temporal in
+the `pyck-event-id` header (`eventid.HeaderKey`) on every start, signal and
+signal-with-start. `NewWorker` installs the interceptor that reads it; workflows
+need no registration.
+
+| You want | Call | Notes |
+|---|---|---|
+| The event that started this run | `workflowsdk.EventID(ctx)` | `(uuid.UUID, bool)`; `false` if the run was not started by the router |
+| A signal's value and its event | `workflowsdk.ReceiveEvent[T](ctx, ch)` | Use instead of `ch.Receive`; `ev.ID` is `uuid.Nil` (`ev.HasID() == false`) if the sender set none |
+
+The dedup key is **event ID + signal name**. The router can deliver an event
+more than once (a crash between the Temporal call and the ack, or two
+replicas), and Temporal drops repeats by request ID in most cases, but not all:
+a workflow that must not apply an event twice should remember the keys it has
+handled. Keep that set in workflow state; it survives replay. Under Signal-With-Start the first event arrives twice, as
+the start input and as a signal, both with the same event ID: apply the input, and record its key under the
+subscription's signal name so the signal is skipped.
+
+```go
+type handled struct {
+    ID     uuid.UUID
+    Signal string
+}
+
+func (w *MyWorkflow) Execute(ctx workflow.Context, in Input) (Output, error) {
+    seen := map[handled]struct{}{}
+
+    // The start event's key. Under Signal-With-Start the same event also
+    // arrives as a signal with the same event ID, so seed it under that
+    // subscription's signal name, not a placeholder: the signal is then
+    // recognised as already applied. (A plain Start sends no signal.)
+    if id, ok := workflowsdk.EventID(ctx); ok {
+        seen[handled{id, "approval-received"}] = struct{}{}
+    }
+
+    ch := workflow.GetSignalChannel(ctx, "approval-received")
+
+    for {
+        ev, err := workflowsdk.ReceiveEvent[Approval](ctx, ch)
+        if err != nil {
+            return Output{}, err
+        }
+
+        key := handled{ev.ID, "approval-received"}
+        if ev.HasID() {
+            if _, dup := seen[key]; dup {
+                continue // a redelivery of an event already applied
+            }
+
+            seen[key] = struct{}{}
+        }
+
+        // apply ev.Value ...
+    }
+}
+```
+
+How it works: Temporal only hands a signal's header to an interceptor, so the
+worker interceptor copies the event ID into the signal payload's metadata. It
+stays attached to its own signal inside the channel, which keeps it correct
+when several signals are queued. Ordinary `ch.Receive` still works and ignores
+the ID.
+
 ### Custom Task Queues
 
 By default, workflows use the `"default"` task queue. Override this:
@@ -289,6 +381,20 @@ func (w *MyWorkflow) StartOptions(ctx context.Context) client.StartWorkflowOptio
 ```
 
 Each unique task queue gets its own worker instance, allowing workflow isolation.
+
+**One task queue per worker type.** A workflow name is unique per tenant and its
+task queue is immutable. Every worker that serves a workflow must register it on
+the same queue: registering an existing name under a different queue fails at
+startup with `workflow task queue cannot be changed` (the SDK does not retry it).
+
+**Moving a workflow to another task queue:** first stop every worker on the old
+queue, then call `deleteWorkflow` for it, then deploy the workers on the new
+queue. Both steps are needed. The workflow service never deletes workflow rows
+on its own (its janitor only removes expired subscriptions), so the old row
+keeps the name on the old queue until `deleteWorkflow` removes it. And a worker
+that is still running re-creates the row on the old queue with its next
+registration heartbeat, so deleting the workflow while old workers run does not
+help.
 
 ### Workflow Metadata
 
@@ -421,7 +527,10 @@ The SDK loads configuration from environment variables via `LoadEnv()`:
 
 ### Required Variables
 
-- **`PYCK_API_TOKEN`**: Authentication token for Pyck API
+- **`PYCK_API_TOKEN`**: Authentication token for Pyck API. Its user needs the
+  WRITER role on the tenant: `registerWorkflow` writes subscription rows and
+  `unregisterWorker` marks them stopped, and both refuse a READER (`writer role
+  required`). Service users are granted WRITER when they are created.
 - **`PYCK_API_TENANT_ID`**: Tenant UUID
 
 ### Temporal Configuration
@@ -442,6 +551,59 @@ See [temporalenvconfig](https://pkg.go.dev/go.temporal.io/sdk/contrib/envconfig)
 
 - **`PYCK_GATEWAY_URL`**: Pyck gateway base URL
 
+### Worker identity and registration
+
+Each worker instance has a unique identity, `<pid>@<host>#<6 random [a-z0-9]>`
+(for example `1@pod-7d9f#k3x9qa`), generated once per `NewWorker`. An identity already set in the Temporal client options loaded from the
+environment (`temporalenvconfig`) wins. The same string is the
+Temporal client identity and the identity the health probe matches pollers
+against.
+
+The `workerID` a worker registers its signal subscriptions under is per Temporal
+worker (one per task queue): `<identity>/<task queue>`, for example
+`1@pod-7d9f#k3x9qa/orders`. A worker registers the subscriptions of exactly the
+workflows on that task queue under that ID, refreshes them under it, and calls
+`unregisterWorker` once per ID on stop. Two task queues in one process therefore
+never share subscription rows.
+
+If you pin the identity yourself (Temporal client options from the environment
+or `WithClientOptions`), replicas with the same configuration would share worker
+IDs, and one replica's `unregisterWorker` would mark the others' rows stopped. So for a
+caller-supplied identity the SDK appends a per-instance random suffix to the
+subscription worker ID: `<identity>#<6 random [a-z0-9]>/<task queue>`, for
+example `orders-worker#k3x9qa/orders`. The Temporal client identity itself, and
+the health probe matching on it, stay as configured. A generated identity
+already ends in such a suffix and is used as is.
+
+The service limits a worker ID to 255 bytes (the suffix counts); `Start`
+fails with `ErrWorkerIDTooLong`, naming the task queue, if any ID would exceed it.
+
+On start the worker registers only its own workflows and signals; it never lists
+or deletes other workers' workflows (older versions pruned every workflow missing
+from the local registry, which deleted other workers' workflows). A heartbeat
+refreshes the subscriptions before their TTL lapses. A failed heartbeat is
+retried after `PYCK_WORKER_REGISTRATION_HEARTBEAT_RETRY_BACKOFF`, doubling per
+consecutive failure up to the heartbeat interval, so a worker re-registers soon
+after an outage instead of waiting a whole interval; the normal interval resumes
+after a success. On stop, the worker calls
+`unregisterWorker` (once the heartbeat is cancelled), which marks its
+subscriptions stopped. Nothing is deleted: the router ignores stopped
+subscriptions on a workflow while another worker holds running ones (so an old
+version stops routing once the new one has registered), and otherwise keeps
+routing to them until their TTL lapses. A crash and a clean stop of the last
+worker therefore both end at the TTL; a later registration (the heartbeat) clears
+the mark. A failure is logged and shutdown continues. Stop therefore blocks for up to `PYCK_WORKER_UNREGISTER_TIMEOUT`
+while unregistering, so keep it below the pod's termination grace period.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PYCK_WORKER_REGISTRATION_HEARTBEAT_INTERVAL` | `5m` | Subscription refresh interval; must be below the service TTL (`PYCK_WORKFLOW_SUBSCRIPTION_TTL`, `1h`) |
+| `PYCK_WORKER_REGISTRATION_HEARTBEAT_RETRY_BACKOFF` | `5s` | Wait before the first retry of a failed heartbeat (doubles, capped at the interval) |
+| `PYCK_WORKER_REGISTRATION_RETRY_ATTEMPTS` | `5` | Startup registration attempts on transient conflicts |
+| `PYCK_WORKER_REGISTRATION_RETRY_BACKOFF` | `1s` | Base backoff between those attempts |
+| `PYCK_WORKER_UNREGISTER_ON_STOP` | `true` | Call `unregisterWorker` on Stop |
+| `PYCK_WORKER_UNREGISTER_TIMEOUT` | `5s` | Bound on the `unregisterWorker` calls of one Stop (all IDs together) |
+
 ### Worker Deployment Versioning
 
 A worker registers itself with Temporal under a **deployment version**
@@ -457,7 +619,7 @@ history.
 | `TEMPORAL_WORKER_BUILD_ID` | — | Injected by the temporal-worker-controller |
 | `TEMPORAL_DEPLOYMENT_NAME` | — | Injected by the temporal-worker-controller |
 | `PYCK_WORKER_REQUIRE_BUILD_ID` | `false` | Refuse to start on an unversioned build |
-| `PYCK_WORKER_PROMOTE_ON_START` | `false` | Promote own version; only without the controller |
+| `PYCK_WORKER_PROMOTE_ON_START` | `false` | Promote own version once the workers poll; only without the controller |
 | `PYCK_UI_BUNDLE_VERSION` | — | Version segment of the UI bundle URL |
 | `PYCK_UI_BUNDLE_SLUG` | empty | Bundle slug, for shared flavour bundles only |
 
@@ -472,9 +634,10 @@ images build without module version stamping.
 
 A registered version receives no tasks until it is made *current*. Under the
 temporal-worker-controller that is the controller's decision, gradual rollout
-included. Elsewhere, `PYCK_WORKER_PROMOTE_ON_START=true` makes the worker
-promote its own version through the Temporal API — no `temporal` CLI in the
-deploy step. Never set it under the controller: a self-promoting worker
+included. Elsewhere, `PYCK_WORKER_PROMOTE_ON_START=true` makes `RunDefaultWorker`
+promote its own version through the Temporal API once its workers have started
+(retrying until Temporal accepts it) — no `temporal` CLI in the deploy step. It
+does nothing on an unversioned build. Never set it under the controller: a self-promoting worker
 overrides the rollout it is in the middle of.
 
 **Under Kubernetes, do not set the `PYCK_` overrides.** The controller derives
@@ -526,7 +689,7 @@ The worker automatically:
 4. **Calls Setup()** to get activity structs (with shared state)
 5. **Registers activities** on the appropriate workers
 6. **Starts all workers** concurrently
-7. **Handles graceful shutdown** on SIGTERM/SIGINT
+7. **Handles graceful shutdown** on SIGTERM/SIGINT (unregisters its subscriptions, then stops the workers)
 
 Multiple workflows can share a worker if they use the same task queue, or they can be isolated by using different queues.
 

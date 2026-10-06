@@ -11,7 +11,7 @@ type Configuration struct {
 	// SecretKey is the MinIO secret key
 	SecretKey string `env:"PYCK_AWS_SECRET_ACCESS_KEY,notEmpty,required"`
 
-	// Endpoint is the MinIO endpoint URL (e.g., minio:9000)
+	// Endpoint is the S3 endpoint URL (e.g., http://rustfs:9000)
 	Endpoint string `env:"PYCK_AWS_S3_ENDPOINT_URL,notEmpty,required"`
 
 	// Region is the S3 region

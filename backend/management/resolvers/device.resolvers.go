@@ -21,15 +21,13 @@ func (r *deviceWhereInputResolver) Data(ctx context.Context, obj *gen.DeviceWher
 		return nil
 	}
 
-	if len(data) == 2 {
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(device.FieldData, data[1], jsonPath))
-		})
+	jsonPath, value, err := sqljsonpath.PathValue(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueEQ(device.FieldData, value, jsonPath))
+	})
 	return nil
 }
 
@@ -39,15 +37,13 @@ func (r *deviceWhereInputResolver) DataHasKey(ctx context.Context, obj *gen.Devi
 		return nil
 	}
 
-	if *data != "" {
-		jsonPath, err := sqljsonpath.DotPath(*data)
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(device.FieldData, jsonPath))
-		})
+	jsonPath, err := sqljsonpath.KeyPath(*data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.HasKey(device.FieldData, jsonPath))
+	})
 	return nil
 }
 
@@ -57,19 +53,13 @@ func (r *deviceWhereInputResolver) DataIn(ctx context.Context, obj *gen.DeviceWh
 		return nil
 	}
 
-	if len(data) >= 2 {
-		var args []any
-		for _, v := range data[1:] {
-			args = append(args, v)
-		}
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(device.FieldData, args, jsonPath))
-		})
+	jsonPath, values, err := sqljsonpath.PathValues(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueIn(device.FieldData, values, jsonPath))
+	})
 	return nil
 }
 
@@ -79,14 +69,12 @@ func (r *deviceWhereInputResolver) DataContains(ctx context.Context, obj *gen.De
 		return nil
 	}
 
-	if len(data) == 2 {
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(device.FieldData, data[1], jsonPath))
-		})
+	jsonPath, value, err := sqljsonpath.PathValue(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueContains(device.FieldData, value, jsonPath))
+	})
 	return nil
 }

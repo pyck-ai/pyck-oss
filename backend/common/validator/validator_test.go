@@ -542,12 +542,61 @@ func setupTestEnvironment(t *testing.T) *sql.DB {
 			id TEXT PRIMARY KEY,
 			data_type_id TEXT NOT NULL,
 			tenant_id TEXT NOT NULL,
-			data TEXT NOT NULL
+			data TEXT NOT NULL,
+			deleted_at TEXT
 		)
 	`)
 	require.NoError(t, err)
 
 	return db
+}
+
+// TestValidateInputDataUniquenessIgnoresSoftDeletedRows pins that a
+// soft-deleted row does not hold its unique value: once a record is deleted,
+// a new record may take the value, as the partial unique indexes on business
+// keys already allow. A live row with the value is still refused, also when a
+// deleted one exists beside it.
+func TestValidateInputDataUniquenessIgnoresSoftDeletedRows(t *testing.T) {
+	t.Parallel()
+
+	params := validator.UniquenessValidationParams{
+		Input: map[string]any{"email": "taken@example.com"},
+		DataType: &common_jsonschema.DataType{
+			ID:         testDataType1.ID,
+			JsonSchema: `{"type": "object", "properties": {"email": {"type": "string", "unique": true}}}`,
+		},
+		TableName: "test_items",
+		FieldName: "data",
+		DbDriver:  "sqlite3",
+	}
+	insert := func(t *testing.T, db *sql.DB, id string, deletedAt any) {
+		t.Helper()
+		_, err := db.ExecContext(t.Context(), `INSERT INTO test_items (id, data_type_id, tenant_id, data, deleted_at) VALUES (?, ?, ?, ?, ?)`,
+			id, testDataType1.ID.String(), testTenantID.String(), `{"email": "taken@example.com"}`, deletedAt)
+		require.NoError(t, err)
+	}
+
+	t.Run("a soft-deleted row does not count", func(t *testing.T) {
+		t.Parallel()
+		db := setupTestEnvironment(t)
+		t.Cleanup(func() { require.NoError(t, db.Close()) })
+		insert(t, db, "deleted", "2026-09-30T10:00:00Z")
+
+		v := validator.NewValidator(&mocks.MockDataTypeProvider{})
+		require.NoError(t, v.ValidateInputDataUniqueness(tenant.Context(t.Context(), testTenantID), db, params))
+	})
+
+	t.Run("a live row still counts beside a soft-deleted one", func(t *testing.T) {
+		t.Parallel()
+		db := setupTestEnvironment(t)
+		t.Cleanup(func() { require.NoError(t, db.Close()) })
+		insert(t, db, "deleted", "2026-09-30T10:00:00Z")
+		insert(t, db, "live", nil)
+
+		v := validator.NewValidator(&mocks.MockDataTypeProvider{})
+		err := v.ValidateInputDataUniqueness(tenant.Context(t.Context(), testTenantID), db, params)
+		require.ErrorIs(t, err, validator.ErrFieldNotUnique)
+	})
 }
 
 func TestValidator_ValidateInputDataUniqueness(t *testing.T) {

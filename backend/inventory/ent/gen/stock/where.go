@@ -836,14 +836,14 @@ func VersionLTE(v int64) predicate.Stock {
 // HasItem applies the HasEdge predicate on the "item" edge.
 func HasItem() predicate.Stock {
 	return predicate.Stock(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, ItemTable, ItemColumn),
-		)
+		step := newItemStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Item
 		step.Edge.Schema = schemaConfig.Stock
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -854,6 +854,7 @@ func HasItemWith(preds ...predicate.Item) predicate.Stock {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Item
 		step.Edge.Schema = schemaConfig.Stock
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)
@@ -865,14 +866,14 @@ func HasItemWith(preds ...predicate.Item) predicate.Stock {
 // HasRepository applies the HasEdge predicate on the "repository" edge.
 func HasRepository() predicate.Stock {
 	return predicate.Stock(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, RepositoryTable, RepositoryColumn),
-		)
+		step := newRepositoryStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Repository
 		step.Edge.Schema = schemaConfig.Stock
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -883,6 +884,7 @@ func HasRepositoryWith(preds ...predicate.Repository) predicate.Stock {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Repository
 		step.Edge.Schema = schemaConfig.Stock
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

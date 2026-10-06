@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/stretchr/testify/mock"
@@ -25,14 +24,6 @@ func (m *MockPublisher) SendCustomEvent(ctx context.Context, msg *events.CustomE
 func (m *MockPublisher) SendMutationEvent(ctx context.Context, msg *events.MutationEventMessage) error {
 	args := m.Called(msg)
 	return args.Error(0)
-}
-
-func (m *MockPublisher) SendMutationEventWithReply(ctx context.Context, msg *events.MutationEventMessage) ([]byte, error) {
-	args := m.Called(msg)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]byte), args.Error(1)
 }
 
 func (m *MockPublisher) SendTemporalSignalEvent(ctx context.Context, msg *events.MutationEventMessage) error {
@@ -74,12 +65,4 @@ func (m *MockPublisher) SendWorkflowEvent(ctx context.Context, msg *events.Workf
 func (m *MockPublisher) PublishRaw(ctx context.Context, topic string, payload []byte, msgID string) error {
 	args := m.Called(ctx, topic, payload, msgID)
 	return args.Error(0)
-}
-
-func (m *MockPublisher) RequestRaw(ctx context.Context, topic string, payload []byte, timeout time.Duration) (*events.EventReply, error) {
-	args := m.Called(ctx, topic, payload, timeout)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*events.EventReply), args.Error(1)
 }

@@ -7,6 +7,7 @@ import (
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
@@ -54,6 +55,15 @@ func (Transaction) Fields() []ent.Field {
 			Annotations(
 				entgql.OrderField("TYPE"),
 			),
+	}
+}
+
+// Indexes of the Transaction.
+func (Transaction) Indexes() []ent.Index {
+	return []ent.Index{
+		// Serves InventoryItem.itemtransactions: the item's newest rows first.
+		index.Fields("tenant_id", "item_id", "created_at", "id").
+			Annotations(entsql.DescColumns("created_at", "id")),
 	}
 }
 

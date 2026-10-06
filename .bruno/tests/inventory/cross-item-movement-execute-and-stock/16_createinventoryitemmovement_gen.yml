@@ -18,6 +18,7 @@ graphql:
 
       mutation CreateInventoryItemMovement($input: CreateItemMovementInput!) {
         createInventoryItemMovement(input: $input) {
+          eventCount
           inventoryItemMovement {
             blockedBy
             collectionID
@@ -42,11 +43,7 @@ graphql:
             updatedAt
             updatedBy
           }
-          workflows {
-            id
-            runID
-            type
-          }
+          transactionID
         }
       }
     variables: |-

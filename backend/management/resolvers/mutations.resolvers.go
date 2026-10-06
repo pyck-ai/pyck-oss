@@ -22,6 +22,8 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/std"
+	"github.com/pyck-ai/pyck/backend/common/txid"
+	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 	"github.com/pyck-ai/pyck/backend/management/core"
 	ent "github.com/pyck-ai/pyck/backend/management/ent/gen"
@@ -214,16 +216,27 @@ func (r *mutationResolver) DeleteDataType(ctx context.Context, id uuid.UUID) (*m
 
 // SendCustomEvent is the resolver for the sendCustomEvent field.
 func (r *mutationResolver) SendCustomEvent(ctx context.Context, input model.SendCustomEventInput) (*model.SendCustomEventResponse, error) {
+	if err := validateCustomEvent(input); err != nil {
+		return nil, err
+	}
+
 	// Custom events don't go through Ent mutations, so the hook can't capture them.
 	// We manually insert into the outbox to preserve the transactional outbox pattern.
 	req := request.ForContext(ctx)
+
+	// EntityEventsOutbox has no privacy policy, so this check is the only
+	// gate on the insert below: without it a READER could publish events
+	// that the workflow signal router turns into workflow starts and signals.
+	// System users pass HasRole, so service tokens keep working.
+	tenantID, err := req.RequireRole(authn.ROLE_WRITER, "sendCustomEvent")
+	if err != nil {
+		return nil, err
+	}
 
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
 	}
-
-	tenantID := req.MutationTenantID()
 
 	transactionID, err := events.TransactionIDFromContext(ctx)
 	if err != nil {
@@ -233,9 +246,9 @@ func (r *mutationResolver) SendCustomEvent(ctx context.Context, input model.Send
 	traceID := events.TraceIDFromContext(ctx)
 	requestID := events.RequestIDFromContext(ctx)
 
-	// Build topic matching the old factory output format:
-	// request.reply.pyck.<tenant>.crud.management.<type>.<id>.<operation>
-	topic := &events.MutationEventWithReplyTopic{
+	// Build the fire-and-forget mutation-event topic:
+	// pyck.<tenant>.crud.management.<type>.<id>.<operation>
+	topic := &events.MutationEventTopic{
 		StreamName:    events.DefaultStreamName,
 		TenantID:      tenantID,
 		ServiceName:   r.serviceName,
@@ -244,6 +257,10 @@ func (r *mutationResolver) SendCustomEvent(ctx context.Context, input model.Send
 		OperationName: input.Operation,
 	}
 
+	// The outbox row ID is the event's identity: it goes into the payload as
+	// event_id too, so both stay the same value across publish retries.
+	eventID := uuidgql.GenerateV7UUID()
+
 	// Build payload matching MutationEventMessage format
 	payload := map[string]any{
 		"service":    r.serviceName,
@@ -251,24 +268,26 @@ func (r *mutationResolver) SendCustomEvent(ctx context.Context, input model.Send
 		"schema":     input.Type,
 		"operation":  input.Operation,
 		"id":         input.Payload.ID,
+		"event_id":   eventID,
 		"tenant_id":  tenantID,
 		"data_after": input.Payload,
 		"wf_search_attributes": map[string]string{
-			"pyck_tenant_id": tenantID.String(),
-			"pyck_service":   r.serviceName,
-			"pyck_data_id":   input.Payload.ID.String(),
+			"pyck_tenant_id":      tenantID.String(),
+			"pyck_service":        r.serviceName,
+			"pyck_data_id":        input.Payload.ID.String(),
+			"pyck_transaction_id": transactionID.String(),
 		},
 	}
 
 	userID := req.User().ID
 	builder := tx.EntityEventsOutbox.Create().
-		SetID(uuid.New()).
+		SetID(eventID).
 		SetTransactionID(transactionID).
 		SetTenantID(tenantID).
 		SetUserID(userID).
 		SetTopic(topic.String()).
-		SetPayload(payload).
-		SetWithReply(true)
+		SetPayload(payload)
+
 	if traceID != "" {
 		builder = builder.SetTraceID(traceID)
 	}
@@ -278,8 +297,10 @@ func (r *mutationResolver) SendCustomEvent(ctx context.Context, input model.Send
 	if err := builder.Exec(ctx); err != nil {
 		return nil, fmt.Errorf("insert custom event outbox entry: %w", err)
 	}
+	// This row bypasses the mutation hook, so tally it for eventCount here.
+	txid.RecordEvent(ctx)
 
-	return &model.SendCustomEventResponse{Success: true}, nil
+	return &model.SendCustomEventResponse{Success: true, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // RegisterTenant is the resolver for the registerTenant field.
@@ -360,7 +381,11 @@ func (r *mutationResolver) RegisterTenant(ctx context.Context, input model.Regis
 			return nil, err
 		}
 
-		if err := r.client.Tenant.DeleteOneID(registeredTenant.ID).Exec(systemCtx); err != nil {
+		// The cleanup must stay event-free: a tenant delete event would
+		// start DisableTenantWorkflow for a registration that failed.
+		cleanupCtx := feature.Context(systemCtx, feature.FEATURE_SUPPRESS_EVENTS)
+
+		if err := r.client.Tenant.DeleteOneID(registeredTenant.ID).Exec(cleanupCtx); err != nil {
 			return nil, err
 		}
 
@@ -382,7 +407,7 @@ func (r *mutationResolver) RegisterTenant(ctx context.Context, input model.Regis
 		if len(userUUIDs) > 0 {
 			if _, err := r.client.User.Delete().
 				Where(user.IDIn(userUUIDs...)).
-				Exec(systemCtx); err != nil {
+				Exec(cleanupCtx); err != nil {
 				return nil, err
 			}
 		}
@@ -856,8 +881,18 @@ func (r *mutationResolver) CreateLocation(ctx context.Context, input ent.CreateL
 		return nil, err
 	}
 
-	create, _, err := tx.Location.Create().SetInputWithDataType(ctx, input, r.validator)
+	create, dataType, err := tx.Location.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
+		return nil, err
+	}
+
+	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+		Input:     input.Data,
+		DataType:  dataType,
+		TableName: location.Table,
+		FieldName: location.FieldData,
+		DbDriver:  core.Config.DbDriver,
+	}); err != nil {
 		return nil, err
 	}
 
@@ -866,7 +901,7 @@ func (r *mutationResolver) CreateLocation(ctx context.Context, input ent.CreateL
 		return nil, err
 	}
 
-	return &model.LocationOutput{Location: location}, nil
+	return &model.LocationOutput{Location: location, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // UpdateLocation is the resolver for the updateLocation field.
@@ -877,8 +912,21 @@ func (r *mutationResolver) UpdateLocation(ctx context.Context, id uuid.UUID, inp
 		return nil, err
 	}
 
-	update, _, err := tx.Location.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
+	update, dataType, err := tx.Location.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
+		return nil, err
+	}
+
+	// The row being updated is excluded: re-sending its own unique value
+	// is not a collision with itself.
+	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+		Input:     input.Data,
+		DataType:  dataType,
+		TableName: location.Table,
+		FieldName: location.FieldData,
+		DbDriver:  core.Config.DbDriver,
+		ExcludeID: &id,
+	}); err != nil {
 		return nil, err
 	}
 
@@ -887,7 +935,7 @@ func (r *mutationResolver) UpdateLocation(ctx context.Context, id uuid.UUID, inp
 		return nil, err
 	}
 
-	return &model.LocationOutput{Location: location}, nil
+	return &model.LocationOutput{Location: location, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // DeleteLocation is the resolver for the deleteLocation field.
@@ -908,7 +956,7 @@ func (r *mutationResolver) DeleteLocation(ctx context.Context, id uuid.UUID) (*m
 		return nil, err
 	}
 
-	return &model.LocationDeletePayload{DeletedID: &id}, nil
+	return &model.LocationDeletePayload{DeletedID: &id, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // CreateDevice is the resolver for the createDevice field.
@@ -919,8 +967,18 @@ func (r *mutationResolver) CreateDevice(ctx context.Context, input ent.CreateDev
 		return nil, err
 	}
 
-	create, _, err := tx.Device.Create().SetInputWithDataType(ctx, input, r.validator)
+	create, dataType, err := tx.Device.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
+		return nil, err
+	}
+
+	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+		Input:     input.Data,
+		DataType:  dataType,
+		TableName: device.Table,
+		FieldName: device.FieldData,
+		DbDriver:  core.Config.DbDriver,
+	}); err != nil {
 		return nil, err
 	}
 
@@ -929,7 +987,7 @@ func (r *mutationResolver) CreateDevice(ctx context.Context, input ent.CreateDev
 		return nil, err
 	}
 
-	return &model.DeviceOutput{Device: device}, nil
+	return &model.DeviceOutput{Device: device, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // UpdateDevice is the resolver for the updateDevice field.
@@ -940,8 +998,21 @@ func (r *mutationResolver) UpdateDevice(ctx context.Context, id uuid.UUID, input
 		return nil, err
 	}
 
-	update, _, err := tx.Device.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
+	update, dataType, err := tx.Device.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
+		return nil, err
+	}
+
+	// The row being updated is excluded: re-sending its own unique value
+	// is not a collision with itself.
+	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+		Input:     input.Data,
+		DataType:  dataType,
+		TableName: device.Table,
+		FieldName: device.FieldData,
+		DbDriver:  core.Config.DbDriver,
+		ExcludeID: &id,
+	}); err != nil {
 		return nil, err
 	}
 
@@ -950,7 +1021,7 @@ func (r *mutationResolver) UpdateDevice(ctx context.Context, id uuid.UUID, input
 		return nil, err
 	}
 
-	return &model.DeviceOutput{Device: device}, nil
+	return &model.DeviceOutput{Device: device, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // DeleteDevice is the resolver for the deleteDevice field.
@@ -971,7 +1042,7 @@ func (r *mutationResolver) DeleteDevice(ctx context.Context, id uuid.UUID) (*mod
 		return nil, err
 	}
 
-	return &model.DeviceDeletePayload{DeletedID: &id}, nil
+	return &model.DeviceDeletePayload{DeletedID: &id, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // SetDeviceLocation is the resolver for the setDeviceLocation field.
@@ -982,7 +1053,7 @@ func (r *mutationResolver) SetDeviceLocation(ctx context.Context, input ent.Crea
 		return nil, err
 	}
 
-	create, _, err := tx.DeviceLocation.Create().SetInputWithDataType(ctx, input, r.validator)
+	create, dataType, err := tx.DeviceLocation.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
@@ -994,12 +1065,22 @@ func (r *mutationResolver) SetDeviceLocation(ctx context.Context, input ent.Crea
 		return nil, fmt.Errorf("invalid location: %w", err)
 	}
 
+	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+		Input:     input.Data,
+		DataType:  dataType,
+		TableName: devicelocation.Table,
+		FieldName: devicelocation.FieldData,
+		DbDriver:  core.Config.DbDriver,
+	}); err != nil {
+		return nil, err
+	}
+
 	deviceLocation, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return &model.DeviceLocationOutput{DeviceLocation: deviceLocation}, nil
+	return &model.DeviceLocationOutput{DeviceLocation: deviceLocation, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // UnsetDeviceLocation is the resolver for the unsetDeviceLocation field.
@@ -1020,7 +1101,7 @@ func (r *mutationResolver) UnsetDeviceLocation(ctx context.Context, id uuid.UUID
 		return nil, err
 	}
 
-	return &model.DeviceLocationDeletePayload{DeletedID: &id}, nil
+	return &model.DeviceLocationDeletePayload{DeletedID: &id, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // CheckInUserDevice is the resolver for the checkInUserDevice field.
@@ -1070,7 +1151,7 @@ func (r *mutationResolver) CheckInUserDevice(ctx context.Context, input model.Ch
 		return nil, err
 	}
 
-	return &model.CheckInUserDeviceOutput{DeviceUser: deviceUser}, nil
+	return &model.CheckInUserDeviceOutput{DeviceUser: deviceUser, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // CheckOutUserDevice is the resolver for the checkOutUserDevice field.
@@ -1083,6 +1164,7 @@ func (r *mutationResolver) CheckOutUserDevice(ctx context.Context, input model.C
 
 	req := request.ForContext(ctx)
 	var resp model.CheckOutUserDeviceOutput
+	resp.TransactionID = gqltx.TransactionID(ctx)
 
 	if _, err := tx.Device.Get(ctx, input.DeviceID); err != nil {
 		return nil, fmt.Errorf("invalid device: %w", err)
@@ -1157,7 +1239,7 @@ func (r *mutationResolver) PatchLocationData(ctx context.Context, id uuid.UUID, 
 		return nil, err
 	}
 
-	return &model.LocationOutput{Location: updated}, nil
+	return &model.LocationOutput{Location: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // PatchDeviceData applies RFC 6902 JSON Patch operations to the device's data field.
@@ -1198,7 +1280,7 @@ func (r *mutationResolver) PatchDeviceData(ctx context.Context, id uuid.UUID, pa
 		return nil, err
 	}
 
-	return &model.DeviceOutput{Device: updated}, nil
+	return &model.DeviceOutput{Device: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // PatchDeviceLocationData applies RFC 6902 JSON Patch operations to the device location's data field.
@@ -1239,7 +1321,7 @@ func (r *mutationResolver) PatchDeviceLocationData(ctx context.Context, id uuid.
 		return nil, err
 	}
 
-	return &model.DeviceLocationOutput{DeviceLocation: updated}, nil
+	return &model.DeviceLocationOutput{DeviceLocation: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // Mutation returns exec.MutationResolver implementation.

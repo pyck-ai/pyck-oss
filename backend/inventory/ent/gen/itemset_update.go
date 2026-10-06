@@ -744,6 +744,9 @@ func (_u *ItemSetUpdateOne) sqlSave(ctx context.Context) (_node *ItemSet, err er
 	}
 	_spec.Node.Schema = _u.schemaConfig.ItemSet
 	ctx = internal.NewSchemaConfigContext(ctx, _u.schemaConfig)
+	if pred := _spec.Predicate; pred != nil {
+		_spec.Predicate = func(s *sql.Selector) { pred(s.WithContext(ctx)) }
+	}
 	_node = &ItemSet{config: _u.config}
 	_spec.Assign = _node.assignValues
 	_spec.ScanValues = _node.scanValues

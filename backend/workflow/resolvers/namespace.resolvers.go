@@ -14,13 +14,12 @@ import (
 
 // EnsureTemporalNamespace is the resolver for the ensureTemporalNamespace field.
 func (r *mutationResolver) EnsureTemporalNamespace(ctx context.Context) (bool, error) {
-	req := request.ForContext(ctx)
-
-	if !req.User().IsAuthenticated() {
-		return false, ErrUnauthenticated
+	tenantID, err := writerTenantID(request.ForContext(ctx))
+	if err != nil {
+		return false, err
 	}
 
-	nsClient, err := r.workflowRouter.GetClient(ctx, req.MutationTenantID().String())
+	nsClient, err := r.workflowRouter.GetClient(ctx, tenantID.String())
 	if err != nil || nsClient == nil {
 		return false, err
 	}

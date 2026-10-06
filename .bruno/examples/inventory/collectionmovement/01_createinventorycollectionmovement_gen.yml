@@ -29,16 +29,13 @@ graphql:
 
       mutation CreateInventoryCollectionMovement($input: CreateCollectionMovementInput!) {
         createInventoryCollectionMovement(input: $input) {
+          eventCount
           id
           movements {
             id
             movementType
           }
-          workflows {
-            id
-            runID
-            type
-          }
+          transactionID
         }
       }
     variables: |-

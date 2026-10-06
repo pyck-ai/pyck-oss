@@ -15,8 +15,18 @@ gateway, real Zitadel auth, or a running Temporal namespace.
 - `task test:integration` (from repo root) or `task test:integration:run` /
   `./scripts/start.sh` (from this dir) sources `config/keys/bootstrap.env`,
   checks the stack is reachable, and runs every suite with gotestsum. Requires
-  `task up` first (or use `task test:integration:up`, which boots the stack
-  and then runs). **`task test` (unit tests) never runs these.**
+  a **test-cadence stack**: `task up:integration` first (or
+  `task test:integration:up`, which boots it and then runs). Plain `task up`
+  keeps production cadences (reconcile 5m, expiry check 1m, Zitadel sync 10m,
+  PAT cache 1h), which make the sweep and token-cache suites skip or time out.
+  `task up:integration` layers `config/compose/integration.yaml` (5s reconcile,
+  10s expiry check, 10s Zitadel sync, 5s PAT cache) over the same project, so
+  `docker compose down -v` from the repo root tears it down as usual.
+  **`task test` (unit tests) never runs these.**
+- `scripts/envrc.sh` reads the `PYCK_*_INTERVAL` values from the running
+  `pyck-management` container's environment (the stack's real cadence) so
+  sweep-timing tests size their waits to it, falling back to `.env` if docker or
+  the container is unavailable.
 - For a single suite from your shell or IDE, load the env first — the suites
   fail at `config.Load` without it:
   `source ./scripts/envrc.sh && go test -tags=integration -run TestExpiry ./tests/tenant-lifecycle/...`
@@ -31,6 +41,7 @@ internal/            shared, reusable, NOT build-tagged
   fixtures/          gofakeit-backed random inputs (NewTenant, NewMachineUser)
   gateway/           typed API-client + helper wrappers (RegisterTenant, …)
   temporal/          Temporal dials (API-key auth, TLSDisabled for local TCP)
+  workerproc/        build + run helper worker binaries as OS processes (Start, Stop on SIGTERM)
   zitadelclient/     Zitadel SDK helpers (EnsureMachineUser, AddPAT, grants)
 tests/
   <suite-folder>/    one folder per feature area; files //go:build integration
@@ -42,7 +53,7 @@ tests/
 ## Rules for a new suite
 
 1. **One folder per feature**, files prefixed with a short tag matching the
-   suite (`tn_`, `wf_`, `mu_`, `tc_`, `ie_`). Every `*_test.go` starts with
+   suite (`tn_`, `wf_`, `mu_`, `tc_`, `ie_`, `ed_`). Every `*_test.go` starts with
    `//go:build integration`.
 2. **Embed `tests.Base`** in your suite struct and use `testify/suite`. `Base`
    gives you `s.Ctx`, `s.Cfg`, and a dialed `s.ZConn` for free via
@@ -92,4 +103,4 @@ tests/
 
 Nothing to do — `scripts/start.sh` runs `./tests/...`, so a new folder is
 picked up automatically. Just confirm it passes locally with
-`task test:integration -- -run TestYourSuite` against `task up`.
+`task test:integration -- -run TestYourSuite` against `task up:integration`.

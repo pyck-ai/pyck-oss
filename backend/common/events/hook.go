@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/internal/searchattributes"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	"github.com/pyck-ai/pyck/backend/common/request"
+	"github.com/pyck-ai/pyck/backend/common/txid"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
 )
 
@@ -28,11 +30,32 @@ var (
 	ErrExtractEntityID  = errors.New("extract entity ID")
 	ErrInsertOutbox     = errors.New("insert outbox entry")
 	ErrUnknownOperation = errors.New("unknown mutation operation")
-	ErrNotStruct        = errors.New("parameters must be structs")
-	ErrTypeMismatch     = errors.New("parameters must be of the same type")
-	ErrNoTransaction    = errors.New("no transaction in context")
-	ErrTypeNotInCache   = errors.New("type not in cache: entity discovery missed this type")
+	// ErrNoTenantForEvent is returned when an outbox event cannot be built
+	// because no tenant ID is resolvable: the entity has no tenant_id, the
+	// schema is not listed in HookConfig.SelfTenantSchemas, and the context
+	// carries no single mutation tenant ID. The mutation is rolled back
+	// instead of silently dropping its event. Callers either add a tenant ID
+	// to the context (request.Context) or, when the write must not emit, set
+	// feature.FEATURE_SUPPRESS_EVENTS.
+	ErrNoTenantForEvent = errors.New("no tenant ID resolvable for event")
+	// ErrBulkMutationEmitsNoEvent is returned when a bulk Update() or Delete()
+	// (ent.OpUpdate / ent.OpDelete, not the *One variants) matches at least one
+	// row and events are not suppressed. A bulk write changes many rows but
+	// the hook can emit only per-entity events, so it would commit rows with
+	// no event. Callers use UpdateOne/DeleteOne per entity, or set
+	// feature.FEATURE_SUPPRESS_EVENTS when the write must not emit.
+	ErrBulkMutationEmitsNoEvent = errors.New(
+		"bulk Update/Delete would change rows without emitting events: " +
+			"use UpdateOne/DeleteOne per entity, or set feature.FEATURE_SUPPRESS_EVENTS")
+	ErrNotStruct      = errors.New("parameters must be structs")
+	ErrTypeMismatch   = errors.New("parameters must be of the same type")
+	ErrNoTransaction  = errors.New("no transaction in context")
+	ErrTypeNotInCache = errors.New("type not in cache: entity discovery missed this type")
 )
+
+// idempotencyKeySchema is the Ent type name of every service's IdempotencyKey
+// schema (see mixin.IdempotencyKeyMixin). The hook never emits for it.
+const idempotencyKeySchema = "IdempotencyKey"
 
 // HookConfig configures the MutationEventHook behavior.
 type HookConfig struct {
@@ -54,6 +77,13 @@ type HookConfig struct {
 
 	// ExcludedSchemas lists schema names that should not emit events (e.g., "Outbox")
 	ExcludedSchemas []string
+
+	// SelfTenantSchemas lists schema names (Ent type names, e.g. "Tenant")
+	// whose entities are their own tenant: they have no tenant_id column, so
+	// the entity ID is used as the event's tenant ID when neither the entity
+	// nor the context provides one. Like ExcludedSchemas, this is matched by
+	// name and configured per service.
+	SelfTenantSchemas []string
 
 	// FieldChangeEmitter is called after Update operations to emit field-level change events.
 	// The callback receives all necessary info to compare before/after and emit events.
@@ -358,6 +388,18 @@ func NewMutationEventHook[T any](
 //   - Merges with context-provided search attributes (via WithExtraSearchAttribute)
 //   - Inserts into the outbox table within the same transaction
 //
+// Bulk writes (rule P3): a bulk Update() or Delete() (ent.OpUpdate /
+// ent.OpDelete) cannot emit per-entity events. Unless events are suppressed
+// (feature.FEATURE_SUPPRESS_EVENTS), the hook resolves the rows the predicate
+// matches before executing: if at least one row matches, the mutation fails
+// with ErrBulkMutationEmitsNoEvent and nothing runs; if none match, it runs
+// and emits nothing, because nothing changed. Use UpdateOne/DeleteOne per
+// entity, or suppress events, for writes that touch many rows.
+//
+// Schemas that never emit: EntityEventsOutbox (it would recurse) and
+// IdempotencyKey (per-request infrastructure rows, not domain entities), plus
+// HookConfig.ExcludedSchemas.
+//
 // For a simpler API with standard defaults, use NewMutationEventHook instead.
 func MutationEventHook(config HookConfig) ent.Hook {
 	if config.StreamName == "" {
@@ -370,6 +412,9 @@ func MutationEventHook(config HookConfig) ent.Hook {
 	}
 	// Always exclude EntityEventsOutbox to prevent infinite recursion
 	excludedSchemas[fieldnames.FieldEntityEventsOutbox.String()] = struct{}{}
+	// Always exclude IdempotencyKey: infrastructure rows written and pruned by
+	// the idempotency machinery, never domain events.
+	excludedSchemas[idempotencyKeySchema] = struct{}{}
 
 	return func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
@@ -399,7 +444,21 @@ func MutationEventHook(config HookConfig) ent.Hook {
 				return nil, err
 			}
 
-			// For Update/Delete: fetch before-state before mutation
+			// Bulk Update()/Delete(): fail when rows match (rule P3), run
+			// and emit nothing when none do.
+			if isBulkOp(m) {
+				ids, err := matchedIDs(ctx, m)
+				if err != nil {
+					return nil, fmt.Errorf("resolve bulk mutation rows: %w", err)
+				}
+				if len(ids) > 0 {
+					return nil, fmt.Errorf("%w: schema %q op %q matched %d rows",
+						ErrBulkMutationEmitsNoEvent, schema, op, len(ids))
+				}
+				return next.Mutate(ctx, m)
+			}
+
+			// For UpdateOne/DeleteOne: fetch before-state before mutation
 			entityID, beforeData, err := prepareBeforeState(ctx, config, m, schema, op)
 			if err != nil {
 				return nil, err
@@ -416,11 +475,6 @@ func MutationEventHook(config HookConfig) ent.Hook {
 				return value, err
 			}
 
-			// Bulk operation matched no entities — skip event emission
-			if entityID == uuid.Nil && op != OpCreate {
-				return value, nil
-			}
-
 			// Emit event - failure causes transaction rollback to maintain integrity
 			if err := emitOutboxEvent(ctx, config, schema, op, entityID, value, beforeData); err != nil {
 				return nil, fmt.Errorf("emit outbox event: %w", err)
@@ -428,7 +482,7 @@ func MutationEventHook(config HookConfig) ent.Hook {
 
 			// Emit field-level change events for Update operations (not soft deletes)
 			if op == OpUpdate && config.FieldChangeEmitter != nil && beforeData != nil {
-				tenantID := extractTenantID(value)
+				tenantID := resolveEventTenantID(ctx, config, schema, entityID, value, beforeData)
 				config.FieldChangeEmitter(ctx, FieldChangeInfo{
 					Service:   config.Service,
 					Schema:    schema,
@@ -445,10 +499,9 @@ func MutationEventHook(config HookConfig) ent.Hook {
 	}
 }
 
-// prepareBeforeState fetches the entity ID and before-state for Update/Delete operations.
-// Returns zero values for Create operations.
-// For bulk operations (OpUpdate/OpDelete, not *One variants) that match zero entities,
-// returns uuid.Nil with no error to signal the caller to skip event emission.
+// prepareBeforeState fetches the entity ID and before-state for UpdateOne and
+// DeleteOne operations. Returns zero values for Create operations. Bulk
+// operations never reach it: the hook handles them before this point.
 func prepareBeforeState(ctx context.Context, config HookConfig, m ent.Mutation, schema string, op string) (uuid.UUID, any, error) {
 	if op == OpCreate {
 		return uuid.Nil, nil, nil
@@ -456,13 +509,6 @@ func prepareBeforeState(ctx context.Context, config HookConfig, m ent.Mutation, 
 
 	entityID, err := extractEntityID(ctx, m)
 	if err != nil {
-		// Bulk Update/Delete (not *One variants) may match zero rows — this is
-		// expected (e.g., clearing defaults on a fresh tenant with no data).
-		// Return uuid.Nil to signal the caller to skip event emission.
-		if (m.Op() == ent.OpUpdate || m.Op() == ent.OpDelete) && errors.Is(err, ErrExtractEntityID) {
-			return uuid.Nil, nil, nil
-		}
-
 		return uuid.Nil, nil, fmt.Errorf("extract entity ID: %w", err)
 	}
 
@@ -475,6 +521,11 @@ func prepareBeforeState(ctx context.Context, config HookConfig, m ent.Mutation, 
 	}
 
 	return entityID, beforeData, nil
+}
+
+// isSelfTenantSchema reports whether entities of schema are their own tenant.
+func (c HookConfig) isSelfTenantSchema(schema string) bool {
+	return slices.Contains(c.SelfTenantSchemas, schema)
 }
 
 // emitOutboxEvent builds and inserts an outbox entry for the mutation.
@@ -492,13 +543,15 @@ func emitOutboxEvent(ctx context.Context, config HookConfig, schema, op string, 
 	if err != nil {
 		return fmt.Errorf("build outbox entry: %w", err)
 	}
-	if entry == nil {
-		return nil // No outbox entry needed (e.g., system-user mutation without tenant)
-	}
-
+	// buildOutboxEntry never returns a nil entry: an unresolvable tenant is an
+	// error (ErrNoTenantForEvent), not a silent skip. Writes that must not
+	// emit use feature.FEATURE_SUPPRESS_EVENTS, which bypasses the hook.
 	if err := insertOutboxEntry(ctx, config, entry); err != nil {
 		return fmt.Errorf("insert outbox entry: %w", err)
 	}
+	// Tally the row on the transaction so the mutation result can report it
+	// as eventCount (see gqltx.EventCount).
+	txid.RecordEvent(ctx)
 
 	return nil
 }
@@ -517,7 +570,6 @@ type OutboxEntry struct {
 	UserID        *uuid.UUID
 	Topic         Topic
 	Payload       []byte
-	WithReply     bool
 	EntityType    *string
 	EntityID      *uuid.UUID
 	TenantID      uuid.UUID
@@ -550,17 +602,33 @@ type IDsProvider interface {
 	IDs(ctx context.Context) ([]uuid.UUID, error)
 }
 
-// extractEntityID extracts the entity ID from a mutation.
-// For UpdateOne/DeleteOne, uses the mutation's IDs() method.
-func extractEntityID(ctx context.Context, m ent.Mutation) (uuid.UUID, error) {
+// isBulkOp reports whether m is a bulk Update() or Delete(), as opposed to
+// the single-entity *One variants.
+func isBulkOp(m ent.Mutation) bool {
+	return m.Op() == ent.OpUpdate || m.Op() == ent.OpDelete
+}
+
+// matchedIDs returns the IDs of the rows the mutation addresses: the set ID
+// for the *One variants, the rows the predicates match for bulk operations.
+func matchedIDs(ctx context.Context, m ent.Mutation) ([]uuid.UUID, error) {
 	provider, ok := m.(IDsProvider)
 	if !ok {
-		return uuid.Nil, fmt.Errorf("%w: mutation does not implement IDsProvider", ErrExtractEntityID)
+		return nil, fmt.Errorf("%w: mutation does not implement IDsProvider", ErrExtractEntityID)
 	}
 
 	ids, err := provider.IDs(ctx)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("%w: %w", ErrExtractEntityID, err)
+		return nil, fmt.Errorf("%w: %w", ErrExtractEntityID, err)
+	}
+
+	return ids, nil
+}
+
+// extractEntityID extracts the entity ID from a UpdateOne/DeleteOne mutation.
+func extractEntityID(ctx context.Context, m ent.Mutation) (uuid.UUID, error) {
+	ids, err := matchedIDs(ctx, m)
+	if err != nil {
+		return uuid.Nil, err
 	}
 
 	if len(ids) == 0 {
@@ -615,6 +683,27 @@ func isSoftDelete(m ent.Mutation) bool {
 	return false
 }
 
+// resolveEventTenantID resolves the tenant ID an event is published under, in
+// order: the tenant_id of the mutation result (data), the tenant_id of the
+// before-state (a delete's result is a row count and carries none), the entity
+// ID for self-tenant schemas (HookConfig.SelfTenantSchemas), the context's
+// single mutation tenant ID. Returns uuid.Nil when none is available.
+func resolveEventTenantID(ctx context.Context, config HookConfig, schema string, entityID uuid.UUID, data, beforeData any) uuid.UUID {
+	if tenantID := extractTenantID(data); tenantID != uuid.Nil {
+		return tenantID
+	}
+	if tenantID := extractTenantID(beforeData); tenantID != uuid.Nil {
+		return tenantID
+	}
+	if config.isSelfTenantSchema(schema) && entityID != uuid.Nil {
+		return entityID
+	}
+	if req := request.ForContext(ctx); req.HasMutationTenantID() {
+		return req.MutationTenantID()
+	}
+	return uuid.Nil
+}
+
 // buildOutboxEntry creates an outbox entry from the mutation context.
 func buildOutboxEntry(ctx context.Context, config HookConfig, schema string, op string, entityID uuid.UUID, data any, beforeData any) (*OutboxEntry, error) {
 	req := request.ForContext(ctx)
@@ -634,14 +723,12 @@ func buildOutboxEntry(ctx context.Context, config HookConfig, schema string, op 
 	traceID := TraceIDFromContext(ctx)
 	requestID := RequestIDFromContext(ctx)
 
-	// Get tenant ID from entity or context
-	tenantID := extractTenantID(data)
+	// Resolve the tenant ID (see resolveEventTenantID for the order). An
+	// unresolvable tenant is an error that rolls the mutation back: skipping
+	// it would commit the write with no event.
+	tenantID := resolveEventTenantID(ctx, config, schema, entityID, data, beforeData)
 	if tenantID == uuid.Nil {
-		if req.HasMutationTenantID() {
-			tenantID = req.MutationTenantID()
-		} else {
-			return nil, nil //nolint:nilnil // nil entry signals caller to skip outbox insertion
-		}
+		return nil, fmt.Errorf("%w: schema %q op %q entity %s", ErrNoTenantForEvent, schema, op, entityID)
 	}
 
 	// Start with context-provided search attributes
@@ -658,6 +745,17 @@ func buildOutboxEntry(ctx context.Context, config HookConfig, schema string, op 
 		}
 	}
 
+	// Stamp the per-tx UUID last so neither context nor entity attributes can
+	// clobber it. Workflows started from this event carry it as the
+	// pyck_transaction_id search attribute, which is what lets clients look up
+	// the executions a mutation triggered by the transaction ID it returned.
+	searchAttrs[searchattributes.PyckTransactionIDKey] = transactionID.String()
+
+	// The outbox row ID doubles as the event's identity. It is generated here,
+	// before the payload is serialized, so the payload's event_id and the
+	// row's ID are the same value and both stay fixed across publish retries.
+	eventID := uuidgql.GenerateV7UUID()
+
 	// Build the payload
 	payload := &MutationEventMessage{
 		Service:            config.Service,
@@ -665,6 +763,7 @@ func buildOutboxEntry(ctx context.Context, config HookConfig, schema string, op 
 		Schema:             schema,
 		Operation:          op,
 		ID:                 entityID,
+		EventID:            eventID,
 		TenantID:           tenantID,
 		DataBefore:         beforeData,
 		DataAfter:          data,
@@ -676,27 +775,16 @@ func buildOutboxEntry(ctx context.Context, config HookConfig, schema string, op 
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	// Build topic
-	expectsReply := ExpectsReply(ctx)
-	var topic Topic
-	if expectsReply {
-		topic = &MutationEventWithReplyTopic{
-			StreamName:    config.StreamName,
-			TenantID:      tenantID,
-			ServiceName:   config.Service,
-			SchemaName:    schema,
-			EntityID:      entityID,
-			OperationName: op,
-		}
-	} else {
-		topic = &MutationEventTopic{
-			StreamName:    config.StreamName,
-			TenantID:      tenantID,
-			ServiceName:   config.Service,
-			SchemaName:    schema,
-			EntityID:      entityID,
-			OperationName: op,
-		}
+	// Build topic. Mutation events are always published fire-and-forget:
+	// clients correlate started workflows via the transaction-ID handle
+	// instead of a request/reply round trip.
+	topic := &MutationEventTopic{
+		StreamName:    config.StreamName,
+		TenantID:      tenantID,
+		ServiceName:   config.Service,
+		SchemaName:    schema,
+		EntityID:      entityID,
+		OperationName: op,
 	}
 
 	// Build user ID pointer
@@ -706,7 +794,7 @@ func buildOutboxEntry(ctx context.Context, config HookConfig, schema string, op 
 	}
 
 	return &OutboxEntry{
-		ID:            uuidgql.GenerateV7UUID(),
+		ID:            eventID,
 		CreatedAt:     time.Now().UTC(),
 		TransactionID: transactionID,
 		TraceID:       traceID,
@@ -714,7 +802,6 @@ func buildOutboxEntry(ctx context.Context, config HookConfig, schema string, op 
 		UserID:        userIDPtr,
 		Topic:         topic,
 		Payload:       payloadBytes,
-		WithReply:     expectsReply,
 		EntityType:    &schema,
 		EntityID:      &entityID,
 		TenantID:      tenantID,

@@ -221,7 +221,6 @@ type EntityEventsOutbox implements Node {
   requestID: String
   topic: String!
   payload: Map!
-  withReply: Boolean!
   retryCount: Int!
   lastError: String
   deadAt: Time
@@ -349,11 +348,6 @@ input EntityEventsOutboxWhereInput {
   topicHasSuffix: String
   topicEqualFold: String
   topicContainsFold: String
-  """
-  with_reply field predicates
-  """
-  withReply: Boolean
-  withReplyNEQ: Boolean
   """
   retry_count field predicates
   """

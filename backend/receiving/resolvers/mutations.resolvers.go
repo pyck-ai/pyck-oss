@@ -65,15 +65,15 @@ func (r *mutationResolver) CreateReceivingInbound(ctx context.Context, input mod
 		if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 			Input:     item.Data,
 			DataType:  itemDataType,
-			TableName: inbound.Table,
-			FieldName: inbound.FieldData,
+			TableName: inbounditem.Table,
+			FieldName: inbounditem.FieldData,
 			DbDriver:  core.Config.DbDriver,
 		}); err != nil {
 			return nil, err
 		}
 	}
 
-	// Create inbound (MutationEventHook captures automatically, WorkflowReplyMiddleware handles reply)
+	// Create inbound (MutationEventHook captures automatically)
 	inboundInput := ent.CreateReceivingInboundInput{
 		DataTypeID: input.DataTypeID,
 		Data:       input.Data,
@@ -114,7 +114,7 @@ func (r *mutationResolver) CreateReceivingInbound(ctx context.Context, input mod
 		return nil, err
 	}
 
-	return &model.ReceivingInboundOutput{ReceivingInbound: receivedInbound}, nil
+	return &model.ReceivingInboundOutput{ReceivingInbound: receivedInbound, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // UpdateReceivingInbound is the resolver for the updateReceivingInbound field.
@@ -125,6 +125,11 @@ func (r *mutationResolver) UpdateReceivingInbound(ctx context.Context, id uuid.U
 	if err != nil {
 		return nil, err
 	}
+
+	// Removed items are soft-deleted below, not detached: the generated edge
+	// removal would set inbound_id, which is NOT NULL, to NULL and always fail.
+	removeItemIDs := input.RemoveInboundItemIDs
+	input.RemoveInboundItemIDs = nil
 
 	update, dataType, err := tx.Inbound.UpdateOneID(id).SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
@@ -142,15 +147,24 @@ func (r *mutationResolver) UpdateReceivingInbound(ctx context.Context, id uuid.U
 		return nil, err
 	}
 
-	// Remove inbound items (hook captures these as soft deletes)
-	for _, v := range input.RemoveInboundItemIDs {
+	// Remove inbound items (hook captures these as soft deletes). Only items of
+	// this inbound match; an id of another inbound is not found, so the whole
+	// update is refused instead of deleting someone else's item. A repeated id
+	// is skipped: its item is already soft-deleted and would read as not found.
+	removed := make(map[uuid.UUID]struct{}, len(removeItemIDs))
+	for _, v := range removeItemIDs {
+		if _, ok := removed[v]; ok {
+			continue
+		}
+		removed[v] = struct{}{}
 		_, err = tx.InboundItem.
 			UpdateOneID(v).
+			Where(inbounditem.InboundID(id)).
 			SetDeletedAt(time.Now().UTC()).
 			SetDeletedBy(req.User().ID).
 			Save(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("remove inbound item %s: %w", v, err)
 		}
 	}
 
@@ -160,7 +174,7 @@ func (r *mutationResolver) UpdateReceivingInbound(ctx context.Context, id uuid.U
 		return nil, err
 	}
 
-	return &model.ReceivingInboundOutput{ReceivingInbound: receivingInbound}, nil
+	return &model.ReceivingInboundOutput{ReceivingInbound: receivingInbound, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // DeleteReceivingInbound is the resolver for the deleteReceivingInbound field.
@@ -202,7 +216,7 @@ func (r *mutationResolver) DeleteReceivingInbound(ctx context.Context, id uuid.U
 		}
 	}
 
-	return &model.ReceivingInboundDeletePayload{DeletedID: &id}, nil
+	return &model.ReceivingInboundDeletePayload{DeletedID: &id, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // CreateReceivingInboundItem is the resolver for the createReceivingInboundItem field.
@@ -232,13 +246,13 @@ func (r *mutationResolver) CreateReceivingInboundItem(ctx context.Context, input
 		return nil, fmt.Errorf("invalid inbound: %w", err)
 	}
 
-	// Create item (MutationEventHook captures automatically, WorkflowReplyMiddleware handles reply)
+	// Create item (MutationEventHook captures automatically)
 	inboundItem, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return &model.ReceivingInboundItemOutput{ReceivingInboundItem: inboundItem}, nil
+	return &model.ReceivingInboundItemOutput{ReceivingInboundItem: inboundItem, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // UpdateReceivingInboundItem is the resolver for the updateReceivingInboundItem field.
@@ -276,7 +290,7 @@ func (r *mutationResolver) UpdateReceivingInboundItem(ctx context.Context, id uu
 		return nil, err
 	}
 
-	return &model.ReceivingInboundItemOutput{ReceivingInboundItem: inboundItem}, nil
+	return &model.ReceivingInboundItemOutput{ReceivingInboundItem: inboundItem, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // DeleteReceivingInboundItem is the resolver for the deleteReceivingInboundItem field.
@@ -286,7 +300,7 @@ func (r *mutationResolver) DeleteReceivingInboundItem(ctx context.Context, id uu
 		return nil, err
 	}
 
-	// Soft delete item (MutationEventHook detects soft delete, WorkflowReplyMiddleware handles reply)
+	// Soft delete item (MutationEventHook detects soft delete)
 	_, err = tx.InboundItem.
 		UpdateOneID(id).
 		SetDeletedAt(time.Now().UTC()).
@@ -296,7 +310,7 @@ func (r *mutationResolver) DeleteReceivingInboundItem(ctx context.Context, id uu
 		return nil, err
 	}
 
-	return &model.ReceivingInboundItemDeletePayload{DeletedID: &id}, nil
+	return &model.ReceivingInboundItemDeletePayload{DeletedID: &id, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // CreateReceivingInboundShipmentNotification is the resolver for the createReceivingInboundShipmentNotification field.
@@ -326,13 +340,13 @@ func (r *mutationResolver) CreateReceivingInboundShipmentNotification(ctx contex
 		return nil, fmt.Errorf("invalid inbound: %w", err)
 	}
 
-	// Create notification (MutationEventHook captures automatically, WorkflowReplyMiddleware handles reply)
+	// Create notification (MutationEventHook captures automatically)
 	notification, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return &model.ReceivingInboundShipmentNotificationOutput{ReceivingInboundShipmentNotification: notification}, nil
+	return &model.ReceivingInboundShipmentNotificationOutput{ReceivingInboundShipmentNotification: notification, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // UpdateReceivingInboundShipmentNotification is the resolver for the updateReceivingInboundShipmentNotification field.
@@ -371,7 +385,7 @@ func (r *mutationResolver) UpdateReceivingInboundShipmentNotification(ctx contex
 		return nil, err
 	}
 
-	return &model.ReceivingInboundShipmentNotificationOutput{ReceivingInboundShipmentNotification: notification}, nil
+	return &model.ReceivingInboundShipmentNotificationOutput{ReceivingInboundShipmentNotification: notification, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // DeleteReceivingInboundShipmentNotification is the resolver for the deleteReceivingInboundShipmentNotification field.
@@ -381,7 +395,7 @@ func (r *mutationResolver) DeleteReceivingInboundShipmentNotification(ctx contex
 		return nil, err
 	}
 
-	// Soft delete notification (MutationEventHook detects soft delete, WorkflowReplyMiddleware handles reply)
+	// Soft delete notification (MutationEventHook detects soft delete)
 	_, err = tx.InboundShipmentNotification.
 		UpdateOneID(id).
 		SetDeletedAt(time.Now().UTC()).
@@ -391,7 +405,7 @@ func (r *mutationResolver) DeleteReceivingInboundShipmentNotification(ctx contex
 		return nil, err
 	}
 
-	return &model.ReceivingInboundShipmentNotificationDeletePayload{DeletedID: &id}, nil
+	return &model.ReceivingInboundShipmentNotificationDeletePayload{DeletedID: &id, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // PatchReceivingInboundData applies RFC 6902 JSON Patch operations to the inbound's data field.
@@ -432,7 +446,7 @@ func (r *mutationResolver) PatchReceivingInboundData(ctx context.Context, id uui
 		return nil, err
 	}
 
-	return &model.ReceivingInboundOutput{ReceivingInbound: updated}, nil
+	return &model.ReceivingInboundOutput{ReceivingInbound: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // PatchReceivingInboundItemData applies RFC 6902 JSON Patch operations to the inbound item's data field.
@@ -473,7 +487,7 @@ func (r *mutationResolver) PatchReceivingInboundItemData(ctx context.Context, id
 		return nil, err
 	}
 
-	return &model.ReceivingInboundItemOutput{ReceivingInboundItem: updated}, nil
+	return &model.ReceivingInboundItemOutput{ReceivingInboundItem: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // PatchReceivingInboundShipmentNotificationData applies RFC 6902 JSON Patch operations to the notification's data field.
@@ -514,7 +528,7 @@ func (r *mutationResolver) PatchReceivingInboundShipmentNotificationData(ctx con
 		return nil, err
 	}
 
-	return &model.ReceivingInboundShipmentNotificationOutput{ReceivingInboundShipmentNotification: updated}, nil
+	return &model.ReceivingInboundShipmentNotificationOutput{ReceivingInboundShipmentNotification: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // Mutation returns exec.MutationResolver implementation.

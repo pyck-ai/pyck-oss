@@ -20,7 +20,6 @@ var (
 		{Name: "request_id", Type: field.TypeString, Nullable: true},
 		{Name: "topic", Type: field.TypeString},
 		{Name: "payload", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
-		{Name: "with_reply", Type: field.TypeBool, Default: false},
 		{Name: "retry_count", Type: field.TypeInt, Default: 0},
 		{Name: "last_error", Type: field.TypeString, Nullable: true},
 		{Name: "dead_at", Type: field.TypeTime, Nullable: true},
@@ -38,7 +37,7 @@ var (
 			{
 				Name:    "entityeventsoutbox_next_retry_at_transaction_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{EventOutboxColumns[13], EventOutboxColumns[4], EventOutboxColumns[1]},
+				Columns: []*schema.Column{EventOutboxColumns[12], EventOutboxColumns[4], EventOutboxColumns[1]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "published_at IS NULL AND dead_at IS NULL",
 				},
@@ -54,7 +53,7 @@ var (
 			{
 				Name:    "entityeventsoutbox_tenant_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{EventOutboxColumns[16], EventOutboxColumns[1]},
+				Columns: []*schema.Column{EventOutboxColumns[15], EventOutboxColumns[1]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "published_at IS NULL AND dead_at IS NULL",
 				},
@@ -70,6 +69,14 @@ var (
 				Columns: []*schema.Column{EventOutboxColumns[1]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "dead_at IS NOT NULL AND published_at IS NULL",
+				},
+			},
+			{
+				Name:    "entityeventsoutbox_published_at",
+				Unique:  false,
+				Columns: []*schema.Column{EventOutboxColumns[2]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "published_at IS NOT NULL",
 				},
 			},
 		},
@@ -160,10 +167,11 @@ var (
 		{Name: "deleted_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "nats_topic", Type: field.TypeString},
 		{Name: "temporal_signal", Type: field.TypeString, Nullable: true},
-		{Name: "temporal_signal_type", Type: field.TypeEnum, Enums: []string{"unknown", "start", "intermediate"}},
+		{Name: "temporal_signal_type", Type: field.TypeEnum, Enums: []string{"unknown", "start", "intermediate", "signal_with_start", "signal_by_id"}},
 		{Name: "filter_rule", Type: field.TypeString, Nullable: true},
-		{Name: "worker_id", Type: field.TypeString, Nullable: true},
-		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
+		{Name: "worker_id", Type: field.TypeString},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "stopped_at", Type: field.TypeTime, Nullable: true},
 		{Name: "workflow_id", Type: field.TypeUUID},
 	}
 	// WorkflowSignalsTable holds the schema information for the "workflow-signals" table.
@@ -174,7 +182,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "workflow-signals_workflows_workflowSignals",
-				Columns:    []*schema.Column{WorkflowSignalsColumns[14]},
+				Columns:    []*schema.Column{WorkflowSignalsColumns[15]},
 				RefColumns: []*schema.Column{WorkflowsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -183,7 +191,7 @@ var (
 			{
 				Name:    "workflowsignal_tenant_id_workflow_id_worker_id_nats_topic_temporal_signal_type_temporal_signal",
 				Unique:  true,
-				Columns: []*schema.Column{WorkflowSignalsColumns[1], WorkflowSignalsColumns[14], WorkflowSignalsColumns[12], WorkflowSignalsColumns[8], WorkflowSignalsColumns[10], WorkflowSignalsColumns[9]},
+				Columns: []*schema.Column{WorkflowSignalsColumns[1], WorkflowSignalsColumns[15], WorkflowSignalsColumns[12], WorkflowSignalsColumns[8], WorkflowSignalsColumns[10], WorkflowSignalsColumns[9]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
 				},
@@ -192,6 +200,11 @@ var (
 				Name:    "workflowsignal_expires_at",
 				Unique:  false,
 				Columns: []*schema.Column{WorkflowSignalsColumns[13]},
+			},
+			{
+				Name:    "workflowsignal_tenant_id_worker_id",
+				Unique:  false,
+				Columns: []*schema.Column{WorkflowSignalsColumns[1], WorkflowSignalsColumns[12]},
 			},
 		},
 	}

@@ -531,14 +531,14 @@ func TypeNotIn(vs ...Type) predicate.Transaction {
 // HasItem applies the HasEdge predicate on the "item" edge.
 func HasItem() predicate.Transaction {
 	return predicate.Transaction(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, ItemTable, ItemColumn),
-		)
+		step := newItemStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Item
 		step.Edge.Schema = schemaConfig.Transaction
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -549,6 +549,7 @@ func HasItemWith(preds ...predicate.Item) predicate.Transaction {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Item
 		step.Edge.Schema = schemaConfig.Transaction
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)
@@ -560,14 +561,14 @@ func HasItemWith(preds ...predicate.Item) predicate.Transaction {
 // HasRepository applies the HasEdge predicate on the "repository" edge.
 func HasRepository() predicate.Transaction {
 	return predicate.Transaction(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, RepositoryTable, RepositoryColumn),
-		)
+		step := newRepositoryStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Repository
 		step.Edge.Schema = schemaConfig.Transaction
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -578,6 +579,7 @@ func HasRepositoryWith(preds ...predicate.Repository) predicate.Transaction {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Repository
 		step.Edge.Schema = schemaConfig.Transaction
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

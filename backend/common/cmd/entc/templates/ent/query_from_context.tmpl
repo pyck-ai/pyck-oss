@@ -1,0 +1,19 @@
+{{/* gotype: entgo.io/ent/entc/gen.Type */}}
+
+{{/*
+Extends sqlAll and sqlCount (extension point "dialect/sql/query/spec/*").
+On an edge traversal (entity.QueryX(), client.Y.QueryX(entity), query-level
+QueryX()) the root selector is the traversal's From selector, which ent
+v0.14.6 builds without the query context and hands to sqlgraph as is
+(sqlgraph (*query).selector replaces its own context-carrying selector with
+From). Predicates that read s.Context() then see an anonymous caller: the
+neighbour scopes (mixin.ScopeNeighborToTenants) match nothing, so every
+relation filter on an edge connection returned no rows, even for the system
+user. Upstream fixed this in ent #4501 after v0.14.6; drop this template once
+the pinned ent includes it.
+*/}}
+{{ define "dialect/sql/query/spec/fromcontext" }}
+	if _spec.From != nil {
+		_spec.From.WithContext(ctx)
+	}
+{{- end }}

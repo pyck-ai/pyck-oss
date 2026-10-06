@@ -72,11 +72,21 @@ models:
   Node:
     model:
       - github.com/pyck-ai/pyck/backend/workflow/ent/gen.Noder
+  # remoteUI is computed on demand by a field resolver, not stored on the node.
+  WorkflowExecutionInfo:
+    fields:
+      remoteUI:
+        resolver: true
   # Bind the remote-UI types to the common/workflow domain structs so they exist
   # once (no parallel generated copy, no hand-copy in the resolver).
-  RemoteUI:
+  RemoteUIBundleURLs:
     model:
       - github.com/pyck-ai/pyck/backend/common/workflow.UIBundleURLs
+    fields:
+      webURL:
+        fieldName: Web
+      mobileURL:
+        fieldName: Mobile
   UIBundle:
     model:
       - github.com/pyck-ai/pyck/backend/common/workflow.UIBundle

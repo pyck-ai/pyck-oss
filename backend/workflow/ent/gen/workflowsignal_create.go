@@ -151,24 +151,22 @@ func (_c *WorkflowSignalCreate) SetWorkerID(v string) *WorkflowSignalCreate {
 	return _c
 }
 
-// SetNillableWorkerID sets the "worker_id" field if the given value is not nil.
-func (_c *WorkflowSignalCreate) SetNillableWorkerID(v *string) *WorkflowSignalCreate {
-	if v != nil {
-		_c.SetWorkerID(*v)
-	}
-	return _c
-}
-
 // SetExpiresAt sets the "expires_at" field.
 func (_c *WorkflowSignalCreate) SetExpiresAt(v time.Time) *WorkflowSignalCreate {
 	_c.mutation.SetExpiresAt(v)
 	return _c
 }
 
-// SetNillableExpiresAt sets the "expires_at" field if the given value is not nil.
-func (_c *WorkflowSignalCreate) SetNillableExpiresAt(v *time.Time) *WorkflowSignalCreate {
+// SetStoppedAt sets the "stopped_at" field.
+func (_c *WorkflowSignalCreate) SetStoppedAt(v time.Time) *WorkflowSignalCreate {
+	_c.mutation.SetStoppedAt(v)
+	return _c
+}
+
+// SetNillableStoppedAt sets the "stopped_at" field if the given value is not nil.
+func (_c *WorkflowSignalCreate) SetNillableStoppedAt(v *time.Time) *WorkflowSignalCreate {
 	if v != nil {
-		_c.SetExpiresAt(*v)
+		_c.SetStoppedAt(*v)
 	}
 	return _c
 }
@@ -269,6 +267,17 @@ func (_c *WorkflowSignalCreate) check() error {
 			return &ValidationError{Name: "temporal_signal_type", err: fmt.Errorf(`gen: validator failed for field "WorkflowSignal.temporal_signal_type": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.WorkerID(); !ok {
+		return &ValidationError{Name: "worker_id", err: errors.New(`gen: missing required field "WorkflowSignal.worker_id"`)}
+	}
+	if v, ok := _c.mutation.WorkerID(); ok {
+		if err := workflowsignal.WorkerIDValidator(v); err != nil {
+			return &ValidationError{Name: "worker_id", err: fmt.Errorf(`gen: validator failed for field "WorkflowSignal.worker_id": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.ExpiresAt(); !ok {
+		return &ValidationError{Name: "expires_at", err: errors.New(`gen: missing required field "WorkflowSignal.expires_at"`)}
+	}
 	if len(_c.mutation.WorkflowIDs()) == 0 {
 		return &ValidationError{Name: "workflow", err: errors.New(`gen: missing required edge "WorkflowSignal.workflow"`)}
 	}
@@ -355,11 +364,15 @@ func (_c *WorkflowSignalCreate) createSpec() (*WorkflowSignal, *sqlgraph.CreateS
 	}
 	if value, ok := _c.mutation.WorkerID(); ok {
 		_spec.SetField(workflowsignal.FieldWorkerID, field.TypeString, value)
-		_node.WorkerID = &value
+		_node.WorkerID = value
 	}
 	if value, ok := _c.mutation.ExpiresAt(); ok {
 		_spec.SetField(workflowsignal.FieldExpiresAt, field.TypeTime, value)
-		_node.ExpiresAt = &value
+		_node.ExpiresAt = value
+	}
+	if value, ok := _c.mutation.StoppedAt(); ok {
+		_spec.SetField(workflowsignal.FieldStoppedAt, field.TypeTime, value)
+		_node.StoppedAt = &value
 	}
 	if nodes := _c.mutation.WorkflowIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -587,9 +600,21 @@ func (u *WorkflowSignalUpsert) UpdateExpiresAt() *WorkflowSignalUpsert {
 	return u
 }
 
-// ClearExpiresAt clears the value of the "expires_at" field.
-func (u *WorkflowSignalUpsert) ClearExpiresAt() *WorkflowSignalUpsert {
-	u.SetNull(workflowsignal.FieldExpiresAt)
+// SetStoppedAt sets the "stopped_at" field.
+func (u *WorkflowSignalUpsert) SetStoppedAt(v time.Time) *WorkflowSignalUpsert {
+	u.Set(workflowsignal.FieldStoppedAt, v)
+	return u
+}
+
+// UpdateStoppedAt sets the "stopped_at" field to the value that was provided on create.
+func (u *WorkflowSignalUpsert) UpdateStoppedAt() *WorkflowSignalUpsert {
+	u.SetExcluded(workflowsignal.FieldStoppedAt)
+	return u
+}
+
+// ClearStoppedAt clears the value of the "stopped_at" field.
+func (u *WorkflowSignalUpsert) ClearStoppedAt() *WorkflowSignalUpsert {
+	u.SetNull(workflowsignal.FieldStoppedAt)
 	return u
 }
 
@@ -835,10 +860,24 @@ func (u *WorkflowSignalUpsertOne) UpdateExpiresAt() *WorkflowSignalUpsertOne {
 	})
 }
 
-// ClearExpiresAt clears the value of the "expires_at" field.
-func (u *WorkflowSignalUpsertOne) ClearExpiresAt() *WorkflowSignalUpsertOne {
+// SetStoppedAt sets the "stopped_at" field.
+func (u *WorkflowSignalUpsertOne) SetStoppedAt(v time.Time) *WorkflowSignalUpsertOne {
 	return u.Update(func(s *WorkflowSignalUpsert) {
-		s.ClearExpiresAt()
+		s.SetStoppedAt(v)
+	})
+}
+
+// UpdateStoppedAt sets the "stopped_at" field to the value that was provided on create.
+func (u *WorkflowSignalUpsertOne) UpdateStoppedAt() *WorkflowSignalUpsertOne {
+	return u.Update(func(s *WorkflowSignalUpsert) {
+		s.UpdateStoppedAt()
+	})
+}
+
+// ClearStoppedAt clears the value of the "stopped_at" field.
+func (u *WorkflowSignalUpsertOne) ClearStoppedAt() *WorkflowSignalUpsertOne {
+	return u.Update(func(s *WorkflowSignalUpsert) {
+		s.ClearStoppedAt()
 	})
 }
 
@@ -1251,10 +1290,24 @@ func (u *WorkflowSignalUpsertBulk) UpdateExpiresAt() *WorkflowSignalUpsertBulk {
 	})
 }
 
-// ClearExpiresAt clears the value of the "expires_at" field.
-func (u *WorkflowSignalUpsertBulk) ClearExpiresAt() *WorkflowSignalUpsertBulk {
+// SetStoppedAt sets the "stopped_at" field.
+func (u *WorkflowSignalUpsertBulk) SetStoppedAt(v time.Time) *WorkflowSignalUpsertBulk {
 	return u.Update(func(s *WorkflowSignalUpsert) {
-		s.ClearExpiresAt()
+		s.SetStoppedAt(v)
+	})
+}
+
+// UpdateStoppedAt sets the "stopped_at" field to the value that was provided on create.
+func (u *WorkflowSignalUpsertBulk) UpdateStoppedAt() *WorkflowSignalUpsertBulk {
+	return u.Update(func(s *WorkflowSignalUpsert) {
+		s.UpdateStoppedAt()
+	})
+}
+
+// ClearStoppedAt clears the value of the "stopped_at" field.
+func (u *WorkflowSignalUpsertBulk) ClearStoppedAt() *WorkflowSignalUpsertBulk {
+	return u.Update(func(s *WorkflowSignalUpsert) {
+		s.ClearStoppedAt()
 	})
 }
 

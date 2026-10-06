@@ -245,9 +245,13 @@ generate_supergraph_config() {
   local services=("$@")
   
   log "Generating supergraph configuration"
-  
+
+  # Exact composer version: rover otherwise fetches the newest 2.x, and a
+  # composer release can change the output (2.15.4 strips @deprecated from
+  # InventoryItem fields), turning the supergraph-in-sync check red with no
+  # schema change. Bump deliberately and commit the recomposed supergraph.
   cat > "$config_file" <<EOF
-federation_version: "2"
+federation_version: "=2.15.2"
 subgraphs:
 EOF
   

@@ -95,13 +95,28 @@ func (WorkflowUpdate[T, R]) DefaultType(u WorkflowUpdater[T, R]) *common_workflo
 func (WorkflowUpdate[T, R]) DefaultAwait(ctx workflow.Context, u WorkflowUpdater[T, R], input *common_workflow.UserDataInput, ref R) error {
 	u.UnsetValue()
 
-	if err := workflow.SetUpdateHandlerWithOptions(ctx, u.Type().ID,
+	// Rejections are logged here, where every update passes, because a
+	// validator rejection never reaches the workflow history.
+	updateType := u.Type().ID
+
+	if err := workflow.SetUpdateHandlerWithOptions(ctx, updateType,
 		func(ctx workflow.Context, value T) (any, error) {
-			return u.Update(ctx, input, ref, value)
+			result, err := u.Update(ctx, input, ref, value)
+			if err != nil {
+				logUpdateRejection(ctx, "update rejected", updateType, value, err)
+			}
+
+			return result, err
 		},
 		workflow.UpdateHandlerOptions{
 			Validator: func(ctx workflow.Context, value T) error {
-				return u.Validate(ctx, ref, value)
+				if err := u.Validate(ctx, ref, value); err != nil {
+					logUpdateRejection(ctx, "update rejected by validator", updateType, value, err)
+
+					return err
+				}
+
+				return nil
 			},
 		},
 	); err != nil {
@@ -118,6 +133,21 @@ func (WorkflowUpdate[T, R]) DefaultAwait(ctx workflow.Context, u WorkflowUpdater
 	}
 
 	return nil
+}
+
+// logUpdateRejection logs a rejected update with the client's update ID, so
+// the line can be matched with the caller's request.
+func logUpdateRejection(ctx workflow.Context, msg, updateType string, value any, err error) {
+	var updateID string
+	if info := workflow.GetCurrentUpdateInfo(ctx); info != nil {
+		updateID = info.ID
+	}
+
+	workflow.GetLogger(ctx).Warn(msg,
+		"update", updateType,
+		"updateID", updateID,
+		"input", value,
+		"error", err)
 }
 
 func (WorkflowUpdate[T, R]) DefaultValidate(ctx workflow.Context, u WorkflowUpdater[T, R], _ R, value T) error {

@@ -4,7 +4,7 @@ include:
   - config/compose/third-party/db.yaml
   - config/compose/third-party/gateway.yaml
   - config/compose/third-party/jaeger.yaml
-  - config/compose/third-party/minio.yaml
+  - config/compose/third-party/rustfs.yaml
   - config/compose/third-party/nats.yaml
   - config/compose/third-party/temporal.yaml
   - config/compose/third-party/zitadel.yaml

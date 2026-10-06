@@ -15,11 +15,12 @@ steps:
       input:
         name: "BrunoIdem{{bru_idem_workflow}}"
         taskQueue: "bruno-idem-task-queue"
+        workerID: "scenario-user-workflow-idempotency"
         signals:
           - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
             temporalSignal: "brunoIdemCreated"
             temporalSignalType: "start"
-            filterRule: "*"
+            filterRule: "true"
     tests:
       - msg: "Status is 200"
         assertions:
@@ -43,11 +44,12 @@ steps:
       input:
         name: "BrunoIdem{{bru_idem_workflow}}"
         taskQueue: "bruno-idem-task-queue"
+        workerID: "scenario-user-workflow-idempotency"
         signals:
           - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
             temporalSignal: "brunoIdemCreated"
             temporalSignalType: "start"
-            filterRule: "*"
+            filterRule: "true"
     tests:
       - msg: "Status is 200"
         assertions:
@@ -71,11 +73,12 @@ steps:
       input:
         name: "MismatchWorkflow"
         taskQueue: "mismatch-task-queue"
+        workerID: "scenario-user-workflow-idempotency"
         signals:
           - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
             temporalSignal: "mismatchCreated"
             temporalSignalType: "start"
-            filterRule: "*"
+            filterRule: "true"
     tests:
       - msg: "errors[].extensions.code is OPERATION_MISMATCH"
         assertions:
@@ -95,11 +98,12 @@ steps:
       input:
         name: "NeverRegistered"
         taskQueue: "never"
+        workerID: "scenario-user-workflow-idempotency"
         signals:
           - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
             temporalSignal: "never"
             temporalSignalType: "start"
-            filterRule: "*"
+            filterRule: "true"
     tests:
       - msg: "errors[].extensions.code is INVALID_IDEMPOTENCY_KEY"
         assertions:
@@ -123,11 +127,12 @@ steps:
       input:
         name: {$fake: "BrunoIdemEmpty-{{nonce}}"}
         taskQueue: "bruno-idem-task-queue"
+        workerID: "scenario-user-workflow-idempotency"
         signals:
           - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
             temporalSignal: "brunoIdemEmpty"
             temporalSignalType: "start"
-            filterRule: "*"
+            filterRule: "true"
     tests:
       - msg: "Status is 200"
         assertions:
@@ -153,11 +158,12 @@ steps:
       input:
         name: {$fake: "BrunoIdemWhitespace-{{nonce}}"}
         taskQueue: "bruno-idem-task-queue"
+        workerID: "scenario-user-workflow-idempotency"
         signals:
           - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
             temporalSignal: "brunoIdemWs"
             temporalSignalType: "start"
-            filterRule: "*"
+            filterRule: "true"
     tests:
       - msg: "Status is 200"
         assertions:
@@ -186,11 +192,12 @@ steps:
       input:
         name: {$fake: "BrunoIdemMax{{nonce}}"}
         taskQueue: "bruno-idem-task-queue"
+        workerID: "scenario-user-workflow-idempotency"
         signals:
           - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
             temporalSignal: "brunoIdemMax"
             temporalSignalType: "start"
-            filterRule: "*"
+            filterRule: "true"
     tests:
       - msg: "Status is 200"
         assertions:

@@ -1,0 +1,11 @@
+info:
+  name: User - Relation Filter Skips Soft-Deleted Items
+  type: folder
+  seq: 1
+
+docs: |-
+  A relation filter must not match through a soft-deleted neighbour that a direct query hides. Creates a picking order with one item, checks that pickingOrders(where: {hasOrderItemsWith: [{sku}]}) finds the order, deletes the item, then checks that the direct item query and the relation filter both return nothing. With X-Pyck-Feature: showdeleted both see the row again. The order is deleted at the end.
+
+
+request:
+  auth: inherit

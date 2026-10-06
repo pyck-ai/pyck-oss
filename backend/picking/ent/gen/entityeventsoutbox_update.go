@@ -145,20 +145,6 @@ func (_u *EntityEventsOutboxUpdate) SetPayload(v map[string]interface{}) *Entity
 	return _u
 }
 
-// SetWithReply sets the "with_reply" field.
-func (_u *EntityEventsOutboxUpdate) SetWithReply(v bool) *EntityEventsOutboxUpdate {
-	_u.mutation.SetWithReply(v)
-	return _u
-}
-
-// SetNillableWithReply sets the "with_reply" field if the given value is not nil.
-func (_u *EntityEventsOutboxUpdate) SetNillableWithReply(v *bool) *EntityEventsOutboxUpdate {
-	if v != nil {
-		_u.SetWithReply(*v)
-	}
-	return _u
-}
-
 // SetRetryCount sets the "retry_count" field.
 func (_u *EntityEventsOutboxUpdate) SetRetryCount(v int) *EntityEventsOutboxUpdate {
 	_u.mutation.ResetRetryCount()
@@ -381,9 +367,6 @@ func (_u *EntityEventsOutboxUpdate) sqlSave(ctx context.Context) (_node int, err
 	if value, ok := _u.mutation.Payload(); ok {
 		_spec.SetField(entityeventsoutbox.FieldPayload, field.TypeJSON, value)
 	}
-	if value, ok := _u.mutation.WithReply(); ok {
-		_spec.SetField(entityeventsoutbox.FieldWithReply, field.TypeBool, value)
-	}
 	if value, ok := _u.mutation.RetryCount(); ok {
 		_spec.SetField(entityeventsoutbox.FieldRetryCount, field.TypeInt, value)
 	}
@@ -556,20 +539,6 @@ func (_u *EntityEventsOutboxUpdateOne) SetNillableTopic(v *string) *EntityEvents
 // SetPayload sets the "payload" field.
 func (_u *EntityEventsOutboxUpdateOne) SetPayload(v map[string]interface{}) *EntityEventsOutboxUpdateOne {
 	_u.mutation.SetPayload(v)
-	return _u
-}
-
-// SetWithReply sets the "with_reply" field.
-func (_u *EntityEventsOutboxUpdateOne) SetWithReply(v bool) *EntityEventsOutboxUpdateOne {
-	_u.mutation.SetWithReply(v)
-	return _u
-}
-
-// SetNillableWithReply sets the "with_reply" field if the given value is not nil.
-func (_u *EntityEventsOutboxUpdateOne) SetNillableWithReply(v *bool) *EntityEventsOutboxUpdateOne {
-	if v != nil {
-		_u.SetWithReply(*v)
-	}
 	return _u
 }
 
@@ -825,9 +794,6 @@ func (_u *EntityEventsOutboxUpdateOne) sqlSave(ctx context.Context) (_node *Enti
 	if value, ok := _u.mutation.Payload(); ok {
 		_spec.SetField(entityeventsoutbox.FieldPayload, field.TypeJSON, value)
 	}
-	if value, ok := _u.mutation.WithReply(); ok {
-		_spec.SetField(entityeventsoutbox.FieldWithReply, field.TypeBool, value)
-	}
 	if value, ok := _u.mutation.RetryCount(); ok {
 		_spec.SetField(entityeventsoutbox.FieldRetryCount, field.TypeInt, value)
 	}
@@ -869,6 +835,9 @@ func (_u *EntityEventsOutboxUpdateOne) sqlSave(ctx context.Context) (_node *Enti
 	}
 	_spec.Node.Schema = _u.schemaConfig.EntityEventsOutbox
 	ctx = internal.NewSchemaConfigContext(ctx, _u.schemaConfig)
+	if pred := _spec.Predicate; pred != nil {
+		_spec.Predicate = func(s *sql.Selector) { pred(s.WithContext(ctx)) }
+	}
 	_node = &EntityEventsOutbox{config: _u.config}
 	_spec.Assign = _node.assignValues
 	_spec.ScanValues = _node.scanValues

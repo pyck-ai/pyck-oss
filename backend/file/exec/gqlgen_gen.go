@@ -54,17 +54,18 @@ type ComplexityRoot struct {
 	}
 
 	Customer struct {
-		File func(childComplexity int) int
-		ID   func(childComplexity int) int
+		File     func(childComplexity int) int
+		ID       func(childComplexity int) int
+		TenantID func(childComplexity int) int
 	}
 
 	Entity struct {
-		FindCustomerByID      func(childComplexity int, id uuid.UUID) int
-		FindFileByID          func(childComplexity int, id uuid.UUID) int
-		FindInventoryItemByID func(childComplexity int, id uuid.UUID) int
-		FindPickingOrderByID  func(childComplexity int, id uuid.UUID) int
-		FindRepositoryByID    func(childComplexity int, id uuid.UUID) int
-		FindSupplierByID      func(childComplexity int, id uuid.UUID) int
+		FindCustomerByIDAndTenantID      func(childComplexity int, id uuid.UUID, tenantID uuid.UUID) int
+		FindFileByID                     func(childComplexity int, id uuid.UUID) int
+		FindInventoryItemByIDAndTenantID func(childComplexity int, id uuid.UUID, tenantID uuid.UUID) int
+		FindPickingOrderByIDAndTenantID  func(childComplexity int, id uuid.UUID, tenantID uuid.UUID) int
+		FindRepositoryByIDAndTenantID    func(childComplexity int, id uuid.UUID, tenantID uuid.UUID) int
+		FindSupplierByIDAndTenantID      func(childComplexity int, id uuid.UUID, tenantID uuid.UUID) int
 	}
 
 	EntityEventsOutbox struct {
@@ -84,7 +85,6 @@ type ComplexityRoot struct {
 		TraceID       func(childComplexity int) int
 		TransactionID func(childComplexity int) int
 		UserID        func(childComplexity int) int
-		WithReply     func(childComplexity int) int
 	}
 
 	File struct {
@@ -134,8 +134,9 @@ type ComplexityRoot struct {
 	}
 
 	InventoryItem struct {
-		File func(childComplexity int) int
-		ID   func(childComplexity int) int
+		File     func(childComplexity int) int
+		ID       func(childComplexity int) int
+		TenantID func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -155,8 +156,9 @@ type ComplexityRoot struct {
 	}
 
 	PickingOrder struct {
-		File func(childComplexity int) int
-		ID   func(childComplexity int) int
+		File     func(childComplexity int) int
+		ID       func(childComplexity int) int
+		TenantID func(childComplexity int) int
 	}
 
 	Query struct {
@@ -169,8 +171,9 @@ type ComplexityRoot struct {
 	}
 
 	Repository struct {
-		File func(childComplexity int) int
-		ID   func(childComplexity int) int
+		File     func(childComplexity int) int
+		ID       func(childComplexity int) int
+		TenantID func(childComplexity int) int
 	}
 
 	ServiceInfo struct {
@@ -179,8 +182,9 @@ type ComplexityRoot struct {
 	}
 
 	Supplier struct {
-		File func(childComplexity int) int
-		ID   func(childComplexity int) int
+		File     func(childComplexity int) int
+		ID       func(childComplexity int) int
+		TenantID func(childComplexity int) int
 	}
 
 	_Service struct {
@@ -193,12 +197,12 @@ type ComplexityRoot struct {
 // region    ************************** generated!.gotpl **************************
 
 type EntityResolver interface {
-	FindCustomerByID(ctx context.Context, id uuid.UUID) (*model.Customer, error)
+	FindCustomerByIDAndTenantID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*model.Customer, error)
 	FindFileByID(ctx context.Context, id uuid.UUID) (*gen.File, error)
-	FindInventoryItemByID(ctx context.Context, id uuid.UUID) (*model.InventoryItem, error)
-	FindPickingOrderByID(ctx context.Context, id uuid.UUID) (*model.PickingOrder, error)
-	FindRepositoryByID(ctx context.Context, id uuid.UUID) (*model.Repository, error)
-	FindSupplierByID(ctx context.Context, id uuid.UUID) (*model.Supplier, error)
+	FindInventoryItemByIDAndTenantID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*model.InventoryItem, error)
+	FindPickingOrderByIDAndTenantID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*model.PickingOrder, error)
+	FindRepositoryByIDAndTenantID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*model.Repository, error)
+	FindSupplierByIDAndTenantID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*model.Supplier, error)
 }
 type FileResolver interface {
 	URL(ctx context.Context, obj *gen.File) (*string, error)
@@ -275,18 +279,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Customer.ID(childComplexity), true
-
-	case "Entity.findCustomerByID":
-		if e.ComplexityRoot.Entity.FindCustomerByID == nil {
+	case "Customer.tenantID":
+		if e.ComplexityRoot.Customer.TenantID == nil {
 			break
 		}
 
-		args, err := ec.field_Entity_findCustomerByID_args(ctx, rawArgs)
+		return e.ComplexityRoot.Customer.TenantID(childComplexity), true
+
+	case "Entity.findCustomerByIDAndTenantID":
+		if e.ComplexityRoot.Entity.FindCustomerByIDAndTenantID == nil {
+			break
+		}
+
+		args, err := ec.field_Entity_findCustomerByIDAndTenantID_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Entity.FindCustomerByID(childComplexity, args["id"].(uuid.UUID)), true
+		return e.ComplexityRoot.Entity.FindCustomerByIDAndTenantID(childComplexity, args["id"].(uuid.UUID), args["tenantID"].(uuid.UUID)), true
 	case "Entity.findFileByID":
 		if e.ComplexityRoot.Entity.FindFileByID == nil {
 			break
@@ -298,50 +308,50 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Entity.FindFileByID(childComplexity, args["id"].(uuid.UUID)), true
-	case "Entity.findInventoryItemByID":
-		if e.ComplexityRoot.Entity.FindInventoryItemByID == nil {
+	case "Entity.findInventoryItemByIDAndTenantID":
+		if e.ComplexityRoot.Entity.FindInventoryItemByIDAndTenantID == nil {
 			break
 		}
 
-		args, err := ec.field_Entity_findInventoryItemByID_args(ctx, rawArgs)
+		args, err := ec.field_Entity_findInventoryItemByIDAndTenantID_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Entity.FindInventoryItemByID(childComplexity, args["id"].(uuid.UUID)), true
-	case "Entity.findPickingOrderByID":
-		if e.ComplexityRoot.Entity.FindPickingOrderByID == nil {
+		return e.ComplexityRoot.Entity.FindInventoryItemByIDAndTenantID(childComplexity, args["id"].(uuid.UUID), args["tenantID"].(uuid.UUID)), true
+	case "Entity.findPickingOrderByIDAndTenantID":
+		if e.ComplexityRoot.Entity.FindPickingOrderByIDAndTenantID == nil {
 			break
 		}
 
-		args, err := ec.field_Entity_findPickingOrderByID_args(ctx, rawArgs)
+		args, err := ec.field_Entity_findPickingOrderByIDAndTenantID_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Entity.FindPickingOrderByID(childComplexity, args["id"].(uuid.UUID)), true
-	case "Entity.findRepositoryByID":
-		if e.ComplexityRoot.Entity.FindRepositoryByID == nil {
+		return e.ComplexityRoot.Entity.FindPickingOrderByIDAndTenantID(childComplexity, args["id"].(uuid.UUID), args["tenantID"].(uuid.UUID)), true
+	case "Entity.findRepositoryByIDAndTenantID":
+		if e.ComplexityRoot.Entity.FindRepositoryByIDAndTenantID == nil {
 			break
 		}
 
-		args, err := ec.field_Entity_findRepositoryByID_args(ctx, rawArgs)
+		args, err := ec.field_Entity_findRepositoryByIDAndTenantID_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Entity.FindRepositoryByID(childComplexity, args["id"].(uuid.UUID)), true
-	case "Entity.findSupplierByID":
-		if e.ComplexityRoot.Entity.FindSupplierByID == nil {
+		return e.ComplexityRoot.Entity.FindRepositoryByIDAndTenantID(childComplexity, args["id"].(uuid.UUID), args["tenantID"].(uuid.UUID)), true
+	case "Entity.findSupplierByIDAndTenantID":
+		if e.ComplexityRoot.Entity.FindSupplierByIDAndTenantID == nil {
 			break
 		}
 
-		args, err := ec.field_Entity_findSupplierByID_args(ctx, rawArgs)
+		args, err := ec.field_Entity_findSupplierByIDAndTenantID_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Entity.FindSupplierByID(childComplexity, args["id"].(uuid.UUID)), true
+		return e.ComplexityRoot.Entity.FindSupplierByIDAndTenantID(childComplexity, args["id"].(uuid.UUID), args["tenantID"].(uuid.UUID)), true
 
 	case "EntityEventsOutbox.createdAt":
 		if e.ComplexityRoot.EntityEventsOutbox.CreatedAt == nil {
@@ -439,12 +449,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.EntityEventsOutbox.UserID(childComplexity), true
-	case "EntityEventsOutbox.withReply":
-		if e.ComplexityRoot.EntityEventsOutbox.WithReply == nil {
-			break
-		}
-
-		return e.ComplexityRoot.EntityEventsOutbox.WithReply(childComplexity), true
 
 	case "File.contentType":
 		if e.ComplexityRoot.File.ContentType == nil {
@@ -632,6 +636,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.InventoryItem.ID(childComplexity), true
+	case "InventoryItem.tenantID":
+		if e.ComplexityRoot.InventoryItem.TenantID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.InventoryItem.TenantID(childComplexity), true
 
 	case "Mutation.analyzeImageFile":
 		if e.ComplexityRoot.Mutation.AnalyzeImageFile == nil {
@@ -737,6 +747,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.PickingOrder.ID(childComplexity), true
+	case "PickingOrder.tenantID":
+		if e.ComplexityRoot.PickingOrder.TenantID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PickingOrder.TenantID(childComplexity), true
 
 	case "Query.fileServiceInfo":
 		if e.ComplexityRoot.Query.FileServiceInfo == nil {
@@ -808,6 +824,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Repository.ID(childComplexity), true
+	case "Repository.tenantID":
+		if e.ComplexityRoot.Repository.TenantID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Repository.TenantID(childComplexity), true
 
 	case "ServiceInfo.date":
 		if e.ComplexityRoot.ServiceInfo.Date == nil {
@@ -834,6 +856,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Supplier.ID(childComplexity), true
+	case "Supplier.tenantID":
+		if e.ComplexityRoot.Supplier.TenantID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Supplier.TenantID(childComplexity), true
 
 	case "_Service.sdl":
 		if e.ComplexityRoot._Service.SDL == nil {
@@ -963,7 +991,6 @@ type EntityEventsOutbox implements Node {
   requestID: String
   topic: String!
   payload: Map!
-  withReply: Boolean!
   retryCount: Int!
   lastError: String
   deadAt: Time
@@ -1091,11 +1118,6 @@ input EntityEventsOutboxWhereInput {
   topicHasSuffix: String
   topicEqualFold: String
   topicContainsFold: String
-  """
-  with_reply field predicates
-  """
-  withReply: Boolean
-  withReplyNEQ: Boolean
   """
   retry_count field predicates
   """
@@ -1670,28 +1692,41 @@ extend input FileWhereInput {
   DataContains: [String!]
 }
 `, BuiltIn: false},
-	{Name: "../graph/filetypes.graphql", Input: `type InventoryItem @key(fields: "id") {
+	{Name: "../graph/filetypes.graphql", Input: `# The file service contributes ` + "`" + `file` + "`" + ` to entities of other services: the
+# files whose refid names the entity. refid is not a foreign key, so a file of
+# one tenant can name another tenant's row. Each entity is therefore keyed on
+# its id and tenantID, and the lookup lists only files of the entity's own
+# tenant, for every reader: the system user skips the tenant filter and a
+# multi-tenant reader's filter spans several tenants, so neither narrows the
+# lookup on its own.
+
+type InventoryItem @key(fields: "id tenantID") {
   id: ID!
+  tenantID: UUID!
   file: [File]
 }
 
-type Supplier @key(fields: "id") {
+type Supplier @key(fields: "id tenantID") {
   id: ID!
+  tenantID: UUID!
   file: [File]
 }
 
-type Customer @key(fields: "id") {
+type Customer @key(fields: "id tenantID") {
   id: ID!
+  tenantID: UUID!
   file: [File]
 }
 
-type Repository @key(fields: "id") {
+type Repository @key(fields: "id tenantID") {
   id: ID!
+  tenantID: UUID!
   file: [File]
 }
 
-type PickingOrder @key(fields: "id") {
+type PickingOrder @key(fields: "id tenantID") {
   id: ID!
+  tenantID: UUID!
   file: [File]
 }
 `, BuiltIn: false},
@@ -1855,12 +1890,12 @@ union _Entity = Customer | File | InventoryItem | PickingOrder | Repository | Su
 
 # fake type to build resolver interfaces for users to implement
 type Entity {
-	findCustomerByID(id: ID!,): Customer!
+	findCustomerByIDAndTenantID(id: ID!,tenantID: UUID!,): Customer!
 	findFileByID(id: ID!,): File!
-	findInventoryItemByID(id: ID!,): InventoryItem!
-	findPickingOrderByID(id: ID!,): PickingOrder!
-	findRepositoryByID(id: ID!,): Repository!
-	findSupplierByID(id: ID!,): Supplier!
+	findInventoryItemByIDAndTenantID(id: ID!,tenantID: UUID!,): InventoryItem!
+	findPickingOrderByIDAndTenantID(id: ID!,tenantID: UUID!,): PickingOrder!
+	findRepositoryByIDAndTenantID(id: ID!,tenantID: UUID!,): Repository!
+	findSupplierByIDAndTenantID(id: ID!,tenantID: UUID!,): Supplier!
 }
 
 type _Service {
@@ -1895,6 +1930,8 @@ func (ec *executionContext) childFields_Customer(ctx context.Context, field grap
 	switch field.Name {
 	case "id":
 		return ec.fieldContext_Customer_id(ctx, field)
+	case "tenantID":
+		return ec.fieldContext_Customer_tenantID(ctx, field)
 	case "file":
 		return ec.fieldContext_Customer_file(ctx, field)
 	}
@@ -1989,6 +2026,8 @@ func (ec *executionContext) childFields_InventoryItem(ctx context.Context, field
 	switch field.Name {
 	case "id":
 		return ec.fieldContext_InventoryItem_id(ctx, field)
+	case "tenantID":
+		return ec.fieldContext_InventoryItem_tenantID(ctx, field)
 	case "file":
 		return ec.fieldContext_InventoryItem_file(ctx, field)
 	}
@@ -2013,6 +2052,8 @@ func (ec *executionContext) childFields_PickingOrder(ctx context.Context, field 
 	switch field.Name {
 	case "id":
 		return ec.fieldContext_PickingOrder_id(ctx, field)
+	case "tenantID":
+		return ec.fieldContext_PickingOrder_tenantID(ctx, field)
 	case "file":
 		return ec.fieldContext_PickingOrder_file(ctx, field)
 	}
@@ -2023,6 +2064,8 @@ func (ec *executionContext) childFields_Repository(ctx context.Context, field gr
 	switch field.Name {
 	case "id":
 		return ec.fieldContext_Repository_id(ctx, field)
+	case "tenantID":
+		return ec.fieldContext_Repository_tenantID(ctx, field)
 	case "file":
 		return ec.fieldContext_Repository_file(ctx, field)
 	}
@@ -2043,6 +2086,8 @@ func (ec *executionContext) childFields_Supplier(ctx context.Context, field grap
 	switch field.Name {
 	case "id":
 		return ec.fieldContext_Supplier_id(ctx, field)
+	case "tenantID":
+		return ec.fieldContext_Supplier_tenantID(ctx, field)
 	case "file":
 		return ec.fieldContext_Supplier_file(ctx, field)
 	}
@@ -2173,7 +2218,7 @@ func (ec *executionContext) childFields___Type(ctx context.Context, field graphq
 
 // region    ***************************** args.gotpl *****************************
 
-func (ec *executionContext) field_Entity_findCustomerByID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Entity_findCustomerByIDAndTenantID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
@@ -2184,6 +2229,14 @@ func (ec *executionContext) field_Entity_findCustomerByID_args(ctx context.Conte
 		return nil, err
 	}
 	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "tenantID",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["tenantID"] = arg1
 	return args, nil
 }
 
@@ -2201,7 +2254,7 @@ func (ec *executionContext) field_Entity_findFileByID_args(ctx context.Context, 
 	return args, nil
 }
 
-func (ec *executionContext) field_Entity_findInventoryItemByID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Entity_findInventoryItemByIDAndTenantID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
@@ -2212,10 +2265,18 @@ func (ec *executionContext) field_Entity_findInventoryItemByID_args(ctx context.
 		return nil, err
 	}
 	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "tenantID",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["tenantID"] = arg1
 	return args, nil
 }
 
-func (ec *executionContext) field_Entity_findPickingOrderByID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Entity_findPickingOrderByIDAndTenantID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
@@ -2226,10 +2287,18 @@ func (ec *executionContext) field_Entity_findPickingOrderByID_args(ctx context.C
 		return nil, err
 	}
 	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "tenantID",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["tenantID"] = arg1
 	return args, nil
 }
 
-func (ec *executionContext) field_Entity_findRepositoryByID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Entity_findRepositoryByIDAndTenantID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
@@ -2240,10 +2309,18 @@ func (ec *executionContext) field_Entity_findRepositoryByID_args(ctx context.Con
 		return nil, err
 	}
 	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "tenantID",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["tenantID"] = arg1
 	return args, nil
 }
 
-func (ec *executionContext) field_Entity_findSupplierByID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Entity_findSupplierByIDAndTenantID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
@@ -2254,6 +2331,14 @@ func (ec *executionContext) field_Entity_findSupplierByID_args(ctx context.Conte
 		return nil, err
 	}
 	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "tenantID",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["tenantID"] = arg1
 	return args, nil
 }
 
@@ -2628,6 +2713,29 @@ func (ec *executionContext) fieldContext_Customer_id(_ context.Context, field gr
 	return graphql.NewScalarFieldContext("Customer", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
+func (ec *executionContext) _Customer_tenantID(ctx context.Context, field graphql.CollectedField, obj *model.Customer) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Customer_tenantID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TenantID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Customer_tenantID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Customer", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
 func (ec *executionContext) _Customer_file(ctx context.Context, field graphql.CollectedField, obj *model.Customer) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2660,17 +2768,17 @@ func (ec *executionContext) fieldContext_Customer_file(_ context.Context, field 
 	return fc, nil
 }
 
-func (ec *executionContext) _Entity_findCustomerByID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Entity_findCustomerByIDAndTenantID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Entity_findCustomerByID(ctx, field)
+			return ec.fieldContext_Entity_findCustomerByIDAndTenantID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Entity().FindCustomerByID(ctx, fc.Args["id"].(uuid.UUID))
+			return ec.Resolvers.Entity().FindCustomerByIDAndTenantID(ctx, fc.Args["id"].(uuid.UUID), fc.Args["tenantID"].(uuid.UUID))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *model.Customer) graphql.Marshaler {
@@ -2680,7 +2788,7 @@ func (ec *executionContext) _Entity_findCustomerByID(ctx context.Context, field 
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Entity_findCustomerByID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Entity_findCustomerByIDAndTenantID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Entity",
 		Field:      field,
@@ -2697,7 +2805,7 @@ func (ec *executionContext) fieldContext_Entity_findCustomerByID(ctx context.Con
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Entity_findCustomerByID_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Entity_findCustomerByIDAndTenantID_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -2748,17 +2856,17 @@ func (ec *executionContext) fieldContext_Entity_findFileByID(ctx context.Context
 	return fc, nil
 }
 
-func (ec *executionContext) _Entity_findInventoryItemByID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Entity_findInventoryItemByIDAndTenantID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Entity_findInventoryItemByID(ctx, field)
+			return ec.fieldContext_Entity_findInventoryItemByIDAndTenantID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Entity().FindInventoryItemByID(ctx, fc.Args["id"].(uuid.UUID))
+			return ec.Resolvers.Entity().FindInventoryItemByIDAndTenantID(ctx, fc.Args["id"].(uuid.UUID), fc.Args["tenantID"].(uuid.UUID))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *model.InventoryItem) graphql.Marshaler {
@@ -2768,7 +2876,7 @@ func (ec *executionContext) _Entity_findInventoryItemByID(ctx context.Context, f
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Entity_findInventoryItemByID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Entity_findInventoryItemByIDAndTenantID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Entity",
 		Field:      field,
@@ -2785,24 +2893,24 @@ func (ec *executionContext) fieldContext_Entity_findInventoryItemByID(ctx contex
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Entity_findInventoryItemByID_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Entity_findInventoryItemByIDAndTenantID_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Entity_findPickingOrderByID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Entity_findPickingOrderByIDAndTenantID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Entity_findPickingOrderByID(ctx, field)
+			return ec.fieldContext_Entity_findPickingOrderByIDAndTenantID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Entity().FindPickingOrderByID(ctx, fc.Args["id"].(uuid.UUID))
+			return ec.Resolvers.Entity().FindPickingOrderByIDAndTenantID(ctx, fc.Args["id"].(uuid.UUID), fc.Args["tenantID"].(uuid.UUID))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *model.PickingOrder) graphql.Marshaler {
@@ -2812,7 +2920,7 @@ func (ec *executionContext) _Entity_findPickingOrderByID(ctx context.Context, fi
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Entity_findPickingOrderByID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Entity_findPickingOrderByIDAndTenantID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Entity",
 		Field:      field,
@@ -2829,24 +2937,24 @@ func (ec *executionContext) fieldContext_Entity_findPickingOrderByID(ctx context
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Entity_findPickingOrderByID_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Entity_findPickingOrderByIDAndTenantID_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Entity_findRepositoryByID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Entity_findRepositoryByIDAndTenantID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Entity_findRepositoryByID(ctx, field)
+			return ec.fieldContext_Entity_findRepositoryByIDAndTenantID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Entity().FindRepositoryByID(ctx, fc.Args["id"].(uuid.UUID))
+			return ec.Resolvers.Entity().FindRepositoryByIDAndTenantID(ctx, fc.Args["id"].(uuid.UUID), fc.Args["tenantID"].(uuid.UUID))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *model.Repository) graphql.Marshaler {
@@ -2856,7 +2964,7 @@ func (ec *executionContext) _Entity_findRepositoryByID(ctx context.Context, fiel
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Entity_findRepositoryByID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Entity_findRepositoryByIDAndTenantID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Entity",
 		Field:      field,
@@ -2873,24 +2981,24 @@ func (ec *executionContext) fieldContext_Entity_findRepositoryByID(ctx context.C
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Entity_findRepositoryByID_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Entity_findRepositoryByIDAndTenantID_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Entity_findSupplierByID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Entity_findSupplierByIDAndTenantID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Entity_findSupplierByID(ctx, field)
+			return ec.fieldContext_Entity_findSupplierByIDAndTenantID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Entity().FindSupplierByID(ctx, fc.Args["id"].(uuid.UUID))
+			return ec.Resolvers.Entity().FindSupplierByIDAndTenantID(ctx, fc.Args["id"].(uuid.UUID), fc.Args["tenantID"].(uuid.UUID))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *model.Supplier) graphql.Marshaler {
@@ -2900,7 +3008,7 @@ func (ec *executionContext) _Entity_findSupplierByID(ctx context.Context, field 
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Entity_findSupplierByID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Entity_findSupplierByIDAndTenantID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Entity",
 		Field:      field,
@@ -2917,7 +3025,7 @@ func (ec *executionContext) fieldContext_Entity_findSupplierByID(ctx context.Con
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Entity_findSupplierByID_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Entity_findSupplierByIDAndTenantID_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -3129,29 +3237,6 @@ func (ec *executionContext) _EntityEventsOutbox_payload(ctx context.Context, fie
 }
 func (ec *executionContext) fieldContext_EntityEventsOutbox_payload(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("EntityEventsOutbox", field, false, false, errors.New("field of type Map does not have child fields"))
-}
-
-func (ec *executionContext) _EntityEventsOutbox_withReply(ctx context.Context, field graphql.CollectedField, obj *gen.EntityEventsOutbox) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_EntityEventsOutbox_withReply(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.WithReply, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_EntityEventsOutbox_withReply(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("EntityEventsOutbox", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
 func (ec *executionContext) _EntityEventsOutbox_retryCount(ctx context.Context, field graphql.CollectedField, obj *gen.EntityEventsOutbox) (ret graphql.Marshaler) {
@@ -4009,6 +4094,29 @@ func (ec *executionContext) fieldContext_InventoryItem_id(_ context.Context, fie
 	return graphql.NewScalarFieldContext("InventoryItem", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
+func (ec *executionContext) _InventoryItem_tenantID(ctx context.Context, field graphql.CollectedField, obj *model.InventoryItem) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_InventoryItem_tenantID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TenantID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_InventoryItem_tenantID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("InventoryItem", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
 func (ec *executionContext) _InventoryItem_file(ctx context.Context, field graphql.CollectedField, obj *model.InventoryItem) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4420,6 +4528,29 @@ func (ec *executionContext) fieldContext_PickingOrder_id(_ context.Context, fiel
 	return graphql.NewScalarFieldContext("PickingOrder", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
+func (ec *executionContext) _PickingOrder_tenantID(ctx context.Context, field graphql.CollectedField, obj *model.PickingOrder) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PickingOrder_tenantID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TenantID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PickingOrder_tenantID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PickingOrder", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
 func (ec *executionContext) _PickingOrder_file(ctx context.Context, field graphql.CollectedField, obj *model.PickingOrder) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4791,6 +4922,29 @@ func (ec *executionContext) fieldContext_Repository_id(_ context.Context, field 
 	return graphql.NewScalarFieldContext("Repository", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
+func (ec *executionContext) _Repository_tenantID(ctx context.Context, field graphql.CollectedField, obj *model.Repository) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Repository_tenantID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TenantID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Repository_tenantID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Repository", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
 func (ec *executionContext) _Repository_file(ctx context.Context, field graphql.CollectedField, obj *model.Repository) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4890,6 +5044,29 @@ func (ec *executionContext) _Supplier_id(ctx context.Context, field graphql.Coll
 }
 func (ec *executionContext) fieldContext_Supplier_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Supplier", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _Supplier_tenantID(ctx context.Context, field graphql.CollectedField, obj *model.Supplier) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Supplier_tenantID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TenantID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Supplier_tenantID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Supplier", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
 func (ec *executionContext) _Supplier_file(ctx context.Context, field graphql.CollectedField, obj *model.Supplier) (ret graphql.Marshaler) {
@@ -6103,7 +6280,7 @@ func (ec *executionContext) unmarshalInputEntityEventsOutboxWhereInput(ctx conte
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"not", "and", "or", "id", "idNEQ", "idIn", "idNotIn", "idGT", "idGTE", "idLT", "idLTE", "createdAt", "createdAtNEQ", "createdAtIn", "createdAtNotIn", "createdAtGT", "createdAtGTE", "createdAtLT", "createdAtLTE", "publishedAt", "publishedAtNEQ", "publishedAtIn", "publishedAtNotIn", "publishedAtGT", "publishedAtGTE", "publishedAtLT", "publishedAtLTE", "publishedAtIsNil", "publishedAtNotNil", "userID", "userIDNEQ", "userIDIn", "userIDNotIn", "userIDGT", "userIDGTE", "userIDLT", "userIDLTE", "userIDIsNil", "userIDNotNil", "transactionID", "transactionIDNEQ", "transactionIDIn", "transactionIDNotIn", "transactionIDGT", "transactionIDGTE", "transactionIDLT", "transactionIDLTE", "traceID", "traceIDNEQ", "traceIDIn", "traceIDNotIn", "traceIDGT", "traceIDGTE", "traceIDLT", "traceIDLTE", "traceIDContains", "traceIDHasPrefix", "traceIDHasSuffix", "traceIDIsNil", "traceIDNotNil", "traceIDEqualFold", "traceIDContainsFold", "requestID", "requestIDNEQ", "requestIDIn", "requestIDNotIn", "requestIDGT", "requestIDGTE", "requestIDLT", "requestIDLTE", "requestIDContains", "requestIDHasPrefix", "requestIDHasSuffix", "requestIDIsNil", "requestIDNotNil", "requestIDEqualFold", "requestIDContainsFold", "topic", "topicNEQ", "topicIn", "topicNotIn", "topicGT", "topicGTE", "topicLT", "topicLTE", "topicContains", "topicHasPrefix", "topicHasSuffix", "topicEqualFold", "topicContainsFold", "withReply", "withReplyNEQ", "retryCount", "retryCountNEQ", "retryCountIn", "retryCountNotIn", "retryCountGT", "retryCountGTE", "retryCountLT", "retryCountLTE", "lastError", "lastErrorNEQ", "lastErrorIn", "lastErrorNotIn", "lastErrorGT", "lastErrorGTE", "lastErrorLT", "lastErrorLTE", "lastErrorContains", "lastErrorHasPrefix", "lastErrorHasSuffix", "lastErrorIsNil", "lastErrorNotNil", "lastErrorEqualFold", "lastErrorContainsFold", "deadAt", "deadAtNEQ", "deadAtIn", "deadAtNotIn", "deadAtGT", "deadAtGTE", "deadAtLT", "deadAtLTE", "deadAtIsNil", "deadAtNotNil", "nextRetryAt", "nextRetryAtNEQ", "nextRetryAtIn", "nextRetryAtNotIn", "nextRetryAtGT", "nextRetryAtGTE", "nextRetryAtLT", "nextRetryAtLTE", "nextRetryAtIsNil", "nextRetryAtNotNil", "entityType", "entityTypeNEQ", "entityTypeIn", "entityTypeNotIn", "entityTypeGT", "entityTypeGTE", "entityTypeLT", "entityTypeLTE", "entityTypeContains", "entityTypeHasPrefix", "entityTypeHasSuffix", "entityTypeIsNil", "entityTypeNotNil", "entityTypeEqualFold", "entityTypeContainsFold", "entityID", "entityIDNEQ", "entityIDIn", "entityIDNotIn", "entityIDGT", "entityIDGTE", "entityIDLT", "entityIDLTE", "entityIDIsNil", "entityIDNotNil", "tenantID", "tenantIDNEQ", "tenantIDIn", "tenantIDNotIn", "tenantIDGT", "tenantIDGTE", "tenantIDLT", "tenantIDLTE"}
+	fieldsInOrder := [...]string{"not", "and", "or", "id", "idNEQ", "idIn", "idNotIn", "idGT", "idGTE", "idLT", "idLTE", "createdAt", "createdAtNEQ", "createdAtIn", "createdAtNotIn", "createdAtGT", "createdAtGTE", "createdAtLT", "createdAtLTE", "publishedAt", "publishedAtNEQ", "publishedAtIn", "publishedAtNotIn", "publishedAtGT", "publishedAtGTE", "publishedAtLT", "publishedAtLTE", "publishedAtIsNil", "publishedAtNotNil", "userID", "userIDNEQ", "userIDIn", "userIDNotIn", "userIDGT", "userIDGTE", "userIDLT", "userIDLTE", "userIDIsNil", "userIDNotNil", "transactionID", "transactionIDNEQ", "transactionIDIn", "transactionIDNotIn", "transactionIDGT", "transactionIDGTE", "transactionIDLT", "transactionIDLTE", "traceID", "traceIDNEQ", "traceIDIn", "traceIDNotIn", "traceIDGT", "traceIDGTE", "traceIDLT", "traceIDLTE", "traceIDContains", "traceIDHasPrefix", "traceIDHasSuffix", "traceIDIsNil", "traceIDNotNil", "traceIDEqualFold", "traceIDContainsFold", "requestID", "requestIDNEQ", "requestIDIn", "requestIDNotIn", "requestIDGT", "requestIDGTE", "requestIDLT", "requestIDLTE", "requestIDContains", "requestIDHasPrefix", "requestIDHasSuffix", "requestIDIsNil", "requestIDNotNil", "requestIDEqualFold", "requestIDContainsFold", "topic", "topicNEQ", "topicIn", "topicNotIn", "topicGT", "topicGTE", "topicLT", "topicLTE", "topicContains", "topicHasPrefix", "topicHasSuffix", "topicEqualFold", "topicContainsFold", "retryCount", "retryCountNEQ", "retryCountIn", "retryCountNotIn", "retryCountGT", "retryCountGTE", "retryCountLT", "retryCountLTE", "lastError", "lastErrorNEQ", "lastErrorIn", "lastErrorNotIn", "lastErrorGT", "lastErrorGTE", "lastErrorLT", "lastErrorLTE", "lastErrorContains", "lastErrorHasPrefix", "lastErrorHasSuffix", "lastErrorIsNil", "lastErrorNotNil", "lastErrorEqualFold", "lastErrorContainsFold", "deadAt", "deadAtNEQ", "deadAtIn", "deadAtNotIn", "deadAtGT", "deadAtGTE", "deadAtLT", "deadAtLTE", "deadAtIsNil", "deadAtNotNil", "nextRetryAt", "nextRetryAtNEQ", "nextRetryAtIn", "nextRetryAtNotIn", "nextRetryAtGT", "nextRetryAtGTE", "nextRetryAtLT", "nextRetryAtLTE", "nextRetryAtIsNil", "nextRetryAtNotNil", "entityType", "entityTypeNEQ", "entityTypeIn", "entityTypeNotIn", "entityTypeGT", "entityTypeGTE", "entityTypeLT", "entityTypeLTE", "entityTypeContains", "entityTypeHasPrefix", "entityTypeHasSuffix", "entityTypeIsNil", "entityTypeNotNil", "entityTypeEqualFold", "entityTypeContainsFold", "entityID", "entityIDNEQ", "entityIDIn", "entityIDNotIn", "entityIDGT", "entityIDGTE", "entityIDLT", "entityIDLTE", "entityIDIsNil", "entityIDNotNil", "tenantID", "tenantIDNEQ", "tenantIDIn", "tenantIDNotIn", "tenantIDGT", "tenantIDGTE", "tenantIDLT", "tenantIDLTE"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -6740,20 +6917,6 @@ func (ec *executionContext) unmarshalInputEntityEventsOutboxWhereInput(ctx conte
 				return it, err
 			}
 			it.TopicContainsFold = data
-		case "withReply":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("withReply"))
-			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.WithReply = data
-		case "withReplyNEQ":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("withReplyNEQ"))
-			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.WithReplyNEQ = data
 		case "retryCount":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("retryCount"))
 			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
@@ -8799,6 +8962,11 @@ func (ec *executionContext) _Customer(ctx context.Context, sel ast.SelectionSet,
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "tenantID":
+			out.Values[i] = ec._Customer_tenantID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "file":
 			out.Values[i] = ec._Customer_file(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
@@ -8845,7 +9013,7 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet) g
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Entity")
-		case "findCustomerByID":
+		case "findCustomerByIDAndTenantID":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -8854,7 +9022,7 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet) g
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Entity_findCustomerByID(ctx, field)
+				res = ec._Entity_findCustomerByIDAndTenantID(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -8889,7 +9057,7 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet) g
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "findInventoryItemByID":
+		case "findInventoryItemByIDAndTenantID":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -8898,7 +9066,7 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet) g
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Entity_findInventoryItemByID(ctx, field)
+				res = ec._Entity_findInventoryItemByIDAndTenantID(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -8911,7 +9079,7 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet) g
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "findPickingOrderByID":
+		case "findPickingOrderByIDAndTenantID":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -8920,7 +9088,7 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet) g
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Entity_findPickingOrderByID(ctx, field)
+				res = ec._Entity_findPickingOrderByIDAndTenantID(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -8933,7 +9101,7 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet) g
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "findRepositoryByID":
+		case "findRepositoryByIDAndTenantID":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -8942,7 +9110,7 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet) g
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Entity_findRepositoryByID(ctx, field)
+				res = ec._Entity_findRepositoryByIDAndTenantID(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -8955,7 +9123,7 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet) g
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "findSupplierByID":
+		case "findSupplierByIDAndTenantID":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -8964,7 +9132,7 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet) g
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Entity_findSupplierByID(ctx, field)
+				res = ec._Entity_findSupplierByIDAndTenantID(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -9052,11 +9220,6 @@ func (ec *executionContext) _EntityEventsOutbox(ctx context.Context, sel ast.Sel
 			}
 		case "payload":
 			out.Values[i] = ec._EntityEventsOutbox_payload(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "withReply":
-			out.Values[i] = ec._EntityEventsOutbox_withReply(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -9537,6 +9700,11 @@ func (ec *executionContext) _InventoryItem(ctx context.Context, sel ast.Selectio
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "tenantID":
+			out.Values[i] = ec._InventoryItem_tenantID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "file":
 			out.Values[i] = ec._InventoryItem_file(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
@@ -9713,6 +9881,11 @@ func (ec *executionContext) _PickingOrder(ctx context.Context, sel ast.Selection
 			out.Values[i] = graphql.MarshalString("PickingOrder")
 		case "id":
 			out.Values[i] = ec._PickingOrder_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "tenantID":
+			out.Values[i] = ec._PickingOrder_tenantID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -9946,6 +10119,11 @@ func (ec *executionContext) _Repository(ctx context.Context, sel ast.SelectionSe
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "tenantID":
+			out.Values[i] = ec._Repository_tenantID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "file":
 			out.Values[i] = ec._Repository_file(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
@@ -10029,6 +10207,11 @@ func (ec *executionContext) _Supplier(ctx context.Context, sel ast.SelectionSet,
 			out.Values[i] = graphql.MarshalString("Supplier")
 		case "id":
 			out.Values[i] = ec._Supplier_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "tenantID":
+			out.Values[i] = ec._Supplier_tenantID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

@@ -69,7 +69,6 @@ type ComplexityRoot struct {
 		TraceID       func(childComplexity int) int
 		TransactionID func(childComplexity int) int
 		UserID        func(childComplexity int) int
-		WithReply     func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -118,8 +117,9 @@ type ComplexityRoot struct {
 	}
 
 	PickingOrderDeletePayload struct {
-		DeletedID func(childComplexity int) int
-		Workflows func(childComplexity int) int
+		DeletedID     func(childComplexity int) int
+		EventCount    func(childComplexity int) int
+		TransactionID func(childComplexity int) int
 	}
 
 	PickingOrderEdge struct {
@@ -152,8 +152,9 @@ type ComplexityRoot struct {
 	}
 
 	PickingOrderItemDeletePayload struct {
-		DeletedID func(childComplexity int) int
-		Workflows func(childComplexity int) int
+		DeletedID     func(childComplexity int) int
+		EventCount    func(childComplexity int) int
+		TransactionID func(childComplexity int) int
 	}
 
 	PickingOrderItemEdge struct {
@@ -162,13 +163,15 @@ type ComplexityRoot struct {
 	}
 
 	PickingOrderItemOutput struct {
+		EventCount       func(childComplexity int) int
 		PickingOrderItem func(childComplexity int) int
-		Workflows        func(childComplexity int) int
+		TransactionID    func(childComplexity int) int
 	}
 
 	PickingOrderOutput struct {
-		PickingOrder func(childComplexity int) int
-		Workflows    func(childComplexity int) int
+		EventCount    func(childComplexity int) int
+		PickingOrder  func(childComplexity int) int
+		TransactionID func(childComplexity int) int
 	}
 
 	PickingOutboundShipmentNotification struct {
@@ -194,8 +197,9 @@ type ComplexityRoot struct {
 	}
 
 	PickingOutboundShipmentNotificationDeletePayload struct {
-		DeletedID func(childComplexity int) int
-		Workflows func(childComplexity int) int
+		DeletedID     func(childComplexity int) int
+		EventCount    func(childComplexity int) int
+		TransactionID func(childComplexity int) int
 	}
 
 	PickingOutboundShipmentNotificationEdge struct {
@@ -204,8 +208,9 @@ type ComplexityRoot struct {
 	}
 
 	PickingOutboundShipmentNotificationOutput struct {
+		EventCount                          func(childComplexity int) int
 		PickingOutboundShipmentNotification func(childComplexity int) int
-		Workflows                           func(childComplexity int) int
+		TransactionID                       func(childComplexity int) int
 	}
 
 	Query struct {
@@ -222,17 +227,6 @@ type ComplexityRoot struct {
 	ServiceInfo struct {
 		Date    func(childComplexity int) int
 		Version func(childComplexity int) int
-	}
-
-	TemporalMetadata struct {
-		Key   func(childComplexity int) int
-		Value func(childComplexity int) int
-	}
-
-	TemporalWorkflow struct {
-		ID    func(childComplexity int) int
-		RunID func(childComplexity int) int
-		Type  func(childComplexity int) int
 	}
 
 	_Service struct {
@@ -428,12 +422,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.EntityEventsOutbox.UserID(childComplexity), true
-	case "EntityEventsOutbox.withReply":
-		if e.ComplexityRoot.EntityEventsOutbox.WithReply == nil {
-			break
-		}
-
-		return e.ComplexityRoot.EntityEventsOutbox.WithReply(childComplexity), true
 
 	case "Mutation.createPickingOrder":
 		if e.ComplexityRoot.Mutation.CreatePickingOrder == nil {
@@ -713,12 +701,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.PickingOrderDeletePayload.DeletedID(childComplexity), true
-	case "PickingOrderDeletePayload.workflows":
-		if e.ComplexityRoot.PickingOrderDeletePayload.Workflows == nil {
+	case "PickingOrderDeletePayload.eventCount":
+		if e.ComplexityRoot.PickingOrderDeletePayload.EventCount == nil {
 			break
 		}
 
-		return e.ComplexityRoot.PickingOrderDeletePayload.Workflows(childComplexity), true
+		return e.ComplexityRoot.PickingOrderDeletePayload.EventCount(childComplexity), true
+	case "PickingOrderDeletePayload.transactionID":
+		if e.ComplexityRoot.PickingOrderDeletePayload.TransactionID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PickingOrderDeletePayload.TransactionID(childComplexity), true
 
 	case "PickingOrderEdge.cursor":
 		if e.ComplexityRoot.PickingOrderEdge.Cursor == nil {
@@ -849,12 +843,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.PickingOrderItemDeletePayload.DeletedID(childComplexity), true
-	case "PickingOrderItemDeletePayload.workflows":
-		if e.ComplexityRoot.PickingOrderItemDeletePayload.Workflows == nil {
+	case "PickingOrderItemDeletePayload.eventCount":
+		if e.ComplexityRoot.PickingOrderItemDeletePayload.EventCount == nil {
 			break
 		}
 
-		return e.ComplexityRoot.PickingOrderItemDeletePayload.Workflows(childComplexity), true
+		return e.ComplexityRoot.PickingOrderItemDeletePayload.EventCount(childComplexity), true
+	case "PickingOrderItemDeletePayload.transactionID":
+		if e.ComplexityRoot.PickingOrderItemDeletePayload.TransactionID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PickingOrderItemDeletePayload.TransactionID(childComplexity), true
 
 	case "PickingOrderItemEdge.cursor":
 		if e.ComplexityRoot.PickingOrderItemEdge.Cursor == nil {
@@ -869,31 +869,43 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.PickingOrderItemEdge.Node(childComplexity), true
 
+	case "PickingOrderItemOutput.eventCount":
+		if e.ComplexityRoot.PickingOrderItemOutput.EventCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PickingOrderItemOutput.EventCount(childComplexity), true
 	case "PickingOrderItemOutput.pickingOrderItem":
 		if e.ComplexityRoot.PickingOrderItemOutput.PickingOrderItem == nil {
 			break
 		}
 
 		return e.ComplexityRoot.PickingOrderItemOutput.PickingOrderItem(childComplexity), true
-	case "PickingOrderItemOutput.workflows":
-		if e.ComplexityRoot.PickingOrderItemOutput.Workflows == nil {
+	case "PickingOrderItemOutput.transactionID":
+		if e.ComplexityRoot.PickingOrderItemOutput.TransactionID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.PickingOrderItemOutput.Workflows(childComplexity), true
+		return e.ComplexityRoot.PickingOrderItemOutput.TransactionID(childComplexity), true
 
+	case "PickingOrderOutput.eventCount":
+		if e.ComplexityRoot.PickingOrderOutput.EventCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PickingOrderOutput.EventCount(childComplexity), true
 	case "PickingOrderOutput.pickingOrder":
 		if e.ComplexityRoot.PickingOrderOutput.PickingOrder == nil {
 			break
 		}
 
 		return e.ComplexityRoot.PickingOrderOutput.PickingOrder(childComplexity), true
-	case "PickingOrderOutput.workflows":
-		if e.ComplexityRoot.PickingOrderOutput.Workflows == nil {
+	case "PickingOrderOutput.transactionID":
+		if e.ComplexityRoot.PickingOrderOutput.TransactionID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.PickingOrderOutput.Workflows(childComplexity), true
+		return e.ComplexityRoot.PickingOrderOutput.TransactionID(childComplexity), true
 
 	case "PickingOutboundShipmentNotification.createdAt":
 		if e.ComplexityRoot.PickingOutboundShipmentNotification.CreatedAt == nil {
@@ -999,12 +1011,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.PickingOutboundShipmentNotificationDeletePayload.DeletedID(childComplexity), true
-	case "PickingOutboundShipmentNotificationDeletePayload.workflows":
-		if e.ComplexityRoot.PickingOutboundShipmentNotificationDeletePayload.Workflows == nil {
+	case "PickingOutboundShipmentNotificationDeletePayload.eventCount":
+		if e.ComplexityRoot.PickingOutboundShipmentNotificationDeletePayload.EventCount == nil {
 			break
 		}
 
-		return e.ComplexityRoot.PickingOutboundShipmentNotificationDeletePayload.Workflows(childComplexity), true
+		return e.ComplexityRoot.PickingOutboundShipmentNotificationDeletePayload.EventCount(childComplexity), true
+	case "PickingOutboundShipmentNotificationDeletePayload.transactionID":
+		if e.ComplexityRoot.PickingOutboundShipmentNotificationDeletePayload.TransactionID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PickingOutboundShipmentNotificationDeletePayload.TransactionID(childComplexity), true
 
 	case "PickingOutboundShipmentNotificationEdge.cursor":
 		if e.ComplexityRoot.PickingOutboundShipmentNotificationEdge.Cursor == nil {
@@ -1019,18 +1037,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.PickingOutboundShipmentNotificationEdge.Node(childComplexity), true
 
+	case "PickingOutboundShipmentNotificationOutput.eventCount":
+		if e.ComplexityRoot.PickingOutboundShipmentNotificationOutput.EventCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PickingOutboundShipmentNotificationOutput.EventCount(childComplexity), true
 	case "PickingOutboundShipmentNotificationOutput.pickingOutboundShipmentNotification":
 		if e.ComplexityRoot.PickingOutboundShipmentNotificationOutput.PickingOutboundShipmentNotification == nil {
 			break
 		}
 
 		return e.ComplexityRoot.PickingOutboundShipmentNotificationOutput.PickingOutboundShipmentNotification(childComplexity), true
-	case "PickingOutboundShipmentNotificationOutput.workflows":
-		if e.ComplexityRoot.PickingOutboundShipmentNotificationOutput.Workflows == nil {
+	case "PickingOutboundShipmentNotificationOutput.transactionID":
+		if e.ComplexityRoot.PickingOutboundShipmentNotificationOutput.TransactionID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.PickingOutboundShipmentNotificationOutput.Workflows(childComplexity), true
+		return e.ComplexityRoot.PickingOutboundShipmentNotificationOutput.TransactionID(childComplexity), true
 
 	case "Query.node":
 		if e.ComplexityRoot.Query.Node == nil {
@@ -1123,38 +1147,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ServiceInfo.Version(childComplexity), true
-
-	case "TemporalMetadata.key":
-		if e.ComplexityRoot.TemporalMetadata.Key == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TemporalMetadata.Key(childComplexity), true
-	case "TemporalMetadata.value":
-		if e.ComplexityRoot.TemporalMetadata.Value == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TemporalMetadata.Value(childComplexity), true
-
-	case "TemporalWorkflow.id":
-		if e.ComplexityRoot.TemporalWorkflow.ID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TemporalWorkflow.ID(childComplexity), true
-	case "TemporalWorkflow.runID":
-		if e.ComplexityRoot.TemporalWorkflow.RunID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TemporalWorkflow.RunID(childComplexity), true
-	case "TemporalWorkflow.type":
-		if e.ComplexityRoot.TemporalWorkflow.Type == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TemporalWorkflow.Type(childComplexity), true
 
 	case "_Service.sdl":
 		if e.ComplexityRoot._Service.SDL == nil {
@@ -1346,7 +1338,6 @@ type EntityEventsOutbox implements Node {
   requestID: String
   topic: String!
   payload: Map!
-  withReply: Boolean!
   retryCount: Int!
   lastError: String
   deadAt: Time
@@ -1474,11 +1465,6 @@ input EntityEventsOutboxWhereInput {
   topicHasSuffix: String
   topicEqualFold: String
   topicContainsFold: String
-  """
-  with_reply field predicates
-  """
-  withReply: Boolean
-  withReplyNEQ: Boolean
   """
   retry_count field predicates
   """
@@ -2602,22 +2588,34 @@ scalar UUID
 
 type PickingOrderDeletePayload {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+  transactionID: ID!
+  "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+  eventCount: Int!
 }
 
 type PickingOrderItemDeletePayload {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+  transactionID: ID!
+  "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+  eventCount: Int!
 }
 
 type PickingOutboundShipmentNotificationOutput {
   pickingOutboundShipmentNotification: PickingOutboundShipmentNotification
-  workflows: [TemporalWorkflow]
+  "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+  transactionID: ID!
+  "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+  eventCount: Int!
 }
 
 type PickingOutboundShipmentNotificationDeletePayload {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+  transactionID: ID!
+  "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+  eventCount: Int!
 }
 
 `, BuiltIn: false},
@@ -2632,7 +2630,10 @@ extend input PickingOrderWhereInput {
 type PickingOrderOutput
 {
   pickingOrder: PickingOrder
-  workflows: [TemporalWorkflow]
+  "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+  transactionID: ID!
+  "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+  eventCount: Int!
 }
 `, BuiltIn: false},
 	{Name: "../graph/orderitem.graphql", Input: `
@@ -2646,7 +2647,10 @@ extend input PickingOrderItemWhereInput {
 type PickingOrderItemOutput
 {
   pickingOrderItem: PickingOrderItem
-  workflows: [TemporalWorkflow]
+  "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+  transactionID: ID!
+  "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+  eventCount: Int!
 }
 
 
@@ -2666,17 +2670,6 @@ type PickingOrderItemOutput
 extend type Query {
     pickingServiceInfo: ServiceInfo!
 }`, BuiltIn: false},
-	{Name: "../graph/temporalworkflow.graphql", Input: `type TemporalMetadata {
-  key: String!
-  value: String!
-}
-
-type TemporalWorkflow {
-  type: String!
-  id: String!
-  runID: String!
-}
-`, BuiltIn: false},
 	{Name: "../federation/directives.graphql", Input: `
 	directive @authenticated on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
 	directive @composeDirective(name: String!) repeatable on SCHEMA
@@ -2819,8 +2812,10 @@ func (ec *executionContext) childFields_PickingOrderDeletePayload(ctx context.Co
 	switch field.Name {
 	case "deletedID":
 		return ec.fieldContext_PickingOrderDeletePayload_deletedID(ctx, field)
-	case "workflows":
-		return ec.fieldContext_PickingOrderDeletePayload_workflows(ctx, field)
+	case "transactionID":
+		return ec.fieldContext_PickingOrderDeletePayload_transactionID(ctx, field)
+	case "eventCount":
+		return ec.fieldContext_PickingOrderDeletePayload_eventCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type PickingOrderDeletePayload", field.Name)
 }
@@ -2887,8 +2882,10 @@ func (ec *executionContext) childFields_PickingOrderItemDeletePayload(ctx contex
 	switch field.Name {
 	case "deletedID":
 		return ec.fieldContext_PickingOrderItemDeletePayload_deletedID(ctx, field)
-	case "workflows":
-		return ec.fieldContext_PickingOrderItemDeletePayload_workflows(ctx, field)
+	case "transactionID":
+		return ec.fieldContext_PickingOrderItemDeletePayload_transactionID(ctx, field)
+	case "eventCount":
+		return ec.fieldContext_PickingOrderItemDeletePayload_eventCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type PickingOrderItemDeletePayload", field.Name)
 }
@@ -2907,8 +2904,10 @@ func (ec *executionContext) childFields_PickingOrderItemOutput(ctx context.Conte
 	switch field.Name {
 	case "pickingOrderItem":
 		return ec.fieldContext_PickingOrderItemOutput_pickingOrderItem(ctx, field)
-	case "workflows":
-		return ec.fieldContext_PickingOrderItemOutput_workflows(ctx, field)
+	case "transactionID":
+		return ec.fieldContext_PickingOrderItemOutput_transactionID(ctx, field)
+	case "eventCount":
+		return ec.fieldContext_PickingOrderItemOutput_eventCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type PickingOrderItemOutput", field.Name)
 }
@@ -2917,8 +2916,10 @@ func (ec *executionContext) childFields_PickingOrderOutput(ctx context.Context, 
 	switch field.Name {
 	case "pickingOrder":
 		return ec.fieldContext_PickingOrderOutput_pickingOrder(ctx, field)
-	case "workflows":
-		return ec.fieldContext_PickingOrderOutput_workflows(ctx, field)
+	case "transactionID":
+		return ec.fieldContext_PickingOrderOutput_transactionID(ctx, field)
+	case "eventCount":
+		return ec.fieldContext_PickingOrderOutput_eventCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type PickingOrderOutput", field.Name)
 }
@@ -2971,8 +2972,10 @@ func (ec *executionContext) childFields_PickingOutboundShipmentNotificationDelet
 	switch field.Name {
 	case "deletedID":
 		return ec.fieldContext_PickingOutboundShipmentNotificationDeletePayload_deletedID(ctx, field)
-	case "workflows":
-		return ec.fieldContext_PickingOutboundShipmentNotificationDeletePayload_workflows(ctx, field)
+	case "transactionID":
+		return ec.fieldContext_PickingOutboundShipmentNotificationDeletePayload_transactionID(ctx, field)
+	case "eventCount":
+		return ec.fieldContext_PickingOutboundShipmentNotificationDeletePayload_eventCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type PickingOutboundShipmentNotificationDeletePayload", field.Name)
 }
@@ -2991,8 +2994,10 @@ func (ec *executionContext) childFields_PickingOutboundShipmentNotificationOutpu
 	switch field.Name {
 	case "pickingOutboundShipmentNotification":
 		return ec.fieldContext_PickingOutboundShipmentNotificationOutput_pickingOutboundShipmentNotification(ctx, field)
-	case "workflows":
-		return ec.fieldContext_PickingOutboundShipmentNotificationOutput_workflows(ctx, field)
+	case "transactionID":
+		return ec.fieldContext_PickingOutboundShipmentNotificationOutput_transactionID(ctx, field)
+	case "eventCount":
+		return ec.fieldContext_PickingOutboundShipmentNotificationOutput_eventCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type PickingOutboundShipmentNotificationOutput", field.Name)
 }
@@ -3005,18 +3010,6 @@ func (ec *executionContext) childFields_ServiceInfo(ctx context.Context, field g
 		return ec.fieldContext_ServiceInfo_date(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type ServiceInfo", field.Name)
-}
-
-func (ec *executionContext) childFields_TemporalWorkflow(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "type":
-		return ec.fieldContext_TemporalWorkflow_type(ctx, field)
-	case "id":
-		return ec.fieldContext_TemporalWorkflow_id(ctx, field)
-	case "runID":
-		return ec.fieldContext_TemporalWorkflow_runID(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type TemporalWorkflow", field.Name)
 }
 
 func (ec *executionContext) childFields__Service(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -4066,29 +4059,6 @@ func (ec *executionContext) _EntityEventsOutbox_payload(ctx context.Context, fie
 }
 func (ec *executionContext) fieldContext_EntityEventsOutbox_payload(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("EntityEventsOutbox", field, false, false, errors.New("field of type Map does not have child fields"))
-}
-
-func (ec *executionContext) _EntityEventsOutbox_withReply(ctx context.Context, field graphql.CollectedField, obj *gen.EntityEventsOutbox) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_EntityEventsOutbox_withReply(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.WithReply, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_EntityEventsOutbox_withReply(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("EntityEventsOutbox", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
 func (ec *executionContext) _EntityEventsOutbox_retryCount(ctx context.Context, field graphql.CollectedField, obj *gen.EntityEventsOutbox) (ret graphql.Marshaler) {
@@ -5346,36 +5316,50 @@ func (ec *executionContext) fieldContext_PickingOrderDeletePayload_deletedID(_ c
 	return graphql.NewScalarFieldContext("PickingOrderDeletePayload", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _PickingOrderDeletePayload_workflows(ctx context.Context, field graphql.CollectedField, obj *model.PickingOrderDeletePayload) (ret graphql.Marshaler) {
+func (ec *executionContext) _PickingOrderDeletePayload_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.PickingOrderDeletePayload) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PickingOrderDeletePayload_workflows(ctx, field)
+			return ec.fieldContext_PickingOrderDeletePayload_transactionID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Workflows, nil
+			return obj.TransactionID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-			return ec.marshalOTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋpickingᚋmodelᚐTemporalWorkflow(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
-		false,
+		true,
 	)
 }
-func (ec *executionContext) fieldContext_PickingOrderDeletePayload_workflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "PickingOrderDeletePayload",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TemporalWorkflow(ctx, field)
+func (ec *executionContext) fieldContext_PickingOrderDeletePayload_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PickingOrderDeletePayload", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _PickingOrderDeletePayload_eventCount(ctx context.Context, field graphql.CollectedField, obj *model.PickingOrderDeletePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PickingOrderDeletePayload_eventCount(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.EventCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PickingOrderDeletePayload_eventCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PickingOrderDeletePayload", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _PickingOrderEdge_node(ctx context.Context, field graphql.CollectedField, obj *gen.PickingOrderEdge) (ret graphql.Marshaler) {
@@ -5897,36 +5881,50 @@ func (ec *executionContext) fieldContext_PickingOrderItemDeletePayload_deletedID
 	return graphql.NewScalarFieldContext("PickingOrderItemDeletePayload", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _PickingOrderItemDeletePayload_workflows(ctx context.Context, field graphql.CollectedField, obj *model.PickingOrderItemDeletePayload) (ret graphql.Marshaler) {
+func (ec *executionContext) _PickingOrderItemDeletePayload_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.PickingOrderItemDeletePayload) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PickingOrderItemDeletePayload_workflows(ctx, field)
+			return ec.fieldContext_PickingOrderItemDeletePayload_transactionID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Workflows, nil
+			return obj.TransactionID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-			return ec.marshalOTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋpickingᚋmodelᚐTemporalWorkflow(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
-		false,
+		true,
 	)
 }
-func (ec *executionContext) fieldContext_PickingOrderItemDeletePayload_workflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "PickingOrderItemDeletePayload",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TemporalWorkflow(ctx, field)
+func (ec *executionContext) fieldContext_PickingOrderItemDeletePayload_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PickingOrderItemDeletePayload", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _PickingOrderItemDeletePayload_eventCount(ctx context.Context, field graphql.CollectedField, obj *model.PickingOrderItemDeletePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PickingOrderItemDeletePayload_eventCount(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.EventCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PickingOrderItemDeletePayload_eventCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PickingOrderItemDeletePayload", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _PickingOrderItemEdge_node(ctx context.Context, field graphql.CollectedField, obj *gen.PickingOrderItemEdge) (ret graphql.Marshaler) {
@@ -6016,36 +6014,50 @@ func (ec *executionContext) fieldContext_PickingOrderItemOutput_pickingOrderItem
 	return fc, nil
 }
 
-func (ec *executionContext) _PickingOrderItemOutput_workflows(ctx context.Context, field graphql.CollectedField, obj *model.PickingOrderItemOutput) (ret graphql.Marshaler) {
+func (ec *executionContext) _PickingOrderItemOutput_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.PickingOrderItemOutput) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PickingOrderItemOutput_workflows(ctx, field)
+			return ec.fieldContext_PickingOrderItemOutput_transactionID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Workflows, nil
+			return obj.TransactionID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-			return ec.marshalOTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋpickingᚋmodelᚐTemporalWorkflow(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
-		false,
+		true,
 	)
 }
-func (ec *executionContext) fieldContext_PickingOrderItemOutput_workflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "PickingOrderItemOutput",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TemporalWorkflow(ctx, field)
+func (ec *executionContext) fieldContext_PickingOrderItemOutput_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PickingOrderItemOutput", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _PickingOrderItemOutput_eventCount(ctx context.Context, field graphql.CollectedField, obj *model.PickingOrderItemOutput) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PickingOrderItemOutput_eventCount(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.EventCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PickingOrderItemOutput_eventCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PickingOrderItemOutput", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _PickingOrderOutput_pickingOrder(ctx context.Context, field graphql.CollectedField, obj *model.PickingOrderOutput) (ret graphql.Marshaler) {
@@ -6080,36 +6092,50 @@ func (ec *executionContext) fieldContext_PickingOrderOutput_pickingOrder(_ conte
 	return fc, nil
 }
 
-func (ec *executionContext) _PickingOrderOutput_workflows(ctx context.Context, field graphql.CollectedField, obj *model.PickingOrderOutput) (ret graphql.Marshaler) {
+func (ec *executionContext) _PickingOrderOutput_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.PickingOrderOutput) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PickingOrderOutput_workflows(ctx, field)
+			return ec.fieldContext_PickingOrderOutput_transactionID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Workflows, nil
+			return obj.TransactionID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-			return ec.marshalOTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋpickingᚋmodelᚐTemporalWorkflow(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
-		false,
+		true,
 	)
 }
-func (ec *executionContext) fieldContext_PickingOrderOutput_workflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "PickingOrderOutput",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TemporalWorkflow(ctx, field)
+func (ec *executionContext) fieldContext_PickingOrderOutput_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PickingOrderOutput", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _PickingOrderOutput_eventCount(ctx context.Context, field graphql.CollectedField, obj *model.PickingOrderOutput) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PickingOrderOutput_eventCount(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.EventCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PickingOrderOutput_eventCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PickingOrderOutput", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _PickingOutboundShipmentNotification_id(ctx context.Context, field graphql.CollectedField, obj *gen.OutboundShipmentNotification) (ret graphql.Marshaler) {
@@ -6530,36 +6556,50 @@ func (ec *executionContext) fieldContext_PickingOutboundShipmentNotificationDele
 	return graphql.NewScalarFieldContext("PickingOutboundShipmentNotificationDeletePayload", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _PickingOutboundShipmentNotificationDeletePayload_workflows(ctx context.Context, field graphql.CollectedField, obj *model.PickingOutboundShipmentNotificationDeletePayload) (ret graphql.Marshaler) {
+func (ec *executionContext) _PickingOutboundShipmentNotificationDeletePayload_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.PickingOutboundShipmentNotificationDeletePayload) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PickingOutboundShipmentNotificationDeletePayload_workflows(ctx, field)
+			return ec.fieldContext_PickingOutboundShipmentNotificationDeletePayload_transactionID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Workflows, nil
+			return obj.TransactionID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-			return ec.marshalOTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋpickingᚋmodelᚐTemporalWorkflow(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
-		false,
+		true,
 	)
 }
-func (ec *executionContext) fieldContext_PickingOutboundShipmentNotificationDeletePayload_workflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "PickingOutboundShipmentNotificationDeletePayload",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TemporalWorkflow(ctx, field)
+func (ec *executionContext) fieldContext_PickingOutboundShipmentNotificationDeletePayload_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PickingOutboundShipmentNotificationDeletePayload", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _PickingOutboundShipmentNotificationDeletePayload_eventCount(ctx context.Context, field graphql.CollectedField, obj *model.PickingOutboundShipmentNotificationDeletePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PickingOutboundShipmentNotificationDeletePayload_eventCount(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.EventCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PickingOutboundShipmentNotificationDeletePayload_eventCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PickingOutboundShipmentNotificationDeletePayload", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _PickingOutboundShipmentNotificationEdge_node(ctx context.Context, field graphql.CollectedField, obj *gen.PickingOutboundShipmentNotificationEdge) (ret graphql.Marshaler) {
@@ -6649,36 +6689,50 @@ func (ec *executionContext) fieldContext_PickingOutboundShipmentNotificationOutp
 	return fc, nil
 }
 
-func (ec *executionContext) _PickingOutboundShipmentNotificationOutput_workflows(ctx context.Context, field graphql.CollectedField, obj *model.PickingOutboundShipmentNotificationOutput) (ret graphql.Marshaler) {
+func (ec *executionContext) _PickingOutboundShipmentNotificationOutput_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.PickingOutboundShipmentNotificationOutput) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PickingOutboundShipmentNotificationOutput_workflows(ctx, field)
+			return ec.fieldContext_PickingOutboundShipmentNotificationOutput_transactionID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Workflows, nil
+			return obj.TransactionID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-			return ec.marshalOTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋpickingᚋmodelᚐTemporalWorkflow(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
-		false,
+		true,
 	)
 }
-func (ec *executionContext) fieldContext_PickingOutboundShipmentNotificationOutput_workflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "PickingOutboundShipmentNotificationOutput",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TemporalWorkflow(ctx, field)
+func (ec *executionContext) fieldContext_PickingOutboundShipmentNotificationOutput_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PickingOutboundShipmentNotificationOutput", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _PickingOutboundShipmentNotificationOutput_eventCount(ctx context.Context, field graphql.CollectedField, obj *model.PickingOutboundShipmentNotificationOutput) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PickingOutboundShipmentNotificationOutput_eventCount(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.EventCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PickingOutboundShipmentNotificationOutput_eventCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PickingOutboundShipmentNotificationOutput", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _Query_node(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -7129,121 +7183,6 @@ func (ec *executionContext) _ServiceInfo_date(ctx context.Context, field graphql
 }
 func (ec *executionContext) fieldContext_ServiceInfo_date(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("ServiceInfo", field, false, false, errors.New("field of type Time does not have child fields"))
-}
-
-func (ec *executionContext) _TemporalMetadata_key(ctx context.Context, field graphql.CollectedField, obj *model.TemporalMetadata) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TemporalMetadata_key(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Key, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TemporalMetadata_key(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TemporalMetadata", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _TemporalMetadata_value(ctx context.Context, field graphql.CollectedField, obj *model.TemporalMetadata) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TemporalMetadata_value(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Value, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TemporalMetadata_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TemporalMetadata", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _TemporalWorkflow_type(ctx context.Context, field graphql.CollectedField, obj *model.TemporalWorkflow) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TemporalWorkflow_type(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Type, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TemporalWorkflow_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TemporalWorkflow", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _TemporalWorkflow_id(ctx context.Context, field graphql.CollectedField, obj *model.TemporalWorkflow) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TemporalWorkflow_id(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TemporalWorkflow_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TemporalWorkflow", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _TemporalWorkflow_runID(ctx context.Context, field graphql.CollectedField, obj *model.TemporalWorkflow) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TemporalWorkflow_runID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.RunID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TemporalWorkflow_runID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TemporalWorkflow", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) __Service_sdl(ctx context.Context, field graphql.CollectedField, obj *fedruntime.Service) (ret graphql.Marshaler) {
@@ -8722,7 +8661,7 @@ func (ec *executionContext) unmarshalInputEntityEventsOutboxWhereInput(ctx conte
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"not", "and", "or", "id", "idNEQ", "idIn", "idNotIn", "idGT", "idGTE", "idLT", "idLTE", "createdAt", "createdAtNEQ", "createdAtIn", "createdAtNotIn", "createdAtGT", "createdAtGTE", "createdAtLT", "createdAtLTE", "publishedAt", "publishedAtNEQ", "publishedAtIn", "publishedAtNotIn", "publishedAtGT", "publishedAtGTE", "publishedAtLT", "publishedAtLTE", "publishedAtIsNil", "publishedAtNotNil", "userID", "userIDNEQ", "userIDIn", "userIDNotIn", "userIDGT", "userIDGTE", "userIDLT", "userIDLTE", "userIDIsNil", "userIDNotNil", "transactionID", "transactionIDNEQ", "transactionIDIn", "transactionIDNotIn", "transactionIDGT", "transactionIDGTE", "transactionIDLT", "transactionIDLTE", "traceID", "traceIDNEQ", "traceIDIn", "traceIDNotIn", "traceIDGT", "traceIDGTE", "traceIDLT", "traceIDLTE", "traceIDContains", "traceIDHasPrefix", "traceIDHasSuffix", "traceIDIsNil", "traceIDNotNil", "traceIDEqualFold", "traceIDContainsFold", "requestID", "requestIDNEQ", "requestIDIn", "requestIDNotIn", "requestIDGT", "requestIDGTE", "requestIDLT", "requestIDLTE", "requestIDContains", "requestIDHasPrefix", "requestIDHasSuffix", "requestIDIsNil", "requestIDNotNil", "requestIDEqualFold", "requestIDContainsFold", "topic", "topicNEQ", "topicIn", "topicNotIn", "topicGT", "topicGTE", "topicLT", "topicLTE", "topicContains", "topicHasPrefix", "topicHasSuffix", "topicEqualFold", "topicContainsFold", "withReply", "withReplyNEQ", "retryCount", "retryCountNEQ", "retryCountIn", "retryCountNotIn", "retryCountGT", "retryCountGTE", "retryCountLT", "retryCountLTE", "lastError", "lastErrorNEQ", "lastErrorIn", "lastErrorNotIn", "lastErrorGT", "lastErrorGTE", "lastErrorLT", "lastErrorLTE", "lastErrorContains", "lastErrorHasPrefix", "lastErrorHasSuffix", "lastErrorIsNil", "lastErrorNotNil", "lastErrorEqualFold", "lastErrorContainsFold", "deadAt", "deadAtNEQ", "deadAtIn", "deadAtNotIn", "deadAtGT", "deadAtGTE", "deadAtLT", "deadAtLTE", "deadAtIsNil", "deadAtNotNil", "nextRetryAt", "nextRetryAtNEQ", "nextRetryAtIn", "nextRetryAtNotIn", "nextRetryAtGT", "nextRetryAtGTE", "nextRetryAtLT", "nextRetryAtLTE", "nextRetryAtIsNil", "nextRetryAtNotNil", "entityType", "entityTypeNEQ", "entityTypeIn", "entityTypeNotIn", "entityTypeGT", "entityTypeGTE", "entityTypeLT", "entityTypeLTE", "entityTypeContains", "entityTypeHasPrefix", "entityTypeHasSuffix", "entityTypeIsNil", "entityTypeNotNil", "entityTypeEqualFold", "entityTypeContainsFold", "entityID", "entityIDNEQ", "entityIDIn", "entityIDNotIn", "entityIDGT", "entityIDGTE", "entityIDLT", "entityIDLTE", "entityIDIsNil", "entityIDNotNil", "tenantID", "tenantIDNEQ", "tenantIDIn", "tenantIDNotIn", "tenantIDGT", "tenantIDGTE", "tenantIDLT", "tenantIDLTE"}
+	fieldsInOrder := [...]string{"not", "and", "or", "id", "idNEQ", "idIn", "idNotIn", "idGT", "idGTE", "idLT", "idLTE", "createdAt", "createdAtNEQ", "createdAtIn", "createdAtNotIn", "createdAtGT", "createdAtGTE", "createdAtLT", "createdAtLTE", "publishedAt", "publishedAtNEQ", "publishedAtIn", "publishedAtNotIn", "publishedAtGT", "publishedAtGTE", "publishedAtLT", "publishedAtLTE", "publishedAtIsNil", "publishedAtNotNil", "userID", "userIDNEQ", "userIDIn", "userIDNotIn", "userIDGT", "userIDGTE", "userIDLT", "userIDLTE", "userIDIsNil", "userIDNotNil", "transactionID", "transactionIDNEQ", "transactionIDIn", "transactionIDNotIn", "transactionIDGT", "transactionIDGTE", "transactionIDLT", "transactionIDLTE", "traceID", "traceIDNEQ", "traceIDIn", "traceIDNotIn", "traceIDGT", "traceIDGTE", "traceIDLT", "traceIDLTE", "traceIDContains", "traceIDHasPrefix", "traceIDHasSuffix", "traceIDIsNil", "traceIDNotNil", "traceIDEqualFold", "traceIDContainsFold", "requestID", "requestIDNEQ", "requestIDIn", "requestIDNotIn", "requestIDGT", "requestIDGTE", "requestIDLT", "requestIDLTE", "requestIDContains", "requestIDHasPrefix", "requestIDHasSuffix", "requestIDIsNil", "requestIDNotNil", "requestIDEqualFold", "requestIDContainsFold", "topic", "topicNEQ", "topicIn", "topicNotIn", "topicGT", "topicGTE", "topicLT", "topicLTE", "topicContains", "topicHasPrefix", "topicHasSuffix", "topicEqualFold", "topicContainsFold", "retryCount", "retryCountNEQ", "retryCountIn", "retryCountNotIn", "retryCountGT", "retryCountGTE", "retryCountLT", "retryCountLTE", "lastError", "lastErrorNEQ", "lastErrorIn", "lastErrorNotIn", "lastErrorGT", "lastErrorGTE", "lastErrorLT", "lastErrorLTE", "lastErrorContains", "lastErrorHasPrefix", "lastErrorHasSuffix", "lastErrorIsNil", "lastErrorNotNil", "lastErrorEqualFold", "lastErrorContainsFold", "deadAt", "deadAtNEQ", "deadAtIn", "deadAtNotIn", "deadAtGT", "deadAtGTE", "deadAtLT", "deadAtLTE", "deadAtIsNil", "deadAtNotNil", "nextRetryAt", "nextRetryAtNEQ", "nextRetryAtIn", "nextRetryAtNotIn", "nextRetryAtGT", "nextRetryAtGTE", "nextRetryAtLT", "nextRetryAtLTE", "nextRetryAtIsNil", "nextRetryAtNotNil", "entityType", "entityTypeNEQ", "entityTypeIn", "entityTypeNotIn", "entityTypeGT", "entityTypeGTE", "entityTypeLT", "entityTypeLTE", "entityTypeContains", "entityTypeHasPrefix", "entityTypeHasSuffix", "entityTypeIsNil", "entityTypeNotNil", "entityTypeEqualFold", "entityTypeContainsFold", "entityID", "entityIDNEQ", "entityIDIn", "entityIDNotIn", "entityIDGT", "entityIDGTE", "entityIDLT", "entityIDLTE", "entityIDIsNil", "entityIDNotNil", "tenantID", "tenantIDNEQ", "tenantIDIn", "tenantIDNotIn", "tenantIDGT", "tenantIDGTE", "tenantIDLT", "tenantIDLTE"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -9359,20 +9298,6 @@ func (ec *executionContext) unmarshalInputEntityEventsOutboxWhereInput(ctx conte
 				return it, err
 			}
 			it.TopicContainsFold = data
-		case "withReply":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("withReply"))
-			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.WithReply = data
-		case "withReplyNEQ":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("withReplyNEQ"))
-			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.WithReplyNEQ = data
 		case "retryCount":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("retryCount"))
 			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
@@ -12726,11 +12651,6 @@ func (ec *executionContext) _EntityEventsOutbox(ctx context.Context, sel ast.Sel
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "withReply":
-			out.Values[i] = ec._EntityEventsOutbox_withReply(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "retryCount":
 			out.Values[i] = ec._EntityEventsOutbox_retryCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -13199,9 +13119,14 @@ func (ec *executionContext) _PickingOrderDeletePayload(ctx context.Context, sel 
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
-		case "workflows":
-			out.Values[i] = ec._PickingOrderDeletePayload_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
+		case "transactionID":
+			out.Values[i] = ec._PickingOrderDeletePayload_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventCount":
+			out.Values[i] = ec._PickingOrderDeletePayload_eventCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		default:
@@ -13474,9 +13399,14 @@ func (ec *executionContext) _PickingOrderItemDeletePayload(ctx context.Context, 
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
-		case "workflows":
-			out.Values[i] = ec._PickingOrderItemDeletePayload_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
+		case "transactionID":
+			out.Values[i] = ec._PickingOrderItemDeletePayload_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventCount":
+			out.Values[i] = ec._PickingOrderItemDeletePayload_eventCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		default:
@@ -13560,9 +13490,14 @@ func (ec *executionContext) _PickingOrderItemOutput(ctx context.Context, sel ast
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
-		case "workflows":
-			out.Values[i] = ec._PickingOrderItemOutput_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
+		case "transactionID":
+			out.Values[i] = ec._PickingOrderItemOutput_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventCount":
+			out.Values[i] = ec._PickingOrderItemOutput_eventCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		default:
@@ -13603,9 +13538,14 @@ func (ec *executionContext) _PickingOrderOutput(ctx context.Context, sel ast.Sel
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
-		case "workflows":
-			out.Values[i] = ec._PickingOrderOutput_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
+		case "transactionID":
+			out.Values[i] = ec._PickingOrderOutput_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventCount":
+			out.Values[i] = ec._PickingOrderOutput_eventCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		default:
@@ -13825,9 +13765,14 @@ func (ec *executionContext) _PickingOutboundShipmentNotificationDeletePayload(ct
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
-		case "workflows":
-			out.Values[i] = ec._PickingOutboundShipmentNotificationDeletePayload_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
+		case "transactionID":
+			out.Values[i] = ec._PickingOutboundShipmentNotificationDeletePayload_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventCount":
+			out.Values[i] = ec._PickingOutboundShipmentNotificationDeletePayload_eventCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		default:
@@ -13911,9 +13856,14 @@ func (ec *executionContext) _PickingOutboundShipmentNotificationOutput(ctx conte
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
-		case "workflows":
-			out.Values[i] = ec._PickingOutboundShipmentNotificationOutput_workflows(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
+		case "transactionID":
+			out.Values[i] = ec._PickingOutboundShipmentNotificationOutput_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventCount":
+			out.Values[i] = ec._PickingOutboundShipmentNotificationOutput_eventCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		default:
@@ -14188,97 +14138,6 @@ func (ec *executionContext) _ServiceInfo(ctx context.Context, sel ast.SelectionS
 		case "date":
 			out.Values[i] = ec._ServiceInfo_date(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var temporalMetadataImplementors = []string{"TemporalMetadata"}
-
-func (ec *executionContext) _TemporalMetadata(ctx context.Context, sel ast.SelectionSet, obj *model.TemporalMetadata) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, temporalMetadataImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("TemporalMetadata")
-		case "key":
-			out.Values[i] = ec._TemporalMetadata_key(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "value":
-			out.Values[i] = ec._TemporalMetadata_value(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var temporalWorkflowImplementors = []string{"TemporalWorkflow"}
-
-func (ec *executionContext) _TemporalWorkflow(ctx context.Context, sel ast.SelectionSet, obj *model.TemporalWorkflow) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, temporalWorkflowImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("TemporalWorkflow")
-		case "type":
-			out.Values[i] = ec._TemporalWorkflow_type(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "id":
-			out.Values[i] = ec._TemporalWorkflow_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "runID":
-			out.Values[i] = ec._TemporalWorkflow_runID(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		default:
@@ -16119,26 +15978,6 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	_ = ctx
 	res := gqlscalar.MarshalNormalizedString(*v)
 	return res
-}
-
-func (ec *executionContext) marshalOTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋpickingᚋmodelᚐTemporalWorkflow(ctx context.Context, sel ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalOTemporalWorkflow2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋpickingᚋmodelᚐTemporalWorkflow(ctx, sel, v[i])
-	})
-
-	return ret
-}
-
-func (ec *executionContext) marshalOTemporalWorkflow2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋpickingᚋmodelᚐTemporalWorkflow(ctx context.Context, sel ast.SelectionSet, v *model.TemporalWorkflow) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._TemporalWorkflow(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOTime2timeᚐTime(ctx context.Context, v any) (time.Time, error) {

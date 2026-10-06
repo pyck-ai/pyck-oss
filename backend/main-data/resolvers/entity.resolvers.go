@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/main-data/ent/gen"
+	entcustomer "github.com/pyck-ai/pyck/backend/main-data/ent/gen/customer"
 	"github.com/pyck-ai/pyck/backend/main-data/exec"
 	"github.com/pyck-ai/pyck/backend/main-data/model"
 )
@@ -28,18 +29,20 @@ func (r *entityResolver) FindCustomerByID(ctx context.Context, id uuid.UUID) (*g
 	return customer, nil
 }
 
-// FindPickingOrderByCustomerID resolves the federated `customer` relation on a
-// PickingOrder. The gateway hands us the order's customerID; we look up the
-// Customer in our own data. A soft-deleted (or never-existing) customer is
-// filtered out by the history mixin's query policy and surfaces as a nil
+// FindPickingOrderByCustomerIDAndTenantID resolves the federated `customer`
+// relation on a PickingOrder. The gateway hands us the order's customerID and
+// tenantID; we look up the Customer in our own data, restricted to the
+// order's tenant. customerID is not a foreign key, so an order can name
+// another tenant's customer; the explicit tenant condition keeps that
+// customer out for every reader, because the system user skips the tenant
+// filter and a multi-tenant reader's filter spans every tenant it acts in.
+// A soft-deleted, foreign or never-existing customer surfaces as a nil
 // relation, which is the intended behaviour: the order keeps its customerID
 // pointer but `customer` reads as null.
-func (r *entityResolver) FindPickingOrderByCustomerID(ctx context.Context, customerID uuid.UUID) (*model.PickingOrder, error) {
-	order := &model.PickingOrder{CustomerID: customerID}
+func (r *entityResolver) FindPickingOrderByCustomerIDAndTenantID(ctx context.Context, customerID uuid.UUID, tenantID uuid.UUID) (*model.PickingOrder, error) {
+	order := &model.PickingOrder{CustomerID: customerID, TenantID: tenantID}
 
-	customer, err := r.client.Customer.Query().Where(func(s *sql.Selector) {
-		s.Where(sql.EQ("id", customerID))
-	}).First(ctx)
+	customer, err := r.client.Customer.Query().Where(entcustomer.ID(customerID), entcustomer.TenantID(tenantID)).First(ctx)
 	if err != nil {
 		if gen.IsNotFound(err) {
 			return order, nil

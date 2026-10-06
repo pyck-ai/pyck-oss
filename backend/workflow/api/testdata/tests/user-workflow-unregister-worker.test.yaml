@@ -1,0 +1,187 @@
+---
+name: "User - Unregister Worker"
+description: >
+  unregisterWorker marks the calling worker's live subscriptions stopped and
+  reports how many it stopped. A blank worker ID is refused, an unknown worker
+  stops 0, only the caller's rows are counted (a second worker on the same
+  workflow is left alone), and a worker that registers again is running again,
+  so a second unregister stops the same count. Nothing is deleted: the workflow
+  row and its subscriptions stay until the workflow is deleted.
+steps:
+  - name: "Blank worker ID is refused"
+    operation: workflow.unregisterWorker
+    vars:
+      workerID: "   "
+    tests:
+      - msg: "Rejected with a worker id error"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "a worker id is required"
+
+  - name: "Unknown worker stops nothing"
+    operation: workflow.unregisterWorker
+    vars:
+      workerID: "scenario-unregister-worker-nobody"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Nothing stopped"
+        assertions:
+          - ref: res.body.data.unregisterWorker.stopped
+            equal: 0
+
+  - id: registerX
+    name: "Register workflow as worker X with two subscriptions"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "UnregisterWorkerScenarioWorkflow"
+        taskQueue: "test-task-queue"
+        workerID: "scenario-unregister-worker-x"
+        signals:
+          - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
+            temporalSignal: "testCreated"
+            temporalSignalType: "start"
+            filterRule: "true"
+          - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.update"
+            temporalSignal: "testUpdated"
+            temporalSignalType: "start"
+            filterRule: "true"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Workflow registered"
+        assertions:
+          - ref: res.body.data.registerWorkflow.id
+            nil: false
+
+  - name: "Register the same workflow as worker Y with one subscription"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "UnregisterWorkerScenarioWorkflow"
+        taskQueue: "test-task-queue"
+        workerID: "scenario-unregister-worker-y"
+        signals:
+          - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
+            temporalSignal: "testCreated"
+            temporalSignalType: "start"
+            filterRule: "true"
+    tests:
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Same workflow row as worker X registered"
+        assertions:
+          - ref: res.body.data.registerWorkflow.id
+            equal: {$ref: "res[registerX].body.data.registerWorkflow.id"}
+
+  - name: "Unregister worker X stops exactly its two rows"
+    operation: workflow.unregisterWorker
+    vars:
+      workerID: "scenario-unregister-worker-x"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Both of X's rows stopped, Y's row untouched"
+        assertions:
+          - ref: res.body.data.unregisterWorker.stopped
+            equal: 2
+
+  - name: "Unregister worker X again stops nothing new"
+    operation: workflow.unregisterWorker
+    vars:
+      workerID: "scenario-unregister-worker-x"
+    tests:
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Already stopped rows are not counted again"
+        assertions:
+          - ref: res.body.data.unregisterWorker.stopped
+            equal: 0
+
+  - name: "Subscriptions are kept, not deleted"
+    operation: workflow.getWorkflowSignals
+    vars:
+      where:
+        workflowID: {$ref: "res[registerX].body.data.registerWorkflow.id"}
+    tests:
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "All three subscriptions still exist"
+        assertions:
+          - ref: res.body.data.workflowSignals.totalCount
+            equal: 3
+
+  - name: "Re-register as worker X (clears the stopped mark)"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "UnregisterWorkerScenarioWorkflow"
+        taskQueue: "test-task-queue"
+        workerID: "scenario-unregister-worker-x"
+        signals:
+          - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
+            temporalSignal: "testCreated"
+            temporalSignalType: "start"
+            filterRule: "true"
+          - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.update"
+            temporalSignal: "testUpdated"
+            temporalSignalType: "start"
+            filterRule: "true"
+    tests:
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Unregister worker X again: same count as the first time"
+    operation: workflow.unregisterWorker
+    vars:
+      workerID: "scenario-unregister-worker-x"
+    tests:
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "The mark was cleared, so both rows stop again"
+        assertions:
+          - ref: res.body.data.unregisterWorker.stopped
+            equal: 2
+
+  - name: "Delete workflow"
+    operation: workflow.deleteWorkflow
+    vars:
+      id: {$ref: "res[registerX].body.data.registerWorkflow.id"}
+    tests:
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Deleted ID matches"
+        assertions:
+          - ref: res.body.data.deleteWorkflow.deletedID
+            equal: {$ref: "res[registerX].body.data.registerWorkflow.id"}

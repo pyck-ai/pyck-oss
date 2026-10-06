@@ -50,9 +50,6 @@ type testPublisher struct{}
 func (testPublisher) SendMutationEvent(context.Context, *MutationEventMessage) error { return nil }
 func (testPublisher) SendUpdateEvent(context.Context, *UpdateEventMessage) error     { return nil }
 func (testPublisher) SendCustomEvent(context.Context, *CustomEventMessage) error     { return nil }
-func (testPublisher) SendMutationEventWithReply(context.Context, *MutationEventMessage) ([]byte, error) {
-	return nil, nil
-}
 
 func (testPublisher) SendTemporalWorkflowEvent(context.Context, *TemporalWorkflowStateChangeMessage) error {
 	return nil
@@ -60,10 +57,6 @@ func (testPublisher) SendTemporalWorkflowEvent(context.Context, *TemporalWorkflo
 
 func (testPublisher) SendWorkflowEvent(context.Context, *WorkflowEventMessage) error { return nil }
 func (testPublisher) PublishRaw(context.Context, string, []byte, string) error       { return nil }
-
-func (testPublisher) RequestRaw(context.Context, string, []byte, time.Duration) (*EventReply, error) {
-	return nil, nil //nolint:nilnil // Test mock returns no data, no error
-}
 
 // GroupByTransaction exports the internal groupByTransaction function for testing.
 var GroupByTransaction = groupByTransaction
@@ -119,17 +112,13 @@ func ProcessEntryForTest(
 	tx *sql.Tx,
 	entry OutboxRow,
 	publisher Publisher,
-	registry *ReplyRegistry,
 	markPublished OutboxMarkPublishedFunc,
 	markFailed OutboxMarkFailedFunc,
-	replyTimeout time.Duration,
 ) error {
 	h := &OutboxHandler{
 		config: OutboxHandlerConfig{
-			Publisher:     publisher,
-			ReplyRegistry: registry,
-			ReplyTimeout:  replyTimeout,
-			StreamName:    "pyck",
+			Publisher:  publisher,
+			StreamName: "pyck",
 		},
 	}
 	mark := h.publishEntry(ctx, entry)
@@ -146,20 +135,16 @@ func ProcessTransactionGroupForTest(
 	transactionID uuid.UUID,
 	entries []OutboxRow,
 	publisher Publisher,
-	registry *ReplyRegistry,
 	markPublished OutboxMarkPublishedFunc,
 	markFailed OutboxMarkFailedFunc,
 	markDead OutboxMarkTransactionDeadFunc,
 	maxRetries int,
-	replyTimeout time.Duration,
 ) {
 	h := &OutboxHandler{
 		config: OutboxHandlerConfig{
-			Publisher:     publisher,
-			ReplyRegistry: registry,
-			MaxRetries:    maxRetries,
-			ReplyTimeout:  replyTimeout,
-			StreamName:    "pyck",
+			Publisher:  publisher,
+			MaxRetries: maxRetries,
+			StreamName: "pyck",
 		},
 	}
 	marks := h.publishTransactionGroup(ctx, transactionID, entries)
@@ -186,17 +171,13 @@ func PublishTransactionGroupCountsForTest(
 	transactionID uuid.UUID,
 	entries []OutboxRow,
 	publisher Publisher,
-	registry *ReplyRegistry,
 	maxRetries int,
-	replyTimeout time.Duration,
 ) PublishGroupCounts {
 	h := &OutboxHandler{
 		config: OutboxHandlerConfig{
-			Publisher:     publisher,
-			ReplyRegistry: registry,
-			MaxRetries:    maxRetries,
-			ReplyTimeout:  replyTimeout,
-			StreamName:    "pyck",
+			Publisher:  publisher,
+			MaxRetries: maxRetries,
+			StreamName: "pyck",
 		},
 	}
 	var counts PublishGroupCounts
@@ -215,13 +196,12 @@ func PublishTransactionGroupCountsForTest(
 }
 
 // NewOutboxRowForTest creates an OutboxRow for testing.
-func NewOutboxRowForTest(id, transactionID uuid.UUID, topic string, payload []byte, withReply bool, retryCount int, entityType string) OutboxRow {
+func NewOutboxRowForTest(id, transactionID uuid.UUID, topic string, payload []byte, retryCount int, entityType string) OutboxRow {
 	return OutboxRow{
 		ID:            id,
 		TransactionID: transactionID,
 		Topic:         topic,
 		Payload:       payload,
-		WithReply:     withReply,
 		RetryCount:    retryCount,
 		EntityType:    &entityType,
 	}

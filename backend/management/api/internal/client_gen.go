@@ -1957,47 +1957,29 @@ func (t *DeleteDataType_DeleteDataType) GetDeletedID() *string {
 	return t.DeletedID
 }
 
-type SendCustomEvent_SendCustomEvent_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *SendCustomEvent_SendCustomEvent_Workflows) GetID() string {
-	if t == nil {
-		t = &SendCustomEvent_SendCustomEvent_Workflows{}
-	}
-	return t.ID
-}
-func (t *SendCustomEvent_SendCustomEvent_Workflows) GetRunID() string {
-	if t == nil {
-		t = &SendCustomEvent_SendCustomEvent_Workflows{}
-	}
-	return t.RunID
-}
-func (t *SendCustomEvent_SendCustomEvent_Workflows) GetType() string {
-	if t == nil {
-		t = &SendCustomEvent_SendCustomEvent_Workflows{}
-	}
-	return t.Type
-}
-
 type SendCustomEvent_SendCustomEvent struct {
-	Success   bool                                         "json:\"success\" graphql:\"success\""
-	Workflows []*SendCustomEvent_SendCustomEvent_Workflows "json:\"workflows\" graphql:\"workflows\""
+	EventCount    int    "json:\"eventCount\" graphql:\"eventCount\""
+	Success       bool   "json:\"success\" graphql:\"success\""
+	TransactionID string "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *SendCustomEvent_SendCustomEvent) GetEventCount() int {
+	if t == nil {
+		t = &SendCustomEvent_SendCustomEvent{}
+	}
+	return t.EventCount
+}
 func (t *SendCustomEvent_SendCustomEvent) GetSuccess() bool {
 	if t == nil {
 		t = &SendCustomEvent_SendCustomEvent{}
 	}
 	return t.Success
 }
-func (t *SendCustomEvent_SendCustomEvent) GetWorkflows() []*SendCustomEvent_SendCustomEvent_Workflows {
+func (t *SendCustomEvent_SendCustomEvent) GetTransactionID() string {
 	if t == nil {
 		t = &SendCustomEvent_SendCustomEvent{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type RegisterTenant_RegisterTenant_Tenant struct {
@@ -2566,47 +2548,29 @@ func (t *CreateLocation_CreateLocation_Location) GetUpdatedBy() *uuid.UUID {
 	return t.UpdatedBy
 }
 
-type CreateLocation_CreateLocation_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreateLocation_CreateLocation_Workflows) GetID() string {
-	if t == nil {
-		t = &CreateLocation_CreateLocation_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreateLocation_CreateLocation_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreateLocation_CreateLocation_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreateLocation_CreateLocation_Workflows) GetType() string {
-	if t == nil {
-		t = &CreateLocation_CreateLocation_Workflows{}
-	}
-	return t.Type
-}
-
 type CreateLocation_CreateLocation struct {
-	Location  CreateLocation_CreateLocation_Location     "json:\"location\" graphql:\"location\""
-	Workflows []*CreateLocation_CreateLocation_Workflows "json:\"workflows\" graphql:\"workflows\""
+	EventCount    int                                    "json:\"eventCount\" graphql:\"eventCount\""
+	Location      CreateLocation_CreateLocation_Location "json:\"location\" graphql:\"location\""
+	TransactionID string                                 "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *CreateLocation_CreateLocation) GetEventCount() int {
+	if t == nil {
+		t = &CreateLocation_CreateLocation{}
+	}
+	return t.EventCount
+}
 func (t *CreateLocation_CreateLocation) GetLocation() *CreateLocation_CreateLocation_Location {
 	if t == nil {
 		t = &CreateLocation_CreateLocation{}
 	}
 	return &t.Location
 }
-func (t *CreateLocation_CreateLocation) GetWorkflows() []*CreateLocation_CreateLocation_Workflows {
+func (t *CreateLocation_CreateLocation) GetTransactionID() string {
 	if t == nil {
 		t = &CreateLocation_CreateLocation{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type UpdateLocation_UpdateLocation_Location struct {
@@ -2697,77 +2661,35 @@ func (t *UpdateLocation_UpdateLocation_Location) GetUpdatedBy() *uuid.UUID {
 	return t.UpdatedBy
 }
 
-type UpdateLocation_UpdateLocation_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdateLocation_UpdateLocation_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdateLocation_UpdateLocation_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdateLocation_UpdateLocation_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdateLocation_UpdateLocation_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdateLocation_UpdateLocation_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdateLocation_UpdateLocation_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdateLocation_UpdateLocation struct {
-	Location  UpdateLocation_UpdateLocation_Location     "json:\"location\" graphql:\"location\""
-	Workflows []*UpdateLocation_UpdateLocation_Workflows "json:\"workflows\" graphql:\"workflows\""
+	EventCount    int                                    "json:\"eventCount\" graphql:\"eventCount\""
+	Location      UpdateLocation_UpdateLocation_Location "json:\"location\" graphql:\"location\""
+	TransactionID string                                 "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *UpdateLocation_UpdateLocation) GetEventCount() int {
+	if t == nil {
+		t = &UpdateLocation_UpdateLocation{}
+	}
+	return t.EventCount
+}
 func (t *UpdateLocation_UpdateLocation) GetLocation() *UpdateLocation_UpdateLocation_Location {
 	if t == nil {
 		t = &UpdateLocation_UpdateLocation{}
 	}
 	return &t.Location
 }
-func (t *UpdateLocation_UpdateLocation) GetWorkflows() []*UpdateLocation_UpdateLocation_Workflows {
+func (t *UpdateLocation_UpdateLocation) GetTransactionID() string {
 	if t == nil {
 		t = &UpdateLocation_UpdateLocation{}
 	}
-	return t.Workflows
-}
-
-type DeleteLocation_DeleteLocation_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeleteLocation_DeleteLocation_Workflows) GetID() string {
-	if t == nil {
-		t = &DeleteLocation_DeleteLocation_Workflows{}
-	}
-	return t.ID
-}
-func (t *DeleteLocation_DeleteLocation_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeleteLocation_DeleteLocation_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeleteLocation_DeleteLocation_Workflows) GetType() string {
-	if t == nil {
-		t = &DeleteLocation_DeleteLocation_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeleteLocation_DeleteLocation struct {
-	DeletedID *string                                    "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeleteLocation_DeleteLocation_Workflows "json:\"workflows\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeleteLocation_DeleteLocation) GetDeletedID() *string {
@@ -2776,11 +2698,17 @@ func (t *DeleteLocation_DeleteLocation) GetDeletedID() *string {
 	}
 	return t.DeletedID
 }
-func (t *DeleteLocation_DeleteLocation) GetWorkflows() []*DeleteLocation_DeleteLocation_Workflows {
+func (t *DeleteLocation_DeleteLocation) GetEventCount() int {
 	if t == nil {
 		t = &DeleteLocation_DeleteLocation{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeleteLocation_DeleteLocation) GetTransactionID() string {
+	if t == nil {
+		t = &DeleteLocation_DeleteLocation{}
+	}
+	return t.TransactionID
 }
 
 type CreateDevice_CreateDevice_Device struct {
@@ -2871,34 +2799,10 @@ func (t *CreateDevice_CreateDevice_Device) GetUpdatedBy() *uuid.UUID {
 	return t.UpdatedBy
 }
 
-type CreateDevice_CreateDevice_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreateDevice_CreateDevice_Workflows) GetID() string {
-	if t == nil {
-		t = &CreateDevice_CreateDevice_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreateDevice_CreateDevice_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreateDevice_CreateDevice_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreateDevice_CreateDevice_Workflows) GetType() string {
-	if t == nil {
-		t = &CreateDevice_CreateDevice_Workflows{}
-	}
-	return t.Type
-}
-
 type CreateDevice_CreateDevice struct {
-	Device    CreateDevice_CreateDevice_Device       "json:\"device\" graphql:\"device\""
-	Workflows []*CreateDevice_CreateDevice_Workflows "json:\"workflows\" graphql:\"workflows\""
+	Device        CreateDevice_CreateDevice_Device "json:\"device\" graphql:\"device\""
+	EventCount    int                              "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string                           "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *CreateDevice_CreateDevice) GetDevice() *CreateDevice_CreateDevice_Device {
@@ -2907,11 +2811,17 @@ func (t *CreateDevice_CreateDevice) GetDevice() *CreateDevice_CreateDevice_Devic
 	}
 	return &t.Device
 }
-func (t *CreateDevice_CreateDevice) GetWorkflows() []*CreateDevice_CreateDevice_Workflows {
+func (t *CreateDevice_CreateDevice) GetEventCount() int {
 	if t == nil {
 		t = &CreateDevice_CreateDevice{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *CreateDevice_CreateDevice) GetTransactionID() string {
+	if t == nil {
+		t = &CreateDevice_CreateDevice{}
+	}
+	return t.TransactionID
 }
 
 type UpdateDevice_UpdateDevice_Device struct {
@@ -3002,34 +2912,10 @@ func (t *UpdateDevice_UpdateDevice_Device) GetUpdatedBy() *uuid.UUID {
 	return t.UpdatedBy
 }
 
-type UpdateDevice_UpdateDevice_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdateDevice_UpdateDevice_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdateDevice_UpdateDevice_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdateDevice_UpdateDevice_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdateDevice_UpdateDevice_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdateDevice_UpdateDevice_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdateDevice_UpdateDevice_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdateDevice_UpdateDevice struct {
-	Device    UpdateDevice_UpdateDevice_Device       "json:\"device\" graphql:\"device\""
-	Workflows []*UpdateDevice_UpdateDevice_Workflows "json:\"workflows\" graphql:\"workflows\""
+	Device        UpdateDevice_UpdateDevice_Device "json:\"device\" graphql:\"device\""
+	EventCount    int                              "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string                           "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *UpdateDevice_UpdateDevice) GetDevice() *UpdateDevice_UpdateDevice_Device {
@@ -3038,41 +2924,23 @@ func (t *UpdateDevice_UpdateDevice) GetDevice() *UpdateDevice_UpdateDevice_Devic
 	}
 	return &t.Device
 }
-func (t *UpdateDevice_UpdateDevice) GetWorkflows() []*UpdateDevice_UpdateDevice_Workflows {
+func (t *UpdateDevice_UpdateDevice) GetEventCount() int {
 	if t == nil {
 		t = &UpdateDevice_UpdateDevice{}
 	}
-	return t.Workflows
+	return t.EventCount
 }
-
-type DeleteDevice_DeleteDevice_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeleteDevice_DeleteDevice_Workflows) GetID() string {
+func (t *UpdateDevice_UpdateDevice) GetTransactionID() string {
 	if t == nil {
-		t = &DeleteDevice_DeleteDevice_Workflows{}
+		t = &UpdateDevice_UpdateDevice{}
 	}
-	return t.ID
-}
-func (t *DeleteDevice_DeleteDevice_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeleteDevice_DeleteDevice_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeleteDevice_DeleteDevice_Workflows) GetType() string {
-	if t == nil {
-		t = &DeleteDevice_DeleteDevice_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeleteDevice_DeleteDevice struct {
-	DeletedID *string                                "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeleteDevice_DeleteDevice_Workflows "json:\"workflows\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeleteDevice_DeleteDevice) GetDeletedID() *string {
@@ -3081,11 +2949,17 @@ func (t *DeleteDevice_DeleteDevice) GetDeletedID() *string {
 	}
 	return t.DeletedID
 }
-func (t *DeleteDevice_DeleteDevice) GetWorkflows() []*DeleteDevice_DeleteDevice_Workflows {
+func (t *DeleteDevice_DeleteDevice) GetEventCount() int {
 	if t == nil {
 		t = &DeleteDevice_DeleteDevice{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeleteDevice_DeleteDevice) GetTransactionID() string {
+	if t == nil {
+		t = &DeleteDevice_DeleteDevice{}
+	}
+	return t.TransactionID
 }
 
 type SetDeviceLocation_SetDeviceLocation_DeviceLocation struct {
@@ -3183,34 +3057,10 @@ func (t *SetDeviceLocation_SetDeviceLocation_DeviceLocation) GetUpdatedBy() *uui
 	return t.UpdatedBy
 }
 
-type SetDeviceLocation_SetDeviceLocation_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *SetDeviceLocation_SetDeviceLocation_Workflows) GetID() string {
-	if t == nil {
-		t = &SetDeviceLocation_SetDeviceLocation_Workflows{}
-	}
-	return t.ID
-}
-func (t *SetDeviceLocation_SetDeviceLocation_Workflows) GetRunID() string {
-	if t == nil {
-		t = &SetDeviceLocation_SetDeviceLocation_Workflows{}
-	}
-	return t.RunID
-}
-func (t *SetDeviceLocation_SetDeviceLocation_Workflows) GetType() string {
-	if t == nil {
-		t = &SetDeviceLocation_SetDeviceLocation_Workflows{}
-	}
-	return t.Type
-}
-
 type SetDeviceLocation_SetDeviceLocation struct {
 	DeviceLocation SetDeviceLocation_SetDeviceLocation_DeviceLocation "json:\"DeviceLocation\" graphql:\"DeviceLocation\""
-	Workflows      []*SetDeviceLocation_SetDeviceLocation_Workflows   "json:\"workflows\" graphql:\"workflows\""
+	EventCount     int                                                "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID  string                                             "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *SetDeviceLocation_SetDeviceLocation) GetDeviceLocation() *SetDeviceLocation_SetDeviceLocation_DeviceLocation {
@@ -3219,41 +3069,23 @@ func (t *SetDeviceLocation_SetDeviceLocation) GetDeviceLocation() *SetDeviceLoca
 	}
 	return &t.DeviceLocation
 }
-func (t *SetDeviceLocation_SetDeviceLocation) GetWorkflows() []*SetDeviceLocation_SetDeviceLocation_Workflows {
+func (t *SetDeviceLocation_SetDeviceLocation) GetEventCount() int {
 	if t == nil {
 		t = &SetDeviceLocation_SetDeviceLocation{}
 	}
-	return t.Workflows
+	return t.EventCount
 }
-
-type UnsetDeviceLocation_UnsetDeviceLocation_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UnsetDeviceLocation_UnsetDeviceLocation_Workflows) GetID() string {
+func (t *SetDeviceLocation_SetDeviceLocation) GetTransactionID() string {
 	if t == nil {
-		t = &UnsetDeviceLocation_UnsetDeviceLocation_Workflows{}
+		t = &SetDeviceLocation_SetDeviceLocation{}
 	}
-	return t.ID
-}
-func (t *UnsetDeviceLocation_UnsetDeviceLocation_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UnsetDeviceLocation_UnsetDeviceLocation_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UnsetDeviceLocation_UnsetDeviceLocation_Workflows) GetType() string {
-	if t == nil {
-		t = &UnsetDeviceLocation_UnsetDeviceLocation_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type UnsetDeviceLocation_UnsetDeviceLocation struct {
-	DeletedID *string                                              "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*UnsetDeviceLocation_UnsetDeviceLocation_Workflows "json:\"workflows\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *UnsetDeviceLocation_UnsetDeviceLocation) GetDeletedID() *string {
@@ -3262,11 +3094,17 @@ func (t *UnsetDeviceLocation_UnsetDeviceLocation) GetDeletedID() *string {
 	}
 	return t.DeletedID
 }
-func (t *UnsetDeviceLocation_UnsetDeviceLocation) GetWorkflows() []*UnsetDeviceLocation_UnsetDeviceLocation_Workflows {
+func (t *UnsetDeviceLocation_UnsetDeviceLocation) GetEventCount() int {
 	if t == nil {
 		t = &UnsetDeviceLocation_UnsetDeviceLocation{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *UnsetDeviceLocation_UnsetDeviceLocation) GetTransactionID() string {
+	if t == nil {
+		t = &UnsetDeviceLocation_UnsetDeviceLocation{}
+	}
+	return t.TransactionID
 }
 
 type CheckInUserDevice_CheckInUserDevice_DeviceUser struct {
@@ -3364,34 +3202,10 @@ func (t *CheckInUserDevice_CheckInUserDevice_DeviceUser) GetUserID() string {
 	return t.UserID
 }
 
-type CheckInUserDevice_CheckInUserDevice_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CheckInUserDevice_CheckInUserDevice_Workflows) GetID() string {
-	if t == nil {
-		t = &CheckInUserDevice_CheckInUserDevice_Workflows{}
-	}
-	return t.ID
-}
-func (t *CheckInUserDevice_CheckInUserDevice_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CheckInUserDevice_CheckInUserDevice_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CheckInUserDevice_CheckInUserDevice_Workflows) GetType() string {
-	if t == nil {
-		t = &CheckInUserDevice_CheckInUserDevice_Workflows{}
-	}
-	return t.Type
-}
-
 type CheckInUserDevice_CheckInUserDevice struct {
-	DeviceUser CheckInUserDevice_CheckInUserDevice_DeviceUser   "json:\"deviceUser\" graphql:\"deviceUser\""
-	Workflows  []*CheckInUserDevice_CheckInUserDevice_Workflows "json:\"workflows\" graphql:\"workflows\""
+	DeviceUser    CheckInUserDevice_CheckInUserDevice_DeviceUser "json:\"deviceUser\" graphql:\"deviceUser\""
+	EventCount    int                                            "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string                                         "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *CheckInUserDevice_CheckInUserDevice) GetDeviceUser() *CheckInUserDevice_CheckInUserDevice_DeviceUser {
@@ -3400,11 +3214,17 @@ func (t *CheckInUserDevice_CheckInUserDevice) GetDeviceUser() *CheckInUserDevice
 	}
 	return &t.DeviceUser
 }
-func (t *CheckInUserDevice_CheckInUserDevice) GetWorkflows() []*CheckInUserDevice_CheckInUserDevice_Workflows {
+func (t *CheckInUserDevice_CheckInUserDevice) GetEventCount() int {
 	if t == nil {
 		t = &CheckInUserDevice_CheckInUserDevice{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *CheckInUserDevice_CheckInUserDevice) GetTransactionID() string {
+	if t == nil {
+		t = &CheckInUserDevice_CheckInUserDevice{}
+	}
+	return t.TransactionID
 }
 
 type CheckOutUserDevice_CheckOutUserDevice_DeviceUser struct {
@@ -3502,34 +3322,10 @@ func (t *CheckOutUserDevice_CheckOutUserDevice_DeviceUser) GetUserID() string {
 	return t.UserID
 }
 
-type CheckOutUserDevice_CheckOutUserDevice_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CheckOutUserDevice_CheckOutUserDevice_Workflows) GetID() string {
-	if t == nil {
-		t = &CheckOutUserDevice_CheckOutUserDevice_Workflows{}
-	}
-	return t.ID
-}
-func (t *CheckOutUserDevice_CheckOutUserDevice_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CheckOutUserDevice_CheckOutUserDevice_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CheckOutUserDevice_CheckOutUserDevice_Workflows) GetType() string {
-	if t == nil {
-		t = &CheckOutUserDevice_CheckOutUserDevice_Workflows{}
-	}
-	return t.Type
-}
-
 type CheckOutUserDevice_CheckOutUserDevice struct {
-	DeviceUser []*CheckOutUserDevice_CheckOutUserDevice_DeviceUser "json:\"deviceUser\" graphql:\"deviceUser\""
-	Workflows  []*CheckOutUserDevice_CheckOutUserDevice_Workflows  "json:\"workflows\" graphql:\"workflows\""
+	DeviceUser    []*CheckOutUserDevice_CheckOutUserDevice_DeviceUser "json:\"deviceUser\" graphql:\"deviceUser\""
+	EventCount    int                                                 "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string                                              "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *CheckOutUserDevice_CheckOutUserDevice) GetDeviceUser() []*CheckOutUserDevice_CheckOutUserDevice_DeviceUser {
@@ -3538,11 +3334,17 @@ func (t *CheckOutUserDevice_CheckOutUserDevice) GetDeviceUser() []*CheckOutUserD
 	}
 	return t.DeviceUser
 }
-func (t *CheckOutUserDevice_CheckOutUserDevice) GetWorkflows() []*CheckOutUserDevice_CheckOutUserDevice_Workflows {
+func (t *CheckOutUserDevice_CheckOutUserDevice) GetEventCount() int {
 	if t == nil {
 		t = &CheckOutUserDevice_CheckOutUserDevice{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *CheckOutUserDevice_CheckOutUserDevice) GetTransactionID() string {
+	if t == nil {
+		t = &CheckOutUserDevice_CheckOutUserDevice{}
+	}
+	return t.TransactionID
 }
 
 type PatchLocationData_PatchLocationData_Location struct {
@@ -3633,47 +3435,29 @@ func (t *PatchLocationData_PatchLocationData_Location) GetUpdatedBy() *uuid.UUID
 	return t.UpdatedBy
 }
 
-type PatchLocationData_PatchLocationData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchLocationData_PatchLocationData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchLocationData_PatchLocationData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchLocationData_PatchLocationData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchLocationData_PatchLocationData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchLocationData_PatchLocationData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchLocationData_PatchLocationData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchLocationData_PatchLocationData struct {
-	Location  PatchLocationData_PatchLocationData_Location     "json:\"location\" graphql:\"location\""
-	Workflows []*PatchLocationData_PatchLocationData_Workflows "json:\"workflows\" graphql:\"workflows\""
+	EventCount    int                                          "json:\"eventCount\" graphql:\"eventCount\""
+	Location      PatchLocationData_PatchLocationData_Location "json:\"location\" graphql:\"location\""
+	TransactionID string                                       "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *PatchLocationData_PatchLocationData) GetEventCount() int {
+	if t == nil {
+		t = &PatchLocationData_PatchLocationData{}
+	}
+	return t.EventCount
+}
 func (t *PatchLocationData_PatchLocationData) GetLocation() *PatchLocationData_PatchLocationData_Location {
 	if t == nil {
 		t = &PatchLocationData_PatchLocationData{}
 	}
 	return &t.Location
 }
-func (t *PatchLocationData_PatchLocationData) GetWorkflows() []*PatchLocationData_PatchLocationData_Workflows {
+func (t *PatchLocationData_PatchLocationData) GetTransactionID() string {
 	if t == nil {
 		t = &PatchLocationData_PatchLocationData{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type PatchDeviceData_PatchDeviceData_Device struct {
@@ -3764,34 +3548,10 @@ func (t *PatchDeviceData_PatchDeviceData_Device) GetUpdatedBy() *uuid.UUID {
 	return t.UpdatedBy
 }
 
-type PatchDeviceData_PatchDeviceData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchDeviceData_PatchDeviceData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchDeviceData_PatchDeviceData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchDeviceData_PatchDeviceData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchDeviceData_PatchDeviceData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchDeviceData_PatchDeviceData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchDeviceData_PatchDeviceData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchDeviceData_PatchDeviceData struct {
-	Device    PatchDeviceData_PatchDeviceData_Device       "json:\"device\" graphql:\"device\""
-	Workflows []*PatchDeviceData_PatchDeviceData_Workflows "json:\"workflows\" graphql:\"workflows\""
+	Device        PatchDeviceData_PatchDeviceData_Device "json:\"device\" graphql:\"device\""
+	EventCount    int                                    "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string                                 "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *PatchDeviceData_PatchDeviceData) GetDevice() *PatchDeviceData_PatchDeviceData_Device {
@@ -3800,11 +3560,17 @@ func (t *PatchDeviceData_PatchDeviceData) GetDevice() *PatchDeviceData_PatchDevi
 	}
 	return &t.Device
 }
-func (t *PatchDeviceData_PatchDeviceData) GetWorkflows() []*PatchDeviceData_PatchDeviceData_Workflows {
+func (t *PatchDeviceData_PatchDeviceData) GetEventCount() int {
 	if t == nil {
 		t = &PatchDeviceData_PatchDeviceData{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *PatchDeviceData_PatchDeviceData) GetTransactionID() string {
+	if t == nil {
+		t = &PatchDeviceData_PatchDeviceData{}
+	}
+	return t.TransactionID
 }
 
 type PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation struct {
@@ -3902,34 +3668,10 @@ func (t *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation) GetUpda
 	return t.UpdatedBy
 }
 
-type PatchDeviceLocationData_PatchDeviceLocationData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchDeviceLocationData_PatchDeviceLocationData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchDeviceLocationData_PatchDeviceLocationData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchDeviceLocationData_PatchDeviceLocationData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchDeviceLocationData_PatchDeviceLocationData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchDeviceLocationData_PatchDeviceLocationData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchDeviceLocationData_PatchDeviceLocationData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchDeviceLocationData_PatchDeviceLocationData struct {
 	DeviceLocation PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation "json:\"DeviceLocation\" graphql:\"DeviceLocation\""
-	Workflows      []*PatchDeviceLocationData_PatchDeviceLocationData_Workflows   "json:\"workflows\" graphql:\"workflows\""
+	EventCount     int                                                            "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID  string                                                         "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *PatchDeviceLocationData_PatchDeviceLocationData) GetDeviceLocation() *PatchDeviceLocationData_PatchDeviceLocationData_DeviceLocation {
@@ -3938,11 +3680,17 @@ func (t *PatchDeviceLocationData_PatchDeviceLocationData) GetDeviceLocation() *P
 	}
 	return &t.DeviceLocation
 }
-func (t *PatchDeviceLocationData_PatchDeviceLocationData) GetWorkflows() []*PatchDeviceLocationData_PatchDeviceLocationData_Workflows {
+func (t *PatchDeviceLocationData_PatchDeviceLocationData) GetEventCount() int {
 	if t == nil {
 		t = &PatchDeviceLocationData_PatchDeviceLocationData{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *PatchDeviceLocationData_PatchDeviceLocationData) GetTransactionID() string {
+	if t == nil {
+		t = &PatchDeviceLocationData_PatchDeviceLocationData{}
+	}
+	return t.TransactionID
 }
 
 type AssignRoles_AssignRoles struct {
@@ -5195,12 +4943,9 @@ func (c *Client) DeleteDataType(ctx context.Context, id string, interceptors ...
 
 const SendCustomEventDocument = `mutation SendCustomEvent ($input: SendCustomEventInput!) {
 	sendCustomEvent(input: $input) {
+		eventCount
 		success
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -5538,6 +5283,7 @@ func (c *Client) DeleteKeyValue(ctx context.Context, id string, interceptors ...
 
 const CreateLocationDocument = `mutation CreateLocation ($input: CreateLocationInput!) {
 	createLocation(input: $input) {
+		eventCount
 		location {
 			createdAt
 			createdBy
@@ -5552,11 +5298,7 @@ const CreateLocationDocument = `mutation CreateLocation ($input: CreateLocationI
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -5580,6 +5322,7 @@ func (c *Client) CreateLocation(ctx context.Context, input CreateLocationInput, 
 
 const UpdateLocationDocument = `mutation UpdateLocation ($id: ID!, $input: UpdateLocationInput!) {
 	updateLocation(id: $id, input: $input) {
+		eventCount
 		location {
 			createdAt
 			createdBy
@@ -5594,11 +5337,7 @@ const UpdateLocationDocument = `mutation UpdateLocation ($id: ID!, $input: Updat
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -5624,11 +5363,8 @@ func (c *Client) UpdateLocation(ctx context.Context, id string, input UpdateLoca
 const DeleteLocationDocument = `mutation DeleteLocation ($id: ID!) {
 	deleteLocation(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -5666,11 +5402,8 @@ const CreateDeviceDocument = `mutation CreateDevice ($input: CreateDeviceInput!)
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -5708,11 +5441,8 @@ const UpdateDeviceDocument = `mutation UpdateDevice ($id: ID!, $input: UpdateDev
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -5738,11 +5468,8 @@ func (c *Client) UpdateDevice(ctx context.Context, id string, input UpdateDevice
 const DeleteDeviceDocument = `mutation DeleteDevice ($id: ID!) {
 	deleteDevice(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -5781,11 +5508,8 @@ const SetDeviceLocationDocument = `mutation SetDeviceLocation ($input: CreateDev
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -5810,11 +5534,8 @@ func (c *Client) SetDeviceLocation(ctx context.Context, input CreateDeviceLocati
 const UnsetDeviceLocationDocument = `mutation UnsetDeviceLocation ($id: ID!) {
 	unsetDeviceLocation(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -5853,11 +5574,8 @@ const CheckInUserDeviceDocument = `mutation CheckInUserDevice ($input: CheckInUs
 			updatedBy
 			userID
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -5896,11 +5614,8 @@ const CheckOutUserDeviceDocument = `mutation CheckOutUserDevice ($input: CheckOu
 			updatedBy
 			userID
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -5924,6 +5639,7 @@ func (c *Client) CheckOutUserDevice(ctx context.Context, input model.CheckOutUse
 
 const PatchLocationDataDocument = `mutation PatchLocationData ($id: ID!, $patches: [JSONPatchInput!]!) {
 	patchLocationData(id: $id, patches: $patches) {
+		eventCount
 		location {
 			createdAt
 			createdBy
@@ -5938,11 +5654,7 @@ const PatchLocationDataDocument = `mutation PatchLocationData ($id: ID!, $patche
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -5981,11 +5693,8 @@ const PatchDeviceDataDocument = `mutation PatchDeviceData ($id: ID!, $patches: [
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -6025,11 +5734,8 @@ const PatchDeviceLocationDataDocument = `mutation PatchDeviceLocationData ($id: 
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `

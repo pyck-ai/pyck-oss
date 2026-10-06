@@ -131,6 +131,10 @@ func (Stock) Indexes() []ent.Index {
 		// deleted_at (so this one must not be partial).
 		index.Fields("repository_id", "item_id", "version").
 			Annotations(entsql.DescColumns("version")),
+		// Serves InventoryItem.itemstocks: the repository-led indexes above read
+		// the rows of every item in the tenant.
+		index.Fields("tenant_id", "item_id", "repository_id", "version").
+			Annotations(entsql.DescColumns("version")),
 	}
 }
 

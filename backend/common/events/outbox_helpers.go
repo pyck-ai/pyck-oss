@@ -33,13 +33,12 @@ var (
 // This is used by OutboxSelector to return entries for processing.
 //
 // TransactionID is the canonical dedup key used by the outbox handler to
-// build the NATS message ID and to key the reply registry.
+// build the NATS message ID.
 type OutboxRow struct {
 	ID            uuid.UUID
 	TransactionID uuid.UUID
 	Topic         string
 	Payload       []byte
-	WithReply     bool
 	RetryCount    int
 	EntityType    *string
 }
@@ -84,7 +83,7 @@ func NewOutboxInserter(insertFn OutboxInsertFunc) func(context.Context, *OutboxE
 type entOutboxInserter[T any] struct {
 	outboxFieldIndex []int
 	createMethod     reflect.Value
-	setters          []reflect.Value // SetID, SetCreatedAt, SetTransactionID, SetNillableTraceID, SetNillableRequestID, SetNillableUserID, SetTopic, SetPayload, SetWithReply, SetNillableEntityType, SetNillableEntityID, SetTenantID
+	setters          []reflect.Value // SetID, SetCreatedAt, SetTransactionID, SetNillableTraceID, SetNillableRequestID, SetNillableUserID, SetTopic, SetPayload, SetNillableEntityType, SetNillableEntityID, SetTenantID
 	execMethod       reflect.Value
 }
 
@@ -153,7 +152,6 @@ func buildEntOutboxInserter[T any](txSample T) (*entOutboxInserter[T], error) {
 		"SetNillableUserID",
 		"SetTopic",
 		"SetPayload",
-		"SetWithReply",
 		"SetNillableEntityType",
 		"SetNillableEntityID",
 		"SetTenantID",
@@ -209,7 +207,6 @@ func (e *entOutboxInserter[T]) insert(ctx context.Context, tx T, entry *OutboxEn
 		reflect.ValueOf(entry.UserID),
 		reflect.ValueOf(entry.Topic.String()),
 		reflect.ValueOf(payload),
-		reflect.ValueOf(entry.WithReply),
 		reflect.ValueOf(entry.EntityType),
 		reflect.ValueOf(entry.EntityID),
 		reflect.ValueOf(entry.TenantID),
@@ -263,33 +260,49 @@ type OutboxDeleteFunc func(ctx context.Context, tx *sql.Tx, ids []uuid.UUID) err
 // apart (the white-box SQL assertions exercise the exact production query).
 
 // selectTransactionIDsQuery builds step 1 of the selector: the N oldest
-// transaction IDs that still have work. A group is selected when it has an
-// unpublished, non-dead row that is EITHER eligible for a (re)try — retry_count
-// below the cap and its backoff/lease elapsed — OR has exhausted its retries
-// (retry_count >= maxRetries). The latter is essential: without it a poisoned
-// row that reaches the cap would no longer match the retry predicate, the group
-// would stop being selected, and its rows would linger forever as pending
-// instead of being dead-lettered.
+// transaction IDs that still have work. Over the unpublished, non-dead rows of
+// each group, a group is selected when EITHER
+//   - a row has exhausted its retries (retry_count >= maxRetries), so the
+//     group is dead-lettered. This is essential: without it a poisoned row at
+//     the cap would no longer match the retry predicate and its group would
+//     linger forever as pending instead of being dead-lettered; OR
+//   - no row is held back, i.e. none has retry_count below the cap and a
+//     next_retry_at still in the future.
+//
+// The second branch is what keeps backoff per group, not per row. Step 2
+// fetches every open row of a selected group, and a group publishes in
+// created_at order and stops at its first failure. A failed row E1 has its
+// backoff in next_retry_at while its skipped successor E2 only carries the
+// short claim lease. If the group were selected as soon as E2's lease expired,
+// step 2 would return E1 too and republish it before its backoff elapsed, so a
+// multi-row group would retry every lease period instead of every 2^n seconds.
+// A live poller's lease is a future next_retry_at as well, so the same branch
+// keeps other pollers off a group that is mid-publish. Once nothing is held
+// back, every open row is eligible, which is the all-eligible case.
 func selectTransactionIDsQuery(tableName string, batchSize, maxRetries int, now time.Time) (string, []any) {
 	t := makeTable(tableName)
+	// Aggregate predicates over the group. They are built with the builder
+	// (Ident/Arg) so identifiers are quoted and placeholders numbered like the
+	// rest of the query.
+	exhausted := entsql.P(func(b *entsql.Builder) {
+		b.WriteString("MAX(").Ident(t.C(outboxfields.RetryCount)).WriteString(") >= ").Arg(maxRetries)
+	})
+	noneHeldBack := entsql.P(func(b *entsql.Builder) {
+		b.WriteString("COUNT(*) FILTER (WHERE ").
+			Ident(t.C(outboxfields.RetryCount)).WriteString(" < ").Arg(maxRetries).
+			WriteString(" AND ").
+			Ident(t.C(outboxfields.NextRetryAt)).WriteString(" > ").Arg(now).
+			WriteString(") = 0")
+	})
 	return entsql.Dialect(dialect.Postgres).
 		Select(t.C(outboxfields.TransactionID)).
 		From(t).
 		Where(entsql.And(
 			entsql.IsNull(t.C(outboxfields.PublishedAt)),
 			entsql.IsNull(t.C(outboxfields.DeadAt)),
-			entsql.Or(
-				entsql.And(
-					entsql.LT(t.C(outboxfields.RetryCount), maxRetries),
-					entsql.Or(
-						entsql.IsNull(t.C(outboxfields.NextRetryAt)),
-						entsql.LTE(t.C(outboxfields.NextRetryAt), now),
-					),
-				),
-				entsql.GTE(t.C(outboxfields.RetryCount), maxRetries),
-			),
 		)).
 		GroupBy(t.C(outboxfields.TransactionID)).
+		Having(entsql.Or(exhausted, noneHeldBack)).
 		OrderExpr(entsql.Expr("MIN(" + t.C(outboxfields.CreatedAt) + ")")).
 		Limit(batchSize).
 		Query()
@@ -387,7 +400,6 @@ func selectDeadRowsQuery(tableName string, batchSize int) (string, []any) {
 			t.C(outboxfields.TransactionID),
 			t.C(outboxfields.Topic),
 			t.C(outboxfields.Payload),
-			t.C(outboxfields.WithReply),
 			t.C(outboxfields.RetryCount),
 			t.C(outboxfields.EntityType),
 		).
@@ -483,7 +495,6 @@ func NewOutboxSelector(tableName string) OutboxSelectFunc {
 				t.C(outboxfields.TransactionID),
 				t.C(outboxfields.Topic),
 				t.C(outboxfields.Payload),
-				t.C(outboxfields.WithReply),
 				t.C(outboxfields.RetryCount),
 				t.C(outboxfields.EntityType),
 			).
@@ -522,7 +533,6 @@ func scanOutboxRows(rows *sql.Rows) ([]OutboxRow, error) {
 			&row.TransactionID,
 			&row.Topic,
 			&row.Payload,
-			&row.WithReply,
 			&row.RetryCount,
 			&entityType,
 		); err != nil {
@@ -587,9 +597,11 @@ func NewOutboxMarkTransactionDead(tableName string) OutboxMarkTransactionDeadFun
 // NewOutboxClaim creates an OutboxClaimFunc for the given table. It leases the
 // given entries until leaseUntil so a concurrent poller (the NOTIFY-triggered
 // goroutine, the poll timer, or another replica) cannot select the same rows
-// while they are being published — which, for with-reply entries that go through
-// core NATS request/reply (no JetStream dedup), would otherwise issue a
-// duplicate request and start duplicate workflows.
+// while they are being published. That avoids redundant concurrent publishes
+// and keeps retry counts and publish marks accurate. It does not make a
+// republish impossible: JetStream msgID dedup only covers the stream's
+// 2 minute Duplicates window (StreamDuplicateWindow), so consumers
+// deduplicate by the event ID in the payload.
 func NewOutboxClaim(tableName string) OutboxClaimFunc {
 	return func(ctx context.Context, tx *sql.Tx, ids []uuid.UUID, leaseUntil time.Time) error {
 		if len(ids) == 0 {
@@ -653,20 +665,28 @@ type OutboxSystemConfig struct {
 	// Timing configuration
 	PollInterval         time.Duration
 	BatchSize            int
-	ReplyTimeout         time.Duration
 	MaxRetries           int
 	NotifyChannel        string
 	ListenerPingInterval time.Duration
-	ReplyCleanupInterval time.Duration
 	ListenNotifyEnabled  bool
 	ClaimLease           time.Duration
 	DLQDrainInterval     time.Duration
+
+	// Published-row pruning (see OutboxJanitor). Zero values select the
+	// DefaultOutboxPrune* defaults.
+	PruneInterval  time.Duration
+	PruneRetention time.Duration
+	PruneBatchSize int
+
+	// PruneBatchPause is the janitor's pause between full batches of one sweep
+	// (default: 100ms).
+	PruneBatchPause time.Duration
 }
 
-// OutboxSystem manages the outbox handler and reply registry lifecycle.
+// OutboxSystem manages the outbox handler and published-row janitor lifecycle.
 type OutboxSystem struct {
-	Handler  *OutboxHandler
-	Registry *ReplyRegistry
+	Handler *OutboxHandler
+	Janitor *OutboxJanitor
 }
 
 // NewOutboxSystem creates a complete outbox event system with minimal configuration.
@@ -675,27 +695,14 @@ func NewOutboxSystem(cfg OutboxSystemConfig) *OutboxSystem {
 	// Derive table name from service name
 	tableName := cfg.ServiceName + "." + OutboxTableName
 
-	// Create reply registry. When the publisher supports cross-pod reply
-	// transport (the real NATS-backed EventPublisher does), use it so a reply
-	// reaches the waiting pod regardless of which replica's outbox handler
-	// processed the row. Otherwise (test fakes) fall back to in-process delivery.
-	var registry *ReplyRegistry
-	if transport, ok := cfg.Publisher.(ReplyTransport); ok && cfg.StreamName != "" {
-		registry = NewReplyRegistryWithTransport(cfg.ReplyCleanupInterval, transport, cfg.StreamName)
-	} else {
-		registry = NewReplyRegistry(cfg.ReplyCleanupInterval)
-	}
-
 	// Create handler with derived helpers
 	handler := NewOutboxHandler(OutboxHandlerConfig{
 		DB:                        cfg.DB,
 		ConnString:                cfg.ConnString,
 		Publisher:                 cfg.Publisher,
-		ReplyRegistry:             registry,
 		StreamName:                cfg.StreamName,
 		PollInterval:              cfg.PollInterval,
 		BatchSize:                 cfg.BatchSize,
-		ReplyTimeout:              cfg.ReplyTimeout,
 		MaxRetries:                cfg.MaxRetries,
 		NotifyChannel:             cfg.NotifyChannel,
 		ListenerPingInterval:      cfg.ListenerPingInterval,
@@ -713,21 +720,23 @@ func NewOutboxSystem(cfg OutboxSystemConfig) *OutboxSystem {
 	})
 
 	return &OutboxSystem{
-		Handler:  handler,
-		Registry: registry,
+		Handler: handler,
+		Janitor: NewOutboxJanitor(cfg.DB, tableName,
+			cfg.PruneInterval, cfg.PruneRetention, cfg.PruneBatchSize).
+			WithBatchPause(cfg.PruneBatchPause),
 	}
 }
 
-// Start begins processing outbox entries and starts the reply registry cleanup.
+// Start begins processing outbox entries and starts the published-row janitor
+// (which stops when ctx is cancelled).
 func (s *OutboxSystem) Start(ctx context.Context) error {
-	s.Registry.Start(ctx)
+	s.Janitor.Start(ctx)
 	return s.Handler.Start(ctx)
 }
 
-// Stop gracefully stops the outbox handler and reply registry.
+// Stop gracefully stops the outbox handler.
 func (s *OutboxSystem) Stop() {
 	s.Handler.Stop()
-	s.Registry.Stop()
 }
 
 // PostCommitFunc is the signature for scheduling functions after transaction commit.
@@ -760,6 +769,10 @@ type EventSystemConfig[T any] struct {
 
 	// Outbox timing configuration.
 	Outbox config.EventOutboxConfig
+
+	// SelfTenantSchemas lists schemas whose entity ID doubles as their tenant
+	// ID (see HookConfig.SelfTenantSchemas), e.g. management's "Tenant".
+	SelfTenantSchemas []string
 }
 
 // EventSystem manages the complete event infrastructure: mutation hook and outbox processing.
@@ -777,6 +790,7 @@ func NewEventSystem[T any](cfg EventSystemConfig[T]) *EventSystem {
 		EntityFetcher:      BuildEntityFetcher(cfg.TxFromContext, FieldData),
 		OutboxInserter:     NewEntOutboxInserter(cfg.TxFromContext),
 		FieldChangeEmitter: NewFieldChangeEmitter(cfg.Publisher, cfg.PostCommit),
+		SelfTenantSchemas:  cfg.SelfTenantSchemas,
 	}
 
 	// Create mutation hook
@@ -791,14 +805,16 @@ func NewEventSystem[T any](cfg EventSystemConfig[T]) *EventSystem {
 		StreamName:           cfg.StreamName,
 		PollInterval:         cfg.Outbox.OutboxPollInterval,
 		BatchSize:            cfg.Outbox.OutboxBatchSize,
-		ReplyTimeout:         cfg.Outbox.OutboxReplyTimeout,
 		MaxRetries:           cfg.Outbox.OutboxMaxRetries,
 		NotifyChannel:        cfg.Outbox.OutboxNotifyChannel,
 		ListenerPingInterval: cfg.Outbox.OutboxListenerPingInterval,
-		ReplyCleanupInterval: cfg.Outbox.OutboxReplyCleanupInterval,
 		ListenNotifyEnabled:  cfg.Outbox.OutboxListenNotifyEnabled,
 		ClaimLease:           cfg.Outbox.OutboxClaimLease,
 		DLQDrainInterval:     cfg.Outbox.OutboxDLQDrainInterval,
+		PruneInterval:        cfg.Outbox.OutboxPruneInterval,
+		PruneRetention:       cfg.Outbox.OutboxPruneRetention,
+		PruneBatchSize:       cfg.Outbox.OutboxPruneBatchSize,
+		PruneBatchPause:      cfg.Outbox.OutboxPruneBatchPause,
 	})
 
 	return &EventSystem{
@@ -812,12 +828,6 @@ func NewEventSystem[T any](cfg EventSystemConfig[T]) *EventSystem {
 // Use with dbClient.Use(eventSystem.Hook()).
 func (e *EventSystem) Hook() ent.Hook {
 	return e.hook
-}
-
-// Registry returns the reply registry for workflow reply coordination.
-// Use with gqltx.NewWorkflowReplyMiddleware(eventSystem.Registry(), timeout).
-func (e *EventSystem) Registry() *ReplyRegistry {
-	return e.outbox.Registry
 }
 
 // Start begins processing outbox entries.

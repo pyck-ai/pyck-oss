@@ -102,6 +102,21 @@ func NewWorkflowClient(cfg *config.Config, token string) workflowapi.Client {
 	)
 }
 
+// NewWorkflowClientForTenant is NewWorkflowClient plus an X-Pyck-Tenant-Id
+// header, scoping the call to that tenant. The workflow service's mutations
+// (deleteWorkflow, registerWorkflow) derive their tenant from it.
+//
+//nolint:ireturn // returns the generated workflow API client interface, mirroring NewInventoryClientForTenant
+func NewWorkflowClientForTenant(cfg *config.Config, token, tenantID string) workflowapi.Client {
+	return workflowapi.NewClient(
+		nethttp.DefaultClient,
+		cfg.GatewayURL,
+		&clientv2.Options{ParseDataAlongWithErrors: true},
+		bearerInterceptor(token),
+		tenantIDInterceptor(tenantID),
+	)
+}
+
 // bearerInterceptor returns a gqlgenc request interceptor that puts a
 // fixed Bearer token in the Authorization header.
 func bearerInterceptor(token string) clientv2.RequestInterceptor {

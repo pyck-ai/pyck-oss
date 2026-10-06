@@ -1,0 +1,101 @@
+---
+name: "Cross - Inventory Transaction Handle Lookup"
+description: >
+  Handle-based workflow contract: mutations return the per-transaction
+  UUID as transactionID instead of inline started-workflow details, and
+  clients poll workflowExecutions(where: {transactionID}) on the workflow
+  service to see what the mutation started. Verifies the mutation carries
+  a non-empty handle and that the lookup query accepts it and answers
+  with a well-formed (possibly empty) connection — the "not started yet"
+  state clients poll on. No workflow is registered for this entity in the
+  fixture environment, so the connection stays empty; the full
+  mutation-to-started-execution loop runs in the live-stack integration
+  suite.
+steps:
+  - id: createDT
+    name: "Create data type for inventory items"
+    operation: management.createDataType
+    # Give the NATS create event time to propagate into the inventory
+    # service's data type cache before createInventoryItem validates.
+    wait_after_ms: 500
+    vars:
+      input:
+        name: "Handle Item Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "inventoryitem"
+        jsonSchema: '{"type":"object","properties":{"weight":{"type":"number"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: create
+    name: "Create inventory item and receive the transaction handle"
+    operation: inventory.createInventoryItem
+    # Give the outbox drainer time to publish the mutation event before
+    # the lookup below runs.
+    wait_after_ms: 500
+    vars:
+      input:
+        dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+        sku: {$fake: "{{uuid}}"}
+        data:
+          weight: 2.5
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+      - msg: "Mutation returns a non-empty transaction handle"
+        assertions:
+          - ref: res.body.data.createInventoryItem.transactionID
+            nil: false
+          - ref: res.body.data.createInventoryItem.transactionID
+            isType: "string"
+          - ref: res.body.data.createInventoryItem.transactionID
+            empty: false
+      - msg: "Mutation reports the events it published"
+        assertions:
+          - ref: res.body.data.createInventoryItem.eventCount
+            isType: "number"
+          - ref: res.body.data.createInventoryItem.eventCount
+            greaterOrEqual: 1
+
+  - name: "Look up workflows started by the mutation via its handle"
+    operation: workflow.getWorkflowExecutions
+    vars:
+      first: 10
+      where:
+        transactionID: {$ref: "res[create].body.data.createInventoryItem.transactionID"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors (unknown handle is a valid, pollable state)"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Connection envelope returned"
+        assertions:
+          - ref: res.body.data.workflowExecutions.totalCount
+            greaterOrEqual: 0
+          - ref: res.body.data.workflowExecutions.edges
+            isType: "array"

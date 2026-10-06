@@ -1,5 +1,16 @@
-type PickingOrderItem @key(fields: "sku") {
+# PickingOrderItem is owned by the picking service. inventory contributes the
+# item a picking order item names by SKU and that item's stock in the
+# warehouse.
+#
+# The type is keyed on the order item's sku and tenantID. A SKU is unique per
+# tenant only, so several tenants can hold the same SKU; the order item's
+# tenantID restricts the item and warehouse lookups, and so the stock, to the
+# order item's own tenant, for every reader: the system user skips the tenant
+# filter and a multi-tenant reader's filter spans several tenants, so neither
+# narrows the lookup on its own.
+type PickingOrderItem @key(fields: "sku tenantID") {
   sku: String!
+  tenantID: UUID!
   item: InventoryItem
   availableStock: Int64
   reservedStock: Int64

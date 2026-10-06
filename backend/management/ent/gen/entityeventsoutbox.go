@@ -35,8 +35,6 @@ type EntityEventsOutbox struct {
 	Topic string `json:"topic,omitempty"`
 	// Payload holds the value of the "payload" field.
 	Payload map[string]interface{} `json:"payload,omitempty"`
-	// WithReply holds the value of the "with_reply" field.
-	WithReply bool `json:"with_reply,omitempty"`
 	// RetryCount holds the value of the "retry_count" field.
 	RetryCount int `json:"retry_count,omitempty"`
 	// LastError holds the value of the "last_error" field.
@@ -63,8 +61,6 @@ func (*EntityEventsOutbox) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case entityeventsoutbox.FieldPayload:
 			values[i] = new([]byte)
-		case entityeventsoutbox.FieldWithReply:
-			values[i] = new(sql.NullBool)
 		case entityeventsoutbox.FieldRetryCount:
 			values[i] = new(sql.NullInt64)
 		case entityeventsoutbox.FieldTraceID, entityeventsoutbox.FieldRequestID, entityeventsoutbox.FieldTopic, entityeventsoutbox.FieldLastError, entityeventsoutbox.FieldEntityType:
@@ -147,12 +143,6 @@ func (_m *EntityEventsOutbox) assignValues(columns []string, values []any) error
 				if err := json.Unmarshal(*value, &_m.Payload); err != nil {
 					return fmt.Errorf("unmarshal field payload: %w", err)
 				}
-			}
-		case entityeventsoutbox.FieldWithReply:
-			if value, ok := values[i].(*sql.NullBool); !ok {
-				return fmt.Errorf("unexpected type %T for field with_reply", values[i])
-			} else if value.Valid {
-				_m.WithReply = value.Bool
 			}
 		case entityeventsoutbox.FieldRetryCount:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -268,9 +258,6 @@ func (_m *EntityEventsOutbox) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("payload=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Payload))
-	builder.WriteString(", ")
-	builder.WriteString("with_reply=")
-	builder.WriteString(fmt.Sprintf("%v", _m.WithReply))
 	builder.WriteString(", ")
 	builder.WriteString("retry_count=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RetryCount))

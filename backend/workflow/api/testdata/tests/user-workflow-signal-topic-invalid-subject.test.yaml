@@ -1,0 +1,131 @@
+---
+name: "User - Workflow Signal Topic Invalid Subject"
+description: >
+  Registers mutation and Temporal state-change signal topics with an empty
+  token, which parse but are not valid NATS subscription subjects (the signal
+  router would read the empty token as a wildcard), and verifies each is
+  refused, and that an empty Temporal namespace, which wildcard-tenant
+  expansion would fill in, is refused as well, and nothing is persisted.
+steps:
+  - name: "Register workflow with an empty service token"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "TestSignalTopicInvalidSubjectConcrete"
+        taskQueue: "test-task-queue"
+        workerID: "scenario-user-workflow-signal-topic-invalid-subject"
+        signals:
+          - natsTopic: "request.reply.pyck.{{env_pyck_tenant_id}}.crud..item.*.created"
+            temporalSignal: "itemCreated"
+            temporalSignalType: "intermediate"
+            filterRule: "true"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL error returned"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+      - msg: "Refused as an invalid subscription subject"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "is not a valid NATS subscription subject"
+
+  - name: "Register workflow with an empty operation token and a wildcard tenant"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "TestSignalTopicInvalidSubjectWildcard"
+        taskQueue: "test-task-queue"
+        workerID: "scenario-user-workflow-signal-topic-invalid-subject"
+        signals:
+          - natsTopic: "request.reply.pyck.*.crud.workflow.item.*."
+            temporalSignal: "itemChanged"
+            temporalSignalType: "intermediate"
+            filterRule: "true"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL error returned"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+      - msg: "Refused as an invalid subscription subject"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "is not a valid NATS subscription subject"
+
+  - name: "Register workflow with an empty Temporal task queue token"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "TestSignalTopicInvalidSubjectTemporal"
+        taskQueue: "test-task-queue"
+        workerID: "scenario-user-workflow-signal-topic-invalid-subject"
+        signals:
+          - natsTopic: "pyck.*.temporal..t.w.r.s"
+            temporalSignal: "childChanged"
+            temporalSignalType: "intermediate"
+            filterRule: "true"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL error returned"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+      - msg: "Refused as an invalid subscription subject"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "is not a valid NATS subscription subject"
+
+  - name: "Register workflow with an empty Temporal namespace token"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "TestSignalTopicInvalidSubjectNamespace"
+        taskQueue: "test-task-queue"
+        workerID: "scenario-user-workflow-signal-topic-invalid-subject"
+        signals:
+          - natsTopic: "pyck..temporal.q.t.w.r.s"
+            temporalSignal: "childChanged"
+            temporalSignalType: "intermediate"
+            filterRule: "true"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL error returned"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+      - msg: "Refused as a namespace that is not a UUID"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "invalid namespace UUID"
+
+  - name: "Refused workflows are not persisted"
+    operation: workflow.getWorkflows
+    vars:
+      where:
+        nameHasPrefix: "TestSignalTopicInvalidSubject"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results"
+        assertions:
+          - ref: res.body.data.workflows.totalCount
+            equal: 0

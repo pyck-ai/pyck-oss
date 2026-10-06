@@ -21,15 +21,13 @@ func (r *receivingInboundShipmentNotificationWhereInputResolver) Data(ctx contex
 		return nil
 	}
 
-	if len(data) == 2 {
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(inboundshipmentnotification.FieldData, data[1], jsonPath))
-		})
+	jsonPath, value, err := sqljsonpath.PathValue(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueEQ(inboundshipmentnotification.FieldData, value, jsonPath))
+	})
 	return nil
 }
 
@@ -39,15 +37,13 @@ func (r *receivingInboundShipmentNotificationWhereInputResolver) DataHasKey(ctx 
 		return nil
 	}
 
-	if *data != "" {
-		jsonPath, err := sqljsonpath.DotPath(*data)
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(inboundshipmentnotification.FieldData, jsonPath))
-		})
+	jsonPath, err := sqljsonpath.KeyPath(*data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.HasKey(inboundshipmentnotification.FieldData, jsonPath))
+	})
 	return nil
 }
 
@@ -57,19 +53,13 @@ func (r *receivingInboundShipmentNotificationWhereInputResolver) DataIn(ctx cont
 		return nil
 	}
 
-	if len(data) >= 2 {
-		var args []any
-		for _, v := range data[1:] {
-			args = append(args, v)
-		}
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(inboundshipmentnotification.FieldData, args, jsonPath))
-		})
+	jsonPath, values, err := sqljsonpath.PathValues(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueIn(inboundshipmentnotification.FieldData, values, jsonPath))
+	})
 	return nil
 }
 
@@ -79,14 +69,12 @@ func (r *receivingInboundShipmentNotificationWhereInputResolver) DataContains(ct
 		return nil
 	}
 
-	if len(data) == 2 {
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(inboundshipmentnotification.FieldData, data[1], jsonPath))
-		})
+	jsonPath, value, err := sqljsonpath.PathValue(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueContains(inboundshipmentnotification.FieldData, value, jsonPath))
+	})
 	return nil
 }

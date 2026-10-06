@@ -105,6 +105,7 @@ query GetReceivingServiceInfo {
 
 mutation CreateReceivingInbound($input: CreateReceivingInboundWithItemsInput!) {
   createReceivingInbound(input: $input) {
+    eventCount
     receivingInbound {
       createdAt
       createdBy
@@ -120,17 +121,14 @@ mutation CreateReceivingInbound($input: CreateReceivingInboundWithItemsInput!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation UpdateReceivingInbound($id: ID!, $input: UpdateReceivingInboundInput!) {
   updateReceivingInbound(id: $id, input: $input) {
+    eventCount
     receivingInbound {
       createdAt
       createdBy
@@ -146,11 +144,7 @@ mutation UpdateReceivingInbound($id: ID!, $input: UpdateReceivingInboundInput!) 
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -158,17 +152,15 @@ mutation UpdateReceivingInbound($id: ID!, $input: UpdateReceivingInboundInput!) 
 mutation DeleteReceivingInbound($id: ID!) {
   deleteReceivingInbound(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
 
 mutation CreateReceivingInboundItem($input: CreateReceivingInboundItemInput!) {
   createReceivingInboundItem(input: $input) {
+    eventCount
     receivingInboundItem {
       createdAt
       createdBy
@@ -185,17 +177,14 @@ mutation CreateReceivingInboundItem($input: CreateReceivingInboundItemInput!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation UpdateReceivingInboundItem($id: ID!, $input: UpdateReceivingInboundItemInput!) {
   updateReceivingInboundItem(id: $id, input: $input) {
+    eventCount
     receivingInboundItem {
       createdAt
       createdBy
@@ -212,11 +201,7 @@ mutation UpdateReceivingInboundItem($id: ID!, $input: UpdateReceivingInboundItem
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -224,17 +209,15 @@ mutation UpdateReceivingInboundItem($id: ID!, $input: UpdateReceivingInboundItem
 mutation DeleteReceivingInboundItem($id: ID!) {
   deleteReceivingInboundItem(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
 
 mutation CreateReceivingInboundShipmentNotification($input: CreateReceivingInboundShipmentNotificationInput!) {
   createReceivingInboundShipmentNotification(input: $input) {
+    eventCount
     receivingInboundShipmentNotification {
       createdAt
       createdBy
@@ -249,17 +232,14 @@ mutation CreateReceivingInboundShipmentNotification($input: CreateReceivingInbou
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation UpdateReceivingInboundShipmentNotification($id: ID!, $input: UpdateReceivingInboundShipmentNotificationInput!) {
   updateReceivingInboundShipmentNotification(id: $id, input: $input) {
+    eventCount
     receivingInboundShipmentNotification {
       createdAt
       createdBy
@@ -274,11 +254,7 @@ mutation UpdateReceivingInboundShipmentNotification($id: ID!, $input: UpdateRece
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -286,17 +262,15 @@ mutation UpdateReceivingInboundShipmentNotification($id: ID!, $input: UpdateRece
 mutation DeleteReceivingInboundShipmentNotification($id: ID!) {
   deleteReceivingInboundShipmentNotification(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
 
 mutation PatchReceivingInboundData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchReceivingInboundData(id: $id, patches: $patches) {
+    eventCount
     receivingInbound {
       createdAt
       createdBy
@@ -312,17 +286,14 @@ mutation PatchReceivingInboundData($id: ID!, $patches: [JSONPatchInput!]!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation PatchReceivingInboundItemData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchReceivingInboundItemData(id: $id, patches: $patches) {
+    eventCount
     receivingInboundItem {
       createdAt
       createdBy
@@ -339,17 +310,14 @@ mutation PatchReceivingInboundItemData($id: ID!, $patches: [JSONPatchInput!]!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation PatchReceivingInboundShipmentNotificationData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchReceivingInboundShipmentNotificationData(id: $id, patches: $patches) {
+    eventCount
     receivingInboundShipmentNotification {
       createdAt
       createdBy
@@ -364,11 +332,7 @@ mutation PatchReceivingInboundShipmentNotificationData($id: ID!, $patches: [JSON
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 

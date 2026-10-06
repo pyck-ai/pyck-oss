@@ -2675,47 +2675,29 @@ func (t *CreateInventoryItem_CreateInventoryItem_InventoryItem) GetUpdatedBy() *
 	return t.UpdatedBy
 }
 
-type CreateInventoryItem_CreateInventoryItem_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreateInventoryItem_CreateInventoryItem_Workflows) GetID() string {
-	if t == nil {
-		t = &CreateInventoryItem_CreateInventoryItem_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreateInventoryItem_CreateInventoryItem_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreateInventoryItem_CreateInventoryItem_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreateInventoryItem_CreateInventoryItem_Workflows) GetType() string {
-	if t == nil {
-		t = &CreateInventoryItem_CreateInventoryItem_Workflows{}
-	}
-	return t.Type
-}
-
 type CreateInventoryItem_CreateInventoryItem struct {
+	EventCount    int                                                    "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryItem *CreateInventoryItem_CreateInventoryItem_InventoryItem "json:\"inventoryItem,omitempty\" graphql:\"inventoryItem\""
-	Workflows     []*CreateInventoryItem_CreateInventoryItem_Workflows   "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID string                                                 "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *CreateInventoryItem_CreateInventoryItem) GetEventCount() int {
+	if t == nil {
+		t = &CreateInventoryItem_CreateInventoryItem{}
+	}
+	return t.EventCount
+}
 func (t *CreateInventoryItem_CreateInventoryItem) GetInventoryItem() *CreateInventoryItem_CreateInventoryItem_InventoryItem {
 	if t == nil {
 		t = &CreateInventoryItem_CreateInventoryItem{}
 	}
 	return t.InventoryItem
 }
-func (t *CreateInventoryItem_CreateInventoryItem) GetWorkflows() []*CreateInventoryItem_CreateInventoryItem_Workflows {
+func (t *CreateInventoryItem_CreateInventoryItem) GetTransactionID() string {
 	if t == nil {
 		t = &CreateInventoryItem_CreateInventoryItem{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type UpdateInventoryItem_UpdateInventoryItem_InventoryItem struct {
@@ -2806,77 +2788,35 @@ func (t *UpdateInventoryItem_UpdateInventoryItem_InventoryItem) GetUpdatedBy() *
 	return t.UpdatedBy
 }
 
-type UpdateInventoryItem_UpdateInventoryItem_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdateInventoryItem_UpdateInventoryItem_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdateInventoryItem_UpdateInventoryItem_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdateInventoryItem_UpdateInventoryItem_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdateInventoryItem_UpdateInventoryItem_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdateInventoryItem_UpdateInventoryItem_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdateInventoryItem_UpdateInventoryItem_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdateInventoryItem_UpdateInventoryItem struct {
+	EventCount    int                                                    "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryItem *UpdateInventoryItem_UpdateInventoryItem_InventoryItem "json:\"inventoryItem,omitempty\" graphql:\"inventoryItem\""
-	Workflows     []*UpdateInventoryItem_UpdateInventoryItem_Workflows   "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID string                                                 "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *UpdateInventoryItem_UpdateInventoryItem) GetEventCount() int {
+	if t == nil {
+		t = &UpdateInventoryItem_UpdateInventoryItem{}
+	}
+	return t.EventCount
+}
 func (t *UpdateInventoryItem_UpdateInventoryItem) GetInventoryItem() *UpdateInventoryItem_UpdateInventoryItem_InventoryItem {
 	if t == nil {
 		t = &UpdateInventoryItem_UpdateInventoryItem{}
 	}
 	return t.InventoryItem
 }
-func (t *UpdateInventoryItem_UpdateInventoryItem) GetWorkflows() []*UpdateInventoryItem_UpdateInventoryItem_Workflows {
+func (t *UpdateInventoryItem_UpdateInventoryItem) GetTransactionID() string {
 	if t == nil {
 		t = &UpdateInventoryItem_UpdateInventoryItem{}
 	}
-	return t.Workflows
-}
-
-type DeleteInventoryItem_DeleteInventoryItem_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeleteInventoryItem_DeleteInventoryItem_Workflows) GetID() string {
-	if t == nil {
-		t = &DeleteInventoryItem_DeleteInventoryItem_Workflows{}
-	}
-	return t.ID
-}
-func (t *DeleteInventoryItem_DeleteInventoryItem_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeleteInventoryItem_DeleteInventoryItem_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeleteInventoryItem_DeleteInventoryItem_Workflows) GetType() string {
-	if t == nil {
-		t = &DeleteInventoryItem_DeleteInventoryItem_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeleteInventoryItem_DeleteInventoryItem struct {
-	DeletedID *string                                              "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeleteInventoryItem_DeleteInventoryItem_Workflows "json:\"workflows,omitempty\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeleteInventoryItem_DeleteInventoryItem) GetDeletedID() *string {
@@ -2885,11 +2825,17 @@ func (t *DeleteInventoryItem_DeleteInventoryItem) GetDeletedID() *string {
 	}
 	return t.DeletedID
 }
-func (t *DeleteInventoryItem_DeleteInventoryItem) GetWorkflows() []*DeleteInventoryItem_DeleteInventoryItem_Workflows {
+func (t *DeleteInventoryItem_DeleteInventoryItem) GetEventCount() int {
 	if t == nil {
 		t = &DeleteInventoryItem_DeleteInventoryItem{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeleteInventoryItem_DeleteInventoryItem) GetTransactionID() string {
+	if t == nil {
+		t = &DeleteInventoryItem_DeleteInventoryItem{}
+	}
+	return t.TransactionID
 }
 
 type CreateInventoryRepository_CreateInventoryRepository_InventoryRepository struct {
@@ -3015,47 +2961,29 @@ func (t *CreateInventoryRepository_CreateInventoryRepository_InventoryRepository
 	return t.VirtualRepo
 }
 
-type CreateInventoryRepository_CreateInventoryRepository_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreateInventoryRepository_CreateInventoryRepository_Workflows) GetID() string {
-	if t == nil {
-		t = &CreateInventoryRepository_CreateInventoryRepository_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreateInventoryRepository_CreateInventoryRepository_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreateInventoryRepository_CreateInventoryRepository_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreateInventoryRepository_CreateInventoryRepository_Workflows) GetType() string {
-	if t == nil {
-		t = &CreateInventoryRepository_CreateInventoryRepository_Workflows{}
-	}
-	return t.Type
-}
-
 type CreateInventoryRepository_CreateInventoryRepository struct {
+	EventCount          int                                                                      "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryRepository *CreateInventoryRepository_CreateInventoryRepository_InventoryRepository "json:\"inventoryRepository,omitempty\" graphql:\"inventoryRepository\""
-	Workflows           []*CreateInventoryRepository_CreateInventoryRepository_Workflows         "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID       string                                                                   "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *CreateInventoryRepository_CreateInventoryRepository) GetEventCount() int {
+	if t == nil {
+		t = &CreateInventoryRepository_CreateInventoryRepository{}
+	}
+	return t.EventCount
+}
 func (t *CreateInventoryRepository_CreateInventoryRepository) GetInventoryRepository() *CreateInventoryRepository_CreateInventoryRepository_InventoryRepository {
 	if t == nil {
 		t = &CreateInventoryRepository_CreateInventoryRepository{}
 	}
 	return t.InventoryRepository
 }
-func (t *CreateInventoryRepository_CreateInventoryRepository) GetWorkflows() []*CreateInventoryRepository_CreateInventoryRepository_Workflows {
+func (t *CreateInventoryRepository_CreateInventoryRepository) GetTransactionID() string {
 	if t == nil {
 		t = &CreateInventoryRepository_CreateInventoryRepository{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type UpdateInventoryRepository_UpdateInventoryRepository_InventoryRepository struct {
@@ -3181,77 +3109,35 @@ func (t *UpdateInventoryRepository_UpdateInventoryRepository_InventoryRepository
 	return t.VirtualRepo
 }
 
-type UpdateInventoryRepository_UpdateInventoryRepository_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdateInventoryRepository_UpdateInventoryRepository_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdateInventoryRepository_UpdateInventoryRepository_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdateInventoryRepository_UpdateInventoryRepository_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdateInventoryRepository_UpdateInventoryRepository_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdateInventoryRepository_UpdateInventoryRepository_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdateInventoryRepository_UpdateInventoryRepository_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdateInventoryRepository_UpdateInventoryRepository struct {
+	EventCount          int                                                                      "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryRepository *UpdateInventoryRepository_UpdateInventoryRepository_InventoryRepository "json:\"inventoryRepository,omitempty\" graphql:\"inventoryRepository\""
-	Workflows           []*UpdateInventoryRepository_UpdateInventoryRepository_Workflows         "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID       string                                                                   "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *UpdateInventoryRepository_UpdateInventoryRepository) GetEventCount() int {
+	if t == nil {
+		t = &UpdateInventoryRepository_UpdateInventoryRepository{}
+	}
+	return t.EventCount
+}
 func (t *UpdateInventoryRepository_UpdateInventoryRepository) GetInventoryRepository() *UpdateInventoryRepository_UpdateInventoryRepository_InventoryRepository {
 	if t == nil {
 		t = &UpdateInventoryRepository_UpdateInventoryRepository{}
 	}
 	return t.InventoryRepository
 }
-func (t *UpdateInventoryRepository_UpdateInventoryRepository) GetWorkflows() []*UpdateInventoryRepository_UpdateInventoryRepository_Workflows {
+func (t *UpdateInventoryRepository_UpdateInventoryRepository) GetTransactionID() string {
 	if t == nil {
 		t = &UpdateInventoryRepository_UpdateInventoryRepository{}
 	}
-	return t.Workflows
-}
-
-type DeleteInventoryRepository_DeleteInventoryRepository_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeleteInventoryRepository_DeleteInventoryRepository_Workflows) GetID() string {
-	if t == nil {
-		t = &DeleteInventoryRepository_DeleteInventoryRepository_Workflows{}
-	}
-	return t.ID
-}
-func (t *DeleteInventoryRepository_DeleteInventoryRepository_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeleteInventoryRepository_DeleteInventoryRepository_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeleteInventoryRepository_DeleteInventoryRepository_Workflows) GetType() string {
-	if t == nil {
-		t = &DeleteInventoryRepository_DeleteInventoryRepository_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeleteInventoryRepository_DeleteInventoryRepository struct {
-	DeletedID *string                                                          "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeleteInventoryRepository_DeleteInventoryRepository_Workflows "json:\"workflows,omitempty\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeleteInventoryRepository_DeleteInventoryRepository) GetDeletedID() *string {
@@ -3260,11 +3146,17 @@ func (t *DeleteInventoryRepository_DeleteInventoryRepository) GetDeletedID() *st
 	}
 	return t.DeletedID
 }
-func (t *DeleteInventoryRepository_DeleteInventoryRepository) GetWorkflows() []*DeleteInventoryRepository_DeleteInventoryRepository_Workflows {
+func (t *DeleteInventoryRepository_DeleteInventoryRepository) GetEventCount() int {
 	if t == nil {
 		t = &DeleteInventoryRepository_DeleteInventoryRepository{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeleteInventoryRepository_DeleteInventoryRepository) GetTransactionID() string {
+	if t == nil {
+		t = &DeleteInventoryRepository_DeleteInventoryRepository{}
+	}
+	return t.TransactionID
 }
 
 type CreateInventoryItemMovement_CreateInventoryItemMovement_InventoryItemMovement struct {
@@ -3425,47 +3317,29 @@ func (t *CreateInventoryItemMovement_CreateInventoryItemMovement_InventoryItemMo
 	return t.UpdatedBy
 }
 
-type CreateInventoryItemMovement_CreateInventoryItemMovement_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreateInventoryItemMovement_CreateInventoryItemMovement_Workflows) GetID() string {
-	if t == nil {
-		t = &CreateInventoryItemMovement_CreateInventoryItemMovement_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreateInventoryItemMovement_CreateInventoryItemMovement_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreateInventoryItemMovement_CreateInventoryItemMovement_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreateInventoryItemMovement_CreateInventoryItemMovement_Workflows) GetType() string {
-	if t == nil {
-		t = &CreateInventoryItemMovement_CreateInventoryItemMovement_Workflows{}
-	}
-	return t.Type
-}
-
 type CreateInventoryItemMovement_CreateInventoryItemMovement struct {
+	EventCount            int                                                                            "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryItemMovement *CreateInventoryItemMovement_CreateInventoryItemMovement_InventoryItemMovement "json:\"inventoryItemMovement,omitempty\" graphql:\"inventoryItemMovement\""
-	Workflows             []*CreateInventoryItemMovement_CreateInventoryItemMovement_Workflows           "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID         string                                                                         "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *CreateInventoryItemMovement_CreateInventoryItemMovement) GetEventCount() int {
+	if t == nil {
+		t = &CreateInventoryItemMovement_CreateInventoryItemMovement{}
+	}
+	return t.EventCount
+}
 func (t *CreateInventoryItemMovement_CreateInventoryItemMovement) GetInventoryItemMovement() *CreateInventoryItemMovement_CreateInventoryItemMovement_InventoryItemMovement {
 	if t == nil {
 		t = &CreateInventoryItemMovement_CreateInventoryItemMovement{}
 	}
 	return t.InventoryItemMovement
 }
-func (t *CreateInventoryItemMovement_CreateInventoryItemMovement) GetWorkflows() []*CreateInventoryItemMovement_CreateInventoryItemMovement_Workflows {
+func (t *CreateInventoryItemMovement_CreateInventoryItemMovement) GetTransactionID() string {
 	if t == nil {
 		t = &CreateInventoryItemMovement_CreateInventoryItemMovement{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type UpdateInventoryItemMovement_UpdateInventoryItemMovement_InventoryItemMovement struct {
@@ -3626,47 +3500,29 @@ func (t *UpdateInventoryItemMovement_UpdateInventoryItemMovement_InventoryItemMo
 	return t.UpdatedBy
 }
 
-type UpdateInventoryItemMovement_UpdateInventoryItemMovement_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdateInventoryItemMovement_UpdateInventoryItemMovement_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdateInventoryItemMovement_UpdateInventoryItemMovement_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdateInventoryItemMovement_UpdateInventoryItemMovement_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdateInventoryItemMovement_UpdateInventoryItemMovement_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdateInventoryItemMovement_UpdateInventoryItemMovement_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdateInventoryItemMovement_UpdateInventoryItemMovement_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdateInventoryItemMovement_UpdateInventoryItemMovement struct {
+	EventCount            int                                                                            "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryItemMovement *UpdateInventoryItemMovement_UpdateInventoryItemMovement_InventoryItemMovement "json:\"inventoryItemMovement,omitempty\" graphql:\"inventoryItemMovement\""
-	Workflows             []*UpdateInventoryItemMovement_UpdateInventoryItemMovement_Workflows           "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID         string                                                                         "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *UpdateInventoryItemMovement_UpdateInventoryItemMovement) GetEventCount() int {
+	if t == nil {
+		t = &UpdateInventoryItemMovement_UpdateInventoryItemMovement{}
+	}
+	return t.EventCount
+}
 func (t *UpdateInventoryItemMovement_UpdateInventoryItemMovement) GetInventoryItemMovement() *UpdateInventoryItemMovement_UpdateInventoryItemMovement_InventoryItemMovement {
 	if t == nil {
 		t = &UpdateInventoryItemMovement_UpdateInventoryItemMovement{}
 	}
 	return t.InventoryItemMovement
 }
-func (t *UpdateInventoryItemMovement_UpdateInventoryItemMovement) GetWorkflows() []*UpdateInventoryItemMovement_UpdateInventoryItemMovement_Workflows {
+func (t *UpdateInventoryItemMovement_UpdateInventoryItemMovement) GetTransactionID() string {
 	if t == nil {
 		t = &UpdateInventoryItemMovement_UpdateInventoryItemMovement{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type ExecuteInventoryItemMovement_ExecuteInventoryItemMovement_InventoryItemMovement struct {
@@ -3827,77 +3683,35 @@ func (t *ExecuteInventoryItemMovement_ExecuteInventoryItemMovement_InventoryItem
 	return t.UpdatedBy
 }
 
-type ExecuteInventoryItemMovement_ExecuteInventoryItemMovement_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *ExecuteInventoryItemMovement_ExecuteInventoryItemMovement_Workflows) GetID() string {
-	if t == nil {
-		t = &ExecuteInventoryItemMovement_ExecuteInventoryItemMovement_Workflows{}
-	}
-	return t.ID
-}
-func (t *ExecuteInventoryItemMovement_ExecuteInventoryItemMovement_Workflows) GetRunID() string {
-	if t == nil {
-		t = &ExecuteInventoryItemMovement_ExecuteInventoryItemMovement_Workflows{}
-	}
-	return t.RunID
-}
-func (t *ExecuteInventoryItemMovement_ExecuteInventoryItemMovement_Workflows) GetType() string {
-	if t == nil {
-		t = &ExecuteInventoryItemMovement_ExecuteInventoryItemMovement_Workflows{}
-	}
-	return t.Type
-}
-
 type ExecuteInventoryItemMovement_ExecuteInventoryItemMovement struct {
+	EventCount            int                                                                              "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryItemMovement *ExecuteInventoryItemMovement_ExecuteInventoryItemMovement_InventoryItemMovement "json:\"inventoryItemMovement,omitempty\" graphql:\"inventoryItemMovement\""
-	Workflows             []*ExecuteInventoryItemMovement_ExecuteInventoryItemMovement_Workflows           "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID         string                                                                           "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *ExecuteInventoryItemMovement_ExecuteInventoryItemMovement) GetEventCount() int {
+	if t == nil {
+		t = &ExecuteInventoryItemMovement_ExecuteInventoryItemMovement{}
+	}
+	return t.EventCount
+}
 func (t *ExecuteInventoryItemMovement_ExecuteInventoryItemMovement) GetInventoryItemMovement() *ExecuteInventoryItemMovement_ExecuteInventoryItemMovement_InventoryItemMovement {
 	if t == nil {
 		t = &ExecuteInventoryItemMovement_ExecuteInventoryItemMovement{}
 	}
 	return t.InventoryItemMovement
 }
-func (t *ExecuteInventoryItemMovement_ExecuteInventoryItemMovement) GetWorkflows() []*ExecuteInventoryItemMovement_ExecuteInventoryItemMovement_Workflows {
+func (t *ExecuteInventoryItemMovement_ExecuteInventoryItemMovement) GetTransactionID() string {
 	if t == nil {
 		t = &ExecuteInventoryItemMovement_ExecuteInventoryItemMovement{}
 	}
-	return t.Workflows
-}
-
-type DeleteInventoryItemMovement_DeleteInventoryItemMovement_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeleteInventoryItemMovement_DeleteInventoryItemMovement_Workflows) GetID() string {
-	if t == nil {
-		t = &DeleteInventoryItemMovement_DeleteInventoryItemMovement_Workflows{}
-	}
-	return t.ID
-}
-func (t *DeleteInventoryItemMovement_DeleteInventoryItemMovement_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeleteInventoryItemMovement_DeleteInventoryItemMovement_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeleteInventoryItemMovement_DeleteInventoryItemMovement_Workflows) GetType() string {
-	if t == nil {
-		t = &DeleteInventoryItemMovement_DeleteInventoryItemMovement_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeleteInventoryItemMovement_DeleteInventoryItemMovement struct {
-	DeletedID *string                                                              "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeleteInventoryItemMovement_DeleteInventoryItemMovement_Workflows "json:\"workflows,omitempty\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeleteInventoryItemMovement_DeleteInventoryItemMovement) GetDeletedID() *string {
@@ -3906,11 +3720,17 @@ func (t *DeleteInventoryItemMovement_DeleteInventoryItemMovement) GetDeletedID()
 	}
 	return t.DeletedID
 }
-func (t *DeleteInventoryItemMovement_DeleteInventoryItemMovement) GetWorkflows() []*DeleteInventoryItemMovement_DeleteInventoryItemMovement_Workflows {
+func (t *DeleteInventoryItemMovement_DeleteInventoryItemMovement) GetEventCount() int {
 	if t == nil {
 		t = &DeleteInventoryItemMovement_DeleteInventoryItemMovement{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeleteInventoryItemMovement_DeleteInventoryItemMovement) GetTransactionID() string {
+	if t == nil {
+		t = &DeleteInventoryItemMovement_DeleteInventoryItemMovement{}
+	}
+	return t.TransactionID
 }
 
 type CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement_InventoryRepositoryMovement struct {
@@ -4064,47 +3884,29 @@ func (t *CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement_Inv
 	return t.UpdatedBy
 }
 
-type CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement_Workflows) GetID() string {
-	if t == nil {
-		t = &CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement_Workflows) GetType() string {
-	if t == nil {
-		t = &CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement_Workflows{}
-	}
-	return t.Type
-}
-
 type CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement struct {
+	EventCount                  int                                                                                              "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryRepositoryMovement *CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement_InventoryRepositoryMovement "json:\"inventoryRepositoryMovement,omitempty\" graphql:\"inventoryRepositoryMovement\""
-	Workflows                   []*CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement_Workflows                 "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID               string                                                                                           "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement) GetEventCount() int {
+	if t == nil {
+		t = &CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement{}
+	}
+	return t.EventCount
+}
 func (t *CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement) GetInventoryRepositoryMovement() *CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement_InventoryRepositoryMovement {
 	if t == nil {
 		t = &CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement{}
 	}
 	return t.InventoryRepositoryMovement
 }
-func (t *CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement) GetWorkflows() []*CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement_Workflows {
+func (t *CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement) GetTransactionID() string {
 	if t == nil {
 		t = &CreateInventoryRepositoryMovement_CreateInventoryRepositoryMovement{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement_InventoryRepositoryMovement struct {
@@ -4258,47 +4060,29 @@ func (t *UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement_Inv
 	return t.UpdatedBy
 }
 
-type UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement struct {
+	EventCount                  int                                                                                              "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryRepositoryMovement *UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement_InventoryRepositoryMovement "json:\"inventoryRepositoryMovement,omitempty\" graphql:\"inventoryRepositoryMovement\""
-	Workflows                   []*UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement_Workflows                 "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID               string                                                                                           "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement) GetEventCount() int {
+	if t == nil {
+		t = &UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement{}
+	}
+	return t.EventCount
+}
 func (t *UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement) GetInventoryRepositoryMovement() *UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement_InventoryRepositoryMovement {
 	if t == nil {
 		t = &UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement{}
 	}
 	return t.InventoryRepositoryMovement
 }
-func (t *UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement) GetWorkflows() []*UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement_Workflows {
+func (t *UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement) GetTransactionID() string {
 	if t == nil {
 		t = &UpdateInventoryRepositoryMovement_UpdateInventoryRepositoryMovement{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement_InventoryRepositoryMovement struct {
@@ -4452,77 +4236,35 @@ func (t *ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement_I
 	return t.UpdatedBy
 }
 
-type ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement_Workflows) GetID() string {
-	if t == nil {
-		t = &ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement_Workflows{}
-	}
-	return t.ID
-}
-func (t *ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement_Workflows) GetRunID() string {
-	if t == nil {
-		t = &ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement_Workflows{}
-	}
-	return t.RunID
-}
-func (t *ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement_Workflows) GetType() string {
-	if t == nil {
-		t = &ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement_Workflows{}
-	}
-	return t.Type
-}
-
 type ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement struct {
+	EventCount                  int                                                                                                "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryRepositoryMovement *ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement_InventoryRepositoryMovement "json:\"inventoryRepositoryMovement,omitempty\" graphql:\"inventoryRepositoryMovement\""
-	Workflows                   []*ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement_Workflows                 "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID               string                                                                                             "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement) GetEventCount() int {
+	if t == nil {
+		t = &ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement{}
+	}
+	return t.EventCount
+}
 func (t *ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement) GetInventoryRepositoryMovement() *ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement_InventoryRepositoryMovement {
 	if t == nil {
 		t = &ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement{}
 	}
 	return t.InventoryRepositoryMovement
 }
-func (t *ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement) GetWorkflows() []*ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement_Workflows {
+func (t *ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement) GetTransactionID() string {
 	if t == nil {
 		t = &ExecuteInventoryRepositoryMovement_ExecuteInventoryRepositoryMovement{}
 	}
-	return t.Workflows
-}
-
-type DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement_Workflows) GetID() string {
-	if t == nil {
-		t = &DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement_Workflows{}
-	}
-	return t.ID
-}
-func (t *DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement_Workflows) GetType() string {
-	if t == nil {
-		t = &DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement struct {
-	DeletedID *string                                                                          "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement_Workflows "json:\"workflows,omitempty\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement) GetDeletedID() *string {
@@ -4531,11 +4273,17 @@ func (t *DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement) Ge
 	}
 	return t.DeletedID
 }
-func (t *DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement) GetWorkflows() []*DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement_Workflows {
+func (t *DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement) GetEventCount() int {
 	if t == nil {
 		t = &DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement) GetTransactionID() string {
+	if t == nil {
+		t = &DeleteInventoryRepositoryMovement_DeleteInventoryRepositoryMovement{}
+	}
+	return t.TransactionID
 }
 
 type CreateInventoryCollectionMovement_CreateInventoryCollectionMovement_Movements struct {
@@ -4556,37 +4304,19 @@ func (t *CreateInventoryCollectionMovement_CreateInventoryCollectionMovement_Mov
 	return t.MovementType
 }
 
-type CreateInventoryCollectionMovement_CreateInventoryCollectionMovement_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreateInventoryCollectionMovement_CreateInventoryCollectionMovement_Workflows) GetID() string {
-	if t == nil {
-		t = &CreateInventoryCollectionMovement_CreateInventoryCollectionMovement_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreateInventoryCollectionMovement_CreateInventoryCollectionMovement_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreateInventoryCollectionMovement_CreateInventoryCollectionMovement_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreateInventoryCollectionMovement_CreateInventoryCollectionMovement_Workflows) GetType() string {
-	if t == nil {
-		t = &CreateInventoryCollectionMovement_CreateInventoryCollectionMovement_Workflows{}
-	}
-	return t.Type
-}
-
 type CreateInventoryCollectionMovement_CreateInventoryCollectionMovement struct {
-	ID        string                                                                           "json:\"id\" graphql:\"id\""
-	Movements []*CreateInventoryCollectionMovement_CreateInventoryCollectionMovement_Movements "json:\"movements,omitempty\" graphql:\"movements\""
-	Workflows []*CreateInventoryCollectionMovement_CreateInventoryCollectionMovement_Workflows "json:\"workflows,omitempty\" graphql:\"workflows\""
+	EventCount    int                                                                              "json:\"eventCount\" graphql:\"eventCount\""
+	ID            string                                                                           "json:\"id\" graphql:\"id\""
+	Movements     []*CreateInventoryCollectionMovement_CreateInventoryCollectionMovement_Movements "json:\"movements,omitempty\" graphql:\"movements\""
+	TransactionID string                                                                           "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *CreateInventoryCollectionMovement_CreateInventoryCollectionMovement) GetEventCount() int {
+	if t == nil {
+		t = &CreateInventoryCollectionMovement_CreateInventoryCollectionMovement{}
+	}
+	return t.EventCount
+}
 func (t *CreateInventoryCollectionMovement_CreateInventoryCollectionMovement) GetID() string {
 	if t == nil {
 		t = &CreateInventoryCollectionMovement_CreateInventoryCollectionMovement{}
@@ -4599,11 +4329,11 @@ func (t *CreateInventoryCollectionMovement_CreateInventoryCollectionMovement) Ge
 	}
 	return t.Movements
 }
-func (t *CreateInventoryCollectionMovement_CreateInventoryCollectionMovement) GetWorkflows() []*CreateInventoryCollectionMovement_CreateInventoryCollectionMovement_Workflows {
+func (t *CreateInventoryCollectionMovement_CreateInventoryCollectionMovement) GetTransactionID() string {
 	if t == nil {
 		t = &CreateInventoryCollectionMovement_CreateInventoryCollectionMovement{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement_InventoryCollection struct {
@@ -4694,77 +4424,35 @@ func (t *UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement_Inv
 	return t.UpdatedBy
 }
 
-type UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement struct {
+	EventCount          int                                                                                     "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryCollection UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement_InventoryCollection "json:\"inventoryCollection\" graphql:\"inventoryCollection\""
-	Workflows           []*UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement_Workflows        "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID       string                                                                                  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement) GetEventCount() int {
+	if t == nil {
+		t = &UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement{}
+	}
+	return t.EventCount
+}
 func (t *UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement) GetInventoryCollection() *UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement_InventoryCollection {
 	if t == nil {
 		t = &UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement{}
 	}
 	return &t.InventoryCollection
 }
-func (t *UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement) GetWorkflows() []*UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement_Workflows {
+func (t *UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement) GetTransactionID() string {
 	if t == nil {
 		t = &UpdateInventoryCollectionMovement_UpdateInventoryCollectionMovement{}
 	}
-	return t.Workflows
-}
-
-type DeleteInventoryCollection_DeleteInventoryCollection_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeleteInventoryCollection_DeleteInventoryCollection_Workflows) GetID() string {
-	if t == nil {
-		t = &DeleteInventoryCollection_DeleteInventoryCollection_Workflows{}
-	}
-	return t.ID
-}
-func (t *DeleteInventoryCollection_DeleteInventoryCollection_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeleteInventoryCollection_DeleteInventoryCollection_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeleteInventoryCollection_DeleteInventoryCollection_Workflows) GetType() string {
-	if t == nil {
-		t = &DeleteInventoryCollection_DeleteInventoryCollection_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeleteInventoryCollection_DeleteInventoryCollection struct {
-	DeletedID *string                                                          "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeleteInventoryCollection_DeleteInventoryCollection_Workflows "json:\"workflows,omitempty\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeleteInventoryCollection_DeleteInventoryCollection) GetDeletedID() *string {
@@ -4773,11 +4461,17 @@ func (t *DeleteInventoryCollection_DeleteInventoryCollection) GetDeletedID() *st
 	}
 	return t.DeletedID
 }
-func (t *DeleteInventoryCollection_DeleteInventoryCollection) GetWorkflows() []*DeleteInventoryCollection_DeleteInventoryCollection_Workflows {
+func (t *DeleteInventoryCollection_DeleteInventoryCollection) GetEventCount() int {
 	if t == nil {
 		t = &DeleteInventoryCollection_DeleteInventoryCollection{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeleteInventoryCollection_DeleteInventoryCollection) GetTransactionID() string {
+	if t == nil {
+		t = &DeleteInventoryCollection_DeleteInventoryCollection{}
+	}
+	return t.TransactionID
 }
 
 type DeleteInventoryStock_DeleteInventoryStock struct {
@@ -4890,47 +4584,29 @@ func (t *CreateInventoryItemSet_CreateInventoryItemSet_InventoryItemSet) GetUpda
 	return t.UpdatedBy
 }
 
-type CreateInventoryItemSet_CreateInventoryItemSet_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreateInventoryItemSet_CreateInventoryItemSet_Workflows) GetID() string {
-	if t == nil {
-		t = &CreateInventoryItemSet_CreateInventoryItemSet_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreateInventoryItemSet_CreateInventoryItemSet_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreateInventoryItemSet_CreateInventoryItemSet_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreateInventoryItemSet_CreateInventoryItemSet_Workflows) GetType() string {
-	if t == nil {
-		t = &CreateInventoryItemSet_CreateInventoryItemSet_Workflows{}
-	}
-	return t.Type
-}
-
 type CreateInventoryItemSet_CreateInventoryItemSet struct {
+	EventCount       int                                                             "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryItemSet *CreateInventoryItemSet_CreateInventoryItemSet_InventoryItemSet "json:\"inventoryItemSet,omitempty\" graphql:\"inventoryItemSet\""
-	Workflows        []*CreateInventoryItemSet_CreateInventoryItemSet_Workflows      "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID    string                                                          "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *CreateInventoryItemSet_CreateInventoryItemSet) GetEventCount() int {
+	if t == nil {
+		t = &CreateInventoryItemSet_CreateInventoryItemSet{}
+	}
+	return t.EventCount
+}
 func (t *CreateInventoryItemSet_CreateInventoryItemSet) GetInventoryItemSet() *CreateInventoryItemSet_CreateInventoryItemSet_InventoryItemSet {
 	if t == nil {
 		t = &CreateInventoryItemSet_CreateInventoryItemSet{}
 	}
 	return t.InventoryItemSet
 }
-func (t *CreateInventoryItemSet_CreateInventoryItemSet) GetWorkflows() []*CreateInventoryItemSet_CreateInventoryItemSet_Workflows {
+func (t *CreateInventoryItemSet_CreateInventoryItemSet) GetTransactionID() string {
 	if t == nil {
 		t = &CreateInventoryItemSet_CreateInventoryItemSet{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type UpdateInventoryItemSet_UpdateInventoryItemSet_InventoryItemSet struct {
@@ -5021,77 +4697,35 @@ func (t *UpdateInventoryItemSet_UpdateInventoryItemSet_InventoryItemSet) GetUpda
 	return t.UpdatedBy
 }
 
-type UpdateInventoryItemSet_UpdateInventoryItemSet_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdateInventoryItemSet_UpdateInventoryItemSet_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdateInventoryItemSet_UpdateInventoryItemSet_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdateInventoryItemSet_UpdateInventoryItemSet_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdateInventoryItemSet_UpdateInventoryItemSet_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdateInventoryItemSet_UpdateInventoryItemSet_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdateInventoryItemSet_UpdateInventoryItemSet_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdateInventoryItemSet_UpdateInventoryItemSet struct {
+	EventCount       int                                                             "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryItemSet *UpdateInventoryItemSet_UpdateInventoryItemSet_InventoryItemSet "json:\"inventoryItemSet,omitempty\" graphql:\"inventoryItemSet\""
-	Workflows        []*UpdateInventoryItemSet_UpdateInventoryItemSet_Workflows      "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID    string                                                          "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *UpdateInventoryItemSet_UpdateInventoryItemSet) GetEventCount() int {
+	if t == nil {
+		t = &UpdateInventoryItemSet_UpdateInventoryItemSet{}
+	}
+	return t.EventCount
+}
 func (t *UpdateInventoryItemSet_UpdateInventoryItemSet) GetInventoryItemSet() *UpdateInventoryItemSet_UpdateInventoryItemSet_InventoryItemSet {
 	if t == nil {
 		t = &UpdateInventoryItemSet_UpdateInventoryItemSet{}
 	}
 	return t.InventoryItemSet
 }
-func (t *UpdateInventoryItemSet_UpdateInventoryItemSet) GetWorkflows() []*UpdateInventoryItemSet_UpdateInventoryItemSet_Workflows {
+func (t *UpdateInventoryItemSet_UpdateInventoryItemSet) GetTransactionID() string {
 	if t == nil {
 		t = &UpdateInventoryItemSet_UpdateInventoryItemSet{}
 	}
-	return t.Workflows
-}
-
-type DeleteInventoryItemSet_DeleteInventoryItemSet_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeleteInventoryItemSet_DeleteInventoryItemSet_Workflows) GetID() string {
-	if t == nil {
-		t = &DeleteInventoryItemSet_DeleteInventoryItemSet_Workflows{}
-	}
-	return t.ID
-}
-func (t *DeleteInventoryItemSet_DeleteInventoryItemSet_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeleteInventoryItemSet_DeleteInventoryItemSet_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeleteInventoryItemSet_DeleteInventoryItemSet_Workflows) GetType() string {
-	if t == nil {
-		t = &DeleteInventoryItemSet_DeleteInventoryItemSet_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeleteInventoryItemSet_DeleteInventoryItemSet struct {
-	DeletedID *string                                                    "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeleteInventoryItemSet_DeleteInventoryItemSet_Workflows "json:\"workflows,omitempty\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeleteInventoryItemSet_DeleteInventoryItemSet) GetDeletedID() *string {
@@ -5100,11 +4734,17 @@ func (t *DeleteInventoryItemSet_DeleteInventoryItemSet) GetDeletedID() *string {
 	}
 	return t.DeletedID
 }
-func (t *DeleteInventoryItemSet_DeleteInventoryItemSet) GetWorkflows() []*DeleteInventoryItemSet_DeleteInventoryItemSet_Workflows {
+func (t *DeleteInventoryItemSet_DeleteInventoryItemSet) GetEventCount() int {
 	if t == nil {
 		t = &DeleteInventoryItemSet_DeleteInventoryItemSet{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeleteInventoryItemSet_DeleteInventoryItemSet) GetTransactionID() string {
+	if t == nil {
+		t = &DeleteInventoryItemSet_DeleteInventoryItemSet{}
+	}
+	return t.TransactionID
 }
 
 type CreateReplenishmentOrder_CreateReplenishmentOrder_ReplenishmentOrder struct {
@@ -5195,47 +4835,29 @@ func (t *CreateReplenishmentOrder_CreateReplenishmentOrder_ReplenishmentOrder) G
 	return t.UpdatedBy
 }
 
-type CreateReplenishmentOrder_CreateReplenishmentOrder_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreateReplenishmentOrder_CreateReplenishmentOrder_Workflows) GetID() string {
-	if t == nil {
-		t = &CreateReplenishmentOrder_CreateReplenishmentOrder_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreateReplenishmentOrder_CreateReplenishmentOrder_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreateReplenishmentOrder_CreateReplenishmentOrder_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreateReplenishmentOrder_CreateReplenishmentOrder_Workflows) GetType() string {
-	if t == nil {
-		t = &CreateReplenishmentOrder_CreateReplenishmentOrder_Workflows{}
-	}
-	return t.Type
-}
-
 type CreateReplenishmentOrder_CreateReplenishmentOrder struct {
+	EventCount         int                                                                   "json:\"eventCount\" graphql:\"eventCount\""
 	ReplenishmentOrder *CreateReplenishmentOrder_CreateReplenishmentOrder_ReplenishmentOrder "json:\"replenishmentOrder,omitempty\" graphql:\"replenishmentOrder\""
-	Workflows          []*CreateReplenishmentOrder_CreateReplenishmentOrder_Workflows        "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID      string                                                                "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *CreateReplenishmentOrder_CreateReplenishmentOrder) GetEventCount() int {
+	if t == nil {
+		t = &CreateReplenishmentOrder_CreateReplenishmentOrder{}
+	}
+	return t.EventCount
+}
 func (t *CreateReplenishmentOrder_CreateReplenishmentOrder) GetReplenishmentOrder() *CreateReplenishmentOrder_CreateReplenishmentOrder_ReplenishmentOrder {
 	if t == nil {
 		t = &CreateReplenishmentOrder_CreateReplenishmentOrder{}
 	}
 	return t.ReplenishmentOrder
 }
-func (t *CreateReplenishmentOrder_CreateReplenishmentOrder) GetWorkflows() []*CreateReplenishmentOrder_CreateReplenishmentOrder_Workflows {
+func (t *CreateReplenishmentOrder_CreateReplenishmentOrder) GetTransactionID() string {
 	if t == nil {
 		t = &CreateReplenishmentOrder_CreateReplenishmentOrder{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type UpdateReplenishmentOrder_UpdateReplenishmentOrder_ReplenishmentOrder struct {
@@ -5326,77 +4948,35 @@ func (t *UpdateReplenishmentOrder_UpdateReplenishmentOrder_ReplenishmentOrder) G
 	return t.UpdatedBy
 }
 
-type UpdateReplenishmentOrder_UpdateReplenishmentOrder_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdateReplenishmentOrder_UpdateReplenishmentOrder_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdateReplenishmentOrder_UpdateReplenishmentOrder_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdateReplenishmentOrder_UpdateReplenishmentOrder_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdateReplenishmentOrder_UpdateReplenishmentOrder_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdateReplenishmentOrder_UpdateReplenishmentOrder_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdateReplenishmentOrder_UpdateReplenishmentOrder_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdateReplenishmentOrder_UpdateReplenishmentOrder struct {
+	EventCount         int                                                                   "json:\"eventCount\" graphql:\"eventCount\""
 	ReplenishmentOrder *UpdateReplenishmentOrder_UpdateReplenishmentOrder_ReplenishmentOrder "json:\"replenishmentOrder,omitempty\" graphql:\"replenishmentOrder\""
-	Workflows          []*UpdateReplenishmentOrder_UpdateReplenishmentOrder_Workflows        "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID      string                                                                "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *UpdateReplenishmentOrder_UpdateReplenishmentOrder) GetEventCount() int {
+	if t == nil {
+		t = &UpdateReplenishmentOrder_UpdateReplenishmentOrder{}
+	}
+	return t.EventCount
+}
 func (t *UpdateReplenishmentOrder_UpdateReplenishmentOrder) GetReplenishmentOrder() *UpdateReplenishmentOrder_UpdateReplenishmentOrder_ReplenishmentOrder {
 	if t == nil {
 		t = &UpdateReplenishmentOrder_UpdateReplenishmentOrder{}
 	}
 	return t.ReplenishmentOrder
 }
-func (t *UpdateReplenishmentOrder_UpdateReplenishmentOrder) GetWorkflows() []*UpdateReplenishmentOrder_UpdateReplenishmentOrder_Workflows {
+func (t *UpdateReplenishmentOrder_UpdateReplenishmentOrder) GetTransactionID() string {
 	if t == nil {
 		t = &UpdateReplenishmentOrder_UpdateReplenishmentOrder{}
 	}
-	return t.Workflows
-}
-
-type DeleteReplenishmentOrder_DeleteReplenishmentOrder_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeleteReplenishmentOrder_DeleteReplenishmentOrder_Workflows) GetID() string {
-	if t == nil {
-		t = &DeleteReplenishmentOrder_DeleteReplenishmentOrder_Workflows{}
-	}
-	return t.ID
-}
-func (t *DeleteReplenishmentOrder_DeleteReplenishmentOrder_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeleteReplenishmentOrder_DeleteReplenishmentOrder_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeleteReplenishmentOrder_DeleteReplenishmentOrder_Workflows) GetType() string {
-	if t == nil {
-		t = &DeleteReplenishmentOrder_DeleteReplenishmentOrder_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeleteReplenishmentOrder_DeleteReplenishmentOrder struct {
-	DeletedID *string                                                        "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeleteReplenishmentOrder_DeleteReplenishmentOrder_Workflows "json:\"workflows,omitempty\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeleteReplenishmentOrder_DeleteReplenishmentOrder) GetDeletedID() *string {
@@ -5405,11 +4985,17 @@ func (t *DeleteReplenishmentOrder_DeleteReplenishmentOrder) GetDeletedID() *stri
 	}
 	return t.DeletedID
 }
-func (t *DeleteReplenishmentOrder_DeleteReplenishmentOrder) GetWorkflows() []*DeleteReplenishmentOrder_DeleteReplenishmentOrder_Workflows {
+func (t *DeleteReplenishmentOrder_DeleteReplenishmentOrder) GetEventCount() int {
 	if t == nil {
 		t = &DeleteReplenishmentOrder_DeleteReplenishmentOrder{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeleteReplenishmentOrder_DeleteReplenishmentOrder) GetTransactionID() string {
+	if t == nil {
+		t = &DeleteReplenishmentOrder_DeleteReplenishmentOrder{}
+	}
+	return t.TransactionID
 }
 
 type CreateReplenishmentOrderItem_CreateReplenishmentOrderItem_ReplenishmentOrderItem struct {
@@ -5514,47 +5100,29 @@ func (t *CreateReplenishmentOrderItem_CreateReplenishmentOrderItem_Replenishment
 	return t.UpdatedBy
 }
 
-type CreateReplenishmentOrderItem_CreateReplenishmentOrderItem_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreateReplenishmentOrderItem_CreateReplenishmentOrderItem_Workflows) GetID() string {
-	if t == nil {
-		t = &CreateReplenishmentOrderItem_CreateReplenishmentOrderItem_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreateReplenishmentOrderItem_CreateReplenishmentOrderItem_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreateReplenishmentOrderItem_CreateReplenishmentOrderItem_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreateReplenishmentOrderItem_CreateReplenishmentOrderItem_Workflows) GetType() string {
-	if t == nil {
-		t = &CreateReplenishmentOrderItem_CreateReplenishmentOrderItem_Workflows{}
-	}
-	return t.Type
-}
-
 type CreateReplenishmentOrderItem_CreateReplenishmentOrderItem struct {
+	EventCount             int                                                                               "json:\"eventCount\" graphql:\"eventCount\""
 	ReplenishmentOrderItem *CreateReplenishmentOrderItem_CreateReplenishmentOrderItem_ReplenishmentOrderItem "json:\"replenishmentOrderItem,omitempty\" graphql:\"replenishmentOrderItem\""
-	Workflows              []*CreateReplenishmentOrderItem_CreateReplenishmentOrderItem_Workflows            "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID          string                                                                            "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *CreateReplenishmentOrderItem_CreateReplenishmentOrderItem) GetEventCount() int {
+	if t == nil {
+		t = &CreateReplenishmentOrderItem_CreateReplenishmentOrderItem{}
+	}
+	return t.EventCount
+}
 func (t *CreateReplenishmentOrderItem_CreateReplenishmentOrderItem) GetReplenishmentOrderItem() *CreateReplenishmentOrderItem_CreateReplenishmentOrderItem_ReplenishmentOrderItem {
 	if t == nil {
 		t = &CreateReplenishmentOrderItem_CreateReplenishmentOrderItem{}
 	}
 	return t.ReplenishmentOrderItem
 }
-func (t *CreateReplenishmentOrderItem_CreateReplenishmentOrderItem) GetWorkflows() []*CreateReplenishmentOrderItem_CreateReplenishmentOrderItem_Workflows {
+func (t *CreateReplenishmentOrderItem_CreateReplenishmentOrderItem) GetTransactionID() string {
 	if t == nil {
 		t = &CreateReplenishmentOrderItem_CreateReplenishmentOrderItem{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem_ReplenishmentOrderItem struct {
@@ -5659,77 +5227,35 @@ func (t *UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem_Replenishment
 	return t.UpdatedBy
 }
 
-type UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem struct {
+	EventCount             int                                                                               "json:\"eventCount\" graphql:\"eventCount\""
 	ReplenishmentOrderItem *UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem_ReplenishmentOrderItem "json:\"replenishmentOrderItem,omitempty\" graphql:\"replenishmentOrderItem\""
-	Workflows              []*UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem_Workflows            "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID          string                                                                            "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem) GetEventCount() int {
+	if t == nil {
+		t = &UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem{}
+	}
+	return t.EventCount
+}
 func (t *UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem) GetReplenishmentOrderItem() *UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem_ReplenishmentOrderItem {
 	if t == nil {
 		t = &UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem{}
 	}
 	return t.ReplenishmentOrderItem
 }
-func (t *UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem) GetWorkflows() []*UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem_Workflows {
+func (t *UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem) GetTransactionID() string {
 	if t == nil {
 		t = &UpdateReplenishmentOrderItem_UpdateReplenishmentOrderItem{}
 	}
-	return t.Workflows
-}
-
-type DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem_Workflows) GetID() string {
-	if t == nil {
-		t = &DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem_Workflows{}
-	}
-	return t.ID
-}
-func (t *DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem_Workflows) GetType() string {
-	if t == nil {
-		t = &DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem struct {
-	DeletedID *string                                                                "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem_Workflows "json:\"workflows,omitempty\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem) GetDeletedID() *string {
@@ -5738,11 +5264,17 @@ func (t *DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem) GetDeletedID
 	}
 	return t.DeletedID
 }
-func (t *DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem) GetWorkflows() []*DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem_Workflows {
+func (t *DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem) GetEventCount() int {
 	if t == nil {
 		t = &DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem) GetTransactionID() string {
+	if t == nil {
+		t = &DeleteReplenishmentOrderItem_DeleteReplenishmentOrderItem{}
+	}
+	return t.TransactionID
 }
 
 type PatchInventoryItemData_PatchInventoryItemData_InventoryItem struct {
@@ -5833,47 +5365,29 @@ func (t *PatchInventoryItemData_PatchInventoryItemData_InventoryItem) GetUpdated
 	return t.UpdatedBy
 }
 
-type PatchInventoryItemData_PatchInventoryItemData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchInventoryItemData_PatchInventoryItemData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchInventoryItemData_PatchInventoryItemData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchInventoryItemData_PatchInventoryItemData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchInventoryItemData_PatchInventoryItemData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchInventoryItemData_PatchInventoryItemData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchInventoryItemData_PatchInventoryItemData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchInventoryItemData_PatchInventoryItemData struct {
+	EventCount    int                                                          "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryItem *PatchInventoryItemData_PatchInventoryItemData_InventoryItem "json:\"inventoryItem,omitempty\" graphql:\"inventoryItem\""
-	Workflows     []*PatchInventoryItemData_PatchInventoryItemData_Workflows   "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID string                                                       "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *PatchInventoryItemData_PatchInventoryItemData) GetEventCount() int {
+	if t == nil {
+		t = &PatchInventoryItemData_PatchInventoryItemData{}
+	}
+	return t.EventCount
+}
 func (t *PatchInventoryItemData_PatchInventoryItemData) GetInventoryItem() *PatchInventoryItemData_PatchInventoryItemData_InventoryItem {
 	if t == nil {
 		t = &PatchInventoryItemData_PatchInventoryItemData{}
 	}
 	return t.InventoryItem
 }
-func (t *PatchInventoryItemData_PatchInventoryItemData) GetWorkflows() []*PatchInventoryItemData_PatchInventoryItemData_Workflows {
+func (t *PatchInventoryItemData_PatchInventoryItemData) GetTransactionID() string {
 	if t == nil {
 		t = &PatchInventoryItemData_PatchInventoryItemData{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository struct {
@@ -5999,47 +5513,29 @@ func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepo
 	return t.VirtualRepo
 }
 
-type PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchInventoryRepositoryData_PatchInventoryRepositoryData struct {
+	EventCount          int                                                                            "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryRepository *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository "json:\"inventoryRepository,omitempty\" graphql:\"inventoryRepository\""
-	Workflows           []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows         "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID       string                                                                         "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData) GetEventCount() int {
+	if t == nil {
+		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData{}
+	}
+	return t.EventCount
+}
 func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData) GetInventoryRepository() *PatchInventoryRepositoryData_PatchInventoryRepositoryData_InventoryRepository {
 	if t == nil {
 		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData{}
 	}
 	return t.InventoryRepository
 }
-func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData) GetWorkflows() []*PatchInventoryRepositoryData_PatchInventoryRepositoryData_Workflows {
+func (t *PatchInventoryRepositoryData_PatchInventoryRepositoryData) GetTransactionID() string {
 	if t == nil {
 		t = &PatchInventoryRepositoryData_PatchInventoryRepositoryData{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement struct {
@@ -6200,47 +5696,29 @@ func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_Inventory
 	return t.UpdatedBy
 }
 
-type PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchInventoryItemMovementData_PatchInventoryItemMovementData struct {
+	EventCount            int                                                                                  "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryItemMovement *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement "json:\"inventoryItemMovement,omitempty\" graphql:\"inventoryItemMovement\""
-	Workflows             []*PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows           "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID         string                                                                               "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData) GetEventCount() int {
+	if t == nil {
+		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData{}
+	}
+	return t.EventCount
+}
 func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData) GetInventoryItemMovement() *PatchInventoryItemMovementData_PatchInventoryItemMovementData_InventoryItemMovement {
 	if t == nil {
 		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData{}
 	}
 	return t.InventoryItemMovement
 }
-func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData) GetWorkflows() []*PatchInventoryItemMovementData_PatchInventoryItemMovementData_Workflows {
+func (t *PatchInventoryItemMovementData_PatchInventoryItemMovementData) GetTransactionID() string {
 	if t == nil {
 		t = &PatchInventoryItemMovementData_PatchInventoryItemMovementData{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement struct {
@@ -6394,47 +5872,29 @@ func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementDa
 	return t.UpdatedBy
 }
 
-type PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData struct {
+	EventCount                  int                                                                                                    "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryRepositoryMovement *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement "json:\"inventoryRepositoryMovement,omitempty\" graphql:\"inventoryRepositoryMovement\""
-	Workflows                   []*PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows                 "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID               string                                                                                                 "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData) GetEventCount() int {
+	if t == nil {
+		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData{}
+	}
+	return t.EventCount
+}
 func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData) GetInventoryRepositoryMovement() *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_InventoryRepositoryMovement {
 	if t == nil {
 		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData{}
 	}
 	return t.InventoryRepositoryMovement
 }
-func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData) GetWorkflows() []*PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData_Workflows {
+func (t *PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData) GetTransactionID() string {
 	if t == nil {
 		t = &PatchInventoryRepositoryMovementData_PatchInventoryRepositoryMovementData{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection struct {
@@ -6525,47 +5985,29 @@ func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementDa
 	return t.UpdatedBy
 }
 
-type PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData struct {
+	EventCount          int                                                                                           "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryCollection PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection "json:\"inventoryCollection\" graphql:\"inventoryCollection\""
-	Workflows           []*PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows        "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID       string                                                                                        "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData) GetEventCount() int {
+	if t == nil {
+		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData{}
+	}
+	return t.EventCount
+}
 func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData) GetInventoryCollection() *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_InventoryCollection {
 	if t == nil {
 		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData{}
 	}
 	return &t.InventoryCollection
 }
-func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData) GetWorkflows() []*PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData_Workflows {
+func (t *PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData) GetTransactionID() string {
 	if t == nil {
 		t = &PatchInventoryCollectionMovementData_PatchInventoryCollectionMovementData{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet struct {
@@ -6656,47 +6098,29 @@ func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet) G
 	return t.UpdatedBy
 }
 
-type PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchInventoryItemSetData_PatchInventoryItemSetData struct {
+	EventCount       int                                                                   "json:\"eventCount\" graphql:\"eventCount\""
 	InventoryItemSet *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet "json:\"inventoryItemSet,omitempty\" graphql:\"inventoryItemSet\""
-	Workflows        []*PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows      "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID    string                                                                "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData) GetEventCount() int {
+	if t == nil {
+		t = &PatchInventoryItemSetData_PatchInventoryItemSetData{}
+	}
+	return t.EventCount
+}
 func (t *PatchInventoryItemSetData_PatchInventoryItemSetData) GetInventoryItemSet() *PatchInventoryItemSetData_PatchInventoryItemSetData_InventoryItemSet {
 	if t == nil {
 		t = &PatchInventoryItemSetData_PatchInventoryItemSetData{}
 	}
 	return t.InventoryItemSet
 }
-func (t *PatchInventoryItemSetData_PatchInventoryItemSetData) GetWorkflows() []*PatchInventoryItemSetData_PatchInventoryItemSetData_Workflows {
+func (t *PatchInventoryItemSetData_PatchInventoryItemSetData) GetTransactionID() string {
 	if t == nil {
 		t = &PatchInventoryItemSetData_PatchInventoryItemSetData{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder struct {
@@ -6787,47 +6211,29 @@ func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOr
 	return t.UpdatedBy
 }
 
-type PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchReplenishmentOrderData_PatchReplenishmentOrderData struct {
+	EventCount         int                                                                         "json:\"eventCount\" graphql:\"eventCount\""
 	ReplenishmentOrder *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder "json:\"replenishmentOrder,omitempty\" graphql:\"replenishmentOrder\""
-	Workflows          []*PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows        "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID      string                                                                      "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData) GetEventCount() int {
+	if t == nil {
+		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData{}
+	}
+	return t.EventCount
+}
 func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData) GetReplenishmentOrder() *PatchReplenishmentOrderData_PatchReplenishmentOrderData_ReplenishmentOrder {
 	if t == nil {
 		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData{}
 	}
 	return t.ReplenishmentOrder
 }
-func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData) GetWorkflows() []*PatchReplenishmentOrderData_PatchReplenishmentOrderData_Workflows {
+func (t *PatchReplenishmentOrderData_PatchReplenishmentOrderData) GetTransactionID() string {
 	if t == nil {
 		t = &PatchReplenishmentOrderData_PatchReplenishmentOrderData{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem struct {
@@ -6932,47 +6338,29 @@ func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Repleni
 	return t.UpdatedBy
 }
 
-type PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData struct {
+	EventCount             int                                                                                     "json:\"eventCount\" graphql:\"eventCount\""
 	ReplenishmentOrderItem *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem "json:\"replenishmentOrderItem,omitempty\" graphql:\"replenishmentOrderItem\""
-	Workflows              []*PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows            "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID          string                                                                                  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData) GetEventCount() int {
+	if t == nil {
+		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData{}
+	}
+	return t.EventCount
+}
 func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData) GetReplenishmentOrderItem() *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_ReplenishmentOrderItem {
 	if t == nil {
 		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData{}
 	}
 	return t.ReplenishmentOrderItem
 }
-func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData) GetWorkflows() []*PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData_Workflows {
+func (t *PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData) GetTransactionID() string {
 	if t == nil {
 		t = &PatchReplenishmentOrderItemData_PatchReplenishmentOrderItemData{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type GetInventoryCollections struct {
@@ -8241,6 +7629,7 @@ func (c *Client) GetCurrentStocks(ctx context.Context, after *string, first *int
 
 const CreateInventoryItemDocument = `mutation CreateInventoryItem ($input: CreateInventoryItemInput!) {
 	createInventoryItem(input: $input) {
+		eventCount
 		inventoryItem {
 			createdAt
 			createdBy
@@ -8255,11 +7644,7 @@ const CreateInventoryItemDocument = `mutation CreateInventoryItem ($input: Creat
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -8283,6 +7668,7 @@ func (c *Client) CreateInventoryItem(ctx context.Context, input CreateInventoryI
 
 const UpdateInventoryItemDocument = `mutation UpdateInventoryItem ($id: ID!, $input: UpdateInventoryItemInput!) {
 	updateInventoryItem(id: $id, input: $input) {
+		eventCount
 		inventoryItem {
 			createdAt
 			createdBy
@@ -8297,11 +7683,7 @@ const UpdateInventoryItemDocument = `mutation UpdateInventoryItem ($id: ID!, $in
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -8327,11 +7709,8 @@ func (c *Client) UpdateInventoryItem(ctx context.Context, id string, input Updat
 const DeleteInventoryItemDocument = `mutation DeleteInventoryItem ($id: ID!) {
 	deleteInventoryItem(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -8355,6 +7734,7 @@ func (c *Client) DeleteInventoryItem(ctx context.Context, id string, interceptor
 
 const CreateInventoryRepositoryDocument = `mutation CreateInventoryRepository ($input: CreateRepositoryInput!) {
 	createInventoryRepository(input: $input) {
+		eventCount
 		inventoryRepository {
 			createdAt
 			createdBy
@@ -8374,11 +7754,7 @@ const CreateInventoryRepositoryDocument = `mutation CreateInventoryRepository ($
 			updatedBy
 			virtualRepo
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -8402,6 +7778,7 @@ func (c *Client) CreateInventoryRepository(ctx context.Context, input CreateRepo
 
 const UpdateInventoryRepositoryDocument = `mutation UpdateInventoryRepository ($id: ID!, $input: UpdateRepositoryInput!) {
 	updateInventoryRepository(id: $id, input: $input) {
+		eventCount
 		inventoryRepository {
 			createdAt
 			createdBy
@@ -8421,11 +7798,7 @@ const UpdateInventoryRepositoryDocument = `mutation UpdateInventoryRepository ($
 			updatedBy
 			virtualRepo
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -8451,11 +7824,8 @@ func (c *Client) UpdateInventoryRepository(ctx context.Context, id string, input
 const DeleteInventoryRepositoryDocument = `mutation DeleteInventoryRepository ($id: ID!) {
 	deleteInventoryRepository(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -8479,6 +7849,7 @@ func (c *Client) DeleteInventoryRepository(ctx context.Context, id string, inter
 
 const CreateInventoryItemMovementDocument = `mutation CreateInventoryItemMovement ($input: CreateItemMovementInput!) {
 	createInventoryItemMovement(input: $input) {
+		eventCount
 		inventoryItemMovement {
 			blockedBy
 			collectionID
@@ -8503,11 +7874,7 @@ const CreateInventoryItemMovementDocument = `mutation CreateInventoryItemMovemen
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -8531,6 +7898,7 @@ func (c *Client) CreateInventoryItemMovement(ctx context.Context, input CreateIt
 
 const UpdateInventoryItemMovementDocument = `mutation UpdateInventoryItemMovement ($id: ID!, $input: UpdateItemMovementInput!) {
 	updateInventoryItemMovement(id: $id, input: $input) {
+		eventCount
 		inventoryItemMovement {
 			blockedBy
 			collectionID
@@ -8555,11 +7923,7 @@ const UpdateInventoryItemMovementDocument = `mutation UpdateInventoryItemMovemen
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -8584,6 +7948,7 @@ func (c *Client) UpdateInventoryItemMovement(ctx context.Context, id string, inp
 
 const ExecuteInventoryItemMovementDocument = `mutation ExecuteInventoryItemMovement ($id: ID!) {
 	executeInventoryItemMovement(id: $id) {
+		eventCount
 		inventoryItemMovement {
 			blockedBy
 			collectionID
@@ -8608,11 +7973,7 @@ const ExecuteInventoryItemMovementDocument = `mutation ExecuteInventoryItemMovem
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -8637,11 +7998,8 @@ func (c *Client) ExecuteInventoryItemMovement(ctx context.Context, id string, in
 const DeleteInventoryItemMovementDocument = `mutation DeleteInventoryItemMovement ($id: ID!) {
 	deleteInventoryItemMovement(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -8665,6 +8023,7 @@ func (c *Client) DeleteInventoryItemMovement(ctx context.Context, id string, int
 
 const CreateInventoryRepositoryMovementDocument = `mutation CreateInventoryRepositoryMovement ($input: CreateRepositoryMovementInput!) {
 	createInventoryRepositoryMovement(input: $input) {
+		eventCount
 		inventoryRepositoryMovement {
 			blockedBy
 			collectionID
@@ -8688,11 +8047,7 @@ const CreateInventoryRepositoryMovementDocument = `mutation CreateInventoryRepos
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -8716,6 +8071,7 @@ func (c *Client) CreateInventoryRepositoryMovement(ctx context.Context, input Cr
 
 const UpdateInventoryRepositoryMovementDocument = `mutation UpdateInventoryRepositoryMovement ($id: ID!, $input: UpdateRepositoryMovementInput!) {
 	updateInventoryRepositoryMovement(id: $id, input: $input) {
+		eventCount
 		inventoryRepositoryMovement {
 			blockedBy
 			collectionID
@@ -8739,11 +8095,7 @@ const UpdateInventoryRepositoryMovementDocument = `mutation UpdateInventoryRepos
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -8768,6 +8120,7 @@ func (c *Client) UpdateInventoryRepositoryMovement(ctx context.Context, id strin
 
 const ExecuteInventoryRepositoryMovementDocument = `mutation ExecuteInventoryRepositoryMovement ($id: ID!) {
 	executeInventoryRepositoryMovement(id: $id) {
+		eventCount
 		inventoryRepositoryMovement {
 			blockedBy
 			collectionID
@@ -8791,11 +8144,7 @@ const ExecuteInventoryRepositoryMovementDocument = `mutation ExecuteInventoryRep
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -8820,11 +8169,8 @@ func (c *Client) ExecuteInventoryRepositoryMovement(ctx context.Context, id stri
 const DeleteInventoryRepositoryMovementDocument = `mutation DeleteInventoryRepositoryMovement ($id: ID!) {
 	deleteInventoryRepositoryMovement(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -8848,16 +8194,13 @@ func (c *Client) DeleteInventoryRepositoryMovement(ctx context.Context, id strin
 
 const CreateInventoryCollectionMovementDocument = `mutation CreateInventoryCollectionMovement ($input: CreateCollectionMovementInput!) {
 	createInventoryCollectionMovement(input: $input) {
+		eventCount
 		id
 		movements {
 			id
 			movementType
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -8881,6 +8224,7 @@ func (c *Client) CreateInventoryCollectionMovement(ctx context.Context, input mo
 
 const UpdateInventoryCollectionMovementDocument = `mutation UpdateInventoryCollectionMovement ($id: ID!, $input: UpdateInventoryCollectionInput!) {
 	updateInventoryCollectionMovement(id: $id, input: $input) {
+		eventCount
 		inventoryCollection {
 			createdAt
 			createdBy
@@ -8895,11 +8239,7 @@ const UpdateInventoryCollectionMovementDocument = `mutation UpdateInventoryColle
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -8925,11 +8265,8 @@ func (c *Client) UpdateInventoryCollectionMovement(ctx context.Context, id strin
 const DeleteInventoryCollectionDocument = `mutation DeleteInventoryCollection ($id: ID!) {
 	deleteInventoryCollection(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -8999,6 +8336,7 @@ func (c *Client) RebuildInventoryStock(ctx context.Context, interceptors ...clie
 
 const CreateInventoryItemSetDocument = `mutation CreateInventoryItemSet ($input: CreateInventoryItemSetInput!) {
 	createInventoryItemSet(input: $input) {
+		eventCount
 		inventoryItemSet {
 			createdAt
 			createdBy
@@ -9013,11 +8351,7 @@ const CreateInventoryItemSetDocument = `mutation CreateInventoryItemSet ($input:
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -9041,6 +8375,7 @@ func (c *Client) CreateInventoryItemSet(ctx context.Context, input CreateInvento
 
 const UpdateInventoryItemSetDocument = `mutation UpdateInventoryItemSet ($id: ID!, $input: UpdateInventoryItemSetInput!) {
 	updateInventoryItemSet(id: $id, input: $input) {
+		eventCount
 		inventoryItemSet {
 			createdAt
 			createdBy
@@ -9055,11 +8390,7 @@ const UpdateInventoryItemSetDocument = `mutation UpdateInventoryItemSet ($id: ID
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -9085,11 +8416,8 @@ func (c *Client) UpdateInventoryItemSet(ctx context.Context, id string, input Up
 const DeleteInventoryItemSetDocument = `mutation DeleteInventoryItemSet ($id: ID!) {
 	deleteInventoryItemSet(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -9113,6 +8441,7 @@ func (c *Client) DeleteInventoryItemSet(ctx context.Context, id string, intercep
 
 const CreateReplenishmentOrderDocument = `mutation CreateReplenishmentOrder ($input: CreateReplenishmentOrderWithItemsInput!) {
 	createReplenishmentOrder(input: $input) {
+		eventCount
 		replenishmentOrder {
 			createdAt
 			createdBy
@@ -9127,11 +8456,7 @@ const CreateReplenishmentOrderDocument = `mutation CreateReplenishmentOrder ($in
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -9155,6 +8480,7 @@ func (c *Client) CreateReplenishmentOrder(ctx context.Context, input model.Creat
 
 const UpdateReplenishmentOrderDocument = `mutation UpdateReplenishmentOrder ($id: ID!, $input: UpdateReplenishmentOrderInput!) {
 	updateReplenishmentOrder(id: $id, input: $input) {
+		eventCount
 		replenishmentOrder {
 			createdAt
 			createdBy
@@ -9169,11 +8495,7 @@ const UpdateReplenishmentOrderDocument = `mutation UpdateReplenishmentOrder ($id
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -9199,11 +8521,8 @@ func (c *Client) UpdateReplenishmentOrder(ctx context.Context, id string, input 
 const DeleteReplenishmentOrderDocument = `mutation DeleteReplenishmentOrder ($id: ID!) {
 	deleteReplenishmentOrder(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -9227,6 +8546,7 @@ func (c *Client) DeleteReplenishmentOrder(ctx context.Context, id string, interc
 
 const CreateReplenishmentOrderItemDocument = `mutation CreateReplenishmentOrderItem ($input: CreateReplenishmentOrderItemInput!) {
 	createReplenishmentOrderItem(input: $input) {
+		eventCount
 		replenishmentOrderItem {
 			createdAt
 			createdBy
@@ -9243,11 +8563,7 @@ const CreateReplenishmentOrderItemDocument = `mutation CreateReplenishmentOrderI
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -9271,6 +8587,7 @@ func (c *Client) CreateReplenishmentOrderItem(ctx context.Context, input CreateR
 
 const UpdateReplenishmentOrderItemDocument = `mutation UpdateReplenishmentOrderItem ($id: ID!, $input: UpdateReplenishmentOrderItemInput!) {
 	updateReplenishmentOrderItem(id: $id, input: $input) {
+		eventCount
 		replenishmentOrderItem {
 			createdAt
 			createdBy
@@ -9287,11 +8604,7 @@ const UpdateReplenishmentOrderItemDocument = `mutation UpdateReplenishmentOrderI
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -9317,11 +8630,8 @@ func (c *Client) UpdateReplenishmentOrderItem(ctx context.Context, id string, in
 const DeleteReplenishmentOrderItemDocument = `mutation DeleteReplenishmentOrderItem ($id: ID!) {
 	deleteReplenishmentOrderItem(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -9345,6 +8655,7 @@ func (c *Client) DeleteReplenishmentOrderItem(ctx context.Context, id string, in
 
 const PatchInventoryItemDataDocument = `mutation PatchInventoryItemData ($id: ID!, $patches: [JSONPatchInput!]!) {
 	patchInventoryItemData(id: $id, patches: $patches) {
+		eventCount
 		inventoryItem {
 			createdAt
 			createdBy
@@ -9359,11 +8670,7 @@ const PatchInventoryItemDataDocument = `mutation PatchInventoryItemData ($id: ID
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -9388,6 +8695,7 @@ func (c *Client) PatchInventoryItemData(ctx context.Context, id string, patches 
 
 const PatchInventoryRepositoryDataDocument = `mutation PatchInventoryRepositoryData ($id: ID!, $patches: [JSONPatchInput!]!) {
 	patchInventoryRepositoryData(id: $id, patches: $patches) {
+		eventCount
 		inventoryRepository {
 			createdAt
 			createdBy
@@ -9407,11 +8715,7 @@ const PatchInventoryRepositoryDataDocument = `mutation PatchInventoryRepositoryD
 			updatedBy
 			virtualRepo
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -9436,6 +8740,7 @@ func (c *Client) PatchInventoryRepositoryData(ctx context.Context, id string, pa
 
 const PatchInventoryItemMovementDataDocument = `mutation PatchInventoryItemMovementData ($id: ID!, $patches: [JSONPatchInput!]!) {
 	patchInventoryItemMovementData(id: $id, patches: $patches) {
+		eventCount
 		inventoryItemMovement {
 			blockedBy
 			collectionID
@@ -9460,11 +8765,7 @@ const PatchInventoryItemMovementDataDocument = `mutation PatchInventoryItemMovem
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -9489,6 +8790,7 @@ func (c *Client) PatchInventoryItemMovementData(ctx context.Context, id string, 
 
 const PatchInventoryRepositoryMovementDataDocument = `mutation PatchInventoryRepositoryMovementData ($id: ID!, $patches: [JSONPatchInput!]!) {
 	patchInventoryRepositoryMovementData(id: $id, patches: $patches) {
+		eventCount
 		inventoryRepositoryMovement {
 			blockedBy
 			collectionID
@@ -9512,11 +8814,7 @@ const PatchInventoryRepositoryMovementDataDocument = `mutation PatchInventoryRep
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -9541,6 +8839,7 @@ func (c *Client) PatchInventoryRepositoryMovementData(ctx context.Context, id st
 
 const PatchInventoryCollectionMovementDataDocument = `mutation PatchInventoryCollectionMovementData ($id: ID!, $patches: [JSONPatchInput!]!) {
 	patchInventoryCollectionMovementData(id: $id, patches: $patches) {
+		eventCount
 		inventoryCollection {
 			createdAt
 			createdBy
@@ -9555,11 +8854,7 @@ const PatchInventoryCollectionMovementDataDocument = `mutation PatchInventoryCol
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -9584,6 +8879,7 @@ func (c *Client) PatchInventoryCollectionMovementData(ctx context.Context, id st
 
 const PatchInventoryItemSetDataDocument = `mutation PatchInventoryItemSetData ($id: ID!, $patches: [JSONPatchInput!]!) {
 	patchInventoryItemSetData(id: $id, patches: $patches) {
+		eventCount
 		inventoryItemSet {
 			createdAt
 			createdBy
@@ -9598,11 +8894,7 @@ const PatchInventoryItemSetDataDocument = `mutation PatchInventoryItemSetData ($
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -9627,6 +8919,7 @@ func (c *Client) PatchInventoryItemSetData(ctx context.Context, id string, patch
 
 const PatchReplenishmentOrderDataDocument = `mutation PatchReplenishmentOrderData ($id: ID!, $patches: [JSONPatchInput!]!) {
 	patchReplenishmentOrderData(id: $id, patches: $patches) {
+		eventCount
 		replenishmentOrder {
 			createdAt
 			createdBy
@@ -9641,11 +8934,7 @@ const PatchReplenishmentOrderDataDocument = `mutation PatchReplenishmentOrderDat
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -9670,6 +8959,7 @@ func (c *Client) PatchReplenishmentOrderData(ctx context.Context, id string, pat
 
 const PatchReplenishmentOrderItemDataDocument = `mutation PatchReplenishmentOrderItemData ($id: ID!, $patches: [JSONPatchInput!]!) {
 	patchReplenishmentOrderItemData(id: $id, patches: $patches) {
+		eventCount
 		replenishmentOrderItem {
 			createdAt
 			createdBy
@@ -9686,11 +8976,7 @@ const PatchReplenishmentOrderItemDataDocument = `mutation PatchReplenishmentOrde
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `

@@ -40,7 +40,8 @@ graphql:
       {
         "input": {
           "name": "Café Münchner",
-          "taskQueue": "test-task-queue"
+          "taskQueue": "test-task-queue",
+          "workerID": "scenario-user-workflow-unicode-encoding"
         }
       }
 

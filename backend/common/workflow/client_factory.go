@@ -279,7 +279,7 @@ func (f *DefaultClientFactory) ensureNamespaceExists(ctx context.Context, namesp
 // addSearchAttributes registers the pyck search attributes that are not yet
 // present on the namespace. It reads the existing set first and batches all
 // missing attributes into one request: per-attribute requests (one RPC each,
-// twelve attributes) trip Temporal's per-namespace rate limit when many
+// thirteen attributes) trip Temporal's per-namespace rate limit when many
 // namespaces are created under load, and a rate-limited GetClient retries on
 // the next request, keeping the limiter saturated. Tenant registration
 // already adds these attributes, so the steady state here is a single read.

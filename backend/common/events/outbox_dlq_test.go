@@ -101,7 +101,7 @@ func deadRow(t *testing.T, tenantID uuid.UUID) events.OutboxRow {
 		TenantID:  tenantID,
 	})
 	require.NoError(t, err)
-	return events.NewOutboxRowForTest(uuid.New(), uuid.New(), "orig.topic", payload, false, 10, "Stock")
+	return events.NewOutboxRowForTest(uuid.New(), uuid.New(), "orig.topic", payload, 10, "Stock")
 }
 
 func TestPublishDeadLetters_AcksOnPublishSuccess(t *testing.T) {
@@ -141,7 +141,7 @@ func TestPublishDeadLetters_SkipsUnparseablePayload(t *testing.T) {
 	t.Parallel()
 
 	publisher := &outboxMockPublisher{}
-	bad := events.NewOutboxRowForTest(uuid.New(), uuid.New(), "orig.topic", []byte("not json"), false, 10, "Stock")
+	bad := events.NewOutboxRowForTest(uuid.New(), uuid.New(), "orig.topic", []byte("not json"), 10, "Stock")
 
 	acked := events.PublishDeadLettersForTest(context.Background(), "inventory", "pyck", []events.OutboxRow{bad}, publisher)
 

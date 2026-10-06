@@ -38,6 +38,7 @@ type Config = graphql.Config[ResolverRoot, DirectiveRoot, ComplexityRoot]
 type ResolverRoot interface {
 	Mutation() MutationResolver
 	Query() QueryResolver
+	WorkflowExecutionInfo() WorkflowExecutionInfoResolver
 	WorkflowWhereInput() WorkflowWhereInputResolver
 }
 
@@ -112,7 +113,6 @@ type ComplexityRoot struct {
 		TraceID       func(childComplexity int) int
 		TransactionID func(childComplexity int) int
 		UserID        func(childComplexity int) int
-		WithReply     func(childComplexity int) int
 	}
 
 	GetWorkflowActionsResponse struct {
@@ -141,6 +141,7 @@ type ComplexityRoot struct {
 		SetWorkflowIsAssignable func(childComplexity int, input model.SetWorkflowIsAssignableInput) int
 		SetWorkflowTargets      func(childComplexity int, input model.SetWorkflowTargetsInput) int
 		SubmitUserDataInput     func(childComplexity int, input model.SubmitUserDataInputInput) int
+		UnregisterWorker        func(childComplexity int, workerID string) int
 	}
 
 	PageInfo struct {
@@ -156,6 +157,7 @@ type ComplexityRoot struct {
 		Node                         func(childComplexity int, id uuid.UUID) int
 		Nodes                        func(childComplexity int, ids []uuid.UUID) int
 		RemoteUI                     func(childComplexity int, input model.RemoteUIQueryInput) int
+		TransactionRouting           func(childComplexity int, transactionID uuid.UUID) int
 		WorkerDeploymentUIBundles    func(childComplexity int, first *int, after *string) int
 		WorkflowActions              func(childComplexity int, input model.GetWorkflowActionsInput, where *model.WorkflowActionsWhereInput) int
 		WorkflowAssignee             func(childComplexity int, input model.GetWorkflowAssigneeInput) int
@@ -169,9 +171,28 @@ type ComplexityRoot struct {
 		__resolve__service           func(childComplexity int) int
 	}
 
-	RemoteUI struct {
+	RemoteUIBundleURLs struct {
 		Mobile func(childComplexity int) int
 		Web    func(childComplexity int) int
+	}
+
+	RoutingEntry struct {
+		EventID    func(childComplexity int) int
+		Outcome    func(childComplexity int) int
+		RecordedAt func(childComplexity int) int
+		Sequence   func(childComplexity int) int
+		Targets    func(childComplexity int) int
+		TenantID   func(childComplexity int) int
+	}
+
+	RoutingTarget struct {
+		Error      func(childComplexity int) int
+		Kind       func(childComplexity int) int
+		Reason     func(childComplexity int) int
+		RunID      func(childComplexity int) int
+		Signal     func(childComplexity int) int
+		Workflow   func(childComplexity int) int
+		WorkflowID func(childComplexity int) int
 	}
 
 	ServiceInfo struct {
@@ -207,9 +228,18 @@ type ComplexityRoot struct {
 		Type  func(childComplexity int) int
 	}
 
+	TransactionRouting struct {
+		Entries       func(childComplexity int) int
+		TransactionID func(childComplexity int) int
+	}
+
 	UIBundle struct {
 		Slug    func(childComplexity int) int
 		Version func(childComplexity int) int
+	}
+
+	UnregisterWorkerPayload struct {
+		Stopped func(childComplexity int) int
 	}
 
 	Workflow struct {
@@ -284,6 +314,7 @@ type ComplexityRoot struct {
 		MostRecentWorkerVersionStamp func(childComplexity int) int
 		ParentExecution              func(childComplexity int) int
 		ParentNamespaceID            func(childComplexity int) int
+		RemoteUI                     func(childComplexity int) int
 		RootExecution                func(childComplexity int) int
 		SearchAttributes             func(childComplexity int) int
 		StartTime                    func(childComplexity int) int
@@ -369,6 +400,7 @@ type MutationResolver interface {
 	SubmitUserDataInput(ctx context.Context, input model.SubmitUserDataInputInput) (*model.SubmitUserDataInputResponse, error)
 	RegisterWorkflow(ctx context.Context, input model.RegisterWorkflowWithSignalsInput) (*gen.Workflow, error)
 	DeleteWorkflow(ctx context.Context, id uuid.UUID) (*model.WorkflowDeletePayload, error)
+	UnregisterWorker(ctx context.Context, workerID string) (*model.UnregisterWorkerPayload, error)
 	CancelWorkflow(ctx context.Context, input model.CancelWorkflowInput) (*model.CancelWorkflowPayload, error)
 	SetWorkflowAssignee(ctx context.Context, input model.SetWorkflowAssigneeInput) (*model.SetWorkflowAssigneeResponse, error)
 	SetWorkflowIsAssignable(ctx context.Context, input model.SetWorkflowIsAssignableInput) (*model.SetWorkflowIsAssignableResponse, error)
@@ -381,6 +413,7 @@ type QueryResolver interface {
 	WorkflowSignals(ctx context.Context, after *entgql.Cursor[uuid.UUID], first *int, before *entgql.Cursor[uuid.UUID], last *int, orderBy *gen.WorkflowSignalOrder, where *gen.WorkflowSignalWhereInput) (*gen.WorkflowSignalConnection, error)
 	RemoteUI(ctx context.Context, input model.RemoteUIQueryInput) (*workflow.UIBundleURLs, error)
 	WorkerDeploymentUIBundles(ctx context.Context, first *int, after *string) (*model.DeploymentVersionUIConnection, error)
+	TransactionRouting(ctx context.Context, transactionID uuid.UUID) (*model.TransactionRouting, error)
 	WorkflowServiceInfo(ctx context.Context) (*model.ServiceInfo, error)
 	CurrentUserDataInput(ctx context.Context, input model.UserDataInputQueryInput) (*model.CurrentUserDataInput, error)
 	WorkflowExecutions(ctx context.Context, where *model.WorkflowExecutionsWhereInput, first *int, after *string, orderBy *model.WorkflowExecutionOrder) (*model.WorkflowExecutionInfoConnection, error)
@@ -390,6 +423,9 @@ type QueryResolver interface {
 	WorkflowAssignee(ctx context.Context, input model.GetWorkflowAssigneeInput) (*model.GetWorkflowAssigneeResponse, error)
 	WorkflowIsAssignable(ctx context.Context, input model.GetWorkflowIsAssignableInput) (*model.GetWorkflowIsAssignableResponse, error)
 	WorkflowTargets(ctx context.Context, input model.GetWorkflowTargetsInput) (*model.GetWorkflowTargetsResponse, error)
+}
+type WorkflowExecutionInfoResolver interface {
+	RemoteUI(ctx context.Context, obj *model.WorkflowExecutionInfo) (*workflow.UIBundleURLs, error)
 }
 
 type WorkflowWhereInputResolver interface {
@@ -677,12 +713,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.EntityEventsOutbox.UserID(childComplexity), true
-	case "EntityEventsOutbox.withReply":
-		if e.ComplexityRoot.EntityEventsOutbox.WithReply == nil {
-			break
-		}
-
-		return e.ComplexityRoot.EntityEventsOutbox.WithReply(childComplexity), true
 
 	case "GetWorkflowActionsResponse.queries":
 		if e.ComplexityRoot.GetWorkflowActionsResponse.Queries == nil {
@@ -801,6 +831,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.SubmitUserDataInput(childComplexity, args["input"].(model.SubmitUserDataInputInput)), true
+	case "Mutation.unregisterWorker":
+		if e.ComplexityRoot.Mutation.UnregisterWorker == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_unregisterWorker_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UnregisterWorker(childComplexity, args["workerID"].(string)), true
 
 	case "PageInfo.endCursor":
 		if e.ComplexityRoot.PageInfo.EndCursor == nil {
@@ -883,6 +924,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.RemoteUI(childComplexity, args["input"].(model.RemoteUIQueryInput)), true
+	case "Query.transactionRouting":
+		if e.ComplexityRoot.Query.TransactionRouting == nil {
+			break
+		}
+
+		args, err := ec.field_Query_transactionRouting_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.TransactionRouting(childComplexity, args["transactionID"].(uuid.UUID)), true
 	case "Query.workerDeploymentUIBundles":
 		if e.ComplexityRoot.Query.WorkerDeploymentUIBundles == nil {
 			break
@@ -995,18 +1047,98 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Query.__resolve__service(childComplexity), true
 
-	case "RemoteUI.mobile":
-		if e.ComplexityRoot.RemoteUI.Mobile == nil {
+	case "RemoteUIBundleURLs.mobileURL":
+		if e.ComplexityRoot.RemoteUIBundleURLs.Mobile == nil {
 			break
 		}
 
-		return e.ComplexityRoot.RemoteUI.Mobile(childComplexity), true
-	case "RemoteUI.web":
-		if e.ComplexityRoot.RemoteUI.Web == nil {
+		return e.ComplexityRoot.RemoteUIBundleURLs.Mobile(childComplexity), true
+	case "RemoteUIBundleURLs.webURL":
+		if e.ComplexityRoot.RemoteUIBundleURLs.Web == nil {
 			break
 		}
 
-		return e.ComplexityRoot.RemoteUI.Web(childComplexity), true
+		return e.ComplexityRoot.RemoteUIBundleURLs.Web(childComplexity), true
+
+	case "RoutingEntry.eventID":
+		if e.ComplexityRoot.RoutingEntry.EventID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoutingEntry.EventID(childComplexity), true
+	case "RoutingEntry.outcome":
+		if e.ComplexityRoot.RoutingEntry.Outcome == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoutingEntry.Outcome(childComplexity), true
+	case "RoutingEntry.recordedAt":
+		if e.ComplexityRoot.RoutingEntry.RecordedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoutingEntry.RecordedAt(childComplexity), true
+	case "RoutingEntry.sequence":
+		if e.ComplexityRoot.RoutingEntry.Sequence == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoutingEntry.Sequence(childComplexity), true
+	case "RoutingEntry.targets":
+		if e.ComplexityRoot.RoutingEntry.Targets == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoutingEntry.Targets(childComplexity), true
+	case "RoutingEntry.tenantID":
+		if e.ComplexityRoot.RoutingEntry.TenantID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoutingEntry.TenantID(childComplexity), true
+
+	case "RoutingTarget.error":
+		if e.ComplexityRoot.RoutingTarget.Error == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoutingTarget.Error(childComplexity), true
+	case "RoutingTarget.kind":
+		if e.ComplexityRoot.RoutingTarget.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoutingTarget.Kind(childComplexity), true
+	case "RoutingTarget.reason":
+		if e.ComplexityRoot.RoutingTarget.Reason == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoutingTarget.Reason(childComplexity), true
+	case "RoutingTarget.runID":
+		if e.ComplexityRoot.RoutingTarget.RunID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoutingTarget.RunID(childComplexity), true
+	case "RoutingTarget.signal":
+		if e.ComplexityRoot.RoutingTarget.Signal == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoutingTarget.Signal(childComplexity), true
+	case "RoutingTarget.workflow":
+		if e.ComplexityRoot.RoutingTarget.Workflow == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoutingTarget.Workflow(childComplexity), true
+	case "RoutingTarget.workflowID":
+		if e.ComplexityRoot.RoutingTarget.WorkflowID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoutingTarget.WorkflowID(childComplexity), true
 
 	case "ServiceInfo.date":
 		if e.ComplexityRoot.ServiceInfo.Date == nil {
@@ -1087,6 +1219,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.TemporalWorkflow.Type(childComplexity), true
 
+	case "TransactionRouting.entries":
+		if e.ComplexityRoot.TransactionRouting.Entries == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TransactionRouting.Entries(childComplexity), true
+	case "TransactionRouting.transactionID":
+		if e.ComplexityRoot.TransactionRouting.TransactionID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TransactionRouting.TransactionID(childComplexity), true
+
 	case "UIBundle.slug":
 		if e.ComplexityRoot.UIBundle.Slug == nil {
 			break
@@ -1099,6 +1244,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.UIBundle.Version(childComplexity), true
+
+	case "UnregisterWorkerPayload.stopped":
+		if e.ComplexityRoot.UnregisterWorkerPayload.Stopped == nil {
+			break
+		}
+
+		return e.ComplexityRoot.UnregisterWorkerPayload.Stopped(childComplexity), true
 
 	case "Workflow.createdAt":
 		if e.ComplexityRoot.Workflow.CreatedAt == nil {
@@ -1378,6 +1530,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.WorkflowExecutionInfo.ParentNamespaceID(childComplexity), true
+	case "WorkflowExecutionInfo.remoteUI":
+		if e.ComplexityRoot.WorkflowExecutionInfo.RemoteUI == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowExecutionInfo.RemoteUI(childComplexity), true
 	case "WorkflowExecutionInfo.rootExecution":
 		if e.ComplexityRoot.WorkflowExecutionInfo.RootExecution == nil {
 			break
@@ -1794,7 +1952,6 @@ type EntityEventsOutbox implements Node {
   requestID: String
   topic: String!
   payload: Map!
-  withReply: Boolean!
   retryCount: Int!
   lastError: String
   deadAt: Time
@@ -1922,11 +2079,6 @@ input EntityEventsOutboxWhereInput {
   topicHasSuffix: String
   topicEqualFold: String
   topicContainsFold: String
-  """
-  with_reply field predicates
-  """
-  withReply: Boolean
-  withReplyNEQ: Boolean
   """
   retry_count field predicates
   """
@@ -2404,6 +2556,8 @@ enum WorkflowSignalType @goModel(model: "github.com/pyck-ai/pyck/backend/workflo
   unknown
   start
   intermediate
+  signal_with_start
+  signal_by_id
 }
 """
 WorkflowSignalWhereInput is used for filtering WorkflowSignal objects.
@@ -2720,7 +2874,7 @@ input WorkflowWhereInput {
   stamped yet) it falls back to the system-wide default bundle if one is
   configured, otherwise it errors.
   """
-  remoteUI(input: RemoteUIQueryInput!): RemoteUI
+  remoteUI(input: RemoteUIQueryInput!): RemoteUIBundleURLs
 
   """
   Lists every Worker Deployment Version in the tenant's namespace with its
@@ -2731,15 +2885,30 @@ input WorkflowWhereInput {
   workerDeploymentUIBundles(first: Int, after: String): DeploymentVersionUIConnection!
 }
 
+extend type WorkflowExecutionInfo {
+  """
+  Fully rendered web + mobile UI bundle URLs for this execution, rendered with
+  the templates and flavour of the execution's own tenant.
+
+  Null when there is no UI to load (no pinned deployment version, no stamped
+  bundle and no configured default, or a tenant without URL templates). The
+  field never raises an error: any resolution failure also yields null; use
+  the top-level remoteUI query for the reason on a single execution.
+  """
+  remoteUI: RemoteUIBundleURLs
+}
+
 input RemoteUIQueryInput {
   workflowID: String!
   workflowExecutionID: String!
 }
 
-"""Fully rendered web + mobile UI bundle URLs."""
-type RemoteUI {
-  web: String!
-  mobile: String!
+"""Fully rendered UI bundle asset URLs."""
+type RemoteUIBundleURLs {
+  """Absolute URL of the web bundle; empty when the tenant has no web template."""
+  webURL: String!
+  """Absolute URL of the mobile bundle; empty when the tenant has no mobile template."""
+  mobileURL: String!
 }
 
 """The UI bundle (slug + version) a deployment version ships."""
@@ -2785,6 +2954,100 @@ type DeploymentVersionUIPageInfo {
   hasPreviousPage: Boolean!
   startCursor: String
   endCursor: String
+}
+`, BuiltIn: false},
+	{Name: "../graph/routingstatus.graphql", Input: `"""
+How the router settled one event: finished, or given up on.
+"""
+enum RoutingOutcome {
+  """The router finished with the event: every target was delivered or refused for good."""
+  DONE
+  """The router stopped retrying the event after its last delivery. The FAILED targets say what is left undone."""
+  GAVE_UP
+}
+
+"""
+What happened to one target of an event.
+"""
+enum RoutingTargetKind {
+  """A workflow was started, or the start returned the run an earlier delivery of the event started."""
+  STARTED
+  """The start was refused because the workflow ID is taken by another event's run."""
+  ALREADY_RUNNING
+  """A running execution was signalled."""
+  SIGNALLED
+  """Nothing was delivered, for the reason given."""
+  DROPPED
+  """The delivery failed with the error given."""
+  FAILED
+}
+
+"""
+One workflow start or signal the router attempted for an event.
+"""
+type RoutingTarget {
+  kind: RoutingTargetKind!
+  """Name of the workflow, when the target belongs to one."""
+  workflow: String
+  workflowID: String
+  runID: String
+  """Signal name, for signal targets."""
+  signal: String
+  """Why nothing was delivered (DROPPED)."""
+  reason: String
+  """The failure (FAILED)."""
+  error: String
+}
+
+"""
+The routing status of one event of a transaction.
+"""
+type RoutingEntry {
+  tenantID: ID!
+  """The event's own ID (the outbox entry ID)."""
+  eventID: ID!
+  outcome: RoutingOutcome!
+  """The event's sequence in the event stream."""
+  sequence: UInt64!
+  """
+  What the router did for the event. Empty when nothing was subscribed to it:
+  the event is finished with nothing to do.
+  """
+  targets: [RoutingTarget!]!
+  recordedAt: Time!
+}
+
+"""
+What the router has done so far for the events of one transaction.
+"""
+type TransactionRouting {
+  transactionID: ID!
+  """
+  One entry per event the router has settled, oldest first. Routing is complete
+  when the number of entries equals the mutation's ` + "`" + `eventCount` + "`" + `: fewer means
+  some events are not routed yet, so ask again. Status is best effort: an entry
+  can be missing for good (a status write can fail, and events can be skipped),
+  so poll with a deadline instead of waiting for ` + "`" + `entries == eventCount` + "`" + `.
+  """
+  entries: [RoutingEntry!]!
+}
+
+extend type Query {
+  """
+  The routing status of the events a mutation published, by the ` + "`" + `transactionID` + "`" + `
+  the mutation returned. Only events of the caller's tenants are returned.
+
+  Compare ` + "`" + `entries` + "`" + ` with the mutation's ` + "`" + `eventCount` + "`" + `:
+  - ` + "`" + `eventCount: 0` + "`" + `: nothing was published, there is nothing to route.
+  - fewer entries than ` + "`" + `eventCount` + "`" + `: routing is not complete, ask again, but
+    give up after a deadline: an entry can be missing for good.
+  - as many entries as ` + "`" + `eventCount` + "`" + `: routing is complete. Each entry's targets
+    say what happened; ` + "`" + `workflowExecutions(where: {transactionID})` + "`" + ` lists the
+    executions the transaction started.
+
+  Entries are kept for 72 hours.
+  """
+  transactionRouting(transactionID: ID!): TransactionRouting!
 }
 `, BuiltIn: false},
 	{Name: "../graph/scalars.graphql", Input: `scalar Any
@@ -3118,6 +3381,16 @@ input WorkflowExecutionsWhereInput {
   dataIdIsNil: Boolean
   dataIdNotNil: Boolean
   """
+  transactionID field predicates — the handle mutations return. Filtering by
+  it lists the executions that mutation started. An empty result means the
+  workflows are not started or not visible yet (poll again) or the mutation
+  triggered none. Exact match only (the value is a UUID).
+  """
+  transactionID: ID
+  transactionIDNEQ: ID
+  transactionIDIn: [ID!]
+  transactionIDNotIn: [ID!]
+  """
   targets field predicates (KeywordList — matches if the workflow's targets
   list contains any element of the supplied set; targetsNotIn excludes them).
   """
@@ -3365,6 +3638,15 @@ type WorkflowEvent {
 extend type Mutation {
   registerWorkflow(input: RegisterWorkflowWithSignalsInput!): Workflow
   deleteWorkflow(id: ID!): WorkflowDeletePayload!
+  """
+  Marks the calling worker's live signal subscriptions as stopped, e.g. on a
+  clean shutdown. A stopped subscription is a hint, not a deletion: the router
+  ignores it while another worker holds running subscriptions on the same
+  workflow, and otherwise keeps routing to it until its TTL lapses. A later
+  registerWorkflowWithSignals from the worker clears the mark. Never touches
+  workflow rows. Idempotent.
+  """
+  unregisterWorker(workerID: String!): UnregisterWorkerPayload!
   cancelWorkflow(input: CancelWorkflowInput!): CancelWorkflowPayload!
 }
 
@@ -3374,8 +3656,8 @@ input RegisterWorkflowWithSignalsInput {
     name: String!
     taskQueue: String!
     # Identifies the calling worker so each worker owns its own subscriptions.
-    # Omitted by legacy workers, which keep sharing a single subscription set.
-    workerID: String
+    # Required: a blank value is rejected at resolver level.
+    workerID: String!
     signals: [RegisterWorkflowSignalInput!]
 }
 
@@ -3388,6 +3670,11 @@ input RegisterWorkflowSignalInput {
 
 type WorkflowDeletePayload {
   deletedID: ID
+}
+
+type UnregisterWorkerPayload {
+  "Live subscriptions newly marked stopped; 0 for an unknown worker or a repeat call."
+  stopped: Int!
 }
 
 input CancelWorkflowInput {
@@ -3794,14 +4081,52 @@ func (ec *executionContext) childFields_PageInfo(ctx context.Context, field grap
 	return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
 }
 
-func (ec *executionContext) childFields_RemoteUI(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+func (ec *executionContext) childFields_RemoteUIBundleURLs(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "web":
-		return ec.fieldContext_RemoteUI_web(ctx, field)
-	case "mobile":
-		return ec.fieldContext_RemoteUI_mobile(ctx, field)
+	case "webURL":
+		return ec.fieldContext_RemoteUIBundleURLs_webURL(ctx, field)
+	case "mobileURL":
+		return ec.fieldContext_RemoteUIBundleURLs_mobileURL(ctx, field)
 	}
-	return nil, fmt.Errorf("no field named %q was found under type RemoteUI", field.Name)
+	return nil, fmt.Errorf("no field named %q was found under type RemoteUIBundleURLs", field.Name)
+}
+
+func (ec *executionContext) childFields_RoutingEntry(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "tenantID":
+		return ec.fieldContext_RoutingEntry_tenantID(ctx, field)
+	case "eventID":
+		return ec.fieldContext_RoutingEntry_eventID(ctx, field)
+	case "outcome":
+		return ec.fieldContext_RoutingEntry_outcome(ctx, field)
+	case "sequence":
+		return ec.fieldContext_RoutingEntry_sequence(ctx, field)
+	case "targets":
+		return ec.fieldContext_RoutingEntry_targets(ctx, field)
+	case "recordedAt":
+		return ec.fieldContext_RoutingEntry_recordedAt(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type RoutingEntry", field.Name)
+}
+
+func (ec *executionContext) childFields_RoutingTarget(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "kind":
+		return ec.fieldContext_RoutingTarget_kind(ctx, field)
+	case "workflow":
+		return ec.fieldContext_RoutingTarget_workflow(ctx, field)
+	case "workflowID":
+		return ec.fieldContext_RoutingTarget_workflowID(ctx, field)
+	case "runID":
+		return ec.fieldContext_RoutingTarget_runID(ctx, field)
+	case "signal":
+		return ec.fieldContext_RoutingTarget_signal(ctx, field)
+	case "reason":
+		return ec.fieldContext_RoutingTarget_reason(ctx, field)
+	case "error":
+		return ec.fieldContext_RoutingTarget_error(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type RoutingTarget", field.Name)
 }
 
 func (ec *executionContext) childFields_ServiceInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -3868,6 +4193,24 @@ func (ec *executionContext) childFields_TemporalWorkflow(ctx context.Context, fi
 		return ec.fieldContext_TemporalWorkflow_runID(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type TemporalWorkflow", field.Name)
+}
+
+func (ec *executionContext) childFields_TransactionRouting(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "transactionID":
+		return ec.fieldContext_TransactionRouting_transactionID(ctx, field)
+	case "entries":
+		return ec.fieldContext_TransactionRouting_entries(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type TransactionRouting", field.Name)
+}
+
+func (ec *executionContext) childFields_UnregisterWorkerPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "stopped":
+		return ec.fieldContext_UnregisterWorkerPayload_stopped(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type UnregisterWorkerPayload", field.Name)
 }
 
 func (ec *executionContext) childFields_Workflow(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -4028,6 +4371,8 @@ func (ec *executionContext) childFields_WorkflowExecutionInfo(ctx context.Contex
 		return ec.fieldContext_WorkflowExecutionInfo_executionDuration(ctx, field)
 	case "rootExecution":
 		return ec.fieldContext_WorkflowExecutionInfo_rootExecution(ctx, field)
+	case "remoteUI":
+		return ec.fieldContext_WorkflowExecutionInfo_remoteUI(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type WorkflowExecutionInfo", field.Name)
 }
@@ -4378,6 +4723,20 @@ func (ec *executionContext) field_Mutation_submitUserDataInput_args(ctx context.
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_unregisterWorker_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "workerID",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["workerID"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -4483,6 +4842,20 @@ func (ec *executionContext) field_Query_remoteUI_args(ctx context.Context, rawAr
 		return nil, err
 	}
 	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_transactionRouting_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "transactionID",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["transactionID"] = arg0
 	return args, nil
 }
 
@@ -5704,29 +6077,6 @@ func (ec *executionContext) fieldContext_EntityEventsOutbox_payload(_ context.Co
 	return graphql.NewScalarFieldContext("EntityEventsOutbox", field, false, false, errors.New("field of type Map does not have child fields"))
 }
 
-func (ec *executionContext) _EntityEventsOutbox_withReply(ctx context.Context, field graphql.CollectedField, obj *gen.EntityEventsOutbox) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_EntityEventsOutbox_withReply(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.WithReply, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_EntityEventsOutbox_withReply(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("EntityEventsOutbox", field, false, false, errors.New("field of type Boolean does not have child fields"))
-}
-
 func (ec *executionContext) _EntityEventsOutbox_retryCount(ctx context.Context, field graphql.CollectedField, obj *gen.EntityEventsOutbox) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6170,6 +6520,50 @@ func (ec *executionContext) fieldContext_Mutation_deleteWorkflow(ctx context.Con
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_deleteWorkflow_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_unregisterWorker(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_unregisterWorker(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UnregisterWorker(ctx, fc.Args["workerID"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.UnregisterWorkerPayload) graphql.Marshaler {
+			return ec.marshalNUnregisterWorkerPayload2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐUnregisterWorkerPayload(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_unregisterWorker(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_UnregisterWorkerPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_unregisterWorker_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -6634,7 +7028,7 @@ func (ec *executionContext) _Query_remoteUI(ctx context.Context, field graphql.C
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *workflow.UIBundleURLs) graphql.Marshaler {
-			return ec.marshalORemoteUI2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋworkflowᚐUIBundleURLs(ctx, selections, v)
+			return ec.marshalORemoteUIBundleURLs2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋworkflowᚐUIBundleURLs(ctx, selections, v)
 		},
 		true,
 		false,
@@ -6647,7 +7041,7 @@ func (ec *executionContext) fieldContext_Query_remoteUI(ctx context.Context, fie
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_RemoteUI(ctx, field)
+			return ec.childFields_RemoteUIBundleURLs(ctx, field)
 		},
 	}
 	defer func() {
@@ -6702,6 +7096,50 @@ func (ec *executionContext) fieldContext_Query_workerDeploymentUIBundles(ctx con
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_workerDeploymentUIBundles_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_transactionRouting(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_transactionRouting(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().TransactionRouting(ctx, fc.Args["transactionID"].(uuid.UUID))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.TransactionRouting) graphql.Marshaler {
+			return ec.marshalNTransactionRouting2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐTransactionRouting(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_transactionRouting(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TransactionRouting(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_transactionRouting_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -7200,13 +7638,13 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _RemoteUI_web(ctx context.Context, field graphql.CollectedField, obj *workflow.UIBundleURLs) (ret graphql.Marshaler) {
+func (ec *executionContext) _RemoteUIBundleURLs_webURL(ctx context.Context, field graphql.CollectedField, obj *workflow.UIBundleURLs) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RemoteUI_web(ctx, field)
+			return ec.fieldContext_RemoteUIBundleURLs_webURL(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			return obj.Web, nil
@@ -7219,17 +7657,17 @@ func (ec *executionContext) _RemoteUI_web(ctx context.Context, field graphql.Col
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_RemoteUI_web(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RemoteUI", field, false, false, errors.New("field of type String does not have child fields"))
+func (ec *executionContext) fieldContext_RemoteUIBundleURLs_webURL(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RemoteUIBundleURLs", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _RemoteUI_mobile(ctx context.Context, field graphql.CollectedField, obj *workflow.UIBundleURLs) (ret graphql.Marshaler) {
+func (ec *executionContext) _RemoteUIBundleURLs_mobileURL(ctx context.Context, field graphql.CollectedField, obj *workflow.UIBundleURLs) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RemoteUI_mobile(ctx, field)
+			return ec.fieldContext_RemoteUIBundleURLs_mobileURL(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			return obj.Mobile, nil
@@ -7242,8 +7680,316 @@ func (ec *executionContext) _RemoteUI_mobile(ctx context.Context, field graphql.
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_RemoteUI_mobile(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RemoteUI", field, false, false, errors.New("field of type String does not have child fields"))
+func (ec *executionContext) fieldContext_RemoteUIBundleURLs_mobileURL(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RemoteUIBundleURLs", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _RoutingEntry_tenantID(ctx context.Context, field graphql.CollectedField, obj *model.RoutingEntry) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoutingEntry_tenantID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TenantID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RoutingEntry_tenantID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoutingEntry", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _RoutingEntry_eventID(ctx context.Context, field graphql.CollectedField, obj *model.RoutingEntry) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoutingEntry_eventID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.EventID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RoutingEntry_eventID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoutingEntry", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _RoutingEntry_outcome(ctx context.Context, field graphql.CollectedField, obj *model.RoutingEntry) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoutingEntry_outcome(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Outcome, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.RoutingOutcome) graphql.Marshaler {
+			return ec.marshalNRoutingOutcome2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRoutingOutcome(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RoutingEntry_outcome(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoutingEntry", field, false, false, errors.New("field of type RoutingOutcome does not have child fields"))
+}
+
+func (ec *executionContext) _RoutingEntry_sequence(ctx context.Context, field graphql.CollectedField, obj *model.RoutingEntry) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoutingEntry_sequence(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Sequence, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uint64) graphql.Marshaler {
+			return ec.marshalNUInt642uint64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RoutingEntry_sequence(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoutingEntry", field, false, false, errors.New("field of type UInt64 does not have child fields"))
+}
+
+func (ec *executionContext) _RoutingEntry_targets(ctx context.Context, field graphql.CollectedField, obj *model.RoutingEntry) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoutingEntry_targets(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Targets, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.RoutingTarget) graphql.Marshaler {
+			return ec.marshalNRoutingTarget2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRoutingTargetᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RoutingEntry_targets(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RoutingEntry",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_RoutingTarget(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _RoutingEntry_recordedAt(ctx context.Context, field graphql.CollectedField, obj *model.RoutingEntry) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoutingEntry_recordedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RecordedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RoutingEntry_recordedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoutingEntry", field, false, false, errors.New("field of type Time does not have child fields"))
+}
+
+func (ec *executionContext) _RoutingTarget_kind(ctx context.Context, field graphql.CollectedField, obj *model.RoutingTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoutingTarget_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v model.RoutingTargetKind) graphql.Marshaler {
+			return ec.marshalNRoutingTargetKind2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRoutingTargetKind(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RoutingTarget_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoutingTarget", field, false, false, errors.New("field of type RoutingTargetKind does not have child fields"))
+}
+
+func (ec *executionContext) _RoutingTarget_workflow(ctx context.Context, field graphql.CollectedField, obj *model.RoutingTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoutingTarget_workflow(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Workflow, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RoutingTarget_workflow(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoutingTarget", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _RoutingTarget_workflowID(ctx context.Context, field graphql.CollectedField, obj *model.RoutingTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoutingTarget_workflowID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.WorkflowID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RoutingTarget_workflowID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoutingTarget", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _RoutingTarget_runID(ctx context.Context, field graphql.CollectedField, obj *model.RoutingTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoutingTarget_runID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RunID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RoutingTarget_runID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoutingTarget", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _RoutingTarget_signal(ctx context.Context, field graphql.CollectedField, obj *model.RoutingTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoutingTarget_signal(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Signal, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RoutingTarget_signal(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoutingTarget", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _RoutingTarget_reason(ctx context.Context, field graphql.CollectedField, obj *model.RoutingTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoutingTarget_reason(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Reason, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RoutingTarget_reason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoutingTarget", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _RoutingTarget_error(ctx context.Context, field graphql.CollectedField, obj *model.RoutingTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoutingTarget_error(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Error, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RoutingTarget_error(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoutingTarget", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _ServiceInfo_version(ctx context.Context, field graphql.CollectedField, obj *model.ServiceInfo) (ret graphql.Marshaler) {
@@ -7531,6 +8277,61 @@ func (ec *executionContext) fieldContext_TemporalWorkflow_runID(_ context.Contex
 	return graphql.NewScalarFieldContext("TemporalWorkflow", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _TransactionRouting_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.TransactionRouting) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TransactionRouting_transactionID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TransactionID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TransactionRouting_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TransactionRouting", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _TransactionRouting_entries(ctx context.Context, field graphql.CollectedField, obj *model.TransactionRouting) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TransactionRouting_entries(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Entries, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.RoutingEntry) graphql.Marshaler {
+			return ec.marshalNRoutingEntry2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRoutingEntryᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TransactionRouting_entries(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransactionRouting",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_RoutingEntry(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _UIBundle_slug(ctx context.Context, field graphql.CollectedField, obj *workflow.UIBundle) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -7575,6 +8376,29 @@ func (ec *executionContext) _UIBundle_version(ctx context.Context, field graphql
 }
 func (ec *executionContext) fieldContext_UIBundle_version(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("UIBundle", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _UnregisterWorkerPayload_stopped(ctx context.Context, field graphql.CollectedField, obj *model.UnregisterWorkerPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_UnregisterWorkerPayload_stopped(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Stopped, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_UnregisterWorkerPayload_stopped(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("UnregisterWorkerPayload", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _Workflow_id(ctx context.Context, field graphql.CollectedField, obj *gen.Workflow) (ret graphql.Marshaler) {
@@ -8883,6 +9707,38 @@ func (ec *executionContext) fieldContext_WorkflowExecutionInfo_rootExecution(_ c
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_WorkflowExecution(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WorkflowExecutionInfo_remoteUI(ctx context.Context, field graphql.CollectedField, obj *model.WorkflowExecutionInfo) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowExecutionInfo_remoteUI(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.WorkflowExecutionInfo().RemoteUI(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *workflow.UIBundleURLs) graphql.Marshaler {
+			return ec.marshalORemoteUIBundleURLs2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋworkflowᚐUIBundleURLs(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowExecutionInfo_remoteUI(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WorkflowExecutionInfo",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_RemoteUIBundleURLs(ctx, field)
 		},
 	}
 	return fc, nil
@@ -11002,7 +11858,7 @@ func (ec *executionContext) unmarshalInputEntityEventsOutboxWhereInput(ctx conte
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"not", "and", "or", "id", "idNEQ", "idIn", "idNotIn", "idGT", "idGTE", "idLT", "idLTE", "createdAt", "createdAtNEQ", "createdAtIn", "createdAtNotIn", "createdAtGT", "createdAtGTE", "createdAtLT", "createdAtLTE", "publishedAt", "publishedAtNEQ", "publishedAtIn", "publishedAtNotIn", "publishedAtGT", "publishedAtGTE", "publishedAtLT", "publishedAtLTE", "publishedAtIsNil", "publishedAtNotNil", "userID", "userIDNEQ", "userIDIn", "userIDNotIn", "userIDGT", "userIDGTE", "userIDLT", "userIDLTE", "userIDIsNil", "userIDNotNil", "transactionID", "transactionIDNEQ", "transactionIDIn", "transactionIDNotIn", "transactionIDGT", "transactionIDGTE", "transactionIDLT", "transactionIDLTE", "traceID", "traceIDNEQ", "traceIDIn", "traceIDNotIn", "traceIDGT", "traceIDGTE", "traceIDLT", "traceIDLTE", "traceIDContains", "traceIDHasPrefix", "traceIDHasSuffix", "traceIDIsNil", "traceIDNotNil", "traceIDEqualFold", "traceIDContainsFold", "requestID", "requestIDNEQ", "requestIDIn", "requestIDNotIn", "requestIDGT", "requestIDGTE", "requestIDLT", "requestIDLTE", "requestIDContains", "requestIDHasPrefix", "requestIDHasSuffix", "requestIDIsNil", "requestIDNotNil", "requestIDEqualFold", "requestIDContainsFold", "topic", "topicNEQ", "topicIn", "topicNotIn", "topicGT", "topicGTE", "topicLT", "topicLTE", "topicContains", "topicHasPrefix", "topicHasSuffix", "topicEqualFold", "topicContainsFold", "withReply", "withReplyNEQ", "retryCount", "retryCountNEQ", "retryCountIn", "retryCountNotIn", "retryCountGT", "retryCountGTE", "retryCountLT", "retryCountLTE", "lastError", "lastErrorNEQ", "lastErrorIn", "lastErrorNotIn", "lastErrorGT", "lastErrorGTE", "lastErrorLT", "lastErrorLTE", "lastErrorContains", "lastErrorHasPrefix", "lastErrorHasSuffix", "lastErrorIsNil", "lastErrorNotNil", "lastErrorEqualFold", "lastErrorContainsFold", "deadAt", "deadAtNEQ", "deadAtIn", "deadAtNotIn", "deadAtGT", "deadAtGTE", "deadAtLT", "deadAtLTE", "deadAtIsNil", "deadAtNotNil", "nextRetryAt", "nextRetryAtNEQ", "nextRetryAtIn", "nextRetryAtNotIn", "nextRetryAtGT", "nextRetryAtGTE", "nextRetryAtLT", "nextRetryAtLTE", "nextRetryAtIsNil", "nextRetryAtNotNil", "entityType", "entityTypeNEQ", "entityTypeIn", "entityTypeNotIn", "entityTypeGT", "entityTypeGTE", "entityTypeLT", "entityTypeLTE", "entityTypeContains", "entityTypeHasPrefix", "entityTypeHasSuffix", "entityTypeIsNil", "entityTypeNotNil", "entityTypeEqualFold", "entityTypeContainsFold", "entityID", "entityIDNEQ", "entityIDIn", "entityIDNotIn", "entityIDGT", "entityIDGTE", "entityIDLT", "entityIDLTE", "entityIDIsNil", "entityIDNotNil", "tenantID", "tenantIDNEQ", "tenantIDIn", "tenantIDNotIn", "tenantIDGT", "tenantIDGTE", "tenantIDLT", "tenantIDLTE"}
+	fieldsInOrder := [...]string{"not", "and", "or", "id", "idNEQ", "idIn", "idNotIn", "idGT", "idGTE", "idLT", "idLTE", "createdAt", "createdAtNEQ", "createdAtIn", "createdAtNotIn", "createdAtGT", "createdAtGTE", "createdAtLT", "createdAtLTE", "publishedAt", "publishedAtNEQ", "publishedAtIn", "publishedAtNotIn", "publishedAtGT", "publishedAtGTE", "publishedAtLT", "publishedAtLTE", "publishedAtIsNil", "publishedAtNotNil", "userID", "userIDNEQ", "userIDIn", "userIDNotIn", "userIDGT", "userIDGTE", "userIDLT", "userIDLTE", "userIDIsNil", "userIDNotNil", "transactionID", "transactionIDNEQ", "transactionIDIn", "transactionIDNotIn", "transactionIDGT", "transactionIDGTE", "transactionIDLT", "transactionIDLTE", "traceID", "traceIDNEQ", "traceIDIn", "traceIDNotIn", "traceIDGT", "traceIDGTE", "traceIDLT", "traceIDLTE", "traceIDContains", "traceIDHasPrefix", "traceIDHasSuffix", "traceIDIsNil", "traceIDNotNil", "traceIDEqualFold", "traceIDContainsFold", "requestID", "requestIDNEQ", "requestIDIn", "requestIDNotIn", "requestIDGT", "requestIDGTE", "requestIDLT", "requestIDLTE", "requestIDContains", "requestIDHasPrefix", "requestIDHasSuffix", "requestIDIsNil", "requestIDNotNil", "requestIDEqualFold", "requestIDContainsFold", "topic", "topicNEQ", "topicIn", "topicNotIn", "topicGT", "topicGTE", "topicLT", "topicLTE", "topicContains", "topicHasPrefix", "topicHasSuffix", "topicEqualFold", "topicContainsFold", "retryCount", "retryCountNEQ", "retryCountIn", "retryCountNotIn", "retryCountGT", "retryCountGTE", "retryCountLT", "retryCountLTE", "lastError", "lastErrorNEQ", "lastErrorIn", "lastErrorNotIn", "lastErrorGT", "lastErrorGTE", "lastErrorLT", "lastErrorLTE", "lastErrorContains", "lastErrorHasPrefix", "lastErrorHasSuffix", "lastErrorIsNil", "lastErrorNotNil", "lastErrorEqualFold", "lastErrorContainsFold", "deadAt", "deadAtNEQ", "deadAtIn", "deadAtNotIn", "deadAtGT", "deadAtGTE", "deadAtLT", "deadAtLTE", "deadAtIsNil", "deadAtNotNil", "nextRetryAt", "nextRetryAtNEQ", "nextRetryAtIn", "nextRetryAtNotIn", "nextRetryAtGT", "nextRetryAtGTE", "nextRetryAtLT", "nextRetryAtLTE", "nextRetryAtIsNil", "nextRetryAtNotNil", "entityType", "entityTypeNEQ", "entityTypeIn", "entityTypeNotIn", "entityTypeGT", "entityTypeGTE", "entityTypeLT", "entityTypeLTE", "entityTypeContains", "entityTypeHasPrefix", "entityTypeHasSuffix", "entityTypeIsNil", "entityTypeNotNil", "entityTypeEqualFold", "entityTypeContainsFold", "entityID", "entityIDNEQ", "entityIDIn", "entityIDNotIn", "entityIDGT", "entityIDGTE", "entityIDLT", "entityIDLTE", "entityIDIsNil", "entityIDNotNil", "tenantID", "tenantIDNEQ", "tenantIDIn", "tenantIDNotIn", "tenantIDGT", "tenantIDGTE", "tenantIDLT", "tenantIDLTE"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -11639,20 +12495,6 @@ func (ec *executionContext) unmarshalInputEntityEventsOutboxWhereInput(ctx conte
 				return it, err
 			}
 			it.TopicContainsFold = data
-		case "withReply":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("withReply"))
-			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.WithReply = data
-		case "withReplyNEQ":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("withReplyNEQ"))
-			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.WithReplyNEQ = data
 		case "retryCount":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("retryCount"))
 			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
@@ -12437,7 +13279,7 @@ func (ec *executionContext) unmarshalInputRegisterWorkflowWithSignalsInput(ctx c
 			it.TaskQueue = data
 		case "workerID":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("workerID"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			data, err := ec.unmarshalNString2string(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -13003,7 +13845,7 @@ func (ec *executionContext) unmarshalInputWorkflowExecutionsWhereInput(ctx conte
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"not", "and", "or", "typeName", "typeNameNEQ", "typeNameIn", "typeNameNotIn", "typeNameContains", "typeNameHasPrefix", "typeNameHasSuffix", "typeNameEqualFold", "typeNameContainsFold", "workflowName", "workflowNameNEQ", "workflowNameIn", "workflowNameNotIn", "workflowNameContains", "workflowNameHasPrefix", "workflowNameHasSuffix", "workflowNameEqualFold", "workflowNameContainsFold", "assignee", "assigneeNEQ", "assigneeIn", "assigneeNotIn", "assigneeIsNil", "assigneeNotNil", "assigneeContains", "assigneeHasPrefix", "assigneeHasSuffix", "assigneeEqualFold", "assigneeContainsFold", "isAssignable", "groupBy", "groupByNEQ", "groupByIn", "groupByNotIn", "groupByIsNil", "groupByNotNil", "groupByContains", "groupByHasPrefix", "groupByHasSuffix", "groupByEqualFold", "groupByContainsFold", "title", "titleNEQ", "titleIn", "titleNotIn", "titleIsNil", "titleNotNil", "titleContains", "titleHasPrefix", "titleHasSuffix", "titleEqualFold", "titleContainsFold", "groupTitle", "groupTitleNEQ", "groupTitleIn", "groupTitleNotIn", "groupTitleIsNil", "groupTitleNotNil", "groupTitleContains", "groupTitleHasPrefix", "groupTitleHasSuffix", "groupTitleEqualFold", "groupTitleContainsFold", "sortKey", "sortKeyNEQ", "sortKeyIn", "sortKeyNotIn", "sortKeyGT", "sortKeyGTE", "sortKeyLT", "sortKeyLTE", "sortKeyIsNil", "sortKeyNotNil", "workflowID", "workflowIDNEQ", "workflowIDIn", "workflowIDNotIn", "workflowIDContains", "workflowIDHasPrefix", "workflowIDHasSuffix", "workflowIDEqualFold", "workflowIDContainsFold", "runID", "runIDNEQ", "runIDIn", "runIDNotIn", "runIDContains", "runIDHasPrefix", "runIDHasSuffix", "runIDEqualFold", "runIDContainsFold", "status", "statusNEQ", "statusIn", "statusNotIn", "statusContains", "statusHasPrefix", "statusHasSuffix", "statusEqualFold", "statusContainsFold", "startTime", "startTimeNEQ", "startTimeIn", "startTimeNotIn", "startTimeGT", "startTimeGTE", "startTimeLT", "startTimeLTE", "closeTime", "closeTimeNEQ", "closeTimeIn", "closeTimeNotIn", "closeTimeGT", "closeTimeGTE", "closeTimeLT", "closeTimeLTE", "closeTimeIsNil", "closeTimeNotNil", "service", "serviceNEQ", "serviceIn", "serviceNotIn", "serviceContains", "serviceHasPrefix", "serviceHasSuffix", "serviceEqualFold", "serviceContainsFold", "serviceIsNil", "serviceNotNil", "dataType", "dataTypeNEQ", "dataTypeIn", "dataTypeNotIn", "dataTypeContains", "dataTypeHasPrefix", "dataTypeHasSuffix", "dataTypeEqualFold", "dataTypeContainsFold", "dataTypeIsNil", "dataTypeNotNil", "dataId", "dataIdNEQ", "dataIdIn", "dataIdNotIn", "dataIdContains", "dataIdHasPrefix", "dataIdHasSuffix", "dataIdEqualFold", "dataIdContainsFold", "dataIdIsNil", "dataIdNotNil", "targets", "targetsNotIn"}
+	fieldsInOrder := [...]string{"not", "and", "or", "typeName", "typeNameNEQ", "typeNameIn", "typeNameNotIn", "typeNameContains", "typeNameHasPrefix", "typeNameHasSuffix", "typeNameEqualFold", "typeNameContainsFold", "workflowName", "workflowNameNEQ", "workflowNameIn", "workflowNameNotIn", "workflowNameContains", "workflowNameHasPrefix", "workflowNameHasSuffix", "workflowNameEqualFold", "workflowNameContainsFold", "assignee", "assigneeNEQ", "assigneeIn", "assigneeNotIn", "assigneeIsNil", "assigneeNotNil", "assigneeContains", "assigneeHasPrefix", "assigneeHasSuffix", "assigneeEqualFold", "assigneeContainsFold", "isAssignable", "groupBy", "groupByNEQ", "groupByIn", "groupByNotIn", "groupByIsNil", "groupByNotNil", "groupByContains", "groupByHasPrefix", "groupByHasSuffix", "groupByEqualFold", "groupByContainsFold", "title", "titleNEQ", "titleIn", "titleNotIn", "titleIsNil", "titleNotNil", "titleContains", "titleHasPrefix", "titleHasSuffix", "titleEqualFold", "titleContainsFold", "groupTitle", "groupTitleNEQ", "groupTitleIn", "groupTitleNotIn", "groupTitleIsNil", "groupTitleNotNil", "groupTitleContains", "groupTitleHasPrefix", "groupTitleHasSuffix", "groupTitleEqualFold", "groupTitleContainsFold", "sortKey", "sortKeyNEQ", "sortKeyIn", "sortKeyNotIn", "sortKeyGT", "sortKeyGTE", "sortKeyLT", "sortKeyLTE", "sortKeyIsNil", "sortKeyNotNil", "workflowID", "workflowIDNEQ", "workflowIDIn", "workflowIDNotIn", "workflowIDContains", "workflowIDHasPrefix", "workflowIDHasSuffix", "workflowIDEqualFold", "workflowIDContainsFold", "runID", "runIDNEQ", "runIDIn", "runIDNotIn", "runIDContains", "runIDHasPrefix", "runIDHasSuffix", "runIDEqualFold", "runIDContainsFold", "status", "statusNEQ", "statusIn", "statusNotIn", "statusContains", "statusHasPrefix", "statusHasSuffix", "statusEqualFold", "statusContainsFold", "startTime", "startTimeNEQ", "startTimeIn", "startTimeNotIn", "startTimeGT", "startTimeGTE", "startTimeLT", "startTimeLTE", "closeTime", "closeTimeNEQ", "closeTimeIn", "closeTimeNotIn", "closeTimeGT", "closeTimeGTE", "closeTimeLT", "closeTimeLTE", "closeTimeIsNil", "closeTimeNotNil", "service", "serviceNEQ", "serviceIn", "serviceNotIn", "serviceContains", "serviceHasPrefix", "serviceHasSuffix", "serviceEqualFold", "serviceContainsFold", "serviceIsNil", "serviceNotNil", "dataType", "dataTypeNEQ", "dataTypeIn", "dataTypeNotIn", "dataTypeContains", "dataTypeHasPrefix", "dataTypeHasSuffix", "dataTypeEqualFold", "dataTypeContainsFold", "dataTypeIsNil", "dataTypeNotNil", "dataId", "dataIdNEQ", "dataIdIn", "dataIdNotIn", "dataIdContains", "dataIdHasPrefix", "dataIdHasSuffix", "dataIdEqualFold", "dataIdContainsFold", "dataIdIsNil", "dataIdNotNil", "transactionID", "transactionIDNEQ", "transactionIDIn", "transactionIDNotIn", "targets", "targetsNotIn"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -14088,6 +14930,34 @@ func (ec *executionContext) unmarshalInputWorkflowExecutionsWhereInput(ctx conte
 				return it, err
 			}
 			it.DataIDNotNil = data
+		case "transactionID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("transactionID"))
+			data, err := ec.unmarshalOID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TransactionID = data
+		case "transactionIDNEQ":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("transactionIDNEQ"))
+			data, err := ec.unmarshalOID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TransactionIdneq = data
+		case "transactionIDIn":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("transactionIDIn"))
+			data, err := ec.unmarshalOID2ᚕgithubᚗcomᚋgoogleᚋuuidᚐUUIDᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TransactionIDIn = data
+		case "transactionIDNotIn":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("transactionIDNotIn"))
+			data, err := ec.unmarshalOID2ᚕgithubᚗcomᚋgoogleᚋuuidᚐUUIDᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TransactionIDNotIn = data
 		case "targets":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("targets"))
 			data, err := ec.unmarshalOWorkflowTarget2ᚕgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐWorkflowTargetᚄ(ctx, v)
@@ -16298,11 +17168,6 @@ func (ec *executionContext) _EntityEventsOutbox(ctx context.Context, sel ast.Sel
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "withReply":
-			out.Values[i] = ec._EntityEventsOutbox_withReply(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "retryCount":
 			out.Values[i] = ec._EntityEventsOutbox_retryCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -16564,6 +17429,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "unregisterWorker":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_unregisterWorker(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "cancelWorkflow":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_cancelWorkflow(ctx, field)
@@ -16806,6 +17678,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_workerDeploymentUIBundles(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "transactionRouting":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_transactionRouting(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -17073,10 +17967,10 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 	return out
 }
 
-var remoteUIImplementors = []string{"RemoteUI"}
+var remoteUIBundleURLsImplementors = []string{"RemoteUIBundleURLs"}
 
-func (ec *executionContext) _RemoteUI(ctx context.Context, sel ast.SelectionSet, obj *workflow.UIBundleURLs) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, remoteUIImplementors)
+func (ec *executionContext) _RemoteUIBundleURLs(ctx context.Context, sel ast.SelectionSet, obj *workflow.UIBundleURLs) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, remoteUIBundleURLsImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferredFieldSet := graphql.NewFieldSet(nil)
@@ -17084,15 +17978,146 @@ func (ec *executionContext) _RemoteUI(ctx context.Context, sel ast.SelectionSet,
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("RemoteUI")
-		case "web":
-			out.Values[i] = ec._RemoteUI_web(ctx, field, obj)
+			out.Values[i] = graphql.MarshalString("RemoteUIBundleURLs")
+		case "webURL":
+			out.Values[i] = ec._RemoteUIBundleURLs_webURL(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "mobile":
-			out.Values[i] = ec._RemoteUI_mobile(ctx, field, obj)
+		case "mobileURL":
+			out.Values[i] = ec._RemoteUIBundleURLs_mobileURL(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var routingEntryImplementors = []string{"RoutingEntry"}
+
+func (ec *executionContext) _RoutingEntry(ctx context.Context, sel ast.SelectionSet, obj *model.RoutingEntry) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, routingEntryImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RoutingEntry")
+		case "tenantID":
+			out.Values[i] = ec._RoutingEntry_tenantID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventID":
+			out.Values[i] = ec._RoutingEntry_eventID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "outcome":
+			out.Values[i] = ec._RoutingEntry_outcome(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "sequence":
+			out.Values[i] = ec._RoutingEntry_sequence(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "targets":
+			out.Values[i] = ec._RoutingEntry_targets(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "recordedAt":
+			out.Values[i] = ec._RoutingEntry_recordedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var routingTargetImplementors = []string{"RoutingTarget"}
+
+func (ec *executionContext) _RoutingTarget(ctx context.Context, sel ast.SelectionSet, obj *model.RoutingTarget) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, routingTargetImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RoutingTarget")
+		case "kind":
+			out.Values[i] = ec._RoutingTarget_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "workflow":
+			out.Values[i] = ec._RoutingTarget_workflow(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "workflowID":
+			out.Values[i] = ec._RoutingTarget_workflowID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "runID":
+			out.Values[i] = ec._RoutingTarget_runID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "signal":
+			out.Values[i] = ec._RoutingTarget_signal(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "reason":
+			out.Values[i] = ec._RoutingTarget_reason(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "error":
+			out.Values[i] = ec._RoutingTarget_error(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		default:
@@ -17407,6 +18432,49 @@ func (ec *executionContext) _TemporalWorkflow(ctx context.Context, sel ast.Selec
 	return out
 }
 
+var transactionRoutingImplementors = []string{"TransactionRouting"}
+
+func (ec *executionContext) _TransactionRouting(ctx context.Context, sel ast.SelectionSet, obj *model.TransactionRouting) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, transactionRoutingImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TransactionRouting")
+		case "transactionID":
+			out.Values[i] = ec._TransactionRouting_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "entries":
+			out.Values[i] = ec._TransactionRouting_entries(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var uIBundleImplementors = []string{"UIBundle"}
 
 func (ec *executionContext) _UIBundle(ctx context.Context, sel ast.SelectionSet, obj *workflow.UIBundle) graphql.Marshaler {
@@ -17426,6 +18494,44 @@ func (ec *executionContext) _UIBundle(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "version":
 			out.Values[i] = ec._UIBundle_version(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var unregisterWorkerPayloadImplementors = []string{"UnregisterWorkerPayload"}
+
+func (ec *executionContext) _UnregisterWorkerPayload(ctx context.Context, sel ast.SelectionSet, obj *model.UnregisterWorkerPayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, unregisterWorkerPayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("UnregisterWorkerPayload")
+		case "stopped":
+			out.Values[i] = ec._UnregisterWorkerPayload_stopped(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -17965,88 +19071,126 @@ func (ec *executionContext) _WorkflowExecutionInfo(ctx context.Context, sel ast.
 		case "execution":
 			out.Values[i] = ec._WorkflowExecutionInfo_execution(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "type":
 			out.Values[i] = ec._WorkflowExecutionInfo_type(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "startTime":
 			out.Values[i] = ec._WorkflowExecutionInfo_startTime(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "closeTime":
 			out.Values[i] = ec._WorkflowExecutionInfo_closeTime(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "status":
 			out.Values[i] = ec._WorkflowExecutionInfo_status(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "historyLength":
 			out.Values[i] = ec._WorkflowExecutionInfo_historyLength(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "parentNamespaceId":
 			out.Values[i] = ec._WorkflowExecutionInfo_parentNamespaceId(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "parentExecution":
 			out.Values[i] = ec._WorkflowExecutionInfo_parentExecution(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "executionTime":
 			out.Values[i] = ec._WorkflowExecutionInfo_executionTime(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "searchAttributes":
 			out.Values[i] = ec._WorkflowExecutionInfo_searchAttributes(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "autoResetPoints":
 			out.Values[i] = ec._WorkflowExecutionInfo_autoResetPoints(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "taskQueue":
 			out.Values[i] = ec._WorkflowExecutionInfo_taskQueue(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "stateTransitionCount":
 			out.Values[i] = ec._WorkflowExecutionInfo_stateTransitionCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "historySizeBytes":
 			out.Values[i] = ec._WorkflowExecutionInfo_historySizeBytes(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "mostRecentWorkerVersionStamp":
 			out.Values[i] = ec._WorkflowExecutionInfo_mostRecentWorkerVersionStamp(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "executionDuration":
 			out.Values[i] = ec._WorkflowExecutionInfo_executionDuration(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "rootExecution":
 			out.Values[i] = ec._WorkflowExecutionInfo_rootExecution(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "remoteUI":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._WorkflowExecutionInfo_remoteUI(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -19411,6 +20555,78 @@ func (ec *executionContext) unmarshalNRemoteUIQueryInput2githubᚗcomᚋpyckᚑa
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) marshalNRoutingEntry2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRoutingEntryᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.RoutingEntry) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNRoutingEntry2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRoutingEntry(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNRoutingEntry2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRoutingEntry(ctx context.Context, sel ast.SelectionSet, v *model.RoutingEntry) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RoutingEntry(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNRoutingOutcome2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRoutingOutcome(ctx context.Context, v any) (model.RoutingOutcome, error) {
+	var res model.RoutingOutcome
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNRoutingOutcome2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRoutingOutcome(ctx context.Context, sel ast.SelectionSet, v model.RoutingOutcome) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) marshalNRoutingTarget2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRoutingTargetᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.RoutingTarget) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNRoutingTarget2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRoutingTarget(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNRoutingTarget2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRoutingTarget(ctx context.Context, sel ast.SelectionSet, v *model.RoutingTarget) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RoutingTarget(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNRoutingTargetKind2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRoutingTargetKind(ctx context.Context, v any) (model.RoutingTargetKind, error) {
+	var res model.RoutingTargetKind
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNRoutingTargetKind2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐRoutingTargetKind(ctx context.Context, sel ast.SelectionSet, v model.RoutingTargetKind) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) marshalNServiceInfo2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐServiceInfo(ctx context.Context, sel ast.SelectionSet, v model.ServiceInfo) graphql.Marshaler {
 	return ec._ServiceInfo(ctx, sel, &v)
 }
@@ -19517,6 +20733,20 @@ func (ec *executionContext) marshalNTime2timeᚐTime(ctx context.Context, sel as
 	return res
 }
 
+func (ec *executionContext) marshalNTransactionRouting2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐTransactionRouting(ctx context.Context, sel ast.SelectionSet, v model.TransactionRouting) graphql.Marshaler {
+	return ec._TransactionRouting(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNTransactionRouting2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐTransactionRouting(ctx context.Context, sel ast.SelectionSet, v *model.TransactionRouting) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TransactionRouting(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNUInt642uint64(ctx context.Context, v any) (uint64, error) {
 	res, err := graphql.UnmarshalUint64(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -19547,6 +20777,20 @@ func (ec *executionContext) marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNUnregisterWorkerPayload2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐUnregisterWorkerPayload(ctx context.Context, sel ast.SelectionSet, v model.UnregisterWorkerPayload) graphql.Marshaler {
+	return ec._UnregisterWorkerPayload(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNUnregisterWorkerPayload2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐUnregisterWorkerPayload(ctx context.Context, sel ast.SelectionSet, v *model.UnregisterWorkerPayload) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._UnregisterWorkerPayload(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNUserDataInputQueryInput2githubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐUserDataInputQueryInput(ctx context.Context, v any) (model.UserDataInputQueryInput, error) {
@@ -20414,11 +21658,11 @@ func (ec *executionContext) unmarshalORegisterWorkflowSignalInput2ᚕᚖgithub�
 	return res, nil
 }
 
-func (ec *executionContext) marshalORemoteUI2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋworkflowᚐUIBundleURLs(ctx context.Context, sel ast.SelectionSet, v *workflow.UIBundleURLs) graphql.Marshaler {
+func (ec *executionContext) marshalORemoteUIBundleURLs2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋcommonᚋworkflowᚐUIBundleURLs(ctx context.Context, sel ast.SelectionSet, v *workflow.UIBundleURLs) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
-	return ec._RemoteUI(ctx, sel, v)
+	return ec._RemoteUIBundleURLs(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOSetWorkflowAssigneeResponse2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋworkflowᚋmodelᚐSetWorkflowAssigneeResponse(ctx context.Context, sel ast.SelectionSet, v *model.SetWorkflowAssigneeResponse) graphql.Marshaler {

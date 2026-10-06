@@ -1,0 +1,22 @@
+---
+name: "User - Management UI Template Traversal"
+description: >
+  setTenantUITemplate refuses a URL template whose path leaves the owner
+  prefix with ".." (#1501).
+steps:
+  - name: "Refuse a web template with a .. segment"
+    operation: management.setTenantUITemplate
+    vars:
+      input:
+        webTemplate: "https://cdn.example.com/{{.Owner}}/../../tenants/other/{{.Version}}/{{.Slug}}/mf.json"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Refused as an invalid template"
+        assertions:
+          - ref: res.body.errors
+            len: 1
+          - ref: res.body.errors[0].message
+            contains: "invalid UI bundle URL template"

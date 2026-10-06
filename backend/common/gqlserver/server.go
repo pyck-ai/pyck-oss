@@ -14,10 +14,12 @@ import (
 // New builds the production GraphQL server: HTTP transports only — no
 // websocket, since the platform has no GraphQL subscriptions and open
 // websockets would stall graceful shutdown (http.Server.Shutdown does not
-// close hijacked connections) — plus query cache, introspection and
-// automatic persisted queries.
+// close hijacked connections) — plus query cache, introspection, automatic
+// persisted queries, and an error presenter that keeps database constraint
+// names out of client errors.
 func New(es graphql.ExecutableSchema) *handler.Server {
 	srv := handler.New(es)
+	srv.SetErrorPresenter(presentError)
 
 	srv.AddTransport(transport.Options{})
 	srv.AddTransport(transport.GET{})

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/activity"
@@ -17,6 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/services/zitadel/sdk"
 	common_tenant "github.com/pyck-ai/pyck/backend/common/tenant"
 	"github.com/pyck-ai/pyck/backend/common/txid"
@@ -163,10 +165,23 @@ func (a *Activities) ReconcileTenantsActivity(ctx context.Context, input Reconci
 
 	for id, dbT := range dbTenantsMap {
 		if _, ok := zitadelTenantsMap[id]; !ok {
-			if e := tx.Tenant.Update().
+			// One UpdateOneID per tenant with the tenant ID in the context,
+			// so MutationEventHook emits a tenant.<id>.delete event for each
+			// soft-deleted tenant.
+			tenantID := authn.ComputeUUID(a.Audience, dbT.ID)
+			tenantCtx := request.Context(serviceUserCtx, authn.SystemUser(), tenantID)
+			if e := tx.Tenant.UpdateOneID(tenantID).
 				SetDeletedAt(time.Now().UTC()).
-				Where(tenant.IDEQ(authn.ComputeUUID(a.Audience, dbT.ID))).
-				Exec(serviceUserCtx); e != nil {
+				Exec(tenantCtx); e != nil {
+				// "No matching row" is a no-op (the tenant was already
+				// soft-deleted or removed since the DB snapshot); any other
+				// error fails the transaction, including hook errors such as
+				// ErrNoTenantForEvent.
+				if ent.IsNotFound(e) {
+					logger.Warn("tenant to soft-delete no longer active; skipping",
+						"tenant_id", dbT.ID, "name", dbT.Name)
+					continue
+				}
 				logger.Error("failed to soft delete tenant", "tenant_id", dbT.ID, "name", dbT.Name, "err", e)
 				err = e
 				return err
@@ -224,7 +239,9 @@ func (a *Activities) ReconcileTenantsActivity(ctx context.Context, input Reconci
 		needsDataUpdate := !core.MapsEqual(existingTenant.Data, mergedData)
 
 		if needsNameUpdate || needsDataUpdate {
-			updateOp := tx.Tenant.Update().Where(tenant.IDEQ(tenantID))
+			// UpdateOneID + a per-tenant context so MutationEventHook emits
+			// the tenant update event under this tenant.
+			updateOp := tx.Tenant.UpdateOneID(tenantID)
 
 			if needsNameUpdate {
 				updateOp = updateOp.SetName(zt.Name)
@@ -234,7 +251,7 @@ func (a *Activities) ReconcileTenantsActivity(ctx context.Context, input Reconci
 				updateOp = updateOp.SetData(mergedData)
 			}
 
-			if _, e := updateOp.Save(serviceUserCtx); e != nil {
+			if e := updateOp.Exec(request.Context(serviceUserCtx, authn.SystemUser(), tenantID)); e != nil {
 				logger.Error("failed to update tenant", "tenant_id", dbT.ID, "err", e)
 				err = e
 				return err
@@ -429,8 +446,20 @@ func (a *Activities) ReconcileUsersActivity(ctx context.Context, input Reconcile
 			continue
 		}
 
-		uu := tx.User.Update().
-			Where(user.And(user.IdpID(zu.ID), user.TenantID(tenantUUID)))
+		// (idp_id, tenant_id) is unique among live rows, so this resolves at
+		// most one user; the single-row write emits the user's own event.
+		userID, found, e := liveUserID(serviceUserCtx, tx, zu.ID, tenantUUID)
+		if e != nil {
+			logger.Error("failed to look up user", "idp_id", zu.ID, "username", zu.Username, "err", e)
+			err = e
+			return err
+		}
+		if !found {
+			// Soft-deleted or removed since the DB snapshot: nothing to update.
+			logger.Debug("user to update no longer active; skipping", "idp_id", zu.ID)
+			continue
+		}
+		uu := tx.User.UpdateOneID(userID)
 
 		if zu.Username != dbu.Username {
 			uu = uu.SetUsername(zu.Username)
@@ -452,7 +481,7 @@ func (a *Activities) ReconcileUsersActivity(ctx context.Context, input Reconcile
 			uu = uu.SetIsAdmin(zu.IsOwner)
 		}
 
-		if _, e := uu.Save(serviceUserCtx); e != nil {
+		if e := uu.Exec(serviceUserCtx); e != nil {
 			logger.Error("failed to update user", "idp_id", zu.ID, "username", zu.Username, "err", e)
 			err = e
 			return err
@@ -462,9 +491,19 @@ func (a *Activities) ReconcileUsersActivity(ctx context.Context, input Reconcile
 
 	for id, dbu := range dbUsersMap {
 		if _, ok := zitadelUsersMap[id]; !ok {
-			if e := tx.User.Update().
+			userID, found, e := liveUserID(serviceUserCtx, tx, dbu.ID, tenantUUID)
+			if e != nil {
+				logger.Error("failed to look up user", "idp_id", dbu.ID, "username", dbu.Username, "err", e)
+				err = e
+				return err
+			}
+			if !found {
+				// Already soft-deleted or removed since the DB snapshot.
+				logger.Debug("user to soft-delete no longer active; skipping", "idp_id", dbu.ID)
+				continue
+			}
+			if e := tx.User.UpdateOneID(userID).
 				SetDeletedAt(time.Now().UTC()).
-				Where(user.And(user.IdpID(dbu.ID), user.TenantID(tenantUUID))).
 				Exec(serviceUserCtx); e != nil {
 				logger.Error("failed to soft delete user", "idp_id", dbu.ID, "username", dbu.Username, "err", e)
 				err = e
@@ -480,6 +519,23 @@ func (a *Activities) ReconcileUsersActivity(ctx context.Context, input Reconcile
 	}
 
 	return nil
+}
+
+// liveUserID resolves the ID of the not-deleted user with the given Zitadel
+// ID in the tenant. The User schema's unique index on (idp_id, tenant_id)
+// covers live rows only, so there is at most one. found is false when none
+// exists.
+func liveUserID(ctx context.Context, tx *ent.Tx, idpID string, tenantID uuid.UUID) (id uuid.UUID, found bool, err error) {
+	id, err = tx.User.Query().
+		Where(user.IdpID(idpID), user.TenantID(tenantID), user.DeletedAtIsNil()).
+		OnlyID(ctx)
+	if ent.IsNotFound(err) {
+		return uuid.Nil, false, nil
+	}
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+	return id, true, nil
 }
 
 // fetchAllOrgMetadata retrieves metadata for all given org IDs using a single

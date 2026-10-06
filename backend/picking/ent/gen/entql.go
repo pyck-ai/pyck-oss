@@ -38,7 +38,6 @@ var schemaGraph = func() *sqlgraph.Schema {
 			entityeventsoutbox.FieldRequestID:     {Type: field.TypeString, Column: entityeventsoutbox.FieldRequestID},
 			entityeventsoutbox.FieldTopic:         {Type: field.TypeString, Column: entityeventsoutbox.FieldTopic},
 			entityeventsoutbox.FieldPayload:       {Type: field.TypeJSON, Column: entityeventsoutbox.FieldPayload},
-			entityeventsoutbox.FieldWithReply:     {Type: field.TypeBool, Column: entityeventsoutbox.FieldWithReply},
 			entityeventsoutbox.FieldRetryCount:    {Type: field.TypeInt, Column: entityeventsoutbox.FieldRetryCount},
 			entityeventsoutbox.FieldLastError:     {Type: field.TypeString, Column: entityeventsoutbox.FieldLastError},
 			entityeventsoutbox.FieldDeadAt:        {Type: field.TypeTime, Column: entityeventsoutbox.FieldDeadAt},
@@ -289,11 +288,6 @@ func (f *EntityEventsOutboxFilter) WhereTopic(p entql.StringP) {
 // WherePayload applies the entql json.RawMessage predicate on the payload field.
 func (f *EntityEventsOutboxFilter) WherePayload(p entql.BytesP) {
 	f.Where(p.Field(entityeventsoutbox.FieldPayload))
-}
-
-// WhereWithReply applies the entql bool predicate on the with_reply field.
-func (f *EntityEventsOutboxFilter) WhereWithReply(p entql.BoolP) {
-	f.Where(p.Field(entityeventsoutbox.FieldWithReply))
 }
 
 // WhereRetryCount applies the entql int predicate on the retry_count field.

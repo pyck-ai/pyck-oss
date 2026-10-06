@@ -451,6 +451,7 @@ query GetCurrentStocks($after: Cursor, $first: Int, $before: Cursor, $last: Int,
 
 mutation CreateInventoryItem($input: CreateInventoryItemInput!) {
   createInventoryItem(input: $input) {
+    eventCount
     inventoryItem {
       createdAt
       createdBy
@@ -465,17 +466,14 @@ mutation CreateInventoryItem($input: CreateInventoryItemInput!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation UpdateInventoryItem($id: ID!, $input: UpdateInventoryItemInput!) {
   updateInventoryItem(id: $id, input: $input) {
+    eventCount
     inventoryItem {
       createdAt
       createdBy
@@ -490,11 +488,7 @@ mutation UpdateInventoryItem($id: ID!, $input: UpdateInventoryItemInput!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -502,17 +496,15 @@ mutation UpdateInventoryItem($id: ID!, $input: UpdateInventoryItemInput!) {
 mutation DeleteInventoryItem($id: ID!) {
   deleteInventoryItem(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
 
 mutation CreateInventoryRepository($input: CreateRepositoryInput!) {
   createInventoryRepository(input: $input) {
+    eventCount
     inventoryRepository {
       createdAt
       createdBy
@@ -532,17 +524,14 @@ mutation CreateInventoryRepository($input: CreateRepositoryInput!) {
       updatedBy
       virtualRepo
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation UpdateInventoryRepository($id: ID!, $input: UpdateRepositoryInput!) {
   updateInventoryRepository(id: $id, input: $input) {
+    eventCount
     inventoryRepository {
       createdAt
       createdBy
@@ -562,11 +551,7 @@ mutation UpdateInventoryRepository($id: ID!, $input: UpdateRepositoryInput!) {
       updatedBy
       virtualRepo
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -574,17 +559,15 @@ mutation UpdateInventoryRepository($id: ID!, $input: UpdateRepositoryInput!) {
 mutation DeleteInventoryRepository($id: ID!) {
   deleteInventoryRepository(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
 
 mutation CreateInventoryItemMovement($input: CreateItemMovementInput!) {
   createInventoryItemMovement(input: $input) {
+    eventCount
     inventoryItemMovement {
       blockedBy
       collectionID
@@ -609,17 +592,14 @@ mutation CreateInventoryItemMovement($input: CreateItemMovementInput!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation UpdateInventoryItemMovement($id: ID!, $input: UpdateItemMovementInput!) {
   updateInventoryItemMovement(id: $id, input: $input) {
+    eventCount
     inventoryItemMovement {
       blockedBy
       collectionID
@@ -644,17 +624,14 @@ mutation UpdateInventoryItemMovement($id: ID!, $input: UpdateItemMovementInput!)
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation ExecuteInventoryItemMovement($id: ID!) {
   executeInventoryItemMovement(id: $id) {
+    eventCount
     inventoryItemMovement {
       blockedBy
       collectionID
@@ -679,11 +656,7 @@ mutation ExecuteInventoryItemMovement($id: ID!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -691,17 +664,15 @@ mutation ExecuteInventoryItemMovement($id: ID!) {
 mutation DeleteInventoryItemMovement($id: ID!) {
   deleteInventoryItemMovement(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
 
 mutation CreateInventoryRepositoryMovement($input: CreateRepositoryMovementInput!) {
   createInventoryRepositoryMovement(input: $input) {
+    eventCount
     inventoryRepositoryMovement {
       blockedBy
       collectionID
@@ -725,17 +696,14 @@ mutation CreateInventoryRepositoryMovement($input: CreateRepositoryMovementInput
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation UpdateInventoryRepositoryMovement($id: ID!, $input: UpdateRepositoryMovementInput!) {
   updateInventoryRepositoryMovement(id: $id, input: $input) {
+    eventCount
     inventoryRepositoryMovement {
       blockedBy
       collectionID
@@ -759,17 +727,14 @@ mutation UpdateInventoryRepositoryMovement($id: ID!, $input: UpdateRepositoryMov
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation ExecuteInventoryRepositoryMovement($id: ID!) {
   executeInventoryRepositoryMovement(id: $id) {
+    eventCount
     inventoryRepositoryMovement {
       blockedBy
       collectionID
@@ -793,11 +758,7 @@ mutation ExecuteInventoryRepositoryMovement($id: ID!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -805,33 +766,28 @@ mutation ExecuteInventoryRepositoryMovement($id: ID!) {
 mutation DeleteInventoryRepositoryMovement($id: ID!) {
   deleteInventoryRepositoryMovement(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
 
 mutation CreateInventoryCollectionMovement($input: CreateCollectionMovementInput!) {
   createInventoryCollectionMovement(input: $input) {
+    eventCount
     id
     movements {
       id
       movementType
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation UpdateInventoryCollectionMovement($id: ID!, $input: UpdateInventoryCollectionInput!) {
   updateInventoryCollectionMovement(id: $id, input: $input) {
+    eventCount
     inventoryCollection {
       createdAt
       createdBy
@@ -846,11 +802,7 @@ mutation UpdateInventoryCollectionMovement($id: ID!, $input: UpdateInventoryColl
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -858,11 +810,8 @@ mutation UpdateInventoryCollectionMovement($id: ID!, $input: UpdateInventoryColl
 mutation DeleteInventoryCollection($id: ID!) {
   deleteInventoryCollection(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
@@ -883,6 +832,7 @@ mutation RebuildInventoryStock {
 
 mutation CreateInventoryItemSet($input: CreateInventoryItemSetInput!) {
   createInventoryItemSet(input: $input) {
+    eventCount
     inventoryItemSet {
       createdAt
       createdBy
@@ -897,17 +847,14 @@ mutation CreateInventoryItemSet($input: CreateInventoryItemSetInput!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation UpdateInventoryItemSet($id: ID!, $input: UpdateInventoryItemSetInput!) {
   updateInventoryItemSet(id: $id, input: $input) {
+    eventCount
     inventoryItemSet {
       createdAt
       createdBy
@@ -922,11 +869,7 @@ mutation UpdateInventoryItemSet($id: ID!, $input: UpdateInventoryItemSetInput!) 
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -934,17 +877,15 @@ mutation UpdateInventoryItemSet($id: ID!, $input: UpdateInventoryItemSetInput!) 
 mutation DeleteInventoryItemSet($id: ID!) {
   deleteInventoryItemSet(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
 
 mutation CreateReplenishmentOrder($input: CreateReplenishmentOrderWithItemsInput!) {
   createReplenishmentOrder(input: $input) {
+    eventCount
     replenishmentOrder {
       createdAt
       createdBy
@@ -959,17 +900,14 @@ mutation CreateReplenishmentOrder($input: CreateReplenishmentOrderWithItemsInput
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation UpdateReplenishmentOrder($id: ID!, $input: UpdateReplenishmentOrderInput!) {
   updateReplenishmentOrder(id: $id, input: $input) {
+    eventCount
     replenishmentOrder {
       createdAt
       createdBy
@@ -984,11 +922,7 @@ mutation UpdateReplenishmentOrder($id: ID!, $input: UpdateReplenishmentOrderInpu
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -996,17 +930,15 @@ mutation UpdateReplenishmentOrder($id: ID!, $input: UpdateReplenishmentOrderInpu
 mutation DeleteReplenishmentOrder($id: ID!) {
   deleteReplenishmentOrder(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
 
 mutation CreateReplenishmentOrderItem($input: CreateReplenishmentOrderItemInput!) {
   createReplenishmentOrderItem(input: $input) {
+    eventCount
     replenishmentOrderItem {
       createdAt
       createdBy
@@ -1023,17 +955,14 @@ mutation CreateReplenishmentOrderItem($input: CreateReplenishmentOrderItemInput!
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation UpdateReplenishmentOrderItem($id: ID!, $input: UpdateReplenishmentOrderItemInput!) {
   updateReplenishmentOrderItem(id: $id, input: $input) {
+    eventCount
     replenishmentOrderItem {
       createdAt
       createdBy
@@ -1050,11 +979,7 @@ mutation UpdateReplenishmentOrderItem($id: ID!, $input: UpdateReplenishmentOrder
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -1062,17 +987,15 @@ mutation UpdateReplenishmentOrderItem($id: ID!, $input: UpdateReplenishmentOrder
 mutation DeleteReplenishmentOrderItem($id: ID!) {
   deleteReplenishmentOrderItem(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
 
 mutation PatchInventoryItemData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchInventoryItemData(id: $id, patches: $patches) {
+    eventCount
     inventoryItem {
       createdAt
       createdBy
@@ -1087,17 +1010,14 @@ mutation PatchInventoryItemData($id: ID!, $patches: [JSONPatchInput!]!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation PatchInventoryRepositoryData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchInventoryRepositoryData(id: $id, patches: $patches) {
+    eventCount
     inventoryRepository {
       createdAt
       createdBy
@@ -1117,17 +1037,14 @@ mutation PatchInventoryRepositoryData($id: ID!, $patches: [JSONPatchInput!]!) {
       updatedBy
       virtualRepo
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation PatchInventoryItemMovementData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchInventoryItemMovementData(id: $id, patches: $patches) {
+    eventCount
     inventoryItemMovement {
       blockedBy
       collectionID
@@ -1152,17 +1069,14 @@ mutation PatchInventoryItemMovementData($id: ID!, $patches: [JSONPatchInput!]!) 
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation PatchInventoryRepositoryMovementData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchInventoryRepositoryMovementData(id: $id, patches: $patches) {
+    eventCount
     inventoryRepositoryMovement {
       blockedBy
       collectionID
@@ -1186,17 +1100,14 @@ mutation PatchInventoryRepositoryMovementData($id: ID!, $patches: [JSONPatchInpu
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation PatchInventoryCollectionMovementData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchInventoryCollectionMovementData(id: $id, patches: $patches) {
+    eventCount
     inventoryCollection {
       createdAt
       createdBy
@@ -1211,17 +1122,14 @@ mutation PatchInventoryCollectionMovementData($id: ID!, $patches: [JSONPatchInpu
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation PatchInventoryItemSetData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchInventoryItemSetData(id: $id, patches: $patches) {
+    eventCount
     inventoryItemSet {
       createdAt
       createdBy
@@ -1236,17 +1144,14 @@ mutation PatchInventoryItemSetData($id: ID!, $patches: [JSONPatchInput!]!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation PatchReplenishmentOrderData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchReplenishmentOrderData(id: $id, patches: $patches) {
+    eventCount
     replenishmentOrder {
       createdAt
       createdBy
@@ -1261,17 +1166,14 @@ mutation PatchReplenishmentOrderData($id: ID!, $patches: [JSONPatchInput!]!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation PatchReplenishmentOrderItemData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchReplenishmentOrderItemData(id: $id, patches: $patches) {
+    eventCount
     replenishmentOrderItem {
       createdAt
       createdBy
@@ -1288,11 +1190,7 @@ mutation PatchReplenishmentOrderItemData($id: ID!, $patches: [JSONPatchInput!]!)
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 

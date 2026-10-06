@@ -7,8 +7,6 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/lib/pq"
 	"github.com/pyck-ai/pyck/backend/common/std"
 )
 
@@ -48,14 +46,8 @@ func ErrIsRetryable(err error) bool {
 		return true
 	}
 
-	var pqErr *pq.Error
-	if errors.As(err, &pqErr) {
-		return retryableStates[string(pqErr.Code)]
-	}
-
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		return retryableStates[pgErr.Code]
+	if code, _, ok := PostgresError(err); ok {
+		return retryableStates[code]
 	}
 	return false
 }

@@ -153,6 +153,9 @@ func (ItemMovement) Indexes() []ent.Index {
 		index.Fields("collection_id", "position"),
 		index.Fields("from_id"),
 		index.Fields("item_id"),
+		// Serves InventoryItem.itemmovementitems: the item's newest rows first.
+		index.Fields("tenant_id", "item_id", "created_at", "id").
+			Annotations(entsql.DescColumns("created_at", "id")),
 		index.Fields("executed"),
 	}
 }

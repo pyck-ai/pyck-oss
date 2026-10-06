@@ -631,14 +631,14 @@ func NameContainsFold(v string) predicate.Device {
 // HasDeviceLocationsDevice applies the HasEdge predicate on the "deviceLocationsDevice" edge.
 func HasDeviceLocationsDevice() predicate.Device {
 	return predicate.Device(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, DeviceLocationsDeviceTable, DeviceLocationsDeviceColumn),
-		)
+		step := newDeviceLocationsDeviceStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.DeviceLocation
 		step.Edge.Schema = schemaConfig.DeviceLocation
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -649,6 +649,7 @@ func HasDeviceLocationsDeviceWith(preds ...predicate.DeviceLocation) predicate.D
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.DeviceLocation
 		step.Edge.Schema = schemaConfig.DeviceLocation
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)
@@ -660,14 +661,14 @@ func HasDeviceLocationsDeviceWith(preds ...predicate.DeviceLocation) predicate.D
 // HasDeviceUsersDevice applies the HasEdge predicate on the "deviceUsersDevice" edge.
 func HasDeviceUsersDevice() predicate.Device {
 	return predicate.Device(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, DeviceUsersDeviceTable, DeviceUsersDeviceColumn),
-		)
+		step := newDeviceUsersDeviceStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.DeviceUser
 		step.Edge.Schema = schemaConfig.DeviceUser
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -678,6 +679,7 @@ func HasDeviceUsersDeviceWith(preds ...predicate.DeviceUser) predicate.Device {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.DeviceUser
 		step.Edge.Schema = schemaConfig.DeviceUser
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

@@ -209,10 +209,7 @@ func run(ctx context.Context) error {
 	}
 	defer revocationCC.Stop()
 
-	jetstreamPub, err := events.NewEventPublisher(jetstreamClient, natsClient, core.Config.NatsStreamName, core.Config.NatsReplyTimeout)
-	if err != nil {
-		return fmt.Errorf("failed setting up event publisher: %w", err)
-	}
+	jetstreamPub := events.NewEventPublisher(jetstreamClient, natsClient, core.Config.NatsStreamName)
 
 	// Set up event system (mutation hook + outbox handler)
 	eventSystem := events.NewEventSystem(events.EventSystemConfig[*ent.Tx]{
@@ -277,7 +274,6 @@ func run(ctx context.Context) error {
 		gqltx.WithIdempotency(idemStore, idempotency.DefaultAuthLookup),
 		gqltx.WithIdempotencyMaxResponseBytes(core.Config.IdempotencyMaxResponseBytes),
 	))
-	gqlServer.Use(gqltx.NewWorkflowReplyMiddleware(eventSystem.Registry(), core.Config.OutboxReplyTimeout))
 
 	gqlHandler := chi.NewRouter()
 	gqlHandler.Use(

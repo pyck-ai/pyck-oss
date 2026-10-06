@@ -41,15 +41,13 @@ func (r *fileWhereInputResolver) Data(ctx context.Context, obj *ent.FileWhereInp
 		return nil
 	}
 
-	if len(data) == 2 {
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(file.FieldData, data[1], jsonPath))
-		})
+	jsonPath, value, err := sqljsonpath.PathValue(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueEQ(file.FieldData, value, jsonPath))
+	})
 	return nil
 }
 
@@ -59,15 +57,13 @@ func (r *fileWhereInputResolver) DataHasKey(ctx context.Context, obj *ent.FileWh
 		return nil
 	}
 
-	if *data != "" {
-		jsonPath, err := sqljsonpath.DotPath(*data)
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(file.FieldData, jsonPath))
-		})
+	jsonPath, err := sqljsonpath.KeyPath(*data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.HasKey(file.FieldData, jsonPath))
+	})
 	return nil
 }
 
@@ -77,19 +73,13 @@ func (r *fileWhereInputResolver) DataIn(ctx context.Context, obj *ent.FileWhereI
 		return nil
 	}
 
-	if len(data) >= 2 {
-		var args []any
-		for _, v := range data[1:] {
-			args = append(args, v)
-		}
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(file.FieldData, args, jsonPath))
-		})
+	jsonPath, values, err := sqljsonpath.PathValues(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueIn(file.FieldData, values, jsonPath))
+	})
 	return nil
 }
 
@@ -99,14 +89,12 @@ func (r *fileWhereInputResolver) DataContains(ctx context.Context, obj *ent.File
 		return nil
 	}
 
-	if len(data) == 2 {
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(file.FieldData, data[1], jsonPath))
-		})
+	jsonPath, value, err := sqljsonpath.PathValue(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueContains(file.FieldData, value, jsonPath))
+	})
 	return nil
 }

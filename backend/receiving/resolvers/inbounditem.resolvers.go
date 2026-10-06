@@ -21,15 +21,13 @@ func (r *receivingInboundItemWhereInputResolver) Data(ctx context.Context, obj *
 		return nil
 	}
 
-	if len(data) == 2 {
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(inbounditem.FieldData, data[1], jsonPath))
-		})
+	jsonPath, value, err := sqljsonpath.PathValue(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueEQ(inbounditem.FieldData, value, jsonPath))
+	})
 	return nil
 }
 
@@ -39,15 +37,13 @@ func (r *receivingInboundItemWhereInputResolver) DataHasKey(ctx context.Context,
 		return nil
 	}
 
-	if *data != "" {
-		jsonPath, err := sqljsonpath.DotPath(*data)
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(inbounditem.FieldData, jsonPath))
-		})
+	jsonPath, err := sqljsonpath.KeyPath(*data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.HasKey(inbounditem.FieldData, jsonPath))
+	})
 	return nil
 }
 
@@ -57,19 +53,13 @@ func (r *receivingInboundItemWhereInputResolver) DataIn(ctx context.Context, obj
 		return nil
 	}
 
-	if len(data) >= 2 {
-		var args []any
-		for _, v := range data[1:] {
-			args = append(args, v)
-		}
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(inbounditem.FieldData, args, jsonPath))
-		})
+	jsonPath, values, err := sqljsonpath.PathValues(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueIn(inbounditem.FieldData, values, jsonPath))
+	})
 	return nil
 }
 
@@ -79,14 +69,12 @@ func (r *receivingInboundItemWhereInputResolver) DataContains(ctx context.Contex
 		return nil
 	}
 
-	if len(data) == 2 {
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(inbounditem.FieldData, data[1], jsonPath))
-		})
+	jsonPath, value, err := sqljsonpath.PathValue(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueContains(inbounditem.FieldData, value, jsonPath))
+	})
 	return nil
 }

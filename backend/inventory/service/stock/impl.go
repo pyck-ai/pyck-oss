@@ -50,8 +50,8 @@ type service struct {
 	// outboxEmitter, when non-nil, is invoked after createItemMovementViaProc
 	// to publish the outbox event that the bypassed Ent hook would have
 	// written. Without it, mutations on the proc fast path would never reach
-	// NATS / signal-router and any GraphQL workflow_reply waiter on the
-	// resolver side would block until OutboxReplyTimeout. Typically wired to
+	// NATS / signal-router, so no workflow would start and the mutation's
+	// transaction-ID lookup would stay empty forever. Typically wired to
 	// events.EventSystem.EmitEvent at construction.
 	outboxEmitter OutboxEmitter
 }
@@ -485,6 +485,12 @@ func (s *service) checkExecuteNextMovementByPosition(ctx context.Context, tx *en
 // plus the entire stockMap snapshot before the validator's COUNT(*)
 // returned a conflict.
 func (s *service) CreateItemMovement(ctx context.Context, tx *ent.Tx, dto CreateItemMovementInput) (*ent.ItemMovement, error) {
+	// Checked here, before the dispatch, so both the stored procedure (which
+	// checks FROM and TO but not the item) and the Go body are covered.
+	if err := requireItemInTenant(ctx, tx, dto.TenantID, dto.Input.ItemID); err != nil {
+		return nil, err
+	}
+
 	// Phase 9.2: when the caller has opted into deferred underflow,
 	// always run the Go body. The plpgsql proc raises STOCK_INSUFFICIENT
 	// internally and adding a "skip check" parameter would couple it to
@@ -614,6 +620,8 @@ func (s *service) createItemMovementViaGo(ctx context.Context, tx *ent.Tx, dto C
 //
 // The Go side is responsible for:
 //
+//   - Evaluating the ItemMovement privacy policy before anything is
+//     written, since the proc's raw-SQL INSERTs bypass ent's policy hook.
 //   - Running ValidateUniquenessHook BEFORE the proc call (Step 5.1
 //     fast-fail; the proc's idempotency does not extend to data-uniqueness
 //     conflicts because those are resolved against the resolver-validated
@@ -631,6 +639,19 @@ func (s *service) createItemMovementViaGo(ctx context.Context, tx *ent.Tx, dto C
 //     resolver response shape is identical to the Go path.
 func (s *service) createItemMovementViaProc(ctx context.Context, tx *ent.Tx, dto CreateItemMovementInput) (*ent.ItemMovement, error) {
 	input := dto.Input
+
+	// The proc writes through raw SQL, so ent's privacy hook never runs on
+	// this path. Evaluate the same ItemMovement mutation policy on the
+	// create mutation the Go path would save; without it a READER (or any
+	// caller the Go path refuses) could create movements and stock rows.
+	// The error is returned unwrapped so clients see the Go path's text.
+	create := tx.ItemMovement.Create().SetInput(input).SetExecuted(false)
+	if dto.DataTypeSlug != nil {
+		create.SetDataTypeSlug(*dto.DataTypeSlug)
+	}
+	if err := entitemmovement.Policy.EvalMutation(ctx, create.Mutation()); err != nil {
+		return nil, err
+	}
 
 	if dto.ValidateUniquenessHook != nil {
 		if err := dto.ValidateUniquenessHook(); err != nil {
@@ -721,7 +742,7 @@ func (s *service) createItemMovementViaProc(ctx context.Context, tx *ent.Tx, dto
 
 	// The proc INSERTed the movement directly via raw SQL, bypassing the
 	// Ent mutation hook. Emit the outbox event manually so downstream
-	// consumers (signal-router, workflow_reply waiters) still observe this
+	// consumers (signal-router) still observe this
 	// create. The emit runs in the same tx as the proc, so the outbox row
 	// commits atomically with the movement row. A nil emitter is tolerated
 	// for test paths where the event system is not wired.
@@ -781,6 +802,12 @@ func (s *service) ExecuteItemMovement(ctx context.Context, tx *ent.Tx, dto Execu
 
 	// Check position
 	if err = s.checkExecuteNextMovementByPosition(ctx, tx, currentMovementValues.CollectionID, currentMovementValues.Position); err != nil {
+		return nil, err
+	}
+
+	// A movement stored before items were checked at create may name another
+	// tenant's item; executing it would write transactions for that item.
+	if err = requireItemInTenant(ctx, tx, dto.TenantID, currentMovementValues.ItemID); err != nil {
 		return nil, err
 	}
 
@@ -962,15 +989,15 @@ func (s *service) CreateRepositoryMovement(ctx context.Context, tx *ent.Tx, dto 
 		return nil, err
 	}
 
-	if fromRepo.VirtualRepo {
-		toRepo, terr := tx.Repository.Get(ctx, input.ToID)
-		if terr != nil {
-			return nil, terr
-		}
+	// The target becomes the repository's parent at execution, so it must
+	// belong to the tenant whatever the current parent's type.
+	toRepo, err := repositoryInTenant(ctx, tx, dto.TenantID, input.ToID)
+	if err != nil {
+		return nil, err
+	}
 
-		if toRepo.VirtualRepo {
-			return nil, errVirtualRepoMovement
-		}
+	if fromRepo.VirtualRepo && toRepo.VirtualRepo {
+		return nil, errVirtualRepoMovement
 	}
 
 	// Resolve the effective FromID before loading the ancestor closure so
@@ -1160,6 +1187,13 @@ func (s *service) ExecuteRepositoryMovement(ctx context.Context, tx *ent.Tx, dto
 	// Check position
 	err = s.checkExecuteNextMovementByPosition(ctx, tx, currentMovementValues.CollectionID, currentMovementValues.Position)
 	if err != nil {
+		return nil, err
+	}
+
+	// A movement stored before targets were checked at create may name
+	// another tenant's repository; executing it would re-parent across
+	// tenants.
+	if _, err := repositoryInTenant(ctx, tx, dto.TenantID, currentMovementValues.ToID); err != nil {
 		return nil, err
 	}
 
@@ -1410,8 +1444,8 @@ func (s *service) DeleteRepositoryMovement(ctx context.Context, tx *ent.Tx, dto 
 //     item-vs-repository guard, quantity guard. Running these before any
 //     direct create keeps existing tests happy (they expect "no movement
 //     persisted" semantics for these inputs).
-//   - Persisting the collection_movement row + the optional pre-insert
-//     uniqueness hook.
+//   - Running the optional uniqueness hook, then persisting the
+//     collection_movement row (the hook must not see the new row).
 //   - Wrapping ctx with WithDeferredUnderflow for the per-position loop so
 //     plan-ahead chains like A->B->C succeed even when B is initially
 //     empty: each direct call records the movement plus
@@ -1482,6 +1516,12 @@ func (s *service) CreateCollectionMovement(ctx context.Context, tx *ent.Tx, dto 
 		}
 	}
 
+	if dto.PreInsertStockHook != nil {
+		if err := dto.PreInsertStockHook(); err != nil {
+			return result, err
+		}
+	}
+
 	// Persist the collection_movement row before any per-position movement
 	// so the per-position rows can FK back to dto.ID.
 	movement := tx.Collection_Movement.
@@ -1502,12 +1542,6 @@ func (s *service) CreateCollectionMovement(ctx context.Context, tx *ent.Tx, dto 
 
 	if _, err := movement.Save(ctx); err != nil {
 		return result, err
-	}
-
-	if dto.PreInsertStockHook != nil {
-		if err := dto.PreInsertStockHook(); err != nil {
-			return result, err
-		}
 	}
 
 	// Phase 9.3: route the per-position fan-out through the direct
@@ -2273,7 +2307,13 @@ func (s *service) RebuildStockTable(ctx context.Context, tx *ent.Tx, tenantID uu
 	showDeletedCtx := feature.Context(ctx, feature.FEATURE_SHOW_DELETED)
 
 	// Step 1 – delete all existing stock rows for this tenant.
-	if _, err := tx.Stock.Delete().Where(entstock.TenantID(tenantID)).Exec(ctx); err != nil {
+	//
+	// A bulk Delete() cannot emit per-row events, and the event hook rejects
+	// one that matches rows unless events are suppressed. The rebuild
+	// recomputes derived stock rows, so this delete never emits, even when
+	// the caller set syncupdates and left events on for the replay below.
+	suppressCtx := feature.Context(ctx, feature.FEATURE_SUPPRESS_EVENTS)
+	if _, err := tx.Stock.Delete().Where(entstock.TenantID(tenantID)).Exec(suppressCtx); err != nil {
 		return fmt.Errorf("failed to delete stock records: %w", err)
 	}
 

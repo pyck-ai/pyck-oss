@@ -1,0 +1,34 @@
+# Exercises the InventoryItem edges resolved in graph/item.graphql. apigen skips
+# entity edges, so these selections are hand-written.
+query GetInventoryItemStocks($where: InventoryItemWhereInput) {
+  inventoryItems(where: $where) {
+    edges {
+      node {
+        id
+        itemstocks {
+          repositoryID
+          quantity
+          repository {
+            id
+          }
+        }
+      }
+    }
+  }
+}
+
+query GetInventoryItemHistoryEdges($where: InventoryItemWhereInput) {
+  inventoryItems(where: $where) {
+    edges {
+      node {
+        id
+        itemmovementitems {
+          id
+        }
+        itemtransactions {
+          id
+        }
+      }
+    }
+  }
+}

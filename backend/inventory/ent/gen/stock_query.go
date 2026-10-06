@@ -441,6 +441,9 @@ func (_q *StockQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Stock,
 	}
 	_spec.Node.Schema = _q.schemaConfig.Stock
 	ctx = internal.NewSchemaConfigContext(ctx, _q.schemaConfig)
+	if _spec.From != nil {
+		_spec.From.WithContext(ctx)
+	}
 	if len(_q.modifiers) > 0 {
 		_spec.Modifiers = _q.modifiers
 	}
@@ -536,6 +539,9 @@ func (_q *StockQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
 	_spec.Node.Schema = _q.schemaConfig.Stock
 	ctx = internal.NewSchemaConfigContext(ctx, _q.schemaConfig)
+	if _spec.From != nil {
+		_spec.From.WithContext(ctx)
+	}
 	if len(_q.modifiers) > 0 {
 		_spec.Modifiers = _q.modifiers
 	}

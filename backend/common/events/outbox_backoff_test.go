@@ -255,19 +255,18 @@ func TestPublishTransactionGroup_DropCountExcludesPublished(t *testing.T) {
 	t.Parallel()
 
 	publisher := &outboxMockPublisher{}
-	registry := events.NewReplyRegistry(time.Minute)
 
 	txID := uuid.New()
 	// E1 is healthy (publishes), E2 has exhausted its retries (dead-letters the
 	// rest of the group). Only E2 is actually dropped — E1 was published — so
 	// the drop count must be 1, not the whole group size of 2.
 	entries := []events.OutboxRow{
-		events.NewOutboxRowForTest(uuid.New(), txID, "t1", []byte(`{}`), false, 0, "Item"),
-		events.NewOutboxRowForTest(uuid.New(), txID, "t2", []byte(`{}`), false, 10, "Item"),
+		events.NewOutboxRowForTest(uuid.New(), txID, "t1", []byte(`{}`), 0, "Item"),
+		events.NewOutboxRowForTest(uuid.New(), txID, "t2", []byte(`{}`), 10, "Item"),
 	}
 
 	counts := events.PublishTransactionGroupCountsForTest(
-		context.Background(), txID, entries, publisher, registry, 10, 10*time.Second,
+		context.Background(), txID, entries, publisher, 10,
 	)
 
 	assert.Equal(t, 1, counts.Published, "E1 should be published")
@@ -302,7 +301,7 @@ func TestMarkFailedSQL_BackoffFormula(t *testing.T) {
 }
 
 // =============================================================================
-// CONFIG DEFAULT TESTS — verify poll interval and reply timeout defaults
+// CONFIG DEFAULT TESTS — verify poll interval defaults
 // =============================================================================
 
 func TestEventOutboxConfig_Defaults(t *testing.T) {
@@ -325,14 +324,6 @@ func TestEventOutboxConfig_Defaults(t *testing.T) {
 		// sets it back, this test catches it.
 		assert.NotEqual(t, 100*time.Millisecond, cfg.OutboxPollInterval,
 			"poll interval must not be 100ms (causes thundering herd)")
-	})
-
-	t.Run("reply timeout should not be 90ms", func(t *testing.T) {
-		t.Parallel()
-		// The old problematic value was 90ms. Any load on NATS/Temporal
-		// would cause timeouts, amplifying the retry storm.
-		assert.NotEqual(t, 90*time.Millisecond, cfg.OutboxReplyTimeout,
-			"reply timeout must not be 90ms (causes false failures under load)")
 	})
 }
 
@@ -396,7 +387,6 @@ func TestProcessTransactionGroup_DeadLetterMarksEntriesDead(t *testing.T) {
 
 	publisher := &outboxMockPublisher{}
 	outboxFuncs := &mockOutboxFunctions{}
-	registry := events.NewReplyRegistry(time.Minute)
 
 	deadTxID := uuid.New()
 	// All entries at max retries — should trigger dead letter
@@ -411,12 +401,10 @@ func TestProcessTransactionGroup_DeadLetterMarksEntriesDead(t *testing.T) {
 		deadTxID,
 		entries,
 		publisher,
-		registry,
 		outboxFuncs.markPublished,
 		outboxFuncs.markFailed,
 		outboxFuncs.markTransactionDead,
 		10, // maxRetries
-		10*time.Second,
 	)
 
 	// markTransactionDead should have been called (sets dead_at)
@@ -434,7 +422,6 @@ func TestProcessTransactionGroup_HealthyEntriesProcessed(t *testing.T) {
 
 	publisher := &outboxMockPublisher{}
 	outboxFuncs := &mockOutboxFunctions{}
-	registry := events.NewReplyRegistry(time.Minute)
 
 	okTxID := uuid.New()
 	// Entries with low retry count — should be processed normally
@@ -449,12 +436,10 @@ func TestProcessTransactionGroup_HealthyEntriesProcessed(t *testing.T) {
 		okTxID,
 		entries,
 		publisher,
-		registry,
 		outboxFuncs.markPublished,
 		outboxFuncs.markFailed,
 		outboxFuncs.markTransactionDead,
 		10,
-		10*time.Second,
 	)
 
 	// Both should be published
@@ -473,7 +458,6 @@ func TestProcessEntry_FailureIncrementsRetryMetric(t *testing.T) {
 		publishRawErr: assert.AnError,
 	}
 	outboxFuncs := &mockOutboxFunctions{}
-	registry := events.NewReplyRegistry(time.Minute)
 
 	entry := events.OutboxRow{
 		ID:            uuid.New(),
@@ -489,10 +473,8 @@ func TestProcessEntry_FailureIncrementsRetryMetric(t *testing.T) {
 		nil,
 		entry,
 		publisher,
-		registry,
 		outboxFuncs.markPublished,
 		outboxFuncs.markFailed,
-		10*time.Second,
 	)
 	require.NoError(t, err) // markFailed succeeded, so processEntry returns nil
 
@@ -502,4 +484,21 @@ func TestProcessEntry_FailureIncrementsRetryMetric(t *testing.T) {
 
 	// Should NOT be marked as published
 	assert.Empty(t, outboxFuncs.markPublishedIDs)
+}
+
+func TestSelectorSQL_HoldsGroupsWithRowInBackoff(t *testing.T) {
+	t.Parallel()
+
+	query, args := events.SelectorSQL("inventory.event_outbox", 100, 10)
+
+	// Backoff is per group: the group must be filtered on its rows as a whole
+	// (HAVING over an aggregate), not row by row in WHERE, otherwise a
+	// skipped successor with an expired lease re-selects the group while its
+	// failed predecessor is still in backoff.
+	assert.Contains(t, query, "HAVING")
+	assert.Contains(t, query, "COUNT(*) FILTER (WHERE")
+	assert.Contains(t, query, "> ")
+	// Retry-exhausted groups must still be selectable for dead-lettering.
+	assert.Contains(t, query, "MAX(")
+	assertHasTimeArg(t, args)
 }

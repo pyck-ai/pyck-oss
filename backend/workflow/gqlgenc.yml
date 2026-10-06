@@ -13,6 +13,11 @@ models:
     model: any
   Cursor:
     model: github.com/99designs/gqlgen/graphql.String
+  # The server sends UInt64 as a JSON number. Left unmapped, gqlgenc types it as
+  # string and graphqljson fails to decode the response, which silently leaves
+  # every field after it empty.
+  UInt64:
+    model: github.com/99designs/gqlgen/graphql.Uint64
 autobind:
   - github.com/99designs/gqlgen/graphql/introspection
   - github.com/pyck-ai/pyck/backend/workflow/model

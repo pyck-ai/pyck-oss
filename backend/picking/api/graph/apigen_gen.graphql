@@ -104,6 +104,7 @@ query GetPickingServiceInfo {
 
 mutation CreatePickingOrder($input: CreatePickingOrderWithItemsInput!) {
   createPickingOrder(input: $input) {
+    eventCount
     pickingOrder {
       createdAt
       createdBy
@@ -118,17 +119,14 @@ mutation CreatePickingOrder($input: CreatePickingOrderWithItemsInput!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation UpdatePickingOrder($id: ID!, $input: UpdatePickingOrderInput!) {
   updatePickingOrder(id: $id, input: $input) {
+    eventCount
     pickingOrder {
       createdAt
       createdBy
@@ -143,11 +141,7 @@ mutation UpdatePickingOrder($id: ID!, $input: UpdatePickingOrderInput!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -155,17 +149,15 @@ mutation UpdatePickingOrder($id: ID!, $input: UpdatePickingOrderInput!) {
 mutation DeletePickingOrder($id: ID!) {
   deletePickingOrder(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
 
 mutation CreatePickingOrderItem($input: CreatePickingOrderItemInput!) {
   createPickingOrderItem(input: $input) {
+    eventCount
     pickingOrderItem {
       createdAt
       createdBy
@@ -182,17 +174,14 @@ mutation CreatePickingOrderItem($input: CreatePickingOrderItemInput!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation UpdatePickingOrderItem($id: ID!, $input: UpdatePickingOrderItemInput!) {
   updatePickingOrderItem(id: $id, input: $input) {
+    eventCount
     pickingOrderItem {
       createdAt
       createdBy
@@ -209,11 +198,7 @@ mutation UpdatePickingOrderItem($id: ID!, $input: UpdatePickingOrderItemInput!) 
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -221,17 +206,15 @@ mutation UpdatePickingOrderItem($id: ID!, $input: UpdatePickingOrderItemInput!) 
 mutation DeletePickingOrderItem($id: ID!) {
   deletePickingOrderItem(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
 
 mutation CreatePickingOutboundShipmentNotification($input: CreatePickingOutboundShipmentNotificationInput!) {
   createPickingOutboundShipmentNotification(input: $input) {
+    eventCount
     pickingOutboundShipmentNotification {
       createdAt
       createdBy
@@ -246,17 +229,14 @@ mutation CreatePickingOutboundShipmentNotification($input: CreatePickingOutbound
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation UpdatePickingOutboundShipmentNotification($id: ID!, $input: UpdatePickingOutboundShipmentNotificationInput!) {
   updatePickingOutboundShipmentNotification(id: $id, input: $input) {
+    eventCount
     pickingOutboundShipmentNotification {
       createdAt
       createdBy
@@ -271,11 +251,7 @@ mutation UpdatePickingOutboundShipmentNotification($id: ID!, $input: UpdatePicki
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -283,17 +259,15 @@ mutation UpdatePickingOutboundShipmentNotification($id: ID!, $input: UpdatePicki
 mutation DeletePickingOutboundShipmentNotification($id: ID!) {
   deletePickingOutboundShipmentNotification(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
 
 mutation PatchPickingOrderData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchPickingOrderData(id: $id, patches: $patches) {
+    eventCount
     pickingOrder {
       createdAt
       createdBy
@@ -308,17 +282,14 @@ mutation PatchPickingOrderData($id: ID!, $patches: [JSONPatchInput!]!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation PatchPickingOrderItemData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchPickingOrderItemData(id: $id, patches: $patches) {
+    eventCount
     pickingOrderItem {
       createdAt
       createdBy
@@ -335,17 +306,14 @@ mutation PatchPickingOrderItemData($id: ID!, $patches: [JSONPatchInput!]!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation PatchPickingOutboundShipmentNotificationData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchPickingOutboundShipmentNotificationData(id: $id, patches: $patches) {
+    eventCount
     pickingOutboundShipmentNotification {
       createdAt
       createdBy
@@ -360,11 +328,7 @@ mutation PatchPickingOutboundShipmentNotificationData($id: ID!, $patches: [JSONP
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 

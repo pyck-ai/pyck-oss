@@ -49,13 +49,14 @@ graphql:
           "name": "BrunoIdemWhitespace-{{$timestamp}}-2",
           "signals": [
             {
-              "filterRule": "*",
+              "filterRule": "true",
               "natsTopic": "request.reply.pyck.*.crud.inventory.items.*.create",
               "temporalSignal": "brunoIdemWs",
               "temporalSignalType": "start"
             }
           ],
-          "taskQueue": "bruno-idem-task-queue"
+          "taskQueue": "bruno-idem-task-queue",
+          "workerID": "scenario-user-workflow-idempotency"
         }
       }
 

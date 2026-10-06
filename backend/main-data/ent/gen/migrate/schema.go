@@ -40,7 +40,6 @@ var (
 		{Name: "request_id", Type: field.TypeString, Nullable: true},
 		{Name: "topic", Type: field.TypeString},
 		{Name: "payload", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
-		{Name: "with_reply", Type: field.TypeBool, Default: false},
 		{Name: "retry_count", Type: field.TypeInt, Default: 0},
 		{Name: "last_error", Type: field.TypeString, Nullable: true},
 		{Name: "dead_at", Type: field.TypeTime, Nullable: true},
@@ -58,7 +57,7 @@ var (
 			{
 				Name:    "entityeventsoutbox_next_retry_at_transaction_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{EventOutboxColumns[13], EventOutboxColumns[4], EventOutboxColumns[1]},
+				Columns: []*schema.Column{EventOutboxColumns[12], EventOutboxColumns[4], EventOutboxColumns[1]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "published_at IS NULL AND dead_at IS NULL",
 				},
@@ -74,7 +73,7 @@ var (
 			{
 				Name:    "entityeventsoutbox_tenant_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{EventOutboxColumns[16], EventOutboxColumns[1]},
+				Columns: []*schema.Column{EventOutboxColumns[15], EventOutboxColumns[1]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "published_at IS NULL AND dead_at IS NULL",
 				},
@@ -90,6 +89,14 @@ var (
 				Columns: []*schema.Column{EventOutboxColumns[1]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "dead_at IS NOT NULL AND published_at IS NULL",
+				},
+			},
+			{
+				Name:    "entityeventsoutbox_published_at",
+				Unique:  false,
+				Columns: []*schema.Column{EventOutboxColumns[2]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "published_at IS NOT NULL",
 				},
 			},
 		},

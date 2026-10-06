@@ -123,6 +123,11 @@ func ExpiresAt(v time.Time) predicate.WorkflowSignal {
 	return predicate.WorkflowSignal(sql.FieldEQ(FieldExpiresAt, v))
 }
 
+// StoppedAt applies equality check predicate on the "stopped_at" field. It's identical to StoppedAtEQ.
+func StoppedAt(v time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldEQ(FieldStoppedAt, v))
+}
+
 // TenantIDEQ applies the EQ predicate on the "tenant_id" field.
 func TenantIDEQ(v uuid.UUID) predicate.WorkflowSignal {
 	return predicate.WorkflowSignal(sql.FieldEQ(FieldTenantID, v))
@@ -753,16 +758,6 @@ func WorkerIDHasSuffix(v string) predicate.WorkflowSignal {
 	return predicate.WorkflowSignal(sql.FieldHasSuffix(FieldWorkerID, v))
 }
 
-// WorkerIDIsNil applies the IsNil predicate on the "worker_id" field.
-func WorkerIDIsNil() predicate.WorkflowSignal {
-	return predicate.WorkflowSignal(sql.FieldIsNull(FieldWorkerID))
-}
-
-// WorkerIDNotNil applies the NotNil predicate on the "worker_id" field.
-func WorkerIDNotNil() predicate.WorkflowSignal {
-	return predicate.WorkflowSignal(sql.FieldNotNull(FieldWorkerID))
-}
-
 // WorkerIDEqualFold applies the EqualFold predicate on the "worker_id" field.
 func WorkerIDEqualFold(v string) predicate.WorkflowSignal {
 	return predicate.WorkflowSignal(sql.FieldEqualFold(FieldWorkerID, v))
@@ -813,27 +808,67 @@ func ExpiresAtLTE(v time.Time) predicate.WorkflowSignal {
 	return predicate.WorkflowSignal(sql.FieldLTE(FieldExpiresAt, v))
 }
 
-// ExpiresAtIsNil applies the IsNil predicate on the "expires_at" field.
-func ExpiresAtIsNil() predicate.WorkflowSignal {
-	return predicate.WorkflowSignal(sql.FieldIsNull(FieldExpiresAt))
+// StoppedAtEQ applies the EQ predicate on the "stopped_at" field.
+func StoppedAtEQ(v time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldEQ(FieldStoppedAt, v))
 }
 
-// ExpiresAtNotNil applies the NotNil predicate on the "expires_at" field.
-func ExpiresAtNotNil() predicate.WorkflowSignal {
-	return predicate.WorkflowSignal(sql.FieldNotNull(FieldExpiresAt))
+// StoppedAtNEQ applies the NEQ predicate on the "stopped_at" field.
+func StoppedAtNEQ(v time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldNEQ(FieldStoppedAt, v))
+}
+
+// StoppedAtIn applies the In predicate on the "stopped_at" field.
+func StoppedAtIn(vs ...time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldIn(FieldStoppedAt, vs...))
+}
+
+// StoppedAtNotIn applies the NotIn predicate on the "stopped_at" field.
+func StoppedAtNotIn(vs ...time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldNotIn(FieldStoppedAt, vs...))
+}
+
+// StoppedAtGT applies the GT predicate on the "stopped_at" field.
+func StoppedAtGT(v time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldGT(FieldStoppedAt, v))
+}
+
+// StoppedAtGTE applies the GTE predicate on the "stopped_at" field.
+func StoppedAtGTE(v time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldGTE(FieldStoppedAt, v))
+}
+
+// StoppedAtLT applies the LT predicate on the "stopped_at" field.
+func StoppedAtLT(v time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldLT(FieldStoppedAt, v))
+}
+
+// StoppedAtLTE applies the LTE predicate on the "stopped_at" field.
+func StoppedAtLTE(v time.Time) predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldLTE(FieldStoppedAt, v))
+}
+
+// StoppedAtIsNil applies the IsNil predicate on the "stopped_at" field.
+func StoppedAtIsNil() predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldIsNull(FieldStoppedAt))
+}
+
+// StoppedAtNotNil applies the NotNil predicate on the "stopped_at" field.
+func StoppedAtNotNil() predicate.WorkflowSignal {
+	return predicate.WorkflowSignal(sql.FieldNotNull(FieldStoppedAt))
 }
 
 // HasWorkflow applies the HasEdge predicate on the "workflow" edge.
 func HasWorkflow() predicate.WorkflowSignal {
 	return predicate.WorkflowSignal(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, WorkflowTable, WorkflowColumn),
-		)
+		step := newWorkflowStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Workflow
 		step.Edge.Schema = schemaConfig.WorkflowSignal
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -844,6 +879,7 @@ func HasWorkflowWith(preds ...predicate.Workflow) predicate.WorkflowSignal {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Workflow
 		step.Edge.Schema = schemaConfig.WorkflowSignal
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

@@ -1,0 +1,27 @@
+{{/* gotype: entgo.io/ent/entc/gen.Type */}}
+
+{{/*
+Extends ent's Has<Edge>With predicate (extension point
+"dialect/sql/predicate/edge/haswith/*"). The privacy policies of the tenant
+and history mixins only reach the root table of a query, never the neighbour
+sub-select a relation predicate builds, so the equivalent conditions are
+appended here: the caller's tenant scope when the edge's target carries
+tenant_id, and the soft-delete filter when it carries deleted_at (see
+mixin.ScopeNeighborToTenants and mixin.ScopeNeighborToLive). The full slice
+expression forces a copy: the closure may run more than once per query
+(count + rows) and predicate values are shared, so the caller's slice must
+never be appended to in place.
+*/}}
+{{ define "dialect/sql/predicate/edge/haswith/neighborscope" }}
+	{{- $tenant := false }}
+	{{- $history := false }}
+	{{- range $f := $.Scope.Edge.Type.Fields }}
+		{{- if eq $f.Name "tenant_id" }}{{ $tenant = true }}{{ end }}
+		{{- if eq $f.Name "deleted_at" }}{{ $history = true }}{{ end }}
+	{{- end }}
+	{{- if or $tenant $history }}
+		preds := append(preds[:len(preds):len(preds)]
+			{{- if $tenant }}, predicate.ScopeNeighborToTenants{{ end }}
+			{{- if $history }}, predicate.ScopeNeighborToLive{{ end }})
+	{{- end }}
+{{- end }}

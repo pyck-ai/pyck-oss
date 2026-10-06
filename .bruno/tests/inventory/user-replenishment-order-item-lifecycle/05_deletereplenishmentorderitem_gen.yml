@@ -19,11 +19,8 @@ graphql:
       mutation DeleteReplenishmentOrderItem($id: ID!) {
         deleteReplenishmentOrderItem(id: $id) {
           deletedID
-          workflows {
-            id
-            runID
-            type
-          }
+          eventCount
+          transactionID
         }
       }
     variables: |-

@@ -41,7 +41,6 @@ var (
 		{Name: "request_id", Type: field.TypeString, Nullable: true},
 		{Name: "topic", Type: field.TypeString},
 		{Name: "payload", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
-		{Name: "with_reply", Type: field.TypeBool, Default: false},
 		{Name: "retry_count", Type: field.TypeInt, Default: 0},
 		{Name: "last_error", Type: field.TypeString, Nullable: true},
 		{Name: "dead_at", Type: field.TypeTime, Nullable: true},
@@ -59,7 +58,7 @@ var (
 			{
 				Name:    "entityeventsoutbox_next_retry_at_transaction_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{EventOutboxColumns[13], EventOutboxColumns[4], EventOutboxColumns[1]},
+				Columns: []*schema.Column{EventOutboxColumns[12], EventOutboxColumns[4], EventOutboxColumns[1]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "published_at IS NULL AND dead_at IS NULL",
 				},
@@ -75,7 +74,7 @@ var (
 			{
 				Name:    "entityeventsoutbox_tenant_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{EventOutboxColumns[16], EventOutboxColumns[1]},
+				Columns: []*schema.Column{EventOutboxColumns[15], EventOutboxColumns[1]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "published_at IS NULL AND dead_at IS NULL",
 				},
@@ -91,6 +90,14 @@ var (
 				Columns: []*schema.Column{EventOutboxColumns[1]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "dead_at IS NOT NULL AND published_at IS NULL",
+				},
+			},
+			{
+				Name:    "entityeventsoutbox_published_at",
+				Unique:  false,
+				Columns: []*schema.Column{EventOutboxColumns[2]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "published_at IS NOT NULL",
 				},
 			},
 		},
@@ -225,6 +232,18 @@ var (
 				Name:    "itemmovement_item_id",
 				Unique:  false,
 				Columns: []*schema.Column{ItemMovementsColumns[19]},
+			},
+			{
+				Name:    "itemmovement_tenant_id_item_id_created_at_id",
+				Unique:  false,
+				Columns: []*schema.Column{ItemMovementsColumns[1], ItemMovementsColumns[19], ItemMovementsColumns[5], ItemMovementsColumns[0]},
+				Annotation: &entsql.IndexAnnotation{
+					DescColumns: map[string]bool{
+						ItemMovementsColumns[5].Name: true,
+
+						ItemMovementsColumns[0].Name: true,
+					},
+				},
 			},
 			{
 				Name:    "itemmovement_executed",
@@ -503,6 +522,16 @@ var (
 					},
 				},
 			},
+			{
+				Name:    "stock_tenant_id_item_id_repository_id_version",
+				Unique:  false,
+				Columns: []*schema.Column{StocksColumns[1], StocksColumns[16], StocksColumns[17], StocksColumns[15]},
+				Annotation: &entsql.IndexAnnotation{
+					DescColumns: map[string]bool{
+						StocksColumns[15].Name: true,
+					},
+				},
+			},
 		},
 	}
 	// TransactionsColumns holds the columns for the "transactions" table.
@@ -537,6 +566,20 @@ var (
 				Columns:    []*schema.Column{TransactionsColumns[11]},
 				RefColumns: []*schema.Column{RepositoriesColumns[0]},
 				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "transaction_tenant_id_item_id_created_at_id",
+				Unique:  false,
+				Columns: []*schema.Column{TransactionsColumns[1], TransactionsColumns[10], TransactionsColumns[2], TransactionsColumns[0]},
+				Annotation: &entsql.IndexAnnotation{
+					DescColumns: map[string]bool{
+						TransactionsColumns[2].Name: true,
+
+						TransactionsColumns[0].Name: true,
+					},
+				},
 			},
 		},
 	}

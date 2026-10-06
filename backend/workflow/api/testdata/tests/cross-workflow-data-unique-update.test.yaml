@@ -47,6 +47,7 @@ steps:
       input:
         name: {$fake: "UniqWfA-{{nonce}}"}
         taskQueue: {$fake: "uniq-wf-queue-{{nonce}}"}
+        workerID: "scenario-cross-workflow-data-unique-update"
         dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         data:
           priority: "high"
@@ -72,6 +73,7 @@ steps:
       input:
         name: {$fake: "UniqWfB-{{nonce}}"}
         taskQueue: {$ref: "res[registerA].body.data.registerWorkflow.taskQueue"}
+        workerID: "scenario-cross-workflow-data-unique-update"
         dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         data:
           priority: "high"
@@ -99,6 +101,7 @@ steps:
       input:
         name: {$ref: "res[registerA].body.data.registerWorkflow.name"}
         taskQueue: {$ref: "res[registerA].body.data.registerWorkflow.taskQueue"}
+        workerID: "scenario-cross-workflow-data-unique-update"
         dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         data:
           priority: "low"
@@ -123,6 +126,7 @@ steps:
       input:
         name: {$ref: "res[registerA].body.data.registerWorkflow.name"}
         taskQueue: {$ref: "res[registerA].body.data.registerWorkflow.taskQueue"}
+        workerID: "scenario-cross-workflow-data-unique-update"
         dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         data:
           priority: "low"
@@ -144,6 +148,7 @@ steps:
       input:
         name: {$ref: "res[registerA].body.data.registerWorkflow.name"}
         taskQueue: {$ref: "res[registerA].body.data.registerWorkflow.taskQueue"}
+        workerID: "scenario-cross-workflow-data-unique-update"
         dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         data:
           priority: "low"

@@ -1,0 +1,344 @@
+---
+name: "Cross - Receiving Inbound Item Unique Data"
+description: >
+  An inbound item data type that marks a field "unique": true. The uniqueness
+  check must run against the inbound-item table on every path: items created
+  inline with createReceivingInbound, items added with
+  createReceivingInboundItem, and items updated with
+  updateReceivingInboundItem (which excludes the item itself). A duplicate
+  value is refused on both create paths. A deleted item no longer holds its
+  value: after deleting an item, or the inbound with its items, a new item
+  may reuse the code.
+steps:
+  - id: createInboundDT
+    name: "Create data type for inbounds"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Inbound Unique Test Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "inbound"
+        jsonSchema: '{"type":"object","properties":{"carrier":{"type":"string"}}}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: createItemDT
+    name: "Create item data type with a unique field"
+    operation: management.createDataType
+    vars:
+      input:
+        name: "Inbound Item Unique Code Type"
+        slug: {$fake: "{{loremslug}}-{{nonce}}"}
+        entity: "inbounditem"
+        jsonSchema: '{"type":"object","properties":{"code":{"type":"string","unique":true}},"required":["code"]}'
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item data type created"
+        assertions:
+          - ref: res.body.data.createDataType.id
+            nil: false
+
+  - id: createInbound
+    name: "Create inbound with one inline item"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        orderID: {$fake: "PO-{{nonce}}"}
+        dataTypeID: {$ref: "res[createInboundDT].body.data.createDataType.id"}
+        data:
+          carrier: "DHL"
+        inboundItems:
+          - sku: {$fake: "SKU-{{nonce}}-1"}
+            quantity: 1
+            dataTypeID: {$ref: "res[createItemDT].body.data.createDataType.id"}
+            data:
+              code: {$fake: "CODE-{{nonce}}-1"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound created"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+
+  - id: firstItem
+    name: "Read the inline item back"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "One item"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            equal: 1
+
+  # Before the fix: refused with 'invalid table name: "inbound-items"'.
+  - id: addItem
+    name: "Add an item with a new unique code"
+    operation: receiving.createReceivingInboundItem
+    vars:
+      input:
+        sku: {$fake: "SKU-{{nonce}}-2"}
+        quantity: 1
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+        dataTypeID: {$ref: "res[createItemDT].body.data.createDataType.id"}
+        data:
+          code: {$fake: "CODE-{{nonce}}-2"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created"
+        assertions:
+          - ref: res.body.data.createReceivingInboundItem.receivingInboundItem.id
+            nil: false
+
+  # Before the fix: refused with 'invalid table name: "inbound-items"'.
+  - name: "Update the item keeping its own code"
+    operation: receiving.updateReceivingInboundItem
+    vars:
+      id: {$ref: "res[addItem].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+      input:
+        quantity: 2
+        dataTypeID: {$ref: "res[createItemDT].body.data.createDataType.id"}
+        data:
+          code: {$ref: "res[addItem].body.data.createReceivingInboundItem.receivingInboundItem.data.code"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors (the item itself is excluded)"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Add an item duplicating the inline item's code"
+    operation: receiving.createReceivingInboundItem
+    vars:
+      input:
+        sku: {$fake: "SKU-{{nonce}}-3"}
+        quantity: 1
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+        dataTypeID: {$ref: "res[createItemDT].body.data.createDataType.id"}
+        data:
+          code: {$ref: "res[firstItem].body.data.receivingInboundItems.edges[0].node.data.code"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Refused as a duplicate"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  # Before the fix: accepted, because inline items were checked against the
+  # inbound table.
+  - name: "Create a second inbound whose inline item duplicates the code"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        orderID: {$fake: "PO-{{nonce}}-dup"}
+        dataTypeID: {$ref: "res[createInboundDT].body.data.createDataType.id"}
+        data:
+          carrier: "DHL"
+        inboundItems:
+          - sku: {$fake: "SKU-{{nonce}}-4"}
+            quantity: 1
+            dataTypeID: {$ref: "res[createItemDT].body.data.createDataType.id"}
+            data:
+              code: {$ref: "res[firstItem].body.data.receivingInboundItems.edges[0].node.data.code"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Refused as a duplicate"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Only the two distinct items exist for the data type"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        dataTypeID: {$ref: "res[createItemDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Two items"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            equal: 2
+
+  - name: "Delete the added item"
+    operation: receiving.deleteReceivingInboundItem
+    vars:
+      id: {$ref: "res[addItem].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  # Before the fix: refused as a duplicate, because the soft-deleted item
+  # still counted.
+  - name: "Add an item reusing the deleted item's code"
+    operation: receiving.createReceivingInboundItem
+    vars:
+      input:
+        sku: {$fake: "SKU-{{nonce}}-5"}
+        quantity: 1
+        inboundID: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+        dataTypeID: {$ref: "res[createItemDT].body.data.createDataType.id"}
+        data:
+          code: {$ref: "res[addItem].body.data.createReceivingInboundItem.receivingInboundItem.data.code"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created"
+        assertions:
+          - ref: res.body.data.createReceivingInboundItem.receivingInboundItem.id
+            nil: false
+
+  - name: "Delete the inbound (cascades to its items)"
+    operation: receiving.deleteReceivingInbound
+    vars:
+      id: {$ref: "res[createInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  # Before the fix: refused as a duplicate, because the items the deleted
+  # inbound soft-deleted still counted.
+  - id: recreateInbound
+    name: "Re-create an inbound whose inline item reuses the deleted code"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        orderID: {$fake: "PO-{{nonce}}-again"}
+        dataTypeID: {$ref: "res[createInboundDT].body.data.createDataType.id"}
+        data:
+          carrier: "DHL"
+        inboundItems:
+          - sku: {$fake: "SKU-{{nonce}}-6"}
+            quantity: 1
+            dataTypeID: {$ref: "res[createItemDT].body.data.createDataType.id"}
+            data:
+              code: {$ref: "res[firstItem].body.data.receivingInboundItems.edges[0].node.data.code"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Inbound created"
+        assertions:
+          - ref: res.body.data.createReceivingInbound.receivingInbound.id
+            nil: false
+
+  - name: "Cleanup - delete the re-created inbound (cascade)"
+    operation: receiving.deleteReceivingInbound
+    vars:
+      id: {$ref: "res[recreateInbound].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete item data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createItemDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete inbound data type"
+    operation: management.deleteDataType
+    vars:
+      id: {$ref: "res[createInboundDT].body.data.createDataType.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

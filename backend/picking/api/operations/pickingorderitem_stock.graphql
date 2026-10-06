@@ -1,0 +1,24 @@
+# Exercises the federated inventory fields on PickingOrderItem (item,
+# availableStock, reservedStock), which the inventory subgraph resolves by the
+# order item's sku and tenantID. apigen cannot auto-generate this: the fields
+# live on another subgraph, so the selection is only valid against the
+# composed supergraph. brunogen runs it through the gateway. See
+# inventory/graph/pickingorderitem.graphql.
+query GetPickingOrderItemsWithStock($where: PickingOrderItemWhereInput) {
+  pickingOrderItems(where: $where) {
+    edges {
+      node {
+        id
+        tenantID
+        sku
+        item {
+          id
+          tenantID
+          sku
+        }
+        availableStock
+        reservedStock
+      }
+    }
+  }
+}

@@ -160,12 +160,16 @@ func (ec *executionContext) resolveEntity(
 		}
 		switch resolverName {
 
-		case "findCustomerByID":
+		case "findCustomerByIDAndTenantID":
 			id0, err := ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, rep["id"])
 			if err != nil {
-				return nil, fmt.Errorf(`unmarshalling param 0 for findCustomerByID(): %w`, err)
+				return nil, fmt.Errorf(`unmarshalling param 0 for findCustomerByIDAndTenantID(): %w`, err)
 			}
-			entity, err := ec.Resolvers.Entity().FindCustomerByID(ctx, id0)
+			id1, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, rep["tenantID"])
+			if err != nil {
+				return nil, fmt.Errorf(`unmarshalling param 1 for findCustomerByIDAndTenantID(): %w`, err)
+			}
+			entity, err := ec.Resolvers.Entity().FindCustomerByIDAndTenantID(ctx, id0, id1)
 			if err != nil {
 				return nil, fmt.Errorf(`resolving Entity "Customer": %w`, err)
 			}
@@ -198,12 +202,16 @@ func (ec *executionContext) resolveEntity(
 		}
 		switch resolverName {
 
-		case "findInventoryItemByID":
+		case "findInventoryItemByIDAndTenantID":
 			id0, err := ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, rep["id"])
 			if err != nil {
-				return nil, fmt.Errorf(`unmarshalling param 0 for findInventoryItemByID(): %w`, err)
+				return nil, fmt.Errorf(`unmarshalling param 0 for findInventoryItemByIDAndTenantID(): %w`, err)
 			}
-			entity, err := ec.Resolvers.Entity().FindInventoryItemByID(ctx, id0)
+			id1, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, rep["tenantID"])
+			if err != nil {
+				return nil, fmt.Errorf(`unmarshalling param 1 for findInventoryItemByIDAndTenantID(): %w`, err)
+			}
+			entity, err := ec.Resolvers.Entity().FindInventoryItemByIDAndTenantID(ctx, id0, id1)
 			if err != nil {
 				return nil, fmt.Errorf(`resolving Entity "InventoryItem": %w`, err)
 			}
@@ -217,12 +225,16 @@ func (ec *executionContext) resolveEntity(
 		}
 		switch resolverName {
 
-		case "findPickingOrderByID":
+		case "findPickingOrderByIDAndTenantID":
 			id0, err := ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, rep["id"])
 			if err != nil {
-				return nil, fmt.Errorf(`unmarshalling param 0 for findPickingOrderByID(): %w`, err)
+				return nil, fmt.Errorf(`unmarshalling param 0 for findPickingOrderByIDAndTenantID(): %w`, err)
 			}
-			entity, err := ec.Resolvers.Entity().FindPickingOrderByID(ctx, id0)
+			id1, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, rep["tenantID"])
+			if err != nil {
+				return nil, fmt.Errorf(`unmarshalling param 1 for findPickingOrderByIDAndTenantID(): %w`, err)
+			}
+			entity, err := ec.Resolvers.Entity().FindPickingOrderByIDAndTenantID(ctx, id0, id1)
 			if err != nil {
 				return nil, fmt.Errorf(`resolving Entity "PickingOrder": %w`, err)
 			}
@@ -236,12 +248,16 @@ func (ec *executionContext) resolveEntity(
 		}
 		switch resolverName {
 
-		case "findRepositoryByID":
+		case "findRepositoryByIDAndTenantID":
 			id0, err := ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, rep["id"])
 			if err != nil {
-				return nil, fmt.Errorf(`unmarshalling param 0 for findRepositoryByID(): %w`, err)
+				return nil, fmt.Errorf(`unmarshalling param 0 for findRepositoryByIDAndTenantID(): %w`, err)
 			}
-			entity, err := ec.Resolvers.Entity().FindRepositoryByID(ctx, id0)
+			id1, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, rep["tenantID"])
+			if err != nil {
+				return nil, fmt.Errorf(`unmarshalling param 1 for findRepositoryByIDAndTenantID(): %w`, err)
+			}
+			entity, err := ec.Resolvers.Entity().FindRepositoryByIDAndTenantID(ctx, id0, id1)
 			if err != nil {
 				return nil, fmt.Errorf(`resolving Entity "Repository": %w`, err)
 			}
@@ -255,12 +271,16 @@ func (ec *executionContext) resolveEntity(
 		}
 		switch resolverName {
 
-		case "findSupplierByID":
+		case "findSupplierByIDAndTenantID":
 			id0, err := ec.unmarshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, rep["id"])
 			if err != nil {
-				return nil, fmt.Errorf(`unmarshalling param 0 for findSupplierByID(): %w`, err)
+				return nil, fmt.Errorf(`unmarshalling param 0 for findSupplierByIDAndTenantID(): %w`, err)
 			}
-			entity, err := ec.Resolvers.Entity().FindSupplierByID(ctx, id0)
+			id1, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, rep["tenantID"])
+			if err != nil {
+				return nil, fmt.Errorf(`unmarshalling param 1 for findSupplierByIDAndTenantID(): %w`, err)
+			}
+			entity, err := ec.Resolvers.Entity().FindSupplierByIDAndTenantID(ctx, id0, id1)
 			if err != nil {
 				return nil, fmt.Errorf(`resolving Entity "Supplier": %w`, err)
 			}
@@ -317,12 +337,22 @@ func entityResolverNameForCustomer(ctx context.Context, rep EntityRepresentation
 		if allNull {
 			allNull = val == nil
 		}
+		m = rep
+		val, ok = m["tenantID"]
+		if !ok {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to missing Key Field \"tenantID\" for Customer", ErrTypeNotFound))
+			break
+		}
+		if allNull {
+			allNull = val == nil
+		}
 		if allNull {
 			entityResolverErrs = append(entityResolverErrs,
 				fmt.Errorf("%w due to all null value KeyFields for Customer", ErrTypeNotFound))
 			break
 		}
-		return "findCustomerByID", nil
+		return "findCustomerByIDAndTenantID", nil
 	}
 	return "", fmt.Errorf("%w for Customer due to %v", ErrTypeNotFound,
 		errors.Join(entityResolverErrs...).Error())
@@ -387,12 +417,22 @@ func entityResolverNameForInventoryItem(ctx context.Context, rep EntityRepresent
 		if allNull {
 			allNull = val == nil
 		}
+		m = rep
+		val, ok = m["tenantID"]
+		if !ok {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to missing Key Field \"tenantID\" for InventoryItem", ErrTypeNotFound))
+			break
+		}
+		if allNull {
+			allNull = val == nil
+		}
 		if allNull {
 			entityResolverErrs = append(entityResolverErrs,
 				fmt.Errorf("%w due to all null value KeyFields for InventoryItem", ErrTypeNotFound))
 			break
 		}
-		return "findInventoryItemByID", nil
+		return "findInventoryItemByIDAndTenantID", nil
 	}
 	return "", fmt.Errorf("%w for InventoryItem due to %v", ErrTypeNotFound,
 		errors.Join(entityResolverErrs...).Error())
@@ -422,12 +462,22 @@ func entityResolverNameForPickingOrder(ctx context.Context, rep EntityRepresenta
 		if allNull {
 			allNull = val == nil
 		}
+		m = rep
+		val, ok = m["tenantID"]
+		if !ok {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to missing Key Field \"tenantID\" for PickingOrder", ErrTypeNotFound))
+			break
+		}
+		if allNull {
+			allNull = val == nil
+		}
 		if allNull {
 			entityResolverErrs = append(entityResolverErrs,
 				fmt.Errorf("%w due to all null value KeyFields for PickingOrder", ErrTypeNotFound))
 			break
 		}
-		return "findPickingOrderByID", nil
+		return "findPickingOrderByIDAndTenantID", nil
 	}
 	return "", fmt.Errorf("%w for PickingOrder due to %v", ErrTypeNotFound,
 		errors.Join(entityResolverErrs...).Error())
@@ -457,12 +507,22 @@ func entityResolverNameForRepository(ctx context.Context, rep EntityRepresentati
 		if allNull {
 			allNull = val == nil
 		}
+		m = rep
+		val, ok = m["tenantID"]
+		if !ok {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to missing Key Field \"tenantID\" for Repository", ErrTypeNotFound))
+			break
+		}
+		if allNull {
+			allNull = val == nil
+		}
 		if allNull {
 			entityResolverErrs = append(entityResolverErrs,
 				fmt.Errorf("%w due to all null value KeyFields for Repository", ErrTypeNotFound))
 			break
 		}
-		return "findRepositoryByID", nil
+		return "findRepositoryByIDAndTenantID", nil
 	}
 	return "", fmt.Errorf("%w for Repository due to %v", ErrTypeNotFound,
 		errors.Join(entityResolverErrs...).Error())
@@ -492,12 +552,22 @@ func entityResolverNameForSupplier(ctx context.Context, rep EntityRepresentation
 		if allNull {
 			allNull = val == nil
 		}
+		m = rep
+		val, ok = m["tenantID"]
+		if !ok {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to missing Key Field \"tenantID\" for Supplier", ErrTypeNotFound))
+			break
+		}
+		if allNull {
+			allNull = val == nil
+		}
 		if allNull {
 			entityResolverErrs = append(entityResolverErrs,
 				fmt.Errorf("%w due to all null value KeyFields for Supplier", ErrTypeNotFound))
 			break
 		}
-		return "findSupplierByID", nil
+		return "findSupplierByIDAndTenantID", nil
 	}
 	return "", fmt.Errorf("%w for Supplier due to %v", ErrTypeNotFound,
 		errors.Join(entityResolverErrs...).Error())

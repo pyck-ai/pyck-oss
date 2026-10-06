@@ -7,13 +7,76 @@ package resolvers
 
 import (
 	"context"
+	"fmt"
+	"slices"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/sqljsonpath"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/item"
+	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/itemmovement"
+	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/stock"
+	"github.com/pyck-ai/pyck/backend/inventory/ent/gen/transaction"
 )
+
+// Itemstocks is the resolver for the itemstocks field.
+func (r *inventoryItemResolver) Itemstocks(ctx context.Context, obj *gen.Item) ([]*gen.Stock, error) {
+	// Ids first: the client's selection can leave repository_id out of the
+	// rows, and the keyset paging in currentStockIDs needs it.
+	ids, err := currentStockIDs(ctx, r.client, obj.TenantID, obj.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	query, err := r.client.Stock.Query().
+		Order(gen.Asc(stock.FieldRepositoryID)).
+		CollectFields(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	stocks := make([]*gen.Stock, 0, len(ids))
+	for chunk := range slices.Chunk(ids, mixin.Limit) {
+		page, err := query.Clone().Where(stock.IDIn(chunk...)).Limit(len(chunk)).All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		stocks = append(stocks, page...)
+	}
+	return stocks, nil
+}
+
+// Itemmovementitems is the resolver for the itemmovementitems field.
+func (r *inventoryItemResolver) Itemmovementitems(ctx context.Context, obj *gen.Item) ([]*gen.ItemMovement, error) {
+	query, err := r.client.ItemMovement.Query().
+		Where(itemmovement.TenantID(obj.TenantID), itemmovement.ItemID(obj.ID)).
+		CollectFields(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return query.
+		Order(gen.Desc(itemmovement.FieldCreatedAt), gen.Desc(itemmovement.FieldID)).
+		Limit(mixin.Limit).
+		All(ctx)
+}
+
+// Itemtransactions is the resolver for the itemtransactions field.
+func (r *inventoryItemResolver) Itemtransactions(ctx context.Context, obj *gen.Item) ([]*gen.Transaction, error) {
+	query, err := r.client.Transaction.Query().
+		Where(transaction.TenantID(obj.TenantID), transaction.ItemID(obj.ID)).
+		CollectFields(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return query.
+		Order(gen.Desc(transaction.FieldCreatedAt), gen.Desc(transaction.FieldID)).
+		Limit(mixin.Limit).
+		All(ctx)
+}
 
 // Data is the resolver for the Data field.
 func (r *inventoryItemWhereInputResolver) Data(ctx context.Context, obj *gen.InventoryItemWhereInput, data []string) error {
@@ -21,15 +84,13 @@ func (r *inventoryItemWhereInputResolver) Data(ctx context.Context, obj *gen.Inv
 		return nil
 	}
 
-	if len(data) == 2 {
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(item.FieldData, data[1], jsonPath))
-		})
+	jsonPath, value, err := sqljsonpath.PathValue(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueEQ(item.FieldData, value, jsonPath))
+	})
 	return nil
 }
 
@@ -39,15 +100,13 @@ func (r *inventoryItemWhereInputResolver) DataHasKey(ctx context.Context, obj *g
 		return nil
 	}
 
-	if *data != "" {
-		jsonPath, err := sqljsonpath.DotPath(*data)
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(item.FieldData, jsonPath))
-		})
+	jsonPath, err := sqljsonpath.KeyPath(*data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.HasKey(item.FieldData, jsonPath))
+	})
 	return nil
 }
 
@@ -57,19 +116,13 @@ func (r *inventoryItemWhereInputResolver) DataIn(ctx context.Context, obj *gen.I
 		return nil
 	}
 
-	if len(data) >= 2 {
-		var args []any
-		for _, v := range data[1:] {
-			args = append(args, v)
-		}
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(item.FieldData, args, jsonPath))
-		})
+	jsonPath, values, err := sqljsonpath.PathValues(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueIn(item.FieldData, values, jsonPath))
+	})
 	return nil
 }
 
@@ -79,14 +132,46 @@ func (r *inventoryItemWhereInputResolver) DataContains(ctx context.Context, obj 
 		return nil
 	}
 
-	if len(data) == 2 {
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(item.FieldData, data[1], jsonPath))
-		})
+	jsonPath, value, err := sqljsonpath.PathValue(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueContains(item.FieldData, value, jsonPath))
+	})
+	return nil
+}
+
+// HasCurrentStock is the resolver for the hasCurrentStock field.
+func (r *inventoryItemWhereInputResolver) HasCurrentStock(ctx context.Context, obj *gen.InventoryItemWhereInput, data *bool) error {
+	if obj == nil || data == nil {
+		return nil
+	}
+
+	p, err := itemHasCurrentStockPredicate(nil)
+	if err != nil {
+		return err
+	}
+	if !*data {
+		p = item.Not(p)
+	}
+	obj.AddPredicates(p)
+	return nil
+}
+
+// HasCurrentStockWith is the resolver for the hasCurrentStockWith field.
+//
+// Like the generated hasItemStocksWith, the inputs are ANDed on one stock row:
+// the item needs a current row matching all of them.
+func (r *inventoryItemWhereInputResolver) HasCurrentStockWith(ctx context.Context, obj *gen.InventoryItemWhereInput, data []*gen.StockWhereInput) error {
+	if obj == nil || len(data) == 0 {
+		return nil
+	}
+
+	p, err := itemHasCurrentStockPredicate(data)
+	if err != nil {
+		return fmt.Errorf("%w: field 'hasCurrentStockWith'", err)
+	}
+	obj.AddPredicates(p)
 	return nil
 }

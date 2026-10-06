@@ -45,7 +45,8 @@ graphql:
           },
           "dataTypeID": "{{bru-test_cross-workflow-data-unique-update_f216fba0}}",
           "name": "UniqWfA-{{$timestamp}}-3",
-          "taskQueue": "uniq-wf-queue-{{$timestamp}}-4"
+          "taskQueue": "uniq-wf-queue-{{$timestamp}}-4",
+          "workerID": "scenario-cross-workflow-data-unique-update"
         }
       }
 

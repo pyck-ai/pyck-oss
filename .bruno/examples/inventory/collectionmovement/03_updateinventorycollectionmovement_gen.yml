@@ -29,6 +29,7 @@ graphql:
 
       mutation UpdateInventoryCollectionMovement($id: ID!, $input: UpdateInventoryCollectionInput!) {
         updateInventoryCollectionMovement(id: $id, input: $input) {
+          eventCount
           inventoryCollection {
             createdAt
             createdBy
@@ -43,11 +44,7 @@ graphql:
             updatedAt
             updatedBy
           }
-          workflows {
-            id
-            runID
-            type
-          }
+          transactionID
         }
       }
     variables: |-

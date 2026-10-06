@@ -53,13 +53,15 @@ type ComplexityRoot struct {
 	}
 
 	CheckInUserDeviceOutput struct {
-		DeviceUser func(childComplexity int) int
-		Workflows  func(childComplexity int) int
+		DeviceUser    func(childComplexity int) int
+		EventCount    func(childComplexity int) int
+		TransactionID func(childComplexity int) int
 	}
 
 	CheckOutUserDeviceOutput struct {
-		DeviceUser func(childComplexity int) int
-		Workflows  func(childComplexity int) int
+		DeviceUser    func(childComplexity int) int
+		EventCount    func(childComplexity int) int
+		TransactionID func(childComplexity int) int
 	}
 
 	CustomEvent struct {
@@ -130,8 +132,9 @@ type ComplexityRoot struct {
 	}
 
 	DeviceDeletePayload struct {
-		DeletedID func(childComplexity int) int
-		Workflows func(childComplexity int) int
+		DeletedID     func(childComplexity int) int
+		EventCount    func(childComplexity int) int
+		TransactionID func(childComplexity int) int
 	}
 
 	DeviceEdge struct {
@@ -164,8 +167,9 @@ type ComplexityRoot struct {
 	}
 
 	DeviceLocationDeletePayload struct {
-		DeletedID func(childComplexity int) int
-		Workflows func(childComplexity int) int
+		DeletedID     func(childComplexity int) int
+		EventCount    func(childComplexity int) int
+		TransactionID func(childComplexity int) int
 	}
 
 	DeviceLocationEdge struct {
@@ -175,12 +179,14 @@ type ComplexityRoot struct {
 
 	DeviceLocationOutput struct {
 		DeviceLocation func(childComplexity int) int
-		Workflows      func(childComplexity int) int
+		EventCount     func(childComplexity int) int
+		TransactionID  func(childComplexity int) int
 	}
 
 	DeviceOutput struct {
-		Device    func(childComplexity int) int
-		Workflows func(childComplexity int) int
+		Device        func(childComplexity int) int
+		EventCount    func(childComplexity int) int
+		TransactionID func(childComplexity int) int
 	}
 
 	DeviceUser struct {
@@ -229,7 +235,6 @@ type ComplexityRoot struct {
 		TraceID       func(childComplexity int) int
 		TransactionID func(childComplexity int) int
 		UserID        func(childComplexity int) int
-		WithReply     func(childComplexity int) int
 	}
 
 	GenerateJsonSchemaResponse struct {
@@ -290,8 +295,9 @@ type ComplexityRoot struct {
 	}
 
 	LocationDeletePayload struct {
-		DeletedID func(childComplexity int) int
-		Workflows func(childComplexity int) int
+		DeletedID     func(childComplexity int) int
+		EventCount    func(childComplexity int) int
+		TransactionID func(childComplexity int) int
 	}
 
 	LocationEdge struct {
@@ -300,8 +306,9 @@ type ComplexityRoot struct {
 	}
 
 	LocationOutput struct {
-		Location  func(childComplexity int) int
-		Workflows func(childComplexity int) int
+		EventCount    func(childComplexity int) int
+		Location      func(childComplexity int) int
+		TransactionID func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -385,8 +392,9 @@ type ComplexityRoot struct {
 	}
 
 	SendCustomEventResponse struct {
-		Success   func(childComplexity int) int
-		Workflows func(childComplexity int) int
+		EventCount    func(childComplexity int) int
+		Success       func(childComplexity int) int
+		TransactionID func(childComplexity int) int
 	}
 
 	ServiceInfo struct {
@@ -404,17 +412,6 @@ type ComplexityRoot struct {
 
 	SetTenantUITemplateResponse struct {
 		Success func(childComplexity int) int
-	}
-
-	TemporalMetadata struct {
-		Key   func(childComplexity int) int
-		Value func(childComplexity int) int
-	}
-
-	TemporalWorkflow struct {
-		ID    func(childComplexity int) int
-		RunID func(childComplexity int) int
-		Type  func(childComplexity int) int
 	}
 
 	Tenant struct {
@@ -619,12 +616,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CheckInUserDeviceOutput.DeviceUser(childComplexity), true
-	case "CheckInUserDeviceOutput.workflows":
-		if e.ComplexityRoot.CheckInUserDeviceOutput.Workflows == nil {
+	case "CheckInUserDeviceOutput.eventCount":
+		if e.ComplexityRoot.CheckInUserDeviceOutput.EventCount == nil {
 			break
 		}
 
-		return e.ComplexityRoot.CheckInUserDeviceOutput.Workflows(childComplexity), true
+		return e.ComplexityRoot.CheckInUserDeviceOutput.EventCount(childComplexity), true
+	case "CheckInUserDeviceOutput.transactionID":
+		if e.ComplexityRoot.CheckInUserDeviceOutput.TransactionID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CheckInUserDeviceOutput.TransactionID(childComplexity), true
 
 	case "CheckOutUserDeviceOutput.deviceUser":
 		if e.ComplexityRoot.CheckOutUserDeviceOutput.DeviceUser == nil {
@@ -632,12 +635,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CheckOutUserDeviceOutput.DeviceUser(childComplexity), true
-	case "CheckOutUserDeviceOutput.workflows":
-		if e.ComplexityRoot.CheckOutUserDeviceOutput.Workflows == nil {
+	case "CheckOutUserDeviceOutput.eventCount":
+		if e.ComplexityRoot.CheckOutUserDeviceOutput.EventCount == nil {
 			break
 		}
 
-		return e.ComplexityRoot.CheckOutUserDeviceOutput.Workflows(childComplexity), true
+		return e.ComplexityRoot.CheckOutUserDeviceOutput.EventCount(childComplexity), true
+	case "CheckOutUserDeviceOutput.transactionID":
+		if e.ComplexityRoot.CheckOutUserDeviceOutput.TransactionID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CheckOutUserDeviceOutput.TransactionID(childComplexity), true
 
 	case "CustomEvent.operation":
 		if e.ComplexityRoot.CustomEvent.Operation == nil {
@@ -921,12 +930,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.DeviceDeletePayload.DeletedID(childComplexity), true
-	case "DeviceDeletePayload.workflows":
-		if e.ComplexityRoot.DeviceDeletePayload.Workflows == nil {
+	case "DeviceDeletePayload.eventCount":
+		if e.ComplexityRoot.DeviceDeletePayload.EventCount == nil {
 			break
 		}
 
-		return e.ComplexityRoot.DeviceDeletePayload.Workflows(childComplexity), true
+		return e.ComplexityRoot.DeviceDeletePayload.EventCount(childComplexity), true
+	case "DeviceDeletePayload.transactionID":
+		if e.ComplexityRoot.DeviceDeletePayload.TransactionID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeviceDeletePayload.TransactionID(childComplexity), true
 
 	case "DeviceEdge.cursor":
 		if e.ComplexityRoot.DeviceEdge.Cursor == nil {
@@ -1057,12 +1072,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.DeviceLocationDeletePayload.DeletedID(childComplexity), true
-	case "DeviceLocationDeletePayload.workflows":
-		if e.ComplexityRoot.DeviceLocationDeletePayload.Workflows == nil {
+	case "DeviceLocationDeletePayload.eventCount":
+		if e.ComplexityRoot.DeviceLocationDeletePayload.EventCount == nil {
 			break
 		}
 
-		return e.ComplexityRoot.DeviceLocationDeletePayload.Workflows(childComplexity), true
+		return e.ComplexityRoot.DeviceLocationDeletePayload.EventCount(childComplexity), true
+	case "DeviceLocationDeletePayload.transactionID":
+		if e.ComplexityRoot.DeviceLocationDeletePayload.TransactionID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeviceLocationDeletePayload.TransactionID(childComplexity), true
 
 	case "DeviceLocationEdge.cursor":
 		if e.ComplexityRoot.DeviceLocationEdge.Cursor == nil {
@@ -1083,12 +1104,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.DeviceLocationOutput.DeviceLocation(childComplexity), true
-	case "DeviceLocationOutput.workflows":
-		if e.ComplexityRoot.DeviceLocationOutput.Workflows == nil {
+	case "DeviceLocationOutput.eventCount":
+		if e.ComplexityRoot.DeviceLocationOutput.EventCount == nil {
 			break
 		}
 
-		return e.ComplexityRoot.DeviceLocationOutput.Workflows(childComplexity), true
+		return e.ComplexityRoot.DeviceLocationOutput.EventCount(childComplexity), true
+	case "DeviceLocationOutput.transactionID":
+		if e.ComplexityRoot.DeviceLocationOutput.TransactionID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeviceLocationOutput.TransactionID(childComplexity), true
 
 	case "DeviceOutput.device":
 		if e.ComplexityRoot.DeviceOutput.Device == nil {
@@ -1096,12 +1123,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.DeviceOutput.Device(childComplexity), true
-	case "DeviceOutput.workflows":
-		if e.ComplexityRoot.DeviceOutput.Workflows == nil {
+	case "DeviceOutput.eventCount":
+		if e.ComplexityRoot.DeviceOutput.EventCount == nil {
 			break
 		}
 
-		return e.ComplexityRoot.DeviceOutput.Workflows(childComplexity), true
+		return e.ComplexityRoot.DeviceOutput.EventCount(childComplexity), true
+	case "DeviceOutput.transactionID":
+		if e.ComplexityRoot.DeviceOutput.TransactionID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DeviceOutput.TransactionID(childComplexity), true
 
 	case "DeviceUser.createdAt":
 		if e.ComplexityRoot.DeviceUser.CreatedAt == nil {
@@ -1322,12 +1355,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.EntityEventsOutbox.UserID(childComplexity), true
-	case "EntityEventsOutbox.withReply":
-		if e.ComplexityRoot.EntityEventsOutbox.WithReply == nil {
-			break
-		}
-
-		return e.ComplexityRoot.EntityEventsOutbox.WithReply(childComplexity), true
 
 	case "GenerateJsonSchemaResponse.jsonSchema":
 		if e.ComplexityRoot.GenerateJsonSchemaResponse.JSONSchema == nil {
@@ -1563,12 +1590,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.LocationDeletePayload.DeletedID(childComplexity), true
-	case "LocationDeletePayload.workflows":
-		if e.ComplexityRoot.LocationDeletePayload.Workflows == nil {
+	case "LocationDeletePayload.eventCount":
+		if e.ComplexityRoot.LocationDeletePayload.EventCount == nil {
 			break
 		}
 
-		return e.ComplexityRoot.LocationDeletePayload.Workflows(childComplexity), true
+		return e.ComplexityRoot.LocationDeletePayload.EventCount(childComplexity), true
+	case "LocationDeletePayload.transactionID":
+		if e.ComplexityRoot.LocationDeletePayload.TransactionID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LocationDeletePayload.TransactionID(childComplexity), true
 
 	case "LocationEdge.cursor":
 		if e.ComplexityRoot.LocationEdge.Cursor == nil {
@@ -1583,18 +1616,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.LocationEdge.Node(childComplexity), true
 
+	case "LocationOutput.eventCount":
+		if e.ComplexityRoot.LocationOutput.EventCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LocationOutput.EventCount(childComplexity), true
 	case "LocationOutput.location":
 		if e.ComplexityRoot.LocationOutput.Location == nil {
 			break
 		}
 
 		return e.ComplexityRoot.LocationOutput.Location(childComplexity), true
-	case "LocationOutput.workflows":
-		if e.ComplexityRoot.LocationOutput.Workflows == nil {
+	case "LocationOutput.transactionID":
+		if e.ComplexityRoot.LocationOutput.TransactionID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.LocationOutput.Workflows(childComplexity), true
+		return e.ComplexityRoot.LocationOutput.TransactionID(childComplexity), true
 
 	case "Mutation.assignRoles":
 		if e.ComplexityRoot.Mutation.AssignRoles == nil {
@@ -2168,18 +2207,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.RestoreTenantResponse.Success(childComplexity), true
 
+	case "SendCustomEventResponse.eventCount":
+		if e.ComplexityRoot.SendCustomEventResponse.EventCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SendCustomEventResponse.EventCount(childComplexity), true
 	case "SendCustomEventResponse.success":
 		if e.ComplexityRoot.SendCustomEventResponse.Success == nil {
 			break
 		}
 
 		return e.ComplexityRoot.SendCustomEventResponse.Success(childComplexity), true
-	case "SendCustomEventResponse.workflows":
-		if e.ComplexityRoot.SendCustomEventResponse.Workflows == nil {
+	case "SendCustomEventResponse.transactionID":
+		if e.ComplexityRoot.SendCustomEventResponse.TransactionID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.SendCustomEventResponse.Workflows(childComplexity), true
+		return e.ComplexityRoot.SendCustomEventResponse.TransactionID(childComplexity), true
 
 	case "ServiceInfo.date":
 		if e.ComplexityRoot.ServiceInfo.Date == nil {
@@ -2214,38 +2259,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.SetTenantUITemplateResponse.Success(childComplexity), true
-
-	case "TemporalMetadata.key":
-		if e.ComplexityRoot.TemporalMetadata.Key == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TemporalMetadata.Key(childComplexity), true
-	case "TemporalMetadata.value":
-		if e.ComplexityRoot.TemporalMetadata.Value == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TemporalMetadata.Value(childComplexity), true
-
-	case "TemporalWorkflow.id":
-		if e.ComplexityRoot.TemporalWorkflow.ID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TemporalWorkflow.ID(childComplexity), true
-	case "TemporalWorkflow.runID":
-		if e.ComplexityRoot.TemporalWorkflow.RunID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TemporalWorkflow.RunID(childComplexity), true
-	case "TemporalWorkflow.type":
-		if e.ComplexityRoot.TemporalWorkflow.Type == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TemporalWorkflow.Type(childComplexity), true
 
 	case "Tenant.createdAt":
 		if e.ComplexityRoot.Tenant.CreatedAt == nil {
@@ -2743,7 +2756,10 @@ input SendCustomEventInput {
 
 type SendCustomEventResponse {
   success: Boolean!
-  workflows: [TemporalWorkflow!]!
+  "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+  transactionID: ID!
+  "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+  eventCount: Int!
 }
 `, BuiltIn: false},
 	{Name: "../graph/datatype.graphql", Input: `
@@ -2770,12 +2786,18 @@ type DataTypeDeletePayload {
 
 type DeviceOutput {
     device: Device!
-    workflows: [TemporalWorkflow!]!
+    "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+    transactionID: ID!
+    "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+    eventCount: Int!
 }
 
 type DeviceDeletePayload {
     deletedID: ID
-    workflows: [TemporalWorkflow!]!
+    "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+    transactionID: ID!
+    "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+    eventCount: Int!
 }`, BuiltIn: false},
 	{Name: "../graph/devicelocation.graphql", Input: `extend input DeviceLocationWhereInput {
     Data: [String!]
@@ -2786,12 +2808,18 @@ type DeviceDeletePayload {
 
 type DeviceLocationOutput {
     DeviceLocation: DeviceLocation!
-    workflows: [TemporalWorkflow!]!
+    "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+    transactionID: ID!
+    "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+    eventCount: Int!
 }
 
 type DeviceLocationDeletePayload {
     deletedID: ID
-    workflows: [TemporalWorkflow!]!
+    "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+    transactionID: ID!
+    "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+    eventCount: Int!
 }`, BuiltIn: false},
 	{Name: "../graph/ent.graphql", Input: `directive @goField(forceResolver: Boolean, name: String, omittable: Boolean) on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 directive @goModel(model: String, models: [String!], forceGenerate: Boolean) on OBJECT | INPUT_OBJECT | SCALAR | ENUM | INTERFACE | UNION
@@ -3882,7 +3910,6 @@ type EntityEventsOutbox implements Node {
   requestID: String
   topic: String!
   payload: Map!
-  withReply: Boolean!
   retryCount: Int!
   lastError: String
   deadAt: Time
@@ -4010,11 +4037,6 @@ input EntityEventsOutboxWhereInput {
   topicHasSuffix: String
   topicEqualFold: String
   topicContainsFold: String
-  """
-  with_reply field predicates
-  """
-  withReply: Boolean
-  withReplyNEQ: Boolean
   """
   retry_count field predicates
   """
@@ -5617,12 +5639,18 @@ input SetKeyValueInput {
 
 type LocationOutput {
     location: Location!
-    workflows: [TemporalWorkflow!]!
+    "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+    transactionID: ID!
+    "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+    eventCount: Int!
 }
 
 type LocationDeletePayload {
     deletedID: ID
-    workflows: [TemporalWorkflow!]!
+    "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+    transactionID: ID!
+    "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+    eventCount: Int!
 }
 `, BuiltIn: false},
 	{Name: "../graph/mutations.graphql", Input: `type Mutation {
@@ -5736,7 +5764,10 @@ input CheckInUserDeviceInput {
 
 type CheckInUserDeviceOutput {
     deviceUser: DeviceUser!
-    workflows: [TemporalWorkflow!]!
+    "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+    transactionID: ID!
+    "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+    eventCount: Int!
 }
 
 
@@ -5746,7 +5777,10 @@ input CheckOutUserDeviceInput {
 
 type CheckOutUserDeviceOutput {
     deviceUser: [DeviceUser!]!
-    workflows: [TemporalWorkflow!]!
+    "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+    transactionID: ID!
+    "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+    eventCount: Int!
 }
 `, BuiltIn: false},
 	{Name: "../graph/organization.graphql", Input: `# organization is the system-only auth-path query every backend service
@@ -5842,17 +5876,6 @@ type RemoveRolesResponse {
 extend type Query {
     managementServiceInfo: ServiceInfo!
 }`, BuiltIn: false},
-	{Name: "../graph/temporalworkflow.graphql", Input: `type TemporalMetadata {
-  key: String!
-  value: String!
-}
-
-type TemporalWorkflow {
-  type: String!
-  id: String!
-  runID: String!
-}
-`, BuiltIn: false},
 	{Name: "../graph/tenant.graphql", Input: `input RegisterTenantInput {
   name: String!
   adminUsername: String!
@@ -6065,8 +6088,10 @@ func (ec *executionContext) childFields_CheckInUserDeviceOutput(ctx context.Cont
 	switch field.Name {
 	case "deviceUser":
 		return ec.fieldContext_CheckInUserDeviceOutput_deviceUser(ctx, field)
-	case "workflows":
-		return ec.fieldContext_CheckInUserDeviceOutput_workflows(ctx, field)
+	case "transactionID":
+		return ec.fieldContext_CheckInUserDeviceOutput_transactionID(ctx, field)
+	case "eventCount":
+		return ec.fieldContext_CheckInUserDeviceOutput_eventCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type CheckInUserDeviceOutput", field.Name)
 }
@@ -6075,8 +6100,10 @@ func (ec *executionContext) childFields_CheckOutUserDeviceOutput(ctx context.Con
 	switch field.Name {
 	case "deviceUser":
 		return ec.fieldContext_CheckOutUserDeviceOutput_deviceUser(ctx, field)
-	case "workflows":
-		return ec.fieldContext_CheckOutUserDeviceOutput_workflows(ctx, field)
+	case "transactionID":
+		return ec.fieldContext_CheckOutUserDeviceOutput_transactionID(ctx, field)
+	case "eventCount":
+		return ec.fieldContext_CheckOutUserDeviceOutput_eventCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type CheckOutUserDeviceOutput", field.Name)
 }
@@ -6207,8 +6234,10 @@ func (ec *executionContext) childFields_DeviceDeletePayload(ctx context.Context,
 	switch field.Name {
 	case "deletedID":
 		return ec.fieldContext_DeviceDeletePayload_deletedID(ctx, field)
-	case "workflows":
-		return ec.fieldContext_DeviceDeletePayload_workflows(ctx, field)
+	case "transactionID":
+		return ec.fieldContext_DeviceDeletePayload_transactionID(ctx, field)
+	case "eventCount":
+		return ec.fieldContext_DeviceDeletePayload_eventCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type DeviceDeletePayload", field.Name)
 }
@@ -6275,8 +6304,10 @@ func (ec *executionContext) childFields_DeviceLocationDeletePayload(ctx context.
 	switch field.Name {
 	case "deletedID":
 		return ec.fieldContext_DeviceLocationDeletePayload_deletedID(ctx, field)
-	case "workflows":
-		return ec.fieldContext_DeviceLocationDeletePayload_workflows(ctx, field)
+	case "transactionID":
+		return ec.fieldContext_DeviceLocationDeletePayload_transactionID(ctx, field)
+	case "eventCount":
+		return ec.fieldContext_DeviceLocationDeletePayload_eventCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type DeviceLocationDeletePayload", field.Name)
 }
@@ -6295,8 +6326,10 @@ func (ec *executionContext) childFields_DeviceLocationOutput(ctx context.Context
 	switch field.Name {
 	case "DeviceLocation":
 		return ec.fieldContext_DeviceLocationOutput_DeviceLocation(ctx, field)
-	case "workflows":
-		return ec.fieldContext_DeviceLocationOutput_workflows(ctx, field)
+	case "transactionID":
+		return ec.fieldContext_DeviceLocationOutput_transactionID(ctx, field)
+	case "eventCount":
+		return ec.fieldContext_DeviceLocationOutput_eventCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type DeviceLocationOutput", field.Name)
 }
@@ -6305,8 +6338,10 @@ func (ec *executionContext) childFields_DeviceOutput(ctx context.Context, field 
 	switch field.Name {
 	case "device":
 		return ec.fieldContext_DeviceOutput_device(ctx, field)
-	case "workflows":
-		return ec.fieldContext_DeviceOutput_workflows(ctx, field)
+	case "transactionID":
+		return ec.fieldContext_DeviceOutput_transactionID(ctx, field)
+	case "eventCount":
+		return ec.fieldContext_DeviceOutput_eventCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type DeviceOutput", field.Name)
 }
@@ -6487,8 +6522,10 @@ func (ec *executionContext) childFields_LocationDeletePayload(ctx context.Contex
 	switch field.Name {
 	case "deletedID":
 		return ec.fieldContext_LocationDeletePayload_deletedID(ctx, field)
-	case "workflows":
-		return ec.fieldContext_LocationDeletePayload_workflows(ctx, field)
+	case "transactionID":
+		return ec.fieldContext_LocationDeletePayload_transactionID(ctx, field)
+	case "eventCount":
+		return ec.fieldContext_LocationDeletePayload_eventCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type LocationDeletePayload", field.Name)
 }
@@ -6507,8 +6544,10 @@ func (ec *executionContext) childFields_LocationOutput(ctx context.Context, fiel
 	switch field.Name {
 	case "location":
 		return ec.fieldContext_LocationOutput_location(ctx, field)
-	case "workflows":
-		return ec.fieldContext_LocationOutput_workflows(ctx, field)
+	case "transactionID":
+		return ec.fieldContext_LocationOutput_transactionID(ctx, field)
+	case "eventCount":
+		return ec.fieldContext_LocationOutput_eventCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type LocationOutput", field.Name)
 }
@@ -6569,8 +6608,10 @@ func (ec *executionContext) childFields_SendCustomEventResponse(ctx context.Cont
 	switch field.Name {
 	case "success":
 		return ec.fieldContext_SendCustomEventResponse_success(ctx, field)
-	case "workflows":
-		return ec.fieldContext_SendCustomEventResponse_workflows(ctx, field)
+	case "transactionID":
+		return ec.fieldContext_SendCustomEventResponse_transactionID(ctx, field)
+	case "eventCount":
+		return ec.fieldContext_SendCustomEventResponse_eventCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type SendCustomEventResponse", field.Name)
 }
@@ -6607,18 +6648,6 @@ func (ec *executionContext) childFields_SetTenantUITemplateResponse(ctx context.
 		return ec.fieldContext_SetTenantUITemplateResponse_success(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type SetTenantUITemplateResponse", field.Name)
-}
-
-func (ec *executionContext) childFields_TemporalWorkflow(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "type":
-		return ec.fieldContext_TemporalWorkflow_type(ctx, field)
-	case "id":
-		return ec.fieldContext_TemporalWorkflow_id(ctx, field)
-	case "runID":
-		return ec.fieldContext_TemporalWorkflow_runID(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type TemporalWorkflow", field.Name)
 }
 
 func (ec *executionContext) childFields_Tenant(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -8293,36 +8322,50 @@ func (ec *executionContext) fieldContext_CheckInUserDeviceOutput_deviceUser(_ co
 	return fc, nil
 }
 
-func (ec *executionContext) _CheckInUserDeviceOutput_workflows(ctx context.Context, field graphql.CollectedField, obj *model.CheckInUserDeviceOutput) (ret graphql.Marshaler) {
+func (ec *executionContext) _CheckInUserDeviceOutput_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.CheckInUserDeviceOutput) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CheckInUserDeviceOutput_workflows(ctx, field)
+			return ec.fieldContext_CheckInUserDeviceOutput_transactionID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Workflows, nil
+			return obj.TransactionID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-			return ec.marshalNTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋmodelᚐTemporalWorkflowᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_CheckInUserDeviceOutput_workflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "CheckInUserDeviceOutput",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TemporalWorkflow(ctx, field)
+func (ec *executionContext) fieldContext_CheckInUserDeviceOutput_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CheckInUserDeviceOutput", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _CheckInUserDeviceOutput_eventCount(ctx context.Context, field graphql.CollectedField, obj *model.CheckInUserDeviceOutput) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CheckInUserDeviceOutput_eventCount(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.EventCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CheckInUserDeviceOutput_eventCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CheckInUserDeviceOutput", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _CheckOutUserDeviceOutput_deviceUser(ctx context.Context, field graphql.CollectedField, obj *model.CheckOutUserDeviceOutput) (ret graphql.Marshaler) {
@@ -8357,36 +8400,50 @@ func (ec *executionContext) fieldContext_CheckOutUserDeviceOutput_deviceUser(_ c
 	return fc, nil
 }
 
-func (ec *executionContext) _CheckOutUserDeviceOutput_workflows(ctx context.Context, field graphql.CollectedField, obj *model.CheckOutUserDeviceOutput) (ret graphql.Marshaler) {
+func (ec *executionContext) _CheckOutUserDeviceOutput_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.CheckOutUserDeviceOutput) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CheckOutUserDeviceOutput_workflows(ctx, field)
+			return ec.fieldContext_CheckOutUserDeviceOutput_transactionID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Workflows, nil
+			return obj.TransactionID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-			return ec.marshalNTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋmodelᚐTemporalWorkflowᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_CheckOutUserDeviceOutput_workflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "CheckOutUserDeviceOutput",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TemporalWorkflow(ctx, field)
+func (ec *executionContext) fieldContext_CheckOutUserDeviceOutput_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CheckOutUserDeviceOutput", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _CheckOutUserDeviceOutput_eventCount(ctx context.Context, field graphql.CollectedField, obj *model.CheckOutUserDeviceOutput) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CheckOutUserDeviceOutput_eventCount(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.EventCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CheckOutUserDeviceOutput_eventCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CheckOutUserDeviceOutput", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _CustomEvent_type(ctx context.Context, field graphql.CollectedField, obj *model.CustomEvent) (ret graphql.Marshaler) {
@@ -9488,36 +9545,50 @@ func (ec *executionContext) fieldContext_DeviceDeletePayload_deletedID(_ context
 	return graphql.NewScalarFieldContext("DeviceDeletePayload", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _DeviceDeletePayload_workflows(ctx context.Context, field graphql.CollectedField, obj *model.DeviceDeletePayload) (ret graphql.Marshaler) {
+func (ec *executionContext) _DeviceDeletePayload_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.DeviceDeletePayload) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_DeviceDeletePayload_workflows(ctx, field)
+			return ec.fieldContext_DeviceDeletePayload_transactionID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Workflows, nil
+			return obj.TransactionID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-			return ec.marshalNTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋmodelᚐTemporalWorkflowᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_DeviceDeletePayload_workflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "DeviceDeletePayload",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TemporalWorkflow(ctx, field)
+func (ec *executionContext) fieldContext_DeviceDeletePayload_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeviceDeletePayload", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _DeviceDeletePayload_eventCount(ctx context.Context, field graphql.CollectedField, obj *model.DeviceDeletePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeviceDeletePayload_eventCount(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.EventCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeviceDeletePayload_eventCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeviceDeletePayload", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _DeviceEdge_node(ctx context.Context, field graphql.CollectedField, obj *gen.DeviceEdge) (ret graphql.Marshaler) {
@@ -10048,36 +10119,50 @@ func (ec *executionContext) fieldContext_DeviceLocationDeletePayload_deletedID(_
 	return graphql.NewScalarFieldContext("DeviceLocationDeletePayload", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _DeviceLocationDeletePayload_workflows(ctx context.Context, field graphql.CollectedField, obj *model.DeviceLocationDeletePayload) (ret graphql.Marshaler) {
+func (ec *executionContext) _DeviceLocationDeletePayload_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.DeviceLocationDeletePayload) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_DeviceLocationDeletePayload_workflows(ctx, field)
+			return ec.fieldContext_DeviceLocationDeletePayload_transactionID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Workflows, nil
+			return obj.TransactionID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-			return ec.marshalNTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋmodelᚐTemporalWorkflowᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_DeviceLocationDeletePayload_workflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "DeviceLocationDeletePayload",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TemporalWorkflow(ctx, field)
+func (ec *executionContext) fieldContext_DeviceLocationDeletePayload_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeviceLocationDeletePayload", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _DeviceLocationDeletePayload_eventCount(ctx context.Context, field graphql.CollectedField, obj *model.DeviceLocationDeletePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeviceLocationDeletePayload_eventCount(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.EventCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeviceLocationDeletePayload_eventCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeviceLocationDeletePayload", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _DeviceLocationEdge_node(ctx context.Context, field graphql.CollectedField, obj *gen.DeviceLocationEdge) (ret graphql.Marshaler) {
@@ -10167,36 +10252,50 @@ func (ec *executionContext) fieldContext_DeviceLocationOutput_DeviceLocation(_ c
 	return fc, nil
 }
 
-func (ec *executionContext) _DeviceLocationOutput_workflows(ctx context.Context, field graphql.CollectedField, obj *model.DeviceLocationOutput) (ret graphql.Marshaler) {
+func (ec *executionContext) _DeviceLocationOutput_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.DeviceLocationOutput) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_DeviceLocationOutput_workflows(ctx, field)
+			return ec.fieldContext_DeviceLocationOutput_transactionID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Workflows, nil
+			return obj.TransactionID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-			return ec.marshalNTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋmodelᚐTemporalWorkflowᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_DeviceLocationOutput_workflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "DeviceLocationOutput",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TemporalWorkflow(ctx, field)
+func (ec *executionContext) fieldContext_DeviceLocationOutput_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeviceLocationOutput", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _DeviceLocationOutput_eventCount(ctx context.Context, field graphql.CollectedField, obj *model.DeviceLocationOutput) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeviceLocationOutput_eventCount(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.EventCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeviceLocationOutput_eventCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeviceLocationOutput", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _DeviceOutput_device(ctx context.Context, field graphql.CollectedField, obj *model.DeviceOutput) (ret graphql.Marshaler) {
@@ -10231,36 +10330,50 @@ func (ec *executionContext) fieldContext_DeviceOutput_device(_ context.Context, 
 	return fc, nil
 }
 
-func (ec *executionContext) _DeviceOutput_workflows(ctx context.Context, field graphql.CollectedField, obj *model.DeviceOutput) (ret graphql.Marshaler) {
+func (ec *executionContext) _DeviceOutput_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.DeviceOutput) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_DeviceOutput_workflows(ctx, field)
+			return ec.fieldContext_DeviceOutput_transactionID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Workflows, nil
+			return obj.TransactionID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-			return ec.marshalNTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋmodelᚐTemporalWorkflowᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_DeviceOutput_workflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "DeviceOutput",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TemporalWorkflow(ctx, field)
+func (ec *executionContext) fieldContext_DeviceOutput_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeviceOutput", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _DeviceOutput_eventCount(ctx context.Context, field graphql.CollectedField, obj *model.DeviceOutput) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DeviceOutput_eventCount(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.EventCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DeviceOutput_eventCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DeviceOutput", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _DeviceUser_id(ctx context.Context, field graphql.CollectedField, obj *gen.DeviceUser) (ret graphql.Marshaler) {
@@ -10973,29 +11086,6 @@ func (ec *executionContext) _EntityEventsOutbox_payload(ctx context.Context, fie
 }
 func (ec *executionContext) fieldContext_EntityEventsOutbox_payload(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("EntityEventsOutbox", field, false, false, errors.New("field of type Map does not have child fields"))
-}
-
-func (ec *executionContext) _EntityEventsOutbox_withReply(ctx context.Context, field graphql.CollectedField, obj *gen.EntityEventsOutbox) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_EntityEventsOutbox_withReply(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.WithReply, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_EntityEventsOutbox_withReply(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("EntityEventsOutbox", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
 func (ec *executionContext) _EntityEventsOutbox_retryCount(ctx context.Context, field graphql.CollectedField, obj *gen.EntityEventsOutbox) (ret graphql.Marshaler) {
@@ -12076,36 +12166,50 @@ func (ec *executionContext) fieldContext_LocationDeletePayload_deletedID(_ conte
 	return graphql.NewScalarFieldContext("LocationDeletePayload", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _LocationDeletePayload_workflows(ctx context.Context, field graphql.CollectedField, obj *model.LocationDeletePayload) (ret graphql.Marshaler) {
+func (ec *executionContext) _LocationDeletePayload_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.LocationDeletePayload) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_LocationDeletePayload_workflows(ctx, field)
+			return ec.fieldContext_LocationDeletePayload_transactionID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Workflows, nil
+			return obj.TransactionID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-			return ec.marshalNTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋmodelᚐTemporalWorkflowᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_LocationDeletePayload_workflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "LocationDeletePayload",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TemporalWorkflow(ctx, field)
+func (ec *executionContext) fieldContext_LocationDeletePayload_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LocationDeletePayload", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _LocationDeletePayload_eventCount(ctx context.Context, field graphql.CollectedField, obj *model.LocationDeletePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LocationDeletePayload_eventCount(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.EventCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LocationDeletePayload_eventCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LocationDeletePayload", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _LocationEdge_node(ctx context.Context, field graphql.CollectedField, obj *gen.LocationEdge) (ret graphql.Marshaler) {
@@ -12195,36 +12299,50 @@ func (ec *executionContext) fieldContext_LocationOutput_location(_ context.Conte
 	return fc, nil
 }
 
-func (ec *executionContext) _LocationOutput_workflows(ctx context.Context, field graphql.CollectedField, obj *model.LocationOutput) (ret graphql.Marshaler) {
+func (ec *executionContext) _LocationOutput_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.LocationOutput) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_LocationOutput_workflows(ctx, field)
+			return ec.fieldContext_LocationOutput_transactionID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Workflows, nil
+			return obj.TransactionID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-			return ec.marshalNTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋmodelᚐTemporalWorkflowᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_LocationOutput_workflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "LocationOutput",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TemporalWorkflow(ctx, field)
+func (ec *executionContext) fieldContext_LocationOutput_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LocationOutput", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _LocationOutput_eventCount(ctx context.Context, field graphql.CollectedField, obj *model.LocationOutput) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LocationOutput_eventCount(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.EventCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LocationOutput_eventCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LocationOutput", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _Mutation_createDataType(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -14619,36 +14737,50 @@ func (ec *executionContext) fieldContext_SendCustomEventResponse_success(_ conte
 	return graphql.NewScalarFieldContext("SendCustomEventResponse", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
-func (ec *executionContext) _SendCustomEventResponse_workflows(ctx context.Context, field graphql.CollectedField, obj *model.SendCustomEventResponse) (ret graphql.Marshaler) {
+func (ec *executionContext) _SendCustomEventResponse_transactionID(ctx context.Context, field graphql.CollectedField, obj *model.SendCustomEventResponse) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_SendCustomEventResponse_workflows(ctx, field)
+			return ec.fieldContext_SendCustomEventResponse_transactionID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Workflows, nil
+			return obj.TransactionID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-			return ec.marshalNTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋmodelᚐTemporalWorkflowᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_SendCustomEventResponse_workflows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SendCustomEventResponse",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TemporalWorkflow(ctx, field)
+func (ec *executionContext) fieldContext_SendCustomEventResponse_transactionID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SendCustomEventResponse", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _SendCustomEventResponse_eventCount(ctx context.Context, field graphql.CollectedField, obj *model.SendCustomEventResponse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SendCustomEventResponse_eventCount(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.EventCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SendCustomEventResponse_eventCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SendCustomEventResponse", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _ServiceInfo_version(ctx context.Context, field graphql.CollectedField, obj *model.ServiceInfo) (ret graphql.Marshaler) {
@@ -14764,121 +14896,6 @@ func (ec *executionContext) _SetTenantUITemplateResponse_success(ctx context.Con
 }
 func (ec *executionContext) fieldContext_SetTenantUITemplateResponse_success(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("SetTenantUITemplateResponse", field, false, false, errors.New("field of type Boolean does not have child fields"))
-}
-
-func (ec *executionContext) _TemporalMetadata_key(ctx context.Context, field graphql.CollectedField, obj *model.TemporalMetadata) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TemporalMetadata_key(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Key, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TemporalMetadata_key(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TemporalMetadata", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _TemporalMetadata_value(ctx context.Context, field graphql.CollectedField, obj *model.TemporalMetadata) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TemporalMetadata_value(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Value, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TemporalMetadata_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TemporalMetadata", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _TemporalWorkflow_type(ctx context.Context, field graphql.CollectedField, obj *model.TemporalWorkflow) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TemporalWorkflow_type(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Type, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TemporalWorkflow_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TemporalWorkflow", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _TemporalWorkflow_id(ctx context.Context, field graphql.CollectedField, obj *model.TemporalWorkflow) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TemporalWorkflow_id(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TemporalWorkflow_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TemporalWorkflow", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _TemporalWorkflow_runID(ctx context.Context, field graphql.CollectedField, obj *model.TemporalWorkflow) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TemporalWorkflow_runID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.RunID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TemporalWorkflow_runID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TemporalWorkflow", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _Tenant_id(ctx context.Context, field graphql.CollectedField, obj *gen.Tenant) (ret graphql.Marshaler) {
@@ -21287,7 +21304,7 @@ func (ec *executionContext) unmarshalInputEntityEventsOutboxWhereInput(ctx conte
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"not", "and", "or", "id", "idNEQ", "idIn", "idNotIn", "idGT", "idGTE", "idLT", "idLTE", "createdAt", "createdAtNEQ", "createdAtIn", "createdAtNotIn", "createdAtGT", "createdAtGTE", "createdAtLT", "createdAtLTE", "publishedAt", "publishedAtNEQ", "publishedAtIn", "publishedAtNotIn", "publishedAtGT", "publishedAtGTE", "publishedAtLT", "publishedAtLTE", "publishedAtIsNil", "publishedAtNotNil", "userID", "userIDNEQ", "userIDIn", "userIDNotIn", "userIDGT", "userIDGTE", "userIDLT", "userIDLTE", "userIDIsNil", "userIDNotNil", "transactionID", "transactionIDNEQ", "transactionIDIn", "transactionIDNotIn", "transactionIDGT", "transactionIDGTE", "transactionIDLT", "transactionIDLTE", "traceID", "traceIDNEQ", "traceIDIn", "traceIDNotIn", "traceIDGT", "traceIDGTE", "traceIDLT", "traceIDLTE", "traceIDContains", "traceIDHasPrefix", "traceIDHasSuffix", "traceIDIsNil", "traceIDNotNil", "traceIDEqualFold", "traceIDContainsFold", "requestID", "requestIDNEQ", "requestIDIn", "requestIDNotIn", "requestIDGT", "requestIDGTE", "requestIDLT", "requestIDLTE", "requestIDContains", "requestIDHasPrefix", "requestIDHasSuffix", "requestIDIsNil", "requestIDNotNil", "requestIDEqualFold", "requestIDContainsFold", "topic", "topicNEQ", "topicIn", "topicNotIn", "topicGT", "topicGTE", "topicLT", "topicLTE", "topicContains", "topicHasPrefix", "topicHasSuffix", "topicEqualFold", "topicContainsFold", "withReply", "withReplyNEQ", "retryCount", "retryCountNEQ", "retryCountIn", "retryCountNotIn", "retryCountGT", "retryCountGTE", "retryCountLT", "retryCountLTE", "lastError", "lastErrorNEQ", "lastErrorIn", "lastErrorNotIn", "lastErrorGT", "lastErrorGTE", "lastErrorLT", "lastErrorLTE", "lastErrorContains", "lastErrorHasPrefix", "lastErrorHasSuffix", "lastErrorIsNil", "lastErrorNotNil", "lastErrorEqualFold", "lastErrorContainsFold", "deadAt", "deadAtNEQ", "deadAtIn", "deadAtNotIn", "deadAtGT", "deadAtGTE", "deadAtLT", "deadAtLTE", "deadAtIsNil", "deadAtNotNil", "nextRetryAt", "nextRetryAtNEQ", "nextRetryAtIn", "nextRetryAtNotIn", "nextRetryAtGT", "nextRetryAtGTE", "nextRetryAtLT", "nextRetryAtLTE", "nextRetryAtIsNil", "nextRetryAtNotNil", "entityType", "entityTypeNEQ", "entityTypeIn", "entityTypeNotIn", "entityTypeGT", "entityTypeGTE", "entityTypeLT", "entityTypeLTE", "entityTypeContains", "entityTypeHasPrefix", "entityTypeHasSuffix", "entityTypeIsNil", "entityTypeNotNil", "entityTypeEqualFold", "entityTypeContainsFold", "entityID", "entityIDNEQ", "entityIDIn", "entityIDNotIn", "entityIDGT", "entityIDGTE", "entityIDLT", "entityIDLTE", "entityIDIsNil", "entityIDNotNil", "tenantID", "tenantIDNEQ", "tenantIDIn", "tenantIDNotIn", "tenantIDGT", "tenantIDGTE", "tenantIDLT", "tenantIDLTE"}
+	fieldsInOrder := [...]string{"not", "and", "or", "id", "idNEQ", "idIn", "idNotIn", "idGT", "idGTE", "idLT", "idLTE", "createdAt", "createdAtNEQ", "createdAtIn", "createdAtNotIn", "createdAtGT", "createdAtGTE", "createdAtLT", "createdAtLTE", "publishedAt", "publishedAtNEQ", "publishedAtIn", "publishedAtNotIn", "publishedAtGT", "publishedAtGTE", "publishedAtLT", "publishedAtLTE", "publishedAtIsNil", "publishedAtNotNil", "userID", "userIDNEQ", "userIDIn", "userIDNotIn", "userIDGT", "userIDGTE", "userIDLT", "userIDLTE", "userIDIsNil", "userIDNotNil", "transactionID", "transactionIDNEQ", "transactionIDIn", "transactionIDNotIn", "transactionIDGT", "transactionIDGTE", "transactionIDLT", "transactionIDLTE", "traceID", "traceIDNEQ", "traceIDIn", "traceIDNotIn", "traceIDGT", "traceIDGTE", "traceIDLT", "traceIDLTE", "traceIDContains", "traceIDHasPrefix", "traceIDHasSuffix", "traceIDIsNil", "traceIDNotNil", "traceIDEqualFold", "traceIDContainsFold", "requestID", "requestIDNEQ", "requestIDIn", "requestIDNotIn", "requestIDGT", "requestIDGTE", "requestIDLT", "requestIDLTE", "requestIDContains", "requestIDHasPrefix", "requestIDHasSuffix", "requestIDIsNil", "requestIDNotNil", "requestIDEqualFold", "requestIDContainsFold", "topic", "topicNEQ", "topicIn", "topicNotIn", "topicGT", "topicGTE", "topicLT", "topicLTE", "topicContains", "topicHasPrefix", "topicHasSuffix", "topicEqualFold", "topicContainsFold", "retryCount", "retryCountNEQ", "retryCountIn", "retryCountNotIn", "retryCountGT", "retryCountGTE", "retryCountLT", "retryCountLTE", "lastError", "lastErrorNEQ", "lastErrorIn", "lastErrorNotIn", "lastErrorGT", "lastErrorGTE", "lastErrorLT", "lastErrorLTE", "lastErrorContains", "lastErrorHasPrefix", "lastErrorHasSuffix", "lastErrorIsNil", "lastErrorNotNil", "lastErrorEqualFold", "lastErrorContainsFold", "deadAt", "deadAtNEQ", "deadAtIn", "deadAtNotIn", "deadAtGT", "deadAtGTE", "deadAtLT", "deadAtLTE", "deadAtIsNil", "deadAtNotNil", "nextRetryAt", "nextRetryAtNEQ", "nextRetryAtIn", "nextRetryAtNotIn", "nextRetryAtGT", "nextRetryAtGTE", "nextRetryAtLT", "nextRetryAtLTE", "nextRetryAtIsNil", "nextRetryAtNotNil", "entityType", "entityTypeNEQ", "entityTypeIn", "entityTypeNotIn", "entityTypeGT", "entityTypeGTE", "entityTypeLT", "entityTypeLTE", "entityTypeContains", "entityTypeHasPrefix", "entityTypeHasSuffix", "entityTypeIsNil", "entityTypeNotNil", "entityTypeEqualFold", "entityTypeContainsFold", "entityID", "entityIDNEQ", "entityIDIn", "entityIDNotIn", "entityIDGT", "entityIDGTE", "entityIDLT", "entityIDLTE", "entityIDIsNil", "entityIDNotNil", "tenantID", "tenantIDNEQ", "tenantIDIn", "tenantIDNotIn", "tenantIDGT", "tenantIDGTE", "tenantIDLT", "tenantIDLTE"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -21924,20 +21941,6 @@ func (ec *executionContext) unmarshalInputEntityEventsOutboxWhereInput(ctx conte
 				return it, err
 			}
 			it.TopicContainsFold = data
-		case "withReply":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("withReply"))
-			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.WithReply = data
-		case "withReplyNEQ":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("withReplyNEQ"))
-			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.WithReplyNEQ = data
 		case "retryCount":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("retryCount"))
 			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
@@ -26810,8 +26813,13 @@ func (ec *executionContext) _CheckInUserDeviceOutput(ctx context.Context, sel as
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "workflows":
-			out.Values[i] = ec._CheckInUserDeviceOutput_workflows(ctx, field, obj)
+		case "transactionID":
+			out.Values[i] = ec._CheckInUserDeviceOutput_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventCount":
+			out.Values[i] = ec._CheckInUserDeviceOutput_eventCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -26853,8 +26861,13 @@ func (ec *executionContext) _CheckOutUserDeviceOutput(ctx context.Context, sel a
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "workflows":
-			out.Values[i] = ec._CheckOutUserDeviceOutput_workflows(ctx, field, obj)
+		case "transactionID":
+			out.Values[i] = ec._CheckOutUserDeviceOutput_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventCount":
+			out.Values[i] = ec._CheckOutUserDeviceOutput_eventCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -27507,8 +27520,13 @@ func (ec *executionContext) _DeviceDeletePayload(ctx context.Context, sel ast.Se
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
-		case "workflows":
-			out.Values[i] = ec._DeviceDeletePayload_workflows(ctx, field, obj)
+		case "transactionID":
+			out.Values[i] = ec._DeviceDeletePayload_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventCount":
+			out.Values[i] = ec._DeviceDeletePayload_eventCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -27815,8 +27833,13 @@ func (ec *executionContext) _DeviceLocationDeletePayload(ctx context.Context, se
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
-		case "workflows":
-			out.Values[i] = ec._DeviceLocationDeletePayload_workflows(ctx, field, obj)
+		case "transactionID":
+			out.Values[i] = ec._DeviceLocationDeletePayload_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventCount":
+			out.Values[i] = ec._DeviceLocationDeletePayload_eventCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -27901,8 +27924,13 @@ func (ec *executionContext) _DeviceLocationOutput(ctx context.Context, sel ast.S
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "workflows":
-			out.Values[i] = ec._DeviceLocationOutput_workflows(ctx, field, obj)
+		case "transactionID":
+			out.Values[i] = ec._DeviceLocationOutput_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventCount":
+			out.Values[i] = ec._DeviceLocationOutput_eventCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -27944,8 +27972,13 @@ func (ec *executionContext) _DeviceOutput(ctx context.Context, sel ast.Selection
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "workflows":
-			out.Values[i] = ec._DeviceOutput_workflows(ctx, field, obj)
+		case "transactionID":
+			out.Values[i] = ec._DeviceOutput_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventCount":
+			out.Values[i] = ec._DeviceOutput_eventCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -28289,11 +28322,6 @@ func (ec *executionContext) _EntityEventsOutbox(ctx context.Context, sel ast.Sel
 			}
 		case "payload":
 			out.Values[i] = ec._EntityEventsOutbox_payload(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "withReply":
-			out.Values[i] = ec._EntityEventsOutbox_withReply(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -28814,8 +28842,13 @@ func (ec *executionContext) _LocationDeletePayload(ctx context.Context, sel ast.
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
-		case "workflows":
-			out.Values[i] = ec._LocationDeletePayload_workflows(ctx, field, obj)
+		case "transactionID":
+			out.Values[i] = ec._LocationDeletePayload_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventCount":
+			out.Values[i] = ec._LocationDeletePayload_eventCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -28900,8 +28933,13 @@ func (ec *executionContext) _LocationOutput(ctx context.Context, sel ast.Selecti
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "workflows":
-			out.Values[i] = ec._LocationOutput_workflows(ctx, field, obj)
+		case "transactionID":
+			out.Values[i] = ec._LocationOutput_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventCount":
+			out.Values[i] = ec._LocationOutput_eventCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -29865,8 +29903,13 @@ func (ec *executionContext) _SendCustomEventResponse(ctx context.Context, sel as
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "workflows":
-			out.Values[i] = ec._SendCustomEventResponse_workflows(ctx, field, obj)
+		case "transactionID":
+			out.Values[i] = ec._SendCustomEventResponse_transactionID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventCount":
+			out.Values[i] = ec._SendCustomEventResponse_eventCount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -30024,97 +30067,6 @@ func (ec *executionContext) _SetTenantUITemplateResponse(ctx context.Context, se
 			out.Values[i] = graphql.MarshalString("SetTenantUITemplateResponse")
 		case "success":
 			out.Values[i] = ec._SetTenantUITemplateResponse_success(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var temporalMetadataImplementors = []string{"TemporalMetadata"}
-
-func (ec *executionContext) _TemporalMetadata(ctx context.Context, sel ast.SelectionSet, obj *model.TemporalMetadata) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, temporalMetadataImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("TemporalMetadata")
-		case "key":
-			out.Values[i] = ec._TemporalMetadata_key(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "value":
-			out.Values[i] = ec._TemporalMetadata_value(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var temporalWorkflowImplementors = []string{"TemporalWorkflow"}
-
-func (ec *executionContext) _TemporalWorkflow(ctx context.Context, sel ast.SelectionSet, obj *model.TemporalWorkflow) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, temporalWorkflowImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("TemporalWorkflow")
-		case "type":
-			out.Values[i] = ec._TemporalWorkflow_type(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "id":
-			out.Values[i] = ec._TemporalWorkflow_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "runID":
-			out.Values[i] = ec._TemporalWorkflow_runID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -32031,32 +31983,6 @@ func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel
 	}
 
 	return ret
-}
-
-func (ec *executionContext) marshalNTemporalWorkflow2ᚕᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋmodelᚐTemporalWorkflowᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TemporalWorkflow) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNTemporalWorkflow2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋmodelᚐTemporalWorkflow(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNTemporalWorkflow2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋmodelᚐTemporalWorkflow(ctx context.Context, sel ast.SelectionSet, v *model.TemporalWorkflow) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._TemporalWorkflow(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNTenant2ᚖgithubᚗcomᚋpyckᚑaiᚋpyckᚋbackendᚋmanagementᚋentᚋgenᚐTenant(ctx context.Context, sel ast.SelectionSet, v *gen.Tenant) graphql.Marshaler {

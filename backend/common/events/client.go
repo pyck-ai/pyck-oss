@@ -10,11 +10,19 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/log"
 )
 
-// DrainTimeout bounds NATS drains during shutdown — both the connection
-// drain (DrainNatsClient) and per-consumer drains that precede it. It only
-// has to cover ACK round-trips for messages already in flight; everything
-// publishing has stopped by then.
-const DrainTimeout = 5 * time.Second
+const (
+	// DrainTimeout bounds NATS drains during shutdown — both the connection
+	// drain (DrainNatsClient) and per-consumer drains that precede it. It only
+	// has to cover ACK round-trips for messages already in flight; everything
+	// publishing has stopped by then.
+	DrainTimeout = 5 * time.Second
+
+	// StreamDuplicateWindow is how long the main stream remembers JetStream
+	// message IDs (Nats-Msg-Id) and drops a repeat publish. It equals the NATS
+	// default; it is set explicitly so the dedup that state-change publishing
+	// relies on does not depend on a server default.
+	StreamDuplicateWindow = 2 * time.Minute
+)
 
 func NewNatsClient(ctx context.Context, natsURL string) (*nats.Conn, error) {
 	client, err := nats.Connect(
@@ -90,6 +98,7 @@ func CreateOrUpdateJetstream(ctx context.Context, natsClient *nats.Conn, streamN
 		Replicas:     natsReplicaNo,
 		MaxConsumers: 200,
 		MaxAge:       time.Hour * 24 * 3,
+		Duplicates:   StreamDuplicateWindow,
 		Retention:    jetstream.LimitsPolicy,
 		Discard:      jetstream.DiscardOld,
 		ConsumerLimits: jetstream.StreamConsumerLimits{

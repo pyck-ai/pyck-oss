@@ -16,9 +16,6 @@ var ErrNoPostCommitContainer = errors.New("gqltx: post-commit container not init
 // ErrPostCommitAlreadyClosed is returned when post-commit hooks are registered or run after finalization.
 var ErrPostCommitAlreadyClosed = errors.New("gqltx: post-commit container already closed or runPostCommit called more than once for the same transaction")
 
-// ErrResponsePatchAlreadyClosed is returned when response patches are registered or run after finalization.
-var ErrResponsePatchAlreadyClosed = errors.New("gqltx: response patches already closed or RunResponsePatches called more than once for the same transaction")
-
 // ErrIsRetryable checks if any error in the list is retryable (e.g., a serialization failure).
 func ErrIsRetryable(errs gqlerror.List) bool {
 	for _, e := range errs {

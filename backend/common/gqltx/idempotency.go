@@ -183,25 +183,10 @@ func (m *Middleware[T]) insertInFlight(
 // in-flight row is gone, so the retry re-inserts cleanly), or the
 // terminal structured 500. Rolls back tx on every failure path.
 //
-// Known limitation — replays return the PRE-PATCH response body.
-// SerializeResponse runs here, inside the mutation transaction and before
-// tx.Commit, but response patches registered via AddResponsePatch (e.g.
-// the workflow-reply IDs injected by NewWorkflowReplyMiddleware) run AFTER
-// commit so they can incorporate post-commit data. The cached body is
-// therefore the version without those patches, and a later replay of the
-// same key returns state frozen at original-execution time, omitting any
-// post-commit details.
-//
-// This is inherent to the atomic in-transaction design, not a fixable
-// ordering bug: the committed marker MUST be written inside the mutation
-// tx to keep the at-most-once guarantee, while patch data only exists
-// after commit (it can block on a NATS reply), so the two cannot both be
-// captured in one write. The limitation is general — any operation can
-// register post-commit patches — so it is not restricted to workflow
-// mutations, and a workflow-only guard would not reliably help. The real
-// fix is to stop patching responses post-commit and instead return a
-// handle the client looks up; that is tracked in #1298, after which this
-// limitation disappears.
+// Because nothing mutates the response after commit (mutations return a
+// transaction-ID handle instead of post-commit-patched workflow details),
+// the body cached here is byte-identical to the wire response and replays
+// are complete.
 func (m *Middleware[T]) persistIdempotencyResponse(
 	ns string,
 	ctx context.Context,

@@ -90,11 +90,6 @@ func Topic(v string) predicate.EntityEventsOutbox {
 	return predicate.EntityEventsOutbox(sql.FieldEQ(FieldTopic, v))
 }
 
-// WithReply applies equality check predicate on the "with_reply" field. It's identical to WithReplyEQ.
-func WithReply(v bool) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldEQ(FieldWithReply, v))
-}
-
 // RetryCount applies equality check predicate on the "retry_count" field. It's identical to RetryCountEQ.
 func RetryCount(v int) predicate.EntityEventsOutbox {
 	return predicate.EntityEventsOutbox(sql.FieldEQ(FieldRetryCount, v))
@@ -523,16 +518,6 @@ func TopicEqualFold(v string) predicate.EntityEventsOutbox {
 // TopicContainsFold applies the ContainsFold predicate on the "topic" field.
 func TopicContainsFold(v string) predicate.EntityEventsOutbox {
 	return predicate.EntityEventsOutbox(sql.FieldContainsFold(FieldTopic, v))
-}
-
-// WithReplyEQ applies the EQ predicate on the "with_reply" field.
-func WithReplyEQ(v bool) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldEQ(FieldWithReply, v))
-}
-
-// WithReplyNEQ applies the NEQ predicate on the "with_reply" field.
-func WithReplyNEQ(v bool) predicate.EntityEventsOutbox {
-	return predicate.EntityEventsOutbox(sql.FieldNEQ(FieldWithReply, v))
 }
 
 // RetryCountEQ applies the EQ predicate on the "retry_count" field.

@@ -1,0 +1,248 @@
+---
+name: "User - Relation Filter Skips Soft-Deleted Items"
+description: >
+  A relation filter must not match through a soft-deleted neighbour that a
+  direct query hides. Creates a picking order with one item, checks that
+  pickingOrders(where: {hasOrderItemsWith: [{sku}]}) finds the order, deletes
+  the item, then checks that the direct item query, the relation filter and
+  the plain hasOrderItems filter all return nothing. With X-Pyck-Feature: showdeleted both see the row
+  again. The order is deleted at the end.
+steps:
+- id: createOrder
+  name: Create picking order
+  operation: picking.createPickingOrder
+  vars:
+    input: {}
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Order created
+    assertions:
+    - ref: res.body.data.createPickingOrder.pickingOrder.id
+      nil: false
+- id: createItem
+  name: Create picking order item
+  operation: picking.createPickingOrderItem
+  vars:
+    input:
+      orderID:
+        $ref: res[createOrder].body.data.createPickingOrder.pickingOrder.id
+      sku: {$fake: "{{sku}}-{{nonce}}"}
+      quantity: 1
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Item created
+    assertions:
+    - ref: res.body.data.createPickingOrderItem.pickingOrderItem.id
+      nil: false
+- name: Positive control - relation filter matches the live item
+  operation: picking.getPickingOrders
+  vars:
+    where:
+      id:
+        $ref: res[createOrder].body.data.createPickingOrder.pickingOrder.id
+      hasOrderItemsWith:
+      - sku:
+          $ref: res[createItem].body.data.createPickingOrderItem.pickingOrderItem.sku
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: The order is found through its item
+    assertions:
+    - ref: res.body.data.pickingOrders.totalCount
+      equal: 1
+- name: Positive control - plain hasOrderItems matches the live item
+  operation: picking.getPickingOrders
+  vars:
+    where:
+      id:
+        $ref: res[createOrder].body.data.createPickingOrder.pickingOrder.id
+      hasOrderItems: true
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: The order has items
+    assertions:
+    - ref: res.body.data.pickingOrders.totalCount
+      equal: 1
+- name: Delete the order item
+  operation: picking.deletePickingOrderItem
+  vars:
+    id:
+      $ref: res[createItem].body.data.createPickingOrderItem.pickingOrderItem.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+- name: Control - the deleted item is hidden from a direct query
+  operation: picking.getPickingOrderItems
+  vars:
+    where:
+      sku:
+        $ref: res[createItem].body.data.createPickingOrderItem.pickingOrderItem.sku
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: No item returned
+    assertions:
+    - ref: res.body.data.pickingOrderItems.totalCount
+      equal: 0
+- name: Relation filter does not match through the deleted item
+  operation: picking.getPickingOrders
+  vars:
+    where:
+      id:
+        $ref: res[createOrder].body.data.createPickingOrder.pickingOrder.id
+      hasOrderItemsWith:
+      - sku:
+          $ref: res[createItem].body.data.createPickingOrderItem.pickingOrderItem.sku
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: The order is not found through a soft-deleted item
+    assertions:
+    - ref: res.body.data.pickingOrders.totalCount
+      equal: 0
+- name: Plain hasOrderItems does not count the deleted item
+  operation: picking.getPickingOrders
+  vars:
+    where:
+      id:
+        $ref: res[createOrder].body.data.createPickingOrder.pickingOrder.id
+      hasOrderItems: true
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: The order has no live items
+    assertions:
+    - ref: res.body.data.pickingOrders.totalCount
+      equal: 0
+- name: showdeleted - the direct query sees the deleted item
+  operation: picking.getPickingOrderItems
+  headers:
+    X-Pyck-Feature: showdeleted
+  vars:
+    where:
+      sku:
+        $ref: res[createItem].body.data.createPickingOrderItem.pickingOrderItem.sku
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: The deleted item is returned
+    assertions:
+    - ref: res.body.data.pickingOrderItems.totalCount
+      equal: 1
+- name: showdeleted - the relation filter agrees
+  operation: picking.getPickingOrders
+  headers:
+    X-Pyck-Feature: showdeleted
+  vars:
+    where:
+      id:
+        $ref: res[createOrder].body.data.createPickingOrder.pickingOrder.id
+      hasOrderItemsWith:
+      - sku:
+          $ref: res[createItem].body.data.createPickingOrderItem.pickingOrderItem.sku
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: The order is found through the deleted item
+    assertions:
+    - ref: res.body.data.pickingOrders.totalCount
+      equal: 1
+- name: showdeleted - plain hasOrderItems counts the deleted item
+  operation: picking.getPickingOrders
+  headers:
+    X-Pyck-Feature: showdeleted
+  vars:
+    where:
+      id:
+        $ref: res[createOrder].body.data.createPickingOrder.pickingOrder.id
+      hasOrderItems: true
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: The order has items
+    assertions:
+    - ref: res.body.data.pickingOrders.totalCount
+      equal: 1
+- name: Delete the order
+  operation: picking.deletePickingOrder
+  vars:
+    id:
+      $ref: res[createOrder].body.data.createPickingOrder.pickingOrder.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true

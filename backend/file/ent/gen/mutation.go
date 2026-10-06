@@ -46,7 +46,6 @@ type EntityEventsOutboxMutation struct {
 	request_id     *string
 	topic          *string
 	payload        *map[string]interface{}
-	with_reply     *bool
 	retry_count    *int
 	addretry_count *int
 	last_error     *string
@@ -505,42 +504,6 @@ func (m *EntityEventsOutboxMutation) ResetPayload() {
 	m.payload = nil
 }
 
-// SetWithReply sets the "with_reply" field.
-func (m *EntityEventsOutboxMutation) SetWithReply(b bool) {
-	m.with_reply = &b
-}
-
-// WithReply returns the value of the "with_reply" field in the mutation.
-func (m *EntityEventsOutboxMutation) WithReply() (r bool, exists bool) {
-	v := m.with_reply
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldWithReply returns the old "with_reply" field's value of the EntityEventsOutbox entity.
-// If the EntityEventsOutbox object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *EntityEventsOutboxMutation) OldWithReply(ctx context.Context) (v bool, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldWithReply is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldWithReply requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldWithReply: %w", err)
-	}
-	return oldValue.WithReply, nil
-}
-
-// ResetWithReply resets all changes to the "with_reply" field.
-func (m *EntityEventsOutboxMutation) ResetWithReply() {
-	m.with_reply = nil
-}
-
 // SetRetryCount sets the "retry_count" field.
 func (m *EntityEventsOutboxMutation) SetRetryCount(i int) {
 	m.retry_count = &i
@@ -912,7 +875,7 @@ func (m *EntityEventsOutboxMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *EntityEventsOutboxMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 15)
 	if m.created_at != nil {
 		fields = append(fields, entityeventsoutbox.FieldCreatedAt)
 	}
@@ -936,9 +899,6 @@ func (m *EntityEventsOutboxMutation) Fields() []string {
 	}
 	if m.payload != nil {
 		fields = append(fields, entityeventsoutbox.FieldPayload)
-	}
-	if m.with_reply != nil {
-		fields = append(fields, entityeventsoutbox.FieldWithReply)
 	}
 	if m.retry_count != nil {
 		fields = append(fields, entityeventsoutbox.FieldRetryCount)
@@ -985,8 +945,6 @@ func (m *EntityEventsOutboxMutation) Field(name string) (ent.Value, bool) {
 		return m.Topic()
 	case entityeventsoutbox.FieldPayload:
 		return m.Payload()
-	case entityeventsoutbox.FieldWithReply:
-		return m.WithReply()
 	case entityeventsoutbox.FieldRetryCount:
 		return m.RetryCount()
 	case entityeventsoutbox.FieldLastError:
@@ -1026,8 +984,6 @@ func (m *EntityEventsOutboxMutation) OldField(ctx context.Context, name string) 
 		return m.OldTopic(ctx)
 	case entityeventsoutbox.FieldPayload:
 		return m.OldPayload(ctx)
-	case entityeventsoutbox.FieldWithReply:
-		return m.OldWithReply(ctx)
 	case entityeventsoutbox.FieldRetryCount:
 		return m.OldRetryCount(ctx)
 	case entityeventsoutbox.FieldLastError:
@@ -1106,13 +1062,6 @@ func (m *EntityEventsOutboxMutation) SetField(name string, value ent.Value) erro
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetPayload(v)
-		return nil
-	case entityeventsoutbox.FieldWithReply:
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetWithReply(v)
 		return nil
 	case entityeventsoutbox.FieldRetryCount:
 		v, ok := value.(int)
@@ -1307,9 +1256,6 @@ func (m *EntityEventsOutboxMutation) ResetField(name string) error {
 		return nil
 	case entityeventsoutbox.FieldPayload:
 		m.ResetPayload()
-		return nil
-	case entityeventsoutbox.FieldWithReply:
-		m.ResetWithReply()
 		return nil
 	case entityeventsoutbox.FieldRetryCount:
 		m.ResetRetryCount()

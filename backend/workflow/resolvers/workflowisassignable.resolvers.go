@@ -17,13 +17,16 @@ import (
 
 // SetWorkflowIsAssignable is the resolver for the setWorkflowIsAssignable field.
 func (r *mutationResolver) SetWorkflowIsAssignable(ctx context.Context, input model.SetWorkflowIsAssignableInput) (*model.SetWorkflowIsAssignableResponse, error) {
+	tenantID, err := writerTenantID(request.ForContext(ctx))
+	if err != nil {
+		return nil, err
+	}
+
 	if err := validateWorkflowExecutionIDs(input.WorkflowID, input.WorkflowExecutionID); err != nil {
 		return nil, err
 	}
 
-	req := request.ForContext(ctx)
-
-	workflowClient, err := r.workflowRouter.GetClient(ctx, req.MutationTenantID().String())
+	workflowClient, err := r.workflowRouter.GetClient(ctx, tenantID.String())
 	if err != nil {
 		return nil, err
 	}

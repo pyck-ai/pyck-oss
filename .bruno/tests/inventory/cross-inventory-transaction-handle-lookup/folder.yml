@@ -1,0 +1,11 @@
+info:
+  name: Cross - Inventory Transaction Handle Lookup
+  type: folder
+  seq: 1
+
+docs: |-
+  Handle-based workflow contract: mutations return the per-transaction UUID as transactionID instead of inline started-workflow details, and clients poll workflowExecutions(where: {transactionID}) on the workflow service to see what the mutation started. Verifies the mutation carries a non-empty handle and that the lookup query accepts it and answers with a well-formed (possibly empty) connection — the "not started yet" state clients poll on. No workflow is registered for this entity in the fixture environment, so the connection stays empty; the full mutation-to-started-execution loop runs in the live-stack integration suite.
+
+
+request:
+  auth: inherit

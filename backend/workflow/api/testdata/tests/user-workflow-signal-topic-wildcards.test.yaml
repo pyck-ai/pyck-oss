@@ -1,0 +1,127 @@
+---
+name: "User - Workflow Signal Topic Wildcards"
+description: >
+  Registers mutation and Temporal state-change signal topics with a wildcard
+  tenant and wildcard string tokens, verifies only the tenant token is
+  expanded, and that a concrete-tenant topic is stored unchanged.
+steps:
+  - id: register
+    name: "Register workflow with wildcard string tokens"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "TestSignalTopicWildcards"
+        taskQueue: "test-task-queue"
+        workerID: "scenario-user-workflow-signal-topic-wildcards"
+        signals:
+          - natsTopic: "request.reply.pyck.*.crud.inventory.*.*.created"
+            temporalSignal: "itemCreated"
+            temporalSignalType: "start"
+            filterRule: "true"
+          - natsTopic: "pyck.*.temporal.*.childworkflow.*.*.completed"
+            temporalSignal: "childCompleted"
+            temporalSignalType: "start"
+            filterRule: "true"
+          - natsTopic: "request.reply.pyck.{{env_pyck_tenant_id}}.crud.inventory.*.*.updated"
+            temporalSignal: "itemUpdated"
+            temporalSignalType: "start"
+            filterRule: "true"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Workflow registered"
+        assertions:
+          - ref: res.body.data.registerWorkflow.id
+            nil: false
+
+  - name: "Mutation topic keeps every wildcard but the tenant"
+    operation: workflow.getWorkflowSignals
+    vars:
+      where:
+        workflowID: {$ref: "res[register].body.data.registerWorkflow.id"}
+        natsTopicHasSuffix: ".created"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "One signal stored"
+        assertions:
+          - ref: res.body.data.workflowSignals.totalCount
+            equal: 1
+      - msg: "Tenant expanded, schema and entity wildcards kept"
+        assertions:
+          - ref: res.body.data.workflowSignals.edges[].node.natsTopic
+            regexp: "^request[.]reply[.]pyck[.][0-9a-f-]{36}[.]crud[.]inventory[.][*][.][*][.]created$"
+
+  - name: "Temporal topic keeps every wildcard but the namespace"
+    operation: workflow.getWorkflowSignals
+    vars:
+      where:
+        workflowID: {$ref: "res[register].body.data.registerWorkflow.id"}
+        natsTopicHasSuffix: ".completed"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "One signal stored"
+        assertions:
+          - ref: res.body.data.workflowSignals.totalCount
+            equal: 1
+      - msg: "Namespace expanded, task queue, workflow and run wildcards kept"
+        assertions:
+          - ref: res.body.data.workflowSignals.edges[].node.natsTopic
+            regexp: "^pyck[.][0-9a-f-]{36}[.]temporal[.][*][.]childworkflow[.][*][.][*][.]completed$"
+
+  - name: "Concrete-tenant topic is stored unchanged"
+    operation: workflow.getWorkflowSignals
+    vars:
+      where:
+        workflowID: {$ref: "res[register].body.data.registerWorkflow.id"}
+        natsTopicHasSuffix: ".updated"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "One signal stored"
+        assertions:
+          - ref: res.body.data.workflowSignals.totalCount
+            equal: 1
+      - msg: "Tenant and wildcards kept"
+        assertions:
+          - ref: res.body.data.workflowSignals.edges[].node.natsTopic
+            regexp: "^request[.]reply[.]pyck[.][0-9a-f-]{36}[.]crud[.]inventory[.][*][.][*][.]updated$"
+
+  - name: "Delete workflow"
+    operation: workflow.deleteWorkflow
+    vars:
+      id: {$ref: "res[register].body.data.registerWorkflow.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

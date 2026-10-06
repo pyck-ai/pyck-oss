@@ -67,9 +67,6 @@ type OutboxHandlerConfig struct {
 	// Use NewEventPublisher to create one.
 	Publisher Publisher
 
-	// ReplyRegistry is used to deliver workflow IDs back to waiting resolvers.
-	ReplyRegistry *ReplyRegistry
-
 	// StreamName for NATS topics (default: "pyck").
 	StreamName string
 
@@ -79,10 +76,10 @@ type OutboxHandlerConfig struct {
 	// BatchSize is the maximum transaction groups to process per batch (default: 100).
 	BatchSize int
 
-	// ReplyTimeout is the timeout for NATS request/reply (default: 10s).
-	ReplyTimeout time.Duration
-
-	// MaxRetries is the maximum retry count before marking transaction group as dead (default: 10).
+	// MaxRetries is the maximum retry count before marking transaction group as dead.
+	// The handler applies no default of its own: the service default (15) is the
+	// envDefault of PYCK_OUTBOX_MAX_RETRIES in env/config/common.go. Backoff is
+	// 2^n seconds capped at 1h, so 15 retries span about 4h.
 	MaxRetries int
 
 	// NotifyChannel is the PostgreSQL NOTIFY channel name (default: "outbox_events").
@@ -121,7 +118,7 @@ type OutboxHandlerConfig struct {
 
 	// ClaimLease is how far into the future fetched entries are leased before
 	// publishing. It must exceed the worst-case time to publish a batch
-	// (≈ ReplyTimeout plus slack) so that a row is never re-selected mid-publish.
+	// so that a row is never re-selected mid-publish.
 	// A poller that dies mid-publish simply lets the lease expire and the rows
 	// are retried. Defaults to defaultClaimLease when unset.
 	ClaimLease time.Duration
@@ -150,9 +147,8 @@ type OutboxHandlerConfig struct {
 //  1. Service writes outbox entry in mutation transaction
 //  2. PostgreSQL trigger sends NOTIFY on insert
 //  3. OutboxHandler receives NOTIFY, processes entry
-//  4. Publishes to NATS (request/reply or fire-and-forget)
+//  4. Publishes to NATS (fire-and-forget with a deterministic msgID)
 //  5. Marks entry as published (sets published_at)
-//  6. For with_reply entries, delivers workflow IDs to ReplyRegistry
 type OutboxHandler struct {
 	config OutboxHandlerConfig
 
@@ -357,11 +353,12 @@ type outboxMark struct {
 //
 // Phase 1 leases the fetched rows (OutboxClaim) before releasing the locks, so
 // no other poller — the NOTIFY goroutine, the poll timer, or another replica —
-// can select the same rows while they are mid-publish. This matters most for
-// with-reply entries: they go through core NATS request/reply (no JetStream, no
-// msgID dedup), so a concurrent republish would issue a second request and start
-// duplicate workflows. Fire-and-forget republishes are additionally idempotent
-// via the deterministic msgID + JetStream dedup, and all marks are idempotent.
+// can select the same rows while they are mid-publish. That keeps retry counts
+// and publish marks accurate and avoids redundant concurrent publishes. A
+// republish that slips through is not prevented: the stream's JetStream dedup
+// (deterministic msgID) only covers the stream's 2 minute Duplicates window
+// (StreamDuplicateWindow), so consumers must deduplicate by the event ID in
+// the payload. All marks are idempotent.
 func (h *OutboxHandler) processOutbox(ctx context.Context) error {
 	logger := log.ForContext(ctx)
 
@@ -511,29 +508,16 @@ func (h *OutboxHandler) publishTransactionGroup(ctx context.Context, transaction
 	return marks
 }
 
-// publishEntry publishes a single outbox entry (handling both with-reply and
-// fire-and-forget modes) and returns the mark to persist. A publish failure is
-// recorded as a markKindFailed rather than returned as an error; the caller
-// decides retry vs. dead-letter based on retry count. No DB write happens here.
+// publishEntry publishes a single outbox entry and returns the mark to
+// persist. A publish failure is recorded as a markKindFailed rather than
+// returned as an error; the caller decides retry vs. dead-letter based on
+// retry count. No DB write happens here.
 func (h *OutboxHandler) publishEntry(ctx context.Context, entry OutboxRow) outboxMark {
-	logger := log.ForContext(ctx)
-
 	// Build NATS message ID for idempotent publishing.
 	msgID := h.buildMessageID(entry)
 
-	workflows, err := h.publish(ctx, entry, msgID)
-	if err != nil {
+	if err := h.config.Publisher.PublishRaw(ctx, entry.Topic, entry.Payload, msgID); err != nil {
 		return outboxMark{kind: markKindFailed, id: entry.ID, entityType: entry.GetEntityType(), errMsg: err.Error()}
-	}
-
-	// Deliver workflows to the waiting resolver (if any). This is in-memory /
-	// transport delivery, independent of the DB writes applied in phase 3.
-	if entry.WithReply && h.config.ReplyRegistry != nil {
-		if !h.config.ReplyRegistry.Deliver(entry.TransactionID, workflows) {
-			logger.Debug().
-				Str("transaction_id", entry.TransactionID.String()).
-				Msg("no waiter for reply (timeout or fire-and-forget mode)")
-		}
 	}
 
 	return outboxMark{kind: markKindPublished, id: entry.ID, entityType: entry.GetEntityType()}
@@ -554,83 +538,6 @@ func (h *OutboxHandler) buildMessageID(entry OutboxRow) string {
 		entry.TransactionID.String(),
 		entry.ID.String(),
 	)
-}
-
-// publish publishes an outbox entry, handling both with-reply and fire-and-forget modes.
-// For with-reply entries, it also publishes to the fire-and-forget topic after success.
-func (h *OutboxHandler) publish(ctx context.Context, entry OutboxRow, msgID string) ([]*WorkflowDetails, error) {
-	if entry.WithReply {
-		return h.publishWithReply(ctx, entry)
-	}
-
-	return nil, h.config.Publisher.PublishRaw(ctx, entry.Topic, entry.Payload, msgID)
-}
-
-// publishWithReply publishes an event and waits for a reply with workflow IDs.
-// After a successful reply, also publishes to the fire-and-forget topic for other subscribers.
-func (h *OutboxHandler) publishWithReply(ctx context.Context, entry OutboxRow) ([]*WorkflowDetails, error) {
-	logger := log.ForContext(ctx)
-
-	reply, err := h.config.Publisher.RequestRaw(ctx, entry.Topic, entry.Payload, h.config.ReplyTimeout)
-	if err != nil {
-		return nil, fmt.Errorf("NATS request failed: %w", err)
-	}
-
-	if !reply.Success {
-		return nil, fmt.Errorf("%w: %s", ErrReplyFailed, reply.Error)
-	}
-
-	// Parse workflow details from reply data
-	var workflows []*WorkflowDetails
-	if len(reply.Data) > 0 {
-		if err := json.Unmarshal(reply.Data, &workflows); err != nil {
-			logger.Warn().
-				Err(err).
-				Str("transaction_id", entry.TransactionID.String()).
-				Msg("failed to parse workflow details from reply")
-			// Don't fail - the request succeeded
-		}
-	}
-
-	// Also publish to fire-and-forget topic for other subscribers
-	h.publishFireAndForgetAfterReply(ctx, entry)
-
-	return workflows, nil
-}
-
-// publishFireAndForgetAfterReply publishes to the fire-and-forget topic after a successful reply.
-// This allows other subscribers to receive the event.
-func (h *OutboxHandler) publishFireAndForgetAfterReply(ctx context.Context, entry OutboxRow) {
-	logger := log.ForContext(ctx)
-
-	// Parse payload to get details for building the fire-and-forget topic
-	var payload MutationEventMessage
-	if err := json.Unmarshal(entry.Payload, &payload); err != nil {
-		logger.Warn().Err(err).Msg("failed to parse payload for fire-and-forget publish")
-		return
-	}
-
-	// Build fire-and-forget topic (different from request/reply topic)
-	topic := MutationEventTopic{
-		StreamName:    h.config.StreamName,
-		TenantID:      payload.TenantID,
-		ServiceName:   payload.Service,
-		SchemaName:    payload.Schema,
-		EntityID:      payload.ID,
-		OperationName: payload.Operation,
-	}
-
-	// Build a deterministic msgID so JetStream dedup engages on the
-	// chase publish path. Without it, a republish of the same outbox row
-	// (e.g. after an outbox-handler restart between PublishRaw and
-	// markEntryPublished) would deliver a second copy to subscribers.
-	msgID := h.buildMessageID(entry)
-	if err := h.config.Publisher.PublishRaw(ctx, topic.String(), entry.Payload, msgID); err != nil {
-		logger.Warn().
-			Err(err).
-			Str("topic", topic.String()).
-			Msg("failed to publish fire-and-forget after reply")
-	}
 }
 
 // persistMarks applies all post-publish marks in a single transaction,
@@ -830,9 +737,8 @@ func (h *OutboxHandler) deadLetterMsgID(row OutboxRow) string {
 	return "dlq-" + h.buildMessageID(row)
 }
 
-// buildDeadLetterTopic derives the DLQ topic for a dead-lettered row from its
-// payload, mirroring publishFireAndForgetAfterReply. Returns false (and logs) if
-// the payload cannot be parsed.
+// buildDeadLetterTopic derives the DLQ topic for a dead-lettered row from
+// its payload. Returns false (and logs) if the payload cannot be parsed.
 func (h *OutboxHandler) buildDeadLetterTopic(ctx context.Context, row OutboxRow) (string, bool) {
 	var payload MutationEventMessage
 	if err := json.Unmarshal(row.Payload, &payload); err != nil {

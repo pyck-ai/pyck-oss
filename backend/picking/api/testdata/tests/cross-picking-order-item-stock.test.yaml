@@ -1,0 +1,145 @@
+---
+name: "Cross - Picking Order Item Stock"
+description: >
+  Verifies the federated inventory fields on PickingOrderItem (item,
+  availableStock, reservedStock), resolved by the inventory subgraph from the
+  order item's sku and tenantID. Creates a warehouse (the resolver reads stock
+  from a non-virtual root repository), an inventory item and a picking order
+  with one item of that SKU, then confirms the order item resolves to that
+  inventory item, in the order item's own tenant, with stock figures. Cleans up
+  the order, the item and the warehouse.
+steps:
+  - id: createWarehouse
+    name: "Create warehouse"
+    operation: inventory.createInventoryRepository
+    vars:
+      input:
+        name: {$fake: "{{loremslug}}-{{nonce}}"}
+        type: static
+        virtualRepo: false
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Warehouse created"
+        assertions:
+          - ref: res.body.data.createInventoryRepository.inventoryRepository.id
+            nil: false
+
+  - id: createItem
+    name: "Create inventory item"
+    operation: inventory.createInventoryItem
+    vars:
+      input:
+        sku: {$fake: "{{sku}}-{{nonce}}"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Item created"
+        assertions:
+          - ref: res.body.data.createInventoryItem.inventoryItem.id
+            nil: false
+
+  - id: createOrder
+    name: "Create picking order with one item of that SKU"
+    operation: picking.createPickingOrder
+    vars:
+      input:
+        orderItems:
+          - sku: {$ref: "res[createItem].body.data.createInventoryItem.inventoryItem.sku"}
+            quantity: 1
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Order created"
+        assertions:
+          - ref: res.body.data.createPickingOrder.pickingOrder.id
+            nil: false
+
+  - name: "Order item resolves its inventory item and stock"
+    operation: picking.getPickingOrderItemsWithStock
+    vars:
+      where:
+        orderID: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "One order item"
+        assertions:
+          - ref: res.body.data.pickingOrderItems.edges
+            len: 1
+      - msg: "Item is the created inventory item, in the order item's tenant"
+        assertions:
+          - ref: res.body.data.pickingOrderItems.edges[].node.item.id
+            equal: {$ref: "res[createItem].body.data.createInventoryItem.inventoryItem.id"}
+          - ref: res.body.data.pickingOrderItems.edges[].node.item.tenantID
+            equal: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.tenantID"}
+          - ref: res.body.data.pickingOrderItems.edges[].node.availableStock
+            nil: false
+          - ref: res.body.data.pickingOrderItems.edges[].node.reservedStock
+            nil: false
+
+  - name: "Delete picking order"
+    operation: picking.deletePickingOrder
+    vars:
+      id: {$ref: "res[createOrder].body.data.createPickingOrder.pickingOrder.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Delete inventory item"
+    operation: inventory.deleteInventoryItem
+    vars:
+      id: {$ref: "res[createItem].body.data.createInventoryItem.inventoryItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Delete warehouse"
+    operation: inventory.deleteInventoryRepository
+    vars:
+      id: {$ref: "res[createWarehouse].body.data.createInventoryRepository.inventoryRepository.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

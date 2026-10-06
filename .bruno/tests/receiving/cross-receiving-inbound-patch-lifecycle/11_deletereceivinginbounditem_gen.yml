@@ -19,11 +19,8 @@ graphql:
       mutation DeleteReceivingInboundItem($id: ID!) {
         deleteReceivingInboundItem(id: $id) {
           deletedID
-          workflows {
-            id
-            runID
-            type
-          }
+          eventCount
+          transactionID
         }
       }
     variables: |-

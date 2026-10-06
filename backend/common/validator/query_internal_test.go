@@ -49,8 +49,8 @@ func TestCreateQueryForCountingUniqueRecords(t *testing.T) {
 			dbDriver:  dialect.Postgres,
 			field:     taxID,
 			excludeID: nil,
-			wantQuery: "SELECT count(*) FROM customers WHERE (data::jsonb ->> 'taxId') = $1 " +
-				"AND data_type_id = $2 AND tenant_id = $3",
+			wantQuery: "SELECT count(*) FROM \"customers\" WHERE (data::jsonb ->> 'taxId') = $1 " +
+				"AND data_type_id = $2 AND tenant_id = $3 AND deleted_at IS NULL",
 			wantArgs: []any{"VAT-1", dataTypeID, tenantID},
 		},
 		{
@@ -58,8 +58,8 @@ func TestCreateQueryForCountingUniqueRecords(t *testing.T) {
 			dbDriver:  dialect.Postgres,
 			field:     taxID,
 			excludeID: &excludeID,
-			wantQuery: "SELECT count(*) FROM customers WHERE (data::jsonb ->> 'taxId') = $1 " +
-				"AND data_type_id = $2 AND tenant_id = $3 AND id != $4",
+			wantQuery: "SELECT count(*) FROM \"customers\" WHERE (data::jsonb ->> 'taxId') = $1 " +
+				"AND data_type_id = $2 AND tenant_id = $3 AND deleted_at IS NULL AND id != $4",
 			wantArgs: []any{"VAT-1", dataTypeID, tenantID, excludeID},
 		},
 		{
@@ -67,8 +67,8 @@ func TestCreateQueryForCountingUniqueRecords(t *testing.T) {
 			dbDriver:  dialect.Postgres,
 			field:     userEmail,
 			excludeID: nil,
-			wantQuery: "SELECT count(*) FROM customers WHERE (data::jsonb -> 'user' ->> 'email') = $1 " +
-				"AND data_type_id = $2 AND tenant_id = $3",
+			wantQuery: "SELECT count(*) FROM \"customers\" WHERE (data::jsonb -> 'user' ->> 'email') = $1 " +
+				"AND data_type_id = $2 AND tenant_id = $3 AND deleted_at IS NULL",
 			wantArgs: []any{"VAT-1", dataTypeID, tenantID},
 		},
 		{
@@ -76,8 +76,8 @@ func TestCreateQueryForCountingUniqueRecords(t *testing.T) {
 			dbDriver:  dialect.SQLite,
 			field:     taxID,
 			excludeID: nil,
-			wantQuery: "SELECT count(*) FROM customers WHERE json_extract(data, '$.taxId') = ? " +
-				"AND data_type_id = ? AND tenant_id = ?",
+			wantQuery: "SELECT count(*) FROM \"customers\" WHERE json_extract(data, '$.taxId') = ? " +
+				"AND data_type_id = ? AND tenant_id = ? AND deleted_at IS NULL",
 			wantArgs: []any{"VAT-1", dataTypeID, tenantID},
 		},
 		{
@@ -85,8 +85,8 @@ func TestCreateQueryForCountingUniqueRecords(t *testing.T) {
 			dbDriver:  dialect.SQLite,
 			field:     taxID,
 			excludeID: &excludeID,
-			wantQuery: "SELECT count(*) FROM customers WHERE json_extract(data, '$.taxId') = ? " +
-				"AND data_type_id = ? AND tenant_id = ? AND id != ?",
+			wantQuery: "SELECT count(*) FROM \"customers\" WHERE json_extract(data, '$.taxId') = ? " +
+				"AND data_type_id = ? AND tenant_id = ? AND deleted_at IS NULL AND id != ?",
 			wantArgs: []any{"VAT-1", dataTypeID, tenantID, excludeID},
 		},
 		{
@@ -94,8 +94,8 @@ func TestCreateQueryForCountingUniqueRecords(t *testing.T) {
 			dbDriver:  dialect.SQLite,
 			field:     userEmail,
 			excludeID: nil,
-			wantQuery: "SELECT count(*) FROM customers WHERE json_extract(data, '$.user.email') = ? " +
-				"AND data_type_id = ? AND tenant_id = ?",
+			wantQuery: "SELECT count(*) FROM \"customers\" WHERE json_extract(data, '$.user.email') = ? " +
+				"AND data_type_id = ? AND tenant_id = ? AND deleted_at IS NULL",
 			wantArgs: []any{"VAT-1", dataTypeID, tenantID},
 		},
 		{
@@ -103,8 +103,8 @@ func TestCreateQueryForCountingUniqueRecords(t *testing.T) {
 			dbDriver:  "",
 			field:     taxID,
 			excludeID: nil,
-			wantQuery: "SELECT count(*) FROM customers WHERE json_extract(data, '$.taxId') = ? " +
-				"AND data_type_id = ? AND tenant_id = ?",
+			wantQuery: "SELECT count(*) FROM \"customers\" WHERE json_extract(data, '$.taxId') = ? " +
+				"AND data_type_id = ? AND tenant_id = ? AND deleted_at IS NULL",
 			wantArgs: []any{"VAT-1", dataTypeID, tenantID},
 		},
 	}
@@ -140,4 +140,28 @@ func TestCreateQueryForCountingUniqueRecords_UnsupportedDialect(t *testing.T) {
 	_, _, err := v.createQueryForCountingUniqueRecords(
 		ctx, "mysql", "customers", "data", field, "VAT-1", uuid.New(), nil)
 	require.ErrorIs(t, err, ErrUnsupportedDialect)
+}
+
+// TestCreateQueryForCountingUniqueRecords_Table pins the table-name handling:
+// a hyphenated table such as receiving's inbound-items is quoted rather than
+// refused, and a name that could end the identifier is refused.
+func TestCreateQueryForCountingUniqueRecords_Table(t *testing.T) {
+	t.Parallel()
+
+	v := NewValidator(nil)
+	tenantID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
+	ctx := tenant.Context(t.Context(), tenantID)
+	root := Field{}
+	field := Field{Name: "name", Type: "string", Unique: true, Parent: &root}
+
+	for _, dbDriver := range []string{dialect.Postgres, dialect.SQLite} {
+		query, _, err := v.createQueryForCountingUniqueRecords(
+			ctx, dbDriver, "inbound-items", "data", field, "x", uuid.New(), nil)
+		require.NoError(t, err, dbDriver)
+		assert.Contains(t, query, `FROM "inbound-items" WHERE`, dbDriver)
+	}
+
+	_, _, err := v.createQueryForCountingUniqueRecords(
+		ctx, dialect.Postgres, `items" WHERE 1=1 --`, "data", field, "x", uuid.New(), nil)
+	require.ErrorIs(t, err, ErrInvalidTable)
 }

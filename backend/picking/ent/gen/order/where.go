@@ -1106,14 +1106,14 @@ func CustomerIDLTE(v uuid.UUID) predicate.Order {
 // HasOrderItems applies the HasEdge predicate on the "orderItems" edge.
 func HasOrderItems() predicate.Order {
 	return predicate.Order(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, OrderItemsTable, OrderItemsColumn),
-		)
+		step := newOrderItemsStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.OrderItems
 		step.Edge.Schema = schemaConfig.OrderItems
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -1124,6 +1124,7 @@ func HasOrderItemsWith(preds ...predicate.OrderItems) predicate.Order {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.OrderItems
 		step.Edge.Schema = schemaConfig.OrderItems
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)
@@ -1135,14 +1136,14 @@ func HasOrderItemsWith(preds ...predicate.OrderItems) predicate.Order {
 // HasOutboundShipmentNotifications applies the HasEdge predicate on the "outboundShipmentNotifications" edge.
 func HasOutboundShipmentNotifications() predicate.Order {
 	return predicate.Order(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, OutboundShipmentNotificationsTable, OutboundShipmentNotificationsColumn),
-		)
+		step := newOutboundShipmentNotificationsStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.OutboundShipmentNotification
 		step.Edge.Schema = schemaConfig.OutboundShipmentNotification
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -1153,6 +1154,7 @@ func HasOutboundShipmentNotificationsWith(preds ...predicate.OutboundShipmentNot
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.OutboundShipmentNotification
 		step.Edge.Schema = schemaConfig.OutboundShipmentNotification
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

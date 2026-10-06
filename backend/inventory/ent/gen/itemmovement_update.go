@@ -753,6 +753,9 @@ func (_u *ItemMovementUpdateOne) sqlSave(ctx context.Context) (_node *ItemMoveme
 	}
 	_spec.Node.Schema = _u.schemaConfig.ItemMovement
 	ctx = internal.NewSchemaConfigContext(ctx, _u.schemaConfig)
+	if pred := _spec.Predicate; pred != nil {
+		_spec.Predicate = func(s *sql.Selector) { pred(s.WithContext(ctx)) }
+	}
 	_node = &ItemMovement{config: _u.config}
 	_spec.Assign = _node.assignValues
 	_spec.ScanValues = _node.scanValues

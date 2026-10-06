@@ -42,9 +42,6 @@ const (
 	// Payload is the JSON event payload.
 	Payload = "payload"
 
-	// WithReply indicates if the resolver is waiting for workflow IDs.
-	WithReply = "with_reply"
-
 	// RetryCount is the number of failed publish attempts.
 	RetryCount = "retry_count"
 

@@ -40,8 +40,8 @@ import (
 var (
 	remoteUIQuery = resolver.ParseTemplate(`query {
 		remoteUI(input: { workflowID: "{{.WorkflowID}}", workflowExecutionID: "{{.RunID}}" }) {
-			web
-			mobile
+			webURL
+			mobileURL
 		}
 	}`)
 
@@ -64,8 +64,8 @@ var (
 
 type remoteUIData struct {
 	RemoteUI struct {
-		Web    string
-		Mobile string
+		WebURL    string
+		MobileURL string
 	}
 }
 
@@ -135,12 +135,14 @@ func noTenants() *managementapi.GetTenants {
 // falls through to SimpleMockTemporalClient.
 type fakeTemporalClient struct {
 	*mocks.SimpleMockTemporalClient
-	workflowType string
-	version      *deploymentpb.WorkerDeploymentVersion // pinned version; nil = unversioned execution
-	wdc          temporalclient.WorkerDeploymentClient
+	workflowType  string
+	version       *deploymentpb.WorkerDeploymentVersion // pinned version; nil = unversioned execution
+	wdc           temporalclient.WorkerDeploymentClient
+	describeCalls atomic.Int64 // DescribeWorkflowExecution calls; the listing field must make none
 }
 
 func (f *fakeTemporalClient) DescribeWorkflowExecution(_ context.Context, _, _ string) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
+	f.describeCalls.Add(1)
 	info := &workflowpb.WorkflowExecutionInfo{
 		Type: &commonpb.WorkflowType{Name: f.workflowType},
 	}
@@ -195,14 +197,24 @@ type fakeWDHandle struct {
 	describeResp         temporalclient.WorkerDeploymentDescribeResponse
 	versions             map[string]temporalclient.WorkerDeploymentVersionDescription // keyed by BuildID
 	describeVersionCalls atomic.Int64                                                 // concurrent in the listing; for cache assertions
+	describeVersionErr   error                                                        // when set, DescribeVersion fails (simulated outage)
+	describeVersion      func(ctx context.Context) error                              // when set, gates DescribeVersion (blocking fakes)
 }
 
 func (h *fakeWDHandle) Describe(_ context.Context, _ temporalclient.WorkerDeploymentDescribeOptions) (temporalclient.WorkerDeploymentDescribeResponse, error) {
 	return h.describeResp, nil
 }
 
-func (h *fakeWDHandle) DescribeVersion(_ context.Context, opts temporalclient.WorkerDeploymentDescribeVersionOptions) (temporalclient.WorkerDeploymentVersionDescription, error) {
+func (h *fakeWDHandle) DescribeVersion(ctx context.Context, opts temporalclient.WorkerDeploymentDescribeVersionOptions) (temporalclient.WorkerDeploymentVersionDescription, error) {
 	h.describeVersionCalls.Add(1)
+	if h.describeVersionErr != nil {
+		return temporalclient.WorkerDeploymentVersionDescription{}, h.describeVersionErr
+	}
+	if h.describeVersion != nil {
+		if err := h.describeVersion(ctx); err != nil {
+			return temporalclient.WorkerDeploymentVersionDescription{}, err
+		}
+	}
 	return h.versions[opts.BuildID], nil
 }
 
@@ -233,6 +245,7 @@ func (h *fakeWDHandle) UpdateVersionMetadata(_ context.Context, _ temporalclient
 type remoteUIClientFactory struct {
 	temporal temporalclient.Client
 	err      error
+	opts     []commonworkflow.ClientOption
 	client   *commonworkflow.Client
 }
 
@@ -241,7 +254,7 @@ func (f *remoteUIClientFactory) GetClient(_ context.Context, _ string) (*commonw
 		return nil, f.err
 	}
 	if f.client == nil {
-		c, err := commonworkflow.NewClient("test", f.temporal)
+		c, err := commonworkflow.NewClient("test", f.temporal, f.opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -256,12 +269,12 @@ func (f *remoteUIClientFactory) Close() {}
 // SETUP
 // =============================================================================
 
-func setupRemoteUI(t *testing.T, mgmt *fakeMgmtClient, factory *remoteUIClientFactory) *testEnv {
+func setupRemoteUI(t *testing.T, mgmt *fakeMgmtClient, factory commonworkflow.ClientFactory) *testEnv {
 	t.Helper()
 	return setupRemoteUIWithDefaults(t, mgmt, factory, resolvers.RemoteUIDefaults{})
 }
 
-func setupRemoteUIWithDefaults(t *testing.T, mgmt *fakeMgmtClient, factory *remoteUIClientFactory, defaults resolvers.RemoteUIDefaults) *testEnv {
+func setupRemoteUIWithDefaults(t *testing.T, mgmt *fakeMgmtClient, factory commonworkflow.ClientFactory, defaults resolvers.RemoteUIDefaults) *testEnv {
 	t.Helper()
 
 	te := &testEnv{
@@ -349,8 +362,8 @@ func TestRemoteUIResolver(t *testing.T) {
 			"WorkflowID": "wf-1", "RunID": "run-1",
 		})
 
-		assert.Equal(t, "https://cdn.example.com/web/picking/1.2.3/mf-manifest.json", data.RemoteUI.Web)
-		assert.Equal(t, "https://cdn.example.com/mobile/picking/1.2.3/widgets.rfw", data.RemoteUI.Mobile)
+		assert.Equal(t, "https://cdn.example.com/web/picking/1.2.3/mf-manifest.json", data.RemoteUI.WebURL)
+		assert.Equal(t, "https://cdn.example.com/mobile/picking/1.2.3/widgets.rfw", data.RemoteUI.MobileURL)
 	})
 
 	t.Run("renders a per-tenant bundle stamped with version only (no slug)", func(t *testing.T) {
@@ -388,8 +401,8 @@ func TestRemoteUIResolver(t *testing.T) {
 			"WorkflowID": "wf-1", "RunID": "run-1",
 		})
 
-		assert.Equal(t, "https://assets.example.com/tenants/t1/4e5950c5/web/mf-manifest.json", data.RemoteUI.Web)
-		assert.Equal(t, "https://assets.example.com/tenants/t1/4e5950c5/mobile/widgets.rfw", data.RemoteUI.Mobile)
+		assert.Equal(t, "https://assets.example.com/tenants/t1/4e5950c5/web/mf-manifest.json", data.RemoteUI.WebURL)
+		assert.Equal(t, "https://assets.example.com/tenants/t1/4e5950c5/mobile/widgets.rfw", data.RemoteUI.MobileURL)
 	})
 
 	t.Run("prefers the per-workflow-type bundle over the default", func(t *testing.T) {
@@ -426,8 +439,41 @@ func TestRemoteUIResolver(t *testing.T) {
 			"WorkflowID": "wf-1", "RunID": "run-1",
 		})
 
-		assert.Equal(t, "https://cdn.example.com/web/picking-special/9.9.9/mf-manifest.json", data.RemoteUI.Web)
-		assert.Equal(t, "https://cdn.example.com/mobile/picking-special/9.9.9/widgets.rfw", data.RemoteUI.Mobile)
+		assert.Equal(t, "https://cdn.example.com/web/picking-special/9.9.9/mf-manifest.json", data.RemoteUI.WebURL)
+		assert.Equal(t, "https://cdn.example.com/mobile/picking-special/9.9.9/widgets.rfw", data.RemoteUI.MobileURL)
+	})
+
+	t.Run("an empty per-type version falls back to the default bundle", func(t *testing.T) {
+		t.Parallel()
+
+		mgmt := &fakeMgmtClient{getTenants: func(context.Context, managementapi.GetTenantsArgs) (*managementapi.GetTenants, error) {
+			return tenantsWithData(map[string]any{"remoteWebUITemplate": webTmpl}), nil
+		}}
+
+		handle := &fakeWDHandle{versions: map[string]temporalclient.WorkerDeploymentVersionDescription{
+			"b1": {Info: temporalclient.WorkerDeploymentVersionInfo{Metadata: uiBundleMeta(t, map[string]string{
+				commonworkflow.UIBundleMetadataKey("", "slug"):       "default",
+				commonworkflow.UIBundleMetadataKey("", "version"):    "1.0.0",
+				commonworkflow.UIBundleVersionKey("PickingWorkflow"): "",
+			})}},
+		}}
+		temporal := &fakeTemporalClient{
+			SimpleMockTemporalClient: mocks.NewSimpleMockTemporalClient(),
+			workflowType:             "PickingWorkflow",
+			version:                  pinnedVersion(),
+			wdc:                      &fakeWDC{handles: map[string]*fakeWDHandle{"wf": handle}},
+		}
+
+		te := setupRemoteUI(t, mgmt, &remoteUIClientFactory{temporal: temporal})
+
+		// The second query is served from the per-version cache.
+		for range 2 {
+			data := execOK[remoteUIData](te, te.ctx(userA), remoteUIQuery, map[string]any{
+				"WorkflowID": "wf-1", "RunID": "run-1",
+			})
+			assert.Equal(t, "https://cdn.example.com/web/default/1.0.0/mf-manifest.json", data.RemoteUI.WebURL)
+		}
+		assert.Equal(t, int64(1), handle.describeVersionCalls.Load())
 	})
 
 	t.Run("renders only the web URL when no mobile template is set", func(t *testing.T) {
@@ -457,8 +503,8 @@ func TestRemoteUIResolver(t *testing.T) {
 			"WorkflowID": "wf-1", "RunID": "run-1",
 		})
 
-		assert.Equal(t, "https://cdn.example.com/web/picking/1.2.3/mf-manifest.json", data.RemoteUI.Web)
-		assert.Empty(t, data.RemoteUI.Mobile)
+		assert.Equal(t, "https://cdn.example.com/web/picking/1.2.3/mf-manifest.json", data.RemoteUI.WebURL)
+		assert.Empty(t, data.RemoteUI.MobileURL)
 	})
 
 	t.Run("errors when the execution has no pinned deployment version", func(t *testing.T) {
@@ -552,7 +598,7 @@ func TestRemoteUIResolver(t *testing.T) {
 
 		execErr(te, te.ctx(userA), remoteUIQuery, map[string]any{
 			"WorkflowID": "wf-1", "RunID": "run-1",
-		}, "invalid UI bundle metadata value")
+		}, "invalid UI bundle URL value")
 	})
 
 	t.Run("falls back to the system-wide default template when the tenant has none", func(t *testing.T) {
@@ -582,8 +628,8 @@ func TestRemoteUIResolver(t *testing.T) {
 		data := execOK[remoteUIData](te, te.ctx(userA), remoteUIQuery, map[string]any{
 			"WorkflowID": "wf-1", "RunID": "run-1",
 		})
-		assert.Equal(t, "https://cdn.example.com/web/picking/1.2.3/mf-manifest.json", data.RemoteUI.Web)
-		assert.Equal(t, "https://cdn.example.com/mobile/picking/1.2.3/widgets.rfw", data.RemoteUI.Mobile)
+		assert.Equal(t, "https://cdn.example.com/web/picking/1.2.3/mf-manifest.json", data.RemoteUI.WebURL)
+		assert.Equal(t, "https://cdn.example.com/mobile/picking/1.2.3/widgets.rfw", data.RemoteUI.MobileURL)
 	})
 
 	t.Run("falls back to the default bundle when the execution is not version-pinned", func(t *testing.T) {
@@ -605,7 +651,7 @@ func TestRemoteUIResolver(t *testing.T) {
 		data := execOK[remoteUIData](te, te.ctx(userA), remoteUIQuery, map[string]any{
 			"WorkflowID": "wf-1", "RunID": "run-1",
 		})
-		assert.Equal(t, "https://cdn.example.com/web/fallback/0.0.0/mf-manifest.json", data.RemoteUI.Web)
+		assert.Equal(t, "https://cdn.example.com/web/fallback/0.0.0/mf-manifest.json", data.RemoteUI.WebURL)
 	})
 
 	t.Run("falls back to the default bundle when the pinned version has no bundle stamped", func(t *testing.T) {
@@ -631,10 +677,10 @@ func TestRemoteUIResolver(t *testing.T) {
 		data := execOK[remoteUIData](te, te.ctx(userA), remoteUIQuery, map[string]any{
 			"WorkflowID": "wf-1", "RunID": "run-1",
 		})
-		assert.Equal(t, "https://cdn.example.com/web/fallback/0.0.0/mf-manifest.json", data.RemoteUI.Web)
+		assert.Equal(t, "https://cdn.example.com/web/fallback/0.0.0/mf-manifest.json", data.RemoteUI.WebURL)
 	})
 
-	t.Run("does not cache a pinned version with no bundle stamped", func(t *testing.T) {
+	t.Run("negatively caches a pinned version with no bundle stamped for a short window", func(t *testing.T) {
 		t.Parallel()
 
 		mgmt := &fakeMgmtClient{getTenants: func(context.Context, managementapi.GetTenantsArgs) (*managementapi.GetTenants, error) {
@@ -652,13 +698,12 @@ func TestRemoteUIResolver(t *testing.T) {
 		te := setupRemoteUIWithDefaults(t, mgmt, &remoteUIClientFactory{temporal: temporal}, defaults)
 
 		for range 2 {
-			execOK[remoteUIData](te, te.ctx(userA), remoteUIQuery, map[string]any{
+			data := execOK[remoteUIData](te, te.ctx(userA), remoteUIQuery, map[string]any{
 				"WorkflowID": "wf-1", "RunID": "run-1",
 			})
+			assert.Equal(t, "https://cdn.example.com/web/fallback/0.0.0/mf-manifest.json", data.RemoteUI.WebURL)
 		}
-		// Unstamped metadata must not be cached, so it is re-described until a
-		// bundle is stamped (rather than serving the default forever).
-		assert.Equal(t, int64(2), handle.describeVersionCalls.Load())
+		assert.Equal(t, int64(1), handle.describeVersionCalls.Load(), "the unstamped verdict is remembered for a short window")
 	})
 
 	t.Run("picks up a workflow type stamped later (incremental per-type stamping)", func(t *testing.T) {
@@ -681,11 +726,13 @@ func TestRemoteUIResolver(t *testing.T) {
 			wdc:                      &fakeWDC{handles: map[string]*fakeWDHandle{"wf": handle}},
 		}
 		defaults := resolvers.RemoteUIDefaults{Bundle: &commonworkflow.UIBundle{Slug: "fallback", Version: "0.0.0"}}
-		te := setupRemoteUIWithDefaults(t, mgmt, &remoteUIClientFactory{temporal: temporal}, defaults)
+		// TTL 0 stands in for the negative window passing between the two reads.
+		factory := &remoteUIClientFactory{temporal: temporal, opts: []commonworkflow.ClientOption{commonworkflow.WithUnstampedVersionCacheTTL(0)}}
+		te := setupRemoteUIWithDefaults(t, mgmt, factory, defaults)
 
 		// TypeB not stamped yet → default bundle.
 		first := execOK[remoteUIData](te, te.ctx(userA), remoteUIQuery, map[string]any{"WorkflowID": "wf-1", "RunID": "run-1"})
-		assert.Equal(t, "https://cdn.example.com/web/fallback/0.0.0/mf-manifest.json", first.RemoteUI.Web)
+		assert.Equal(t, "https://cdn.example.com/web/fallback/0.0.0/mf-manifest.json", first.RemoteUI.WebURL)
 
 		// CI stamps TypeB; a frozen cache would keep serving the default.
 		handle.versions["b1"] = temporalclient.WorkerDeploymentVersionDescription{Info: temporalclient.WorkerDeploymentVersionInfo{Metadata: uiBundleMeta(t, map[string]string{
@@ -696,7 +743,7 @@ func TestRemoteUIResolver(t *testing.T) {
 		})}}
 
 		second := execOK[remoteUIData](te, te.ctx(userA), remoteUIQuery, map[string]any{"WorkflowID": "wf-1", "RunID": "run-1"})
-		assert.Equal(t, "https://cdn.example.com/web/type-b/2.0.0/mf-manifest.json", second.RemoteUI.Web)
+		assert.Equal(t, "https://cdn.example.com/web/type-b/2.0.0/mf-manifest.json", second.RemoteUI.WebURL)
 	})
 
 	t.Run("caches tenant templates and version metadata across queries", func(t *testing.T) {
@@ -753,7 +800,7 @@ func TestRemoteUIResolver(t *testing.T) {
 		data := execOK[remoteUIData](te, te.ctx(userA), remoteUIQuery, map[string]any{
 			"WorkflowID": "wf-1", "RunID": "run-1",
 		})
-		assert.Equal(t, "https://cdn.example.com/flavours/pyck-go/dev/web/picking/1.2.3/mf.json", data.RemoteUI.Web)
+		assert.Equal(t, "https://cdn.example.com/flavours/pyck-go/dev/web/picking/1.2.3/mf.json", data.RemoteUI.WebURL)
 	})
 
 	t.Run("rejects a flavour that is unsafe to splice into a URL", func(t *testing.T) {
@@ -772,7 +819,7 @@ func TestRemoteUIResolver(t *testing.T) {
 
 		execErr(te, te.ctx(userA), remoteUIQuery, map[string]any{
 			"WorkflowID": "wf-1", "RunID": "run-1",
-		}, "invalid UI bundle metadata value")
+		}, "invalid UI bundle URL value")
 	})
 }
 
@@ -871,6 +918,45 @@ func TestWorkerDeploymentUIBundlesResolver(t *testing.T) {
 		assert.Equal(t, "b2", b2.BuildID)
 		assert.Equal(t, "drained", b2.DrainageStatus)
 		assert.Empty(t, b2.Bundles)
+	})
+
+	t.Run("hides a per-type bundle stamped with an empty version", func(t *testing.T) {
+		t.Parallel()
+
+		handle := &fakeWDHandle{
+			describeResp: temporalclient.WorkerDeploymentDescribeResponse{
+				Info: temporalclient.WorkerDeploymentInfo{
+					Name: "wf",
+					VersionSummaries: []temporalclient.WorkerDeploymentVersionSummary{{
+						Version: temporalworker.WorkerDeploymentVersion{DeploymentName: "wf", BuildID: "b1"},
+					}},
+				},
+			},
+			versions: map[string]temporalclient.WorkerDeploymentVersionDescription{
+				"b1": {Info: temporalclient.WorkerDeploymentVersionInfo{Metadata: uiBundleMeta(t, map[string]string{
+					commonworkflow.UIBundleMetadataKey("", "slug"):       "default",
+					commonworkflow.UIBundleMetadataKey("", "version"):    "1.0.0",
+					commonworkflow.UIBundleVersionKey("PickingWorkflow"): "",
+				})}},
+			},
+		}
+		temporal := &fakeTemporalClient{
+			SimpleMockTemporalClient: mocks.NewSimpleMockTemporalClient(),
+			wdc: &fakeWDC{
+				listEntries: []*temporalclient.WorkerDeploymentListEntry{{Name: "wf"}},
+				handles:     map[string]*fakeWDHandle{"wf": handle},
+			},
+		}
+
+		te := setupRemoteUI(t, &fakeMgmtClient{}, &remoteUIClientFactory{temporal: temporal})
+
+		data := execOK[workerDeploymentUIBundlesData](te, te.ctx(userA), workerDeploymentUIBundlesQuery, map[string]any{"First": 50})
+
+		require.Len(t, data.WorkerDeploymentUIBundles.Edges, 1)
+		bundles := data.WorkerDeploymentUIBundles.Edges[0].Node.Bundles
+		require.Len(t, bundles, 1)
+		assert.Empty(t, bundles[0].WorkflowType)
+		assert.Equal(t, "1.0.0", bundles[0].Version)
 	})
 
 	t.Run("paginates with first/after", func(t *testing.T) {

@@ -1,0 +1,40 @@
+# Compose override for the integration-test stack. Opt-in: a plain `task up`
+# keeps production cadences; use `task up:integration` (or
+# `task test:integration:up`) to boot with these instead:
+#
+#   docker compose -f docker-compose.yml -f config/compose/integration.yaml up ...
+#
+# The suites wait on sweeps and token-cache expiry, so they need seconds where
+# the .env.example defaults are minutes/hours. `environment:` beats `env_file:`,
+# so these win over .env / .env.local. Values respect the config validation:
+# PAT cache overlap must not exceed the TTL (1s < 5s), sync/reconcile/expiry
+# intervals must be positive durations.
+#
+# tests/integration/scripts/envrc.sh reads the resulting *_INTERVAL values back
+# from the running management container, so the tests size their waits to them.
+
+# Token-introspection cache: every backend service authenticates requests.
+x-pat-cache: &pat-cache
+  PYCK_ZITADEL_PAT_CACHE_TTL: 5s
+  PYCK_ZITADEL_PAT_CACHE_TTL_OVERLAP: 1s
+
+services:
+  # Only management reads the sweep/sync cadences.
+  management:
+    environment:
+      <<: *pat-cache
+      PYCK_TENANT_RECONCILE_INTERVAL: 5s
+      PYCK_TENANT_EXPIRY_CHECK_INTERVAL: 10s
+      PYCK_ZITADEL_SYNC_EVERY: 10s
+  inventory:
+    environment: *pat-cache
+  main-data:
+    environment: *pat-cache
+  picking:
+    environment: *pat-cache
+  receiving:
+    environment: *pat-cache
+  workflow:
+    environment: *pat-cache
+  file:
+    environment: *pat-cache

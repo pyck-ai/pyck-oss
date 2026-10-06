@@ -178,7 +178,7 @@ func TestItem_Create(t *testing.T) {
 		execErr(te, ctx, createItem, map[string]any{
 			"Sku":        item.Sku,
 			"DataTypeID": item.DataTypeID,
-		}, "duplicate key value violates unique constraint")
+		}, "duplicate key: record already exists (SQLSTATE 23505)")
 
 		te.assertNoEvents(ctx)
 	})

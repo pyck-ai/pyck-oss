@@ -45,13 +45,14 @@ graphql:
           "name": "NeverRegistered",
           "signals": [
             {
-              "filterRule": "*",
+              "filterRule": "true",
               "natsTopic": "request.reply.pyck.*.crud.inventory.items.*.create",
               "temporalSignal": "never",
               "temporalSignalType": "start"
             }
           ],
-          "taskQueue": "never"
+          "taskQueue": "never",
+          "workerID": "scenario-user-workflow-idempotency"
         }
       }
 

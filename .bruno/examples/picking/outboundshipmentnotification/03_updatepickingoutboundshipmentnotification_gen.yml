@@ -29,6 +29,7 @@ graphql:
 
       mutation UpdatePickingOutboundShipmentNotification($id: ID!, $input: UpdatePickingOutboundShipmentNotificationInput!) {
         updatePickingOutboundShipmentNotification(id: $id, input: $input) {
+          eventCount
           pickingOutboundShipmentNotification {
             createdAt
             createdBy
@@ -43,11 +44,7 @@ graphql:
             updatedAt
             updatedBy
           }
-          workflows {
-            id
-            runID
-            type
-          }
+          transactionID
         }
       }
     variables: |-

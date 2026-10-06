@@ -172,3 +172,47 @@ func dropClearDataTypeIDSchemaHook(g *ent.Graph, s *ast.Schema) error {
 	dropClearDataTypeID(s, dataMixinGQLTypes(g))
 	return nil
 }
+
+// deprecatedWhereFields lists generated where-input fields to mark @deprecated,
+// as where-input type name -> field name -> reason. entgql only deprecates
+// fields and types, not the has<Edge> predicates it derives from an edge, so
+// they are listed here. A type or field absent from the schema is skipped, so
+// the entry is inert in every other service.
+var deprecatedWhereFields = map[string]map[string]string{
+	"InventoryItemWhereInput": {
+		"hasItemStocks":     inventoryItemStocksDeprecation,
+		"hasItemStocksWith": inventoryItemStocksDeprecation,
+	},
+}
+
+const inventoryItemStocksDeprecation = "Matches any stock row, including superseded versions. Use hasCurrentStock / hasCurrentStockWith."
+
+// deprecateWhereFields adds @deprecated(reason) to each listed where-input
+// field that exists and is not deprecated yet.
+func deprecateWhereFields(s *ast.Schema, fields map[string]map[string]string) {
+	for typeName, byField := range fields {
+		def, ok := s.Types[typeName]
+		if !ok || def.Kind != ast.InputObject {
+			continue
+		}
+		for fieldName, reason := range byField {
+			f := def.Fields.ForName(fieldName)
+			if f == nil || f.Directives.ForName("deprecated") != nil {
+				continue
+			}
+			f.Directives = append(f.Directives, &ast.Directive{
+				Name: "deprecated",
+				Arguments: ast.ArgumentList{
+					{Name: "reason", Value: &ast.Value{Kind: ast.StringValue, Raw: reason}},
+				},
+			})
+		}
+	}
+}
+
+// deprecateWhereFieldsSchemaHook wires deprecateWhereFields into the entgql
+// schema generation pipeline.
+func deprecateWhereFieldsSchemaHook(_ *ent.Graph, s *ast.Schema) error {
+	deprecateWhereFields(s, deprecatedWhereFields)
+	return nil
+}

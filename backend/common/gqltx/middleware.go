@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/pyck-ai/pyck/backend/common/db"
@@ -68,6 +69,38 @@ func NewMiddleware[T Tx, C TxClient[T]](
 		},
 		Options: opts,
 	}
+}
+
+// TransactionID returns the per-transaction UUID this middleware generates at
+// BeginTx (regenerated on every OCC retry, so it always identifies the
+// committing attempt — see handleMutationWithTx). Mutation resolvers assign
+// it to their payload's transactionID field — the handle clients use to look
+// up the workflows the mutation started via
+// workflowExecutions(where: {transactionID: ...}). The same ID is stamped on
+// the transaction's outbox rows and carried into Temporal as the
+// pyck_transaction_id search attribute.
+//
+// Assigning it inside the resolver means the handle is part of the response
+// before the idempotency middleware caches the body, so idempotent replays
+// return the identical handle.
+//
+// Returns uuid.Nil when no transaction is active on ctx (gqltx did not run).
+// On the non-null ID! payload fields this serializes to null and fails the
+// request loudly instead of shipping a bogus handle.
+func TransactionID(ctx context.Context) uuid.UUID {
+	id, _ := txid.FromContext(ctx)
+	return id
+}
+
+// EventCount returns how many outbox events the transaction on ctx has
+// written so far (0 outside a transaction, or when FEATURE_SUPPRESS_EVENTS
+// suppressed them). Mutation payloads expose it as eventCount: Int!, next to
+// the transactionID handle, so a client knows whether the transaction has
+// anything to route. Unlike transactionID, resolvers do not assign it: the
+// count is only final once the resolver has written its events, so the
+// middleware fills the field itself when gqlgen resolves it (InterceptField).
+func EventCount(ctx context.Context) int {
+	return txid.EventCount(ctx)
 }
 
 // binder declares how to begin a transaction and inject it into a context.
@@ -159,6 +192,28 @@ func (m *Middleware[T]) ExtensionName() string { return "Middleware" }
 
 // Validate implements graphql.HandlerExtension.
 func (m *Middleware[T]) Validate(graphql.ExecutableSchema) error { return nil }
+
+// eventCountField is the GraphQL field name of the per-mutation event tally.
+const eventCountField = "eventCount"
+
+// InterceptField implements graphql.FieldInterceptor. It answers the
+// `eventCount: Int!` field of every mutation payload with the transaction's
+// outbox-event tally (EventCount).
+//
+// gqlgen resolves a payload's fields only after the mutation's root resolver
+// returned, so every outbox row the mutation wrote (by the ent hook or
+// directly) is already counted, and the transaction has not committed yet.
+// Doing it here keeps the ~70 mutation resolvers free of bookkeeping they
+// could place too early or forget; a field that isn't asked for costs nothing.
+func (m *Middleware[T]) InterceptField(ctx context.Context, next graphql.Resolver) (any, error) {
+	oc := graphql.GetOperationContext(ctx)
+	fc := graphql.GetFieldContext(ctx)
+	if oc == nil || oc.Operation == nil || oc.Operation.Operation != ast.Mutation ||
+		fc == nil || fc.Field.Field == nil || fc.Field.Name != eventCountField {
+		return next(ctx)
+	}
+	return EventCount(ctx), nil
+}
 
 // MutateOperationContext implements graphql.OperationContextMutator.
 // It serializes field resolvers during mutations and queries to prevent
@@ -375,16 +430,15 @@ func (m *Middleware[T]) handleMutationWithTx(ctx context.Context, next graphql.O
 		return graphql.OneShot(graphql.ErrorResponse(ctx, "failed to start transaction: %v", err))
 	}
 
-	// Attach tx to context and install a fresh post-commit container (also
-	// holds response patches). Must use WithFreshPostCommitContainer, not
-	// EnsurePostCommitContainer: on OCC retry the caller's ctx still carries
-	// the previous attempt's container, and an "ensure" call would preserve
-	// the rolled-back attempt's hooks and patches.
+	// Attach tx to context and install a fresh post-commit container. Must
+	// use WithFreshPostCommitContainer, not EnsurePostCommitContainer: on OCC
+	// retry the caller's ctx still carries the previous attempt's container,
+	// and an "ensure" call would preserve the rolled-back attempt's hooks.
 	//
-	// Also generate a per-attempt transaction ID. The outbox hook and the
-	// workflow-reply middleware read this from ctx to key NATS message IDs
-	// and the reply waiter respectively, ensuring deduplication is
-	// transaction-scoped (not request-scoped like the OTel trace ID was).
+	// Also generate a per-attempt transaction ID. The outbox hook reads it
+	// from ctx to key NATS message IDs (transaction-scoped dedup, not
+	// request-scoped like the OTel trace ID was), and mutation resolvers
+	// return it as the client-facing handle via TransactionID(ctx).
 	attemptCtx = m.Binder.Inject(attemptCtx, tx)
 	attemptCtx = WithFreshPostCommitContainer(attemptCtx)
 	attemptCtx = txid.With(attemptCtx, txid.New())
@@ -472,14 +526,6 @@ func (m *Middleware[T]) handleSuccess(ns string, ctx context.Context, tx Tx, r *
 			Msg("post-commit hook failed")
 	}
 
-	if err := RunResponsePatches(ctx, r); err != nil {
-		log.ForContext(ctx).Error().
-			Err(err).
-			Str("ns", ns).
-			Str("op", topLevelFieldName(ctx)).
-			Msg("response patch failed")
-	}
-
 	txSuccessCounter.WithLabelValues(ns).Inc()
 
 	return r
@@ -527,17 +573,25 @@ func topLevelFieldName(ctx context.Context) string {
 }
 
 // errorResponseAtTopField attaches the error to the top-level field if available.
-// Falls back to a generic error response otherwise.
+// Falls back to a generic error response otherwise. The response is built
+// here, not by gqlgen, so the error presenter never sees it; a constraint
+// violation is hidden explicitly, or a deferred constraint failing at commit
+// would leak its table and constraint names.
 func errorResponseAtTopField(ctx context.Context, err error) *graphql.Response {
+	message, hidden := db.HideConstraintViolation(ctx, err)
+	if !hidden {
+		message = err.Error()
+	}
+
 	field := topLevelFieldName(ctx)
 	if field == "" {
-		return graphql.ErrorResponse(ctx, "%v", err)
+		return graphql.ErrorResponse(ctx, "%s", message)
 	}
 
 	return &graphql.Response{
 		Errors: gqlerror.List{
 			&gqlerror.Error{
-				Message: err.Error(),
+				Message: message,
 				Path:    ast.Path{ast.PathName(field)},
 			},
 		},

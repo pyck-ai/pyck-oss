@@ -164,12 +164,8 @@ func init() {
 	entityeventsoutboxDescTopic := entityeventsoutboxMixinFields0[7].Descriptor()
 	// entityeventsoutbox.TopicValidator is a validator for the "topic" field. It is called by the builders before save.
 	entityeventsoutbox.TopicValidator = entityeventsoutboxDescTopic.Validators[0].(func(string) error)
-	// entityeventsoutboxDescWithReply is the schema descriptor for with_reply field.
-	entityeventsoutboxDescWithReply := entityeventsoutboxMixinFields0[9].Descriptor()
-	// entityeventsoutbox.DefaultWithReply holds the default value on creation for the with_reply field.
-	entityeventsoutbox.DefaultWithReply = entityeventsoutboxDescWithReply.Default.(bool)
 	// entityeventsoutboxDescRetryCount is the schema descriptor for retry_count field.
-	entityeventsoutboxDescRetryCount := entityeventsoutboxMixinFields0[10].Descriptor()
+	entityeventsoutboxDescRetryCount := entityeventsoutboxMixinFields0[9].Descriptor()
 	// entityeventsoutbox.DefaultRetryCount holds the default value on creation for the retry_count field.
 	entityeventsoutbox.DefaultRetryCount = entityeventsoutboxDescRetryCount.Default.(int)
 	// entityeventsoutboxDescID is the schema descriptor for id field.

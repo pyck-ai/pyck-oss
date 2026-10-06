@@ -586,14 +586,14 @@ func OrderIDNotIn(vs ...uuid.UUID) predicate.OutboundShipmentNotification {
 // HasOrder applies the HasEdge predicate on the "order" edge.
 func HasOrder() predicate.OutboundShipmentNotification {
 	return predicate.OutboundShipmentNotification(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, OrderTable, OrderColumn),
-		)
+		step := newOrderStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Order
 		step.Edge.Schema = schemaConfig.OutboundShipmentNotification
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -604,6 +604,7 @@ func HasOrderWith(preds ...predicate.Order) predicate.OutboundShipmentNotificati
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Order
 		step.Edge.Schema = schemaConfig.OutboundShipmentNotification
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

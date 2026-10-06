@@ -1,0 +1,11 @@
+info:
+  name: User - Workflow Signal Workflow Ownership
+  type: folder
+  seq: 1
+
+docs: |-
+  Registers a workflow with signals, re-registers it with a changed signal set (update, create and soft-delete paths), and verifies every signal stays on the registered workflow and in its tenant. Guards the workflow-in-tenant check on WorkflowSignal writes (#1500) against refusing the only legitimate writer, registerWorkflow.
+
+
+request:
+  auth: inherit

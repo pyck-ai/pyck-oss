@@ -8,7 +8,6 @@ import (
 	"github.com/urfave/cli/v3"
 	temporalconfig "go.temporal.io/server/common/config"
 	temporalheaders "go.temporal.io/server/common/headers"
-	"go.temporal.io/server/temporal"
 
 	_ "go.temporal.io/server/common/persistence/sql/sqlplugin/mysql"      // needed to load mysql plugin
 	_ "go.temporal.io/server/common/persistence/sql/sqlplugin/postgresql" // needed to load postgresql plugin
@@ -91,14 +90,14 @@ func buildCLI() *cli.Command {
 				&cli.StringFlag{
 					Name:    "services",
 					Aliases: []string{"s"},
-					Usage:   "comma separated list of services to start. Deprecated",
+					Usage:   "comma separated list of services to start. Deprecated, use --service. Ignored when --service is set",
 					Hidden:  true,
 				},
 				&cli.StringSliceFlag{
 					Name:    "service",
 					Aliases: []string{"svc"},
-					Value:   temporal.DefaultServices,
-					Usage:   "service(s) to start",
+					Usage:   "service(s) to start (frontend, internal-frontend, history, matching, worker). Repeat the flag or comma separate. If unset, every service declared in the loaded config starts",
+					Sources: cli.EnvVars(serviceEnvVar),
 				},
 			},
 			Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {

@@ -13,11 +13,11 @@ import (
 	"strings"
 )
 
-const _SignalTypeName = "unknownstartintermediate"
+const _SignalTypeName = "unknownstartintermediatesignal_with_startsignal_by_id"
 
-var _SignalTypeIndex = [...]uint8{0, 7, 12, 24}
+var _SignalTypeIndex = [...]uint8{0, 7, 12, 24, 41, 53}
 
-const _SignalTypeLowerName = "unknownstartintermediate"
+const _SignalTypeLowerName = "unknownstartintermediatesignal_with_startsignal_by_id"
 
 func (i SignalType) String() string {
 	if i >= SignalType(len(_SignalTypeIndex)-1) {
@@ -33,9 +33,11 @@ func _SignalTypeNoOp() {
 	_ = x[SIGNAL_UNKNOWN-(0)]
 	_ = x[SIGNAL_START-(1)]
 	_ = x[SIGNAL_INTERMEDIATE-(2)]
+	_ = x[SIGNAL_WITH_START-(3)]
+	_ = x[SIGNAL_BY_ID-(4)]
 }
 
-var _SignalTypeValues = []SignalType{SIGNAL_UNKNOWN, SIGNAL_START, SIGNAL_INTERMEDIATE}
+var _SignalTypeValues = []SignalType{SIGNAL_UNKNOWN, SIGNAL_START, SIGNAL_INTERMEDIATE, SIGNAL_WITH_START, SIGNAL_BY_ID}
 
 var _SignalTypeNameToValueMap = map[string]SignalType{
 	_SignalTypeName[0:7]:        SIGNAL_UNKNOWN,
@@ -44,12 +46,18 @@ var _SignalTypeNameToValueMap = map[string]SignalType{
 	_SignalTypeLowerName[7:12]:  SIGNAL_START,
 	_SignalTypeName[12:24]:      SIGNAL_INTERMEDIATE,
 	_SignalTypeLowerName[12:24]: SIGNAL_INTERMEDIATE,
+	_SignalTypeName[24:41]:      SIGNAL_WITH_START,
+	_SignalTypeLowerName[24:41]: SIGNAL_WITH_START,
+	_SignalTypeName[41:53]:      SIGNAL_BY_ID,
+	_SignalTypeLowerName[41:53]: SIGNAL_BY_ID,
 }
 
 var _SignalTypeNames = []string{
 	_SignalTypeName[0:7],
 	_SignalTypeName[7:12],
 	_SignalTypeName[12:24],
+	_SignalTypeName[24:41],
+	_SignalTypeName[41:53],
 }
 
 // SignalTypeString retrieves an enum value from the enum constants string name.

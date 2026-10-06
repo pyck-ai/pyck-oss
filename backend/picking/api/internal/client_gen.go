@@ -647,47 +647,29 @@ func (t *CreatePickingOrder_CreatePickingOrder_PickingOrder) GetUpdatedBy() *uui
 	return t.UpdatedBy
 }
 
-type CreatePickingOrder_CreatePickingOrder_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreatePickingOrder_CreatePickingOrder_Workflows) GetID() string {
-	if t == nil {
-		t = &CreatePickingOrder_CreatePickingOrder_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreatePickingOrder_CreatePickingOrder_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreatePickingOrder_CreatePickingOrder_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreatePickingOrder_CreatePickingOrder_Workflows) GetType() string {
-	if t == nil {
-		t = &CreatePickingOrder_CreatePickingOrder_Workflows{}
-	}
-	return t.Type
-}
-
 type CreatePickingOrder_CreatePickingOrder struct {
-	PickingOrder *CreatePickingOrder_CreatePickingOrder_PickingOrder "json:\"pickingOrder,omitempty\" graphql:\"pickingOrder\""
-	Workflows    []*CreatePickingOrder_CreatePickingOrder_Workflows  "json:\"workflows,omitempty\" graphql:\"workflows\""
+	EventCount    int                                                 "json:\"eventCount\" graphql:\"eventCount\""
+	PickingOrder  *CreatePickingOrder_CreatePickingOrder_PickingOrder "json:\"pickingOrder,omitempty\" graphql:\"pickingOrder\""
+	TransactionID string                                              "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *CreatePickingOrder_CreatePickingOrder) GetEventCount() int {
+	if t == nil {
+		t = &CreatePickingOrder_CreatePickingOrder{}
+	}
+	return t.EventCount
+}
 func (t *CreatePickingOrder_CreatePickingOrder) GetPickingOrder() *CreatePickingOrder_CreatePickingOrder_PickingOrder {
 	if t == nil {
 		t = &CreatePickingOrder_CreatePickingOrder{}
 	}
 	return t.PickingOrder
 }
-func (t *CreatePickingOrder_CreatePickingOrder) GetWorkflows() []*CreatePickingOrder_CreatePickingOrder_Workflows {
+func (t *CreatePickingOrder_CreatePickingOrder) GetTransactionID() string {
 	if t == nil {
 		t = &CreatePickingOrder_CreatePickingOrder{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type UpdatePickingOrder_UpdatePickingOrder_PickingOrder struct {
@@ -778,77 +760,35 @@ func (t *UpdatePickingOrder_UpdatePickingOrder_PickingOrder) GetUpdatedBy() *uui
 	return t.UpdatedBy
 }
 
-type UpdatePickingOrder_UpdatePickingOrder_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdatePickingOrder_UpdatePickingOrder_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdatePickingOrder_UpdatePickingOrder_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdatePickingOrder_UpdatePickingOrder_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdatePickingOrder_UpdatePickingOrder_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdatePickingOrder_UpdatePickingOrder_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdatePickingOrder_UpdatePickingOrder_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdatePickingOrder_UpdatePickingOrder struct {
-	PickingOrder *UpdatePickingOrder_UpdatePickingOrder_PickingOrder "json:\"pickingOrder,omitempty\" graphql:\"pickingOrder\""
-	Workflows    []*UpdatePickingOrder_UpdatePickingOrder_Workflows  "json:\"workflows,omitempty\" graphql:\"workflows\""
+	EventCount    int                                                 "json:\"eventCount\" graphql:\"eventCount\""
+	PickingOrder  *UpdatePickingOrder_UpdatePickingOrder_PickingOrder "json:\"pickingOrder,omitempty\" graphql:\"pickingOrder\""
+	TransactionID string                                              "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *UpdatePickingOrder_UpdatePickingOrder) GetEventCount() int {
+	if t == nil {
+		t = &UpdatePickingOrder_UpdatePickingOrder{}
+	}
+	return t.EventCount
+}
 func (t *UpdatePickingOrder_UpdatePickingOrder) GetPickingOrder() *UpdatePickingOrder_UpdatePickingOrder_PickingOrder {
 	if t == nil {
 		t = &UpdatePickingOrder_UpdatePickingOrder{}
 	}
 	return t.PickingOrder
 }
-func (t *UpdatePickingOrder_UpdatePickingOrder) GetWorkflows() []*UpdatePickingOrder_UpdatePickingOrder_Workflows {
+func (t *UpdatePickingOrder_UpdatePickingOrder) GetTransactionID() string {
 	if t == nil {
 		t = &UpdatePickingOrder_UpdatePickingOrder{}
 	}
-	return t.Workflows
-}
-
-type DeletePickingOrder_DeletePickingOrder_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeletePickingOrder_DeletePickingOrder_Workflows) GetID() string {
-	if t == nil {
-		t = &DeletePickingOrder_DeletePickingOrder_Workflows{}
-	}
-	return t.ID
-}
-func (t *DeletePickingOrder_DeletePickingOrder_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeletePickingOrder_DeletePickingOrder_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeletePickingOrder_DeletePickingOrder_Workflows) GetType() string {
-	if t == nil {
-		t = &DeletePickingOrder_DeletePickingOrder_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeletePickingOrder_DeletePickingOrder struct {
-	DeletedID *string                                            "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeletePickingOrder_DeletePickingOrder_Workflows "json:\"workflows,omitempty\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeletePickingOrder_DeletePickingOrder) GetDeletedID() *string {
@@ -857,11 +797,17 @@ func (t *DeletePickingOrder_DeletePickingOrder) GetDeletedID() *string {
 	}
 	return t.DeletedID
 }
-func (t *DeletePickingOrder_DeletePickingOrder) GetWorkflows() []*DeletePickingOrder_DeletePickingOrder_Workflows {
+func (t *DeletePickingOrder_DeletePickingOrder) GetEventCount() int {
 	if t == nil {
 		t = &DeletePickingOrder_DeletePickingOrder{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeletePickingOrder_DeletePickingOrder) GetTransactionID() string {
+	if t == nil {
+		t = &DeletePickingOrder_DeletePickingOrder{}
+	}
+	return t.TransactionID
 }
 
 type CreatePickingOrderItem_CreatePickingOrderItem_PickingOrderItem struct {
@@ -966,47 +912,29 @@ func (t *CreatePickingOrderItem_CreatePickingOrderItem_PickingOrderItem) GetUpda
 	return t.UpdatedBy
 }
 
-type CreatePickingOrderItem_CreatePickingOrderItem_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreatePickingOrderItem_CreatePickingOrderItem_Workflows) GetID() string {
-	if t == nil {
-		t = &CreatePickingOrderItem_CreatePickingOrderItem_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreatePickingOrderItem_CreatePickingOrderItem_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreatePickingOrderItem_CreatePickingOrderItem_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreatePickingOrderItem_CreatePickingOrderItem_Workflows) GetType() string {
-	if t == nil {
-		t = &CreatePickingOrderItem_CreatePickingOrderItem_Workflows{}
-	}
-	return t.Type
-}
-
 type CreatePickingOrderItem_CreatePickingOrderItem struct {
+	EventCount       int                                                             "json:\"eventCount\" graphql:\"eventCount\""
 	PickingOrderItem *CreatePickingOrderItem_CreatePickingOrderItem_PickingOrderItem "json:\"pickingOrderItem,omitempty\" graphql:\"pickingOrderItem\""
-	Workflows        []*CreatePickingOrderItem_CreatePickingOrderItem_Workflows      "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID    string                                                          "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *CreatePickingOrderItem_CreatePickingOrderItem) GetEventCount() int {
+	if t == nil {
+		t = &CreatePickingOrderItem_CreatePickingOrderItem{}
+	}
+	return t.EventCount
+}
 func (t *CreatePickingOrderItem_CreatePickingOrderItem) GetPickingOrderItem() *CreatePickingOrderItem_CreatePickingOrderItem_PickingOrderItem {
 	if t == nil {
 		t = &CreatePickingOrderItem_CreatePickingOrderItem{}
 	}
 	return t.PickingOrderItem
 }
-func (t *CreatePickingOrderItem_CreatePickingOrderItem) GetWorkflows() []*CreatePickingOrderItem_CreatePickingOrderItem_Workflows {
+func (t *CreatePickingOrderItem_CreatePickingOrderItem) GetTransactionID() string {
 	if t == nil {
 		t = &CreatePickingOrderItem_CreatePickingOrderItem{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type UpdatePickingOrderItem_UpdatePickingOrderItem_PickingOrderItem struct {
@@ -1111,77 +1039,35 @@ func (t *UpdatePickingOrderItem_UpdatePickingOrderItem_PickingOrderItem) GetUpda
 	return t.UpdatedBy
 }
 
-type UpdatePickingOrderItem_UpdatePickingOrderItem_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdatePickingOrderItem_UpdatePickingOrderItem_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdatePickingOrderItem_UpdatePickingOrderItem_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdatePickingOrderItem_UpdatePickingOrderItem_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdatePickingOrderItem_UpdatePickingOrderItem_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdatePickingOrderItem_UpdatePickingOrderItem_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdatePickingOrderItem_UpdatePickingOrderItem_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdatePickingOrderItem_UpdatePickingOrderItem struct {
+	EventCount       int                                                             "json:\"eventCount\" graphql:\"eventCount\""
 	PickingOrderItem *UpdatePickingOrderItem_UpdatePickingOrderItem_PickingOrderItem "json:\"pickingOrderItem,omitempty\" graphql:\"pickingOrderItem\""
-	Workflows        []*UpdatePickingOrderItem_UpdatePickingOrderItem_Workflows      "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID    string                                                          "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *UpdatePickingOrderItem_UpdatePickingOrderItem) GetEventCount() int {
+	if t == nil {
+		t = &UpdatePickingOrderItem_UpdatePickingOrderItem{}
+	}
+	return t.EventCount
+}
 func (t *UpdatePickingOrderItem_UpdatePickingOrderItem) GetPickingOrderItem() *UpdatePickingOrderItem_UpdatePickingOrderItem_PickingOrderItem {
 	if t == nil {
 		t = &UpdatePickingOrderItem_UpdatePickingOrderItem{}
 	}
 	return t.PickingOrderItem
 }
-func (t *UpdatePickingOrderItem_UpdatePickingOrderItem) GetWorkflows() []*UpdatePickingOrderItem_UpdatePickingOrderItem_Workflows {
+func (t *UpdatePickingOrderItem_UpdatePickingOrderItem) GetTransactionID() string {
 	if t == nil {
 		t = &UpdatePickingOrderItem_UpdatePickingOrderItem{}
 	}
-	return t.Workflows
-}
-
-type DeletePickingOrderItem_DeletePickingOrderItem_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeletePickingOrderItem_DeletePickingOrderItem_Workflows) GetID() string {
-	if t == nil {
-		t = &DeletePickingOrderItem_DeletePickingOrderItem_Workflows{}
-	}
-	return t.ID
-}
-func (t *DeletePickingOrderItem_DeletePickingOrderItem_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeletePickingOrderItem_DeletePickingOrderItem_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeletePickingOrderItem_DeletePickingOrderItem_Workflows) GetType() string {
-	if t == nil {
-		t = &DeletePickingOrderItem_DeletePickingOrderItem_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeletePickingOrderItem_DeletePickingOrderItem struct {
-	DeletedID *string                                                    "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeletePickingOrderItem_DeletePickingOrderItem_Workflows "json:\"workflows,omitempty\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeletePickingOrderItem_DeletePickingOrderItem) GetDeletedID() *string {
@@ -1190,11 +1076,17 @@ func (t *DeletePickingOrderItem_DeletePickingOrderItem) GetDeletedID() *string {
 	}
 	return t.DeletedID
 }
-func (t *DeletePickingOrderItem_DeletePickingOrderItem) GetWorkflows() []*DeletePickingOrderItem_DeletePickingOrderItem_Workflows {
+func (t *DeletePickingOrderItem_DeletePickingOrderItem) GetEventCount() int {
 	if t == nil {
 		t = &DeletePickingOrderItem_DeletePickingOrderItem{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeletePickingOrderItem_DeletePickingOrderItem) GetTransactionID() string {
+	if t == nil {
+		t = &DeletePickingOrderItem_DeletePickingOrderItem{}
+	}
+	return t.TransactionID
 }
 
 type CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification_PickingOutboundShipmentNotification struct {
@@ -1285,47 +1177,29 @@ func (t *CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipment
 	return t.UpdatedBy
 }
 
-type CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification_Workflows) GetID() string {
-	if t == nil {
-		t = &CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification_Workflows) GetType() string {
-	if t == nil {
-		t = &CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification_Workflows{}
-	}
-	return t.Type
-}
-
 type CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification struct {
+	EventCount                          int                                                                                                                      "json:\"eventCount\" graphql:\"eventCount\""
 	PickingOutboundShipmentNotification *CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification_PickingOutboundShipmentNotification "json:\"pickingOutboundShipmentNotification,omitempty\" graphql:\"pickingOutboundShipmentNotification\""
-	Workflows                           []*CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification_Workflows                         "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID                       string                                                                                                                   "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification) GetEventCount() int {
+	if t == nil {
+		t = &CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification{}
+	}
+	return t.EventCount
+}
 func (t *CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification) GetPickingOutboundShipmentNotification() *CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification_PickingOutboundShipmentNotification {
 	if t == nil {
 		t = &CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification{}
 	}
 	return t.PickingOutboundShipmentNotification
 }
-func (t *CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification) GetWorkflows() []*CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification_Workflows {
+func (t *CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification) GetTransactionID() string {
 	if t == nil {
 		t = &CreatePickingOutboundShipmentNotification_CreatePickingOutboundShipmentNotification{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification_PickingOutboundShipmentNotification struct {
@@ -1416,77 +1290,35 @@ func (t *UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipment
 	return t.UpdatedBy
 }
 
-type UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification struct {
+	EventCount                          int                                                                                                                      "json:\"eventCount\" graphql:\"eventCount\""
 	PickingOutboundShipmentNotification *UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification_PickingOutboundShipmentNotification "json:\"pickingOutboundShipmentNotification,omitempty\" graphql:\"pickingOutboundShipmentNotification\""
-	Workflows                           []*UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification_Workflows                         "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID                       string                                                                                                                   "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification) GetEventCount() int {
+	if t == nil {
+		t = &UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification{}
+	}
+	return t.EventCount
+}
 func (t *UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification) GetPickingOutboundShipmentNotification() *UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification_PickingOutboundShipmentNotification {
 	if t == nil {
 		t = &UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification{}
 	}
 	return t.PickingOutboundShipmentNotification
 }
-func (t *UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification) GetWorkflows() []*UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification_Workflows {
+func (t *UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification) GetTransactionID() string {
 	if t == nil {
 		t = &UpdatePickingOutboundShipmentNotification_UpdatePickingOutboundShipmentNotification{}
 	}
-	return t.Workflows
-}
-
-type DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification_Workflows) GetID() string {
-	if t == nil {
-		t = &DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification_Workflows{}
-	}
-	return t.ID
-}
-func (t *DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification_Workflows) GetType() string {
-	if t == nil {
-		t = &DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification struct {
-	DeletedID *string                                                                                          "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification_Workflows "json:\"workflows,omitempty\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification) GetDeletedID() *string {
@@ -1495,11 +1327,17 @@ func (t *DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipment
 	}
 	return t.DeletedID
 }
-func (t *DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification) GetWorkflows() []*DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification_Workflows {
+func (t *DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification) GetEventCount() int {
 	if t == nil {
 		t = &DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification) GetTransactionID() string {
+	if t == nil {
+		t = &DeletePickingOutboundShipmentNotification_DeletePickingOutboundShipmentNotification{}
+	}
+	return t.TransactionID
 }
 
 type PatchPickingOrderData_PatchPickingOrderData_PickingOrder struct {
@@ -1590,47 +1428,29 @@ func (t *PatchPickingOrderData_PatchPickingOrderData_PickingOrder) GetUpdatedBy(
 	return t.UpdatedBy
 }
 
-type PatchPickingOrderData_PatchPickingOrderData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchPickingOrderData_PatchPickingOrderData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchPickingOrderData_PatchPickingOrderData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchPickingOrderData_PatchPickingOrderData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchPickingOrderData_PatchPickingOrderData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchPickingOrderData_PatchPickingOrderData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchPickingOrderData_PatchPickingOrderData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchPickingOrderData_PatchPickingOrderData struct {
-	PickingOrder *PatchPickingOrderData_PatchPickingOrderData_PickingOrder "json:\"pickingOrder,omitempty\" graphql:\"pickingOrder\""
-	Workflows    []*PatchPickingOrderData_PatchPickingOrderData_Workflows  "json:\"workflows,omitempty\" graphql:\"workflows\""
+	EventCount    int                                                       "json:\"eventCount\" graphql:\"eventCount\""
+	PickingOrder  *PatchPickingOrderData_PatchPickingOrderData_PickingOrder "json:\"pickingOrder,omitempty\" graphql:\"pickingOrder\""
+	TransactionID string                                                    "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *PatchPickingOrderData_PatchPickingOrderData) GetEventCount() int {
+	if t == nil {
+		t = &PatchPickingOrderData_PatchPickingOrderData{}
+	}
+	return t.EventCount
+}
 func (t *PatchPickingOrderData_PatchPickingOrderData) GetPickingOrder() *PatchPickingOrderData_PatchPickingOrderData_PickingOrder {
 	if t == nil {
 		t = &PatchPickingOrderData_PatchPickingOrderData{}
 	}
 	return t.PickingOrder
 }
-func (t *PatchPickingOrderData_PatchPickingOrderData) GetWorkflows() []*PatchPickingOrderData_PatchPickingOrderData_Workflows {
+func (t *PatchPickingOrderData_PatchPickingOrderData) GetTransactionID() string {
 	if t == nil {
 		t = &PatchPickingOrderData_PatchPickingOrderData{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem struct {
@@ -1735,47 +1555,29 @@ func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem) G
 	return t.UpdatedBy
 }
 
-type PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchPickingOrderItemData_PatchPickingOrderItemData struct {
+	EventCount       int                                                                   "json:\"eventCount\" graphql:\"eventCount\""
 	PickingOrderItem *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem "json:\"pickingOrderItem,omitempty\" graphql:\"pickingOrderItem\""
-	Workflows        []*PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows      "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID    string                                                                "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData) GetEventCount() int {
+	if t == nil {
+		t = &PatchPickingOrderItemData_PatchPickingOrderItemData{}
+	}
+	return t.EventCount
+}
 func (t *PatchPickingOrderItemData_PatchPickingOrderItemData) GetPickingOrderItem() *PatchPickingOrderItemData_PatchPickingOrderItemData_PickingOrderItem {
 	if t == nil {
 		t = &PatchPickingOrderItemData_PatchPickingOrderItemData{}
 	}
 	return t.PickingOrderItem
 }
-func (t *PatchPickingOrderItemData_PatchPickingOrderItemData) GetWorkflows() []*PatchPickingOrderItemData_PatchPickingOrderItemData_Workflows {
+func (t *PatchPickingOrderItemData_PatchPickingOrderItemData) GetTransactionID() string {
 	if t == nil {
 		t = &PatchPickingOrderItemData_PatchPickingOrderItemData{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification struct {
@@ -1866,47 +1668,29 @@ func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipme
 	return t.UpdatedBy
 }
 
-type PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData struct {
+	EventCount                          int                                                                                                                            "json:\"eventCount\" graphql:\"eventCount\""
 	PickingOutboundShipmentNotification *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification "json:\"pickingOutboundShipmentNotification,omitempty\" graphql:\"pickingOutboundShipmentNotification\""
-	Workflows                           []*PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows                         "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID                       string                                                                                                                         "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData) GetEventCount() int {
+	if t == nil {
+		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData{}
+	}
+	return t.EventCount
+}
 func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData) GetPickingOutboundShipmentNotification() *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_PickingOutboundShipmentNotification {
 	if t == nil {
 		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData{}
 	}
 	return t.PickingOutboundShipmentNotification
 }
-func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData) GetWorkflows() []*PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData_Workflows {
+func (t *PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData) GetTransactionID() string {
 	if t == nil {
 		t = &PatchPickingOutboundShipmentNotificationData_PatchPickingOutboundShipmentNotificationData{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type GetPickingOrders struct {
@@ -2268,6 +2052,7 @@ func (c *Client) GetPickingServiceInfo(ctx context.Context, interceptors ...clie
 
 const CreatePickingOrderDocument = `mutation CreatePickingOrder ($input: CreatePickingOrderWithItemsInput!) {
 	createPickingOrder(input: $input) {
+		eventCount
 		pickingOrder {
 			createdAt
 			createdBy
@@ -2282,11 +2067,7 @@ const CreatePickingOrderDocument = `mutation CreatePickingOrder ($input: CreateP
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2310,6 +2091,7 @@ func (c *Client) CreatePickingOrder(ctx context.Context, input model.CreatePicki
 
 const UpdatePickingOrderDocument = `mutation UpdatePickingOrder ($id: ID!, $input: UpdatePickingOrderInput!) {
 	updatePickingOrder(id: $id, input: $input) {
+		eventCount
 		pickingOrder {
 			createdAt
 			createdBy
@@ -2324,11 +2106,7 @@ const UpdatePickingOrderDocument = `mutation UpdatePickingOrder ($id: ID!, $inpu
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2354,11 +2132,8 @@ func (c *Client) UpdatePickingOrder(ctx context.Context, id string, input Update
 const DeletePickingOrderDocument = `mutation DeletePickingOrder ($id: ID!) {
 	deletePickingOrder(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -2382,6 +2157,7 @@ func (c *Client) DeletePickingOrder(ctx context.Context, id string, interceptors
 
 const CreatePickingOrderItemDocument = `mutation CreatePickingOrderItem ($input: CreatePickingOrderItemInput!) {
 	createPickingOrderItem(input: $input) {
+		eventCount
 		pickingOrderItem {
 			createdAt
 			createdBy
@@ -2398,11 +2174,7 @@ const CreatePickingOrderItemDocument = `mutation CreatePickingOrderItem ($input:
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2426,6 +2198,7 @@ func (c *Client) CreatePickingOrderItem(ctx context.Context, input CreatePicking
 
 const UpdatePickingOrderItemDocument = `mutation UpdatePickingOrderItem ($id: ID!, $input: UpdatePickingOrderItemInput!) {
 	updatePickingOrderItem(id: $id, input: $input) {
+		eventCount
 		pickingOrderItem {
 			createdAt
 			createdBy
@@ -2442,11 +2215,7 @@ const UpdatePickingOrderItemDocument = `mutation UpdatePickingOrderItem ($id: ID
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2472,11 +2241,8 @@ func (c *Client) UpdatePickingOrderItem(ctx context.Context, id string, input Up
 const DeletePickingOrderItemDocument = `mutation DeletePickingOrderItem ($id: ID!) {
 	deletePickingOrderItem(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -2500,6 +2266,7 @@ func (c *Client) DeletePickingOrderItem(ctx context.Context, id string, intercep
 
 const CreatePickingOutboundShipmentNotificationDocument = `mutation CreatePickingOutboundShipmentNotification ($input: CreatePickingOutboundShipmentNotificationInput!) {
 	createPickingOutboundShipmentNotification(input: $input) {
+		eventCount
 		pickingOutboundShipmentNotification {
 			createdAt
 			createdBy
@@ -2514,11 +2281,7 @@ const CreatePickingOutboundShipmentNotificationDocument = `mutation CreatePickin
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2542,6 +2305,7 @@ func (c *Client) CreatePickingOutboundShipmentNotification(ctx context.Context, 
 
 const UpdatePickingOutboundShipmentNotificationDocument = `mutation UpdatePickingOutboundShipmentNotification ($id: ID!, $input: UpdatePickingOutboundShipmentNotificationInput!) {
 	updatePickingOutboundShipmentNotification(id: $id, input: $input) {
+		eventCount
 		pickingOutboundShipmentNotification {
 			createdAt
 			createdBy
@@ -2556,11 +2320,7 @@ const UpdatePickingOutboundShipmentNotificationDocument = `mutation UpdatePickin
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2586,11 +2346,8 @@ func (c *Client) UpdatePickingOutboundShipmentNotification(ctx context.Context, 
 const DeletePickingOutboundShipmentNotificationDocument = `mutation DeletePickingOutboundShipmentNotification ($id: ID!) {
 	deletePickingOutboundShipmentNotification(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -2614,6 +2371,7 @@ func (c *Client) DeletePickingOutboundShipmentNotification(ctx context.Context, 
 
 const PatchPickingOrderDataDocument = `mutation PatchPickingOrderData ($id: ID!, $patches: [JSONPatchInput!]!) {
 	patchPickingOrderData(id: $id, patches: $patches) {
+		eventCount
 		pickingOrder {
 			createdAt
 			createdBy
@@ -2628,11 +2386,7 @@ const PatchPickingOrderDataDocument = `mutation PatchPickingOrderData ($id: ID!,
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2657,6 +2411,7 @@ func (c *Client) PatchPickingOrderData(ctx context.Context, id string, patches [
 
 const PatchPickingOrderItemDataDocument = `mutation PatchPickingOrderItemData ($id: ID!, $patches: [JSONPatchInput!]!) {
 	patchPickingOrderItemData(id: $id, patches: $patches) {
+		eventCount
 		pickingOrderItem {
 			createdAt
 			createdBy
@@ -2673,11 +2428,7 @@ const PatchPickingOrderItemDataDocument = `mutation PatchPickingOrderItemData ($
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2702,6 +2453,7 @@ func (c *Client) PatchPickingOrderItemData(ctx context.Context, id string, patch
 
 const PatchPickingOutboundShipmentNotificationDataDocument = `mutation PatchPickingOutboundShipmentNotificationData ($id: ID!, $patches: [JSONPatchInput!]!) {
 	patchPickingOutboundShipmentNotificationData(id: $id, patches: $patches) {
+		eventCount
 		pickingOutboundShipmentNotification {
 			createdAt
 			createdBy
@@ -2716,11 +2468,7 @@ const PatchPickingOutboundShipmentNotificationDataDocument = `mutation PatchPick
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `

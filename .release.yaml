@@ -1,0 +1,8 @@
+# Release configuration for pyck-ai/pyck-release (`pyck-release cut`, `pyck-release verify`).
+#
+# Every Go module directory matching one of these globs gets a module tag
+# <dir>/<version> pointing at the signed root release tag, so the backend
+# modules can be required by version. `*` does not cross `/`. hack/ and tests/
+# also contain go.mod files and are deliberately not listed.
+modules:
+  - backend/*

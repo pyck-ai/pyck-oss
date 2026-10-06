@@ -9,7 +9,10 @@ extend input PickingOrderItemWhereInput {
 type PickingOrderItemOutput
 {
   pickingOrderItem: PickingOrderItem
-  workflows: [TemporalWorkflow]
+  "Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet)."
+  transactionID: ID!
+  "Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total."
+  eventCount: Int!
 }
 
 

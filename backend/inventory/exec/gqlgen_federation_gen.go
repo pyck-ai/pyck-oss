@@ -179,12 +179,16 @@ func (ec *executionContext) resolveEntity(
 		}
 		switch resolverName {
 
-		case "findPickingOrderItemBySku":
+		case "findPickingOrderItemBySkuAndTenantID":
 			id0, err := ec.unmarshalNString2string(ctx, rep["sku"])
 			if err != nil {
-				return nil, fmt.Errorf(`unmarshalling param 0 for findPickingOrderItemBySku(): %w`, err)
+				return nil, fmt.Errorf(`unmarshalling param 0 for findPickingOrderItemBySkuAndTenantID(): %w`, err)
 			}
-			entity, err := ec.Resolvers.Entity().FindPickingOrderItemBySku(ctx, id0)
+			id1, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, rep["tenantID"])
+			if err != nil {
+				return nil, fmt.Errorf(`unmarshalling param 1 for findPickingOrderItemBySkuAndTenantID(): %w`, err)
+			}
+			entity, err := ec.Resolvers.Entity().FindPickingOrderItemBySkuAndTenantID(ctx, id0, id1)
 			if err != nil {
 				return nil, fmt.Errorf(`resolving Entity "PickingOrderItem": %w`, err)
 			}
@@ -314,12 +318,22 @@ func entityResolverNameForPickingOrderItem(ctx context.Context, rep EntityRepres
 		if allNull {
 			allNull = val == nil
 		}
+		m = rep
+		val, ok = m["tenantID"]
+		if !ok {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to missing Key Field \"tenantID\" for PickingOrderItem", ErrTypeNotFound))
+			break
+		}
+		if allNull {
+			allNull = val == nil
+		}
 		if allNull {
 			entityResolverErrs = append(entityResolverErrs,
 				fmt.Errorf("%w due to all null value KeyFields for PickingOrderItem", ErrTypeNotFound))
 			break
 		}
-		return "findPickingOrderItemBySku", nil
+		return "findPickingOrderItemBySkuAndTenantID", nil
 	}
 	return "", fmt.Errorf("%w for PickingOrderItem due to %v", ErrTypeNotFound,
 		errors.Join(entityResolverErrs...).Error())

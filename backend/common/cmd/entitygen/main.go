@@ -8,8 +8,10 @@ import (
 	"go/parser"
 	"go/token"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -93,7 +95,7 @@ func run(_ context.Context, cmd *cli.Command) error {
 	}
 
 	// Find all Ent schema files
-	entities, err := extractEntities(schemaPattern)
+	entities, serviceEntities, err := extractEntities(schemaPattern)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrExtractEntities, err)
 	}
@@ -103,7 +105,7 @@ func run(_ context.Context, cmd *cli.Command) error {
 	}
 
 	// Generate the output file
-	if err := generateFile(entities, outputDir); err != nil {
+	if err := generateFile(entities, serviceEntities, outputDir); err != nil {
 		return fmt.Errorf("%w: %w", ErrGenerateFile, err)
 	}
 
@@ -114,6 +116,13 @@ func run(_ context.Context, cmd *cli.Command) error {
 		logDryRunf("    return []string{")
 		for _, entity := range entities {
 			logDryRunf("        %q,", entity)
+		}
+		logDryRunf("    }")
+		logDryRunf("}")
+		logDryRunf("func ServiceEntities() map[string][]string {")
+		logDryRunf("    return map[string][]string{")
+		for _, service := range slices.Sorted(maps.Keys(serviceEntities)) {
+			logDryRunf("        %q: %#v,", service, serviceEntities[service])
 		}
 		logDryRunf("    }")
 		logDryRunf("}")
@@ -137,9 +146,12 @@ func logDryRunf(format string, args ...interface{}) {
 	log.Printf(dryRunPrefix+format, args...)
 }
 
-// extractEntities scans all Ent schema files and extracts entity names from entgql.Type() annotations
-func extractEntities(schemaPattern string) ([]string, error) {
+// extractEntities scans all Ent schema files. It returns the snake_case names
+// of the entities that use DataMixin, and the Go type names of every entity
+// keyed by the service directory the schema lives in.
+func extractEntities(schemaPattern string) ([]string, map[string][]string, error) {
 	entitySet := make(map[string]bool)
+	serviceEntities := make(map[string][]string)
 
 	if verbose {
 		log.Printf("Scanning schema files with pattern: %s", schemaPattern)
@@ -148,7 +160,7 @@ func extractEntities(schemaPattern string) ([]string, error) {
 	// Use glob to find all matching schema files
 	files, err := filepath.Glob(schemaPattern)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrGlobSchemaFiles, err)
+		return nil, nil, fmt.Errorf("%w: %w", ErrGlobSchemaFiles, err)
 	}
 
 	if verbose {
@@ -161,18 +173,27 @@ func extractEntities(schemaPattern string) ([]string, error) {
 			continue
 		}
 
-		typeName, err := extractTypeFromSchemaFile(file)
+		typeName, hasDataMixin, err := extractTypeFromSchemaFile(file)
 		if err != nil {
-			return nil, fmt.Errorf("%w from %s: %w", ErrExtractType, file, err)
+			return nil, nil, fmt.Errorf("%w from %s: %w", ErrExtractType, file, err)
 		}
 
-		if typeName != "" {
-			entitySet[typeName] = true
+		if typeName == "" {
+			if verbose {
+				log.Printf("Skipping file (no ent.Schema type declaration): %s", file)
+			}
+			continue
+		}
+
+		// <service>/ent/schema/<file>.go
+		service := filepath.Base(filepath.Dir(filepath.Dir(filepath.Dir(file))))
+		serviceEntities[service] = append(serviceEntities[service], typeName)
+
+		if hasDataMixin {
+			entitySet[toSnakeCase(typeName)] = true
 			if verbose {
 				log.Printf("Extracted entity: %s from %s", typeName, file)
 			}
-		} else if verbose {
-			log.Printf("Skipping file (no type declaration or DataMixin): %s", file)
 		}
 	}
 
@@ -182,38 +203,33 @@ func extractEntities(schemaPattern string) ([]string, error) {
 		entities = append(entities, entity)
 	}
 	sort.Strings(entities)
+	for _, types := range serviceEntities {
+		sort.Strings(types)
+	}
 
-	return entities, nil
+	return entities, serviceEntities, nil
 }
 
-// extractTypeFromSchemaFile parses an Ent schema file and extracts the type name
-// from the struct declaration, only if the entity uses DataMixin.
-// Returns the type name converted to snake_case.
-func extractTypeFromSchemaFile(filename string) (string, error) {
+// extractTypeFromSchemaFile parses an Ent schema file and returns the name of
+// the struct that embeds ent.Schema ("" when the file declares none), and
+// whether that entity uses DataMixin.
+func extractTypeFromSchemaFile(filename string) (string, bool, error) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, filename, nil, parser.ParseComments)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrParseFile, err)
+		return "", false, fmt.Errorf("%w: %w", ErrParseFile, err)
 	}
 
 	var typeName string
 	var hasDataMixin bool
 
-	// Walk the AST to find the type declaration and Mixin() method
+	// Walk the AST to find the schema type declaration and Mixin() method
 	ast.Inspect(file, func(n ast.Node) bool {
-		// Look for type declarations
-		genDecl, ok := n.(*ast.GenDecl)
-		if ok && genDecl.Tok == token.TYPE {
-			for _, spec := range genDecl.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				if !ok {
-					continue
-				}
-				// Check if it's a struct type
-				if _, ok := typeSpec.Type.(*ast.StructType); ok {
-					// This is the schema type name
-					typeName = typeSpec.Name.Name
-				}
+		// Look for struct declarations embedding ent.Schema
+		typeSpec, ok := n.(*ast.TypeSpec)
+		if ok {
+			if structType, ok := typeSpec.Type.(*ast.StructType); ok && embedsEntSchema(structType) {
+				typeName = typeSpec.Name.Name
 			}
 		}
 
@@ -226,13 +242,25 @@ func extractTypeFromSchemaFile(filename string) (string, error) {
 		return true
 	})
 
-	// Only return the type if the entity uses DataMixin
-	if !hasDataMixin {
-		return "", nil
-	}
+	return typeName, hasDataMixin, nil
+}
 
-	// Convert to snake_case before returning
-	return toSnakeCase(typeName), nil
+// embedsEntSchema reports whether a struct embeds ent.Schema, which is what
+// makes it an Ent entity rather than, say, a privacy rule type.
+func embedsEntSchema(s *ast.StructType) bool {
+	for _, field := range s.Fields.List {
+		if len(field.Names) != 0 {
+			continue
+		}
+		sel, ok := field.Type.(*ast.SelectorExpr)
+		if !ok {
+			continue
+		}
+		if ident, ok := sel.X.(*ast.Ident); ok && ident.Name == "ent" && sel.Sel.Name == "Schema" {
+			return true
+		}
+	}
+	return false
 }
 
 // toSnakeCase converts a PascalCase or camelCase string to snake_case
@@ -287,7 +315,7 @@ func checkForDataMixin(body *ast.BlockStmt) bool {
 }
 
 // generateFile creates the entities_gen.go file using the template
-func generateFile(entities []string, outputDir string) error {
+func generateFile(entities []string, serviceEntities map[string][]string, outputDir string) error {
 	outputPath := filepath.Join(outputDir, outputFileName)
 	if verbose {
 		log.Printf("Generating output file: %s", outputPath)
@@ -300,7 +328,8 @@ func generateFile(entities []string, outputDir string) error {
 
 	var buf strings.Builder
 	if err := tmpl.Execute(&buf, map[string]interface{}{
-		"Entities": entities,
+		"Entities":        entities,
+		"ServiceEntities": serviceEntities,
 	}); err != nil {
 		return fmt.Errorf("%w: %w", ErrExecuteTemplate, err)
 	}

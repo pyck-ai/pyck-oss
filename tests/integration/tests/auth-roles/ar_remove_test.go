@@ -3,7 +3,9 @@
 package authroles
 
 import (
+	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,6 +15,7 @@ import (
 	managementmodel "github.com/pyck-ai/pyck/backend/management/model"
 
 	"github.com/pyck-ai/pyck/tests/integration/internal/gateway"
+	"github.com/pyck-ai/pyck/tests/integration/tests"
 )
 
 // removeRoles is a thin wrapper that issues a removeRoles mutation for the suite
@@ -36,6 +39,28 @@ func (s *AuthRolesSuite) userServiceRoles(c managementapi.Client, userID uuid.UU
 	})
 	s.Require().NoError(err, "userServiceRoles")
 	return read.GetUserServiceRoles()
+}
+
+// waitForServiceRoles polls userServiceRoles until check accepts the user's
+// roles. Use it for every read-back after an assignRoles or
+// removeRoles call: userServiceRoles reads Zitadel's ListAuthorizations,
+// which is served from a projection that lags the write, so a read a few
+// milliseconds after the mutation can still return the previous role set.
+func (s *AuthRolesSuite) waitForServiceRoles(c managementapi.Client, userID uuid.UUID, msg string, check func([]string) bool) {
+	s.T().Helper()
+	err := tests.PollUntil(s.Ctx, 10*time.Second, 100*time.Millisecond, func() error {
+		read, err := c.GetUserServiceRoles(s.Ctx, managementapi.GetUserServiceRolesArgs{
+			Input: managementmodel.UserServiceRolesInput{TenantID: s.tenantUUID(), UserID: userID},
+		})
+		if err != nil {
+			return fmt.Errorf("userServiceRoles: %w", err)
+		}
+		if roles := read.GetUserServiceRoles(); !check(roles) {
+			return fmt.Errorf("service roles still %v", roles)
+		}
+		return nil
+	})
+	s.Require().NoError(err, msg)
 }
 
 // TestRemoveRoleRevokesGateAccess exercises the full add → access → remove →
@@ -98,7 +123,8 @@ func (s *AuthRolesSuite) TestRemoveRolesLastRoleLeavesEmpty() {
 	s.Require().NoError(err, "removeRoles")
 	s.Empty(resp.GetRemoveRoles().GetRoles(), "removing the last role leaves none")
 
-	s.Empty(s.userServiceRoles(c, userID), "read-back confirms no service roles remain")
+	s.waitForServiceRoles(c, userID, "read-back confirms no service roles remain",
+		func(roles []string) bool { return len(roles) == 0 })
 }
 
 // TestRemoveRolesIdempotent confirms removing a role the user does not hold is a
@@ -124,6 +150,10 @@ func (s *AuthRolesSuite) TestRemoveRolesRejectsInvalidRoleKeys() {
 
 	_, err := s.assignRoles(c, userID, serviceroles.Picking.String())
 	s.Require().NoError(err, "assign the role that must survive every rejected call")
+	// Let the assignment become readable first, so every check below reads a
+	// settled role set and only a rejected call could remove the role.
+	s.waitForServiceRoles(c, userID, "assigned role never became readable",
+		func(roles []string) bool { return slices.Contains(roles, serviceroles.Picking.String()) })
 
 	for _, tc := range []struct {
 		name    string

@@ -1,0 +1,77 @@
+---
+name: "User - Workflow Signal Topic Unmatchable"
+description: >
+  Registers mutation and Temporal state-change signal topics with an uppercase
+  token, which publishers never emit, and verifies both are refused and
+  nothing is persisted.
+steps:
+  - name: "Register workflow with an uppercase token"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "TestSignalTopicUnmatchable"
+        taskQueue: "test-task-queue"
+        workerID: "scenario-user-workflow-signal-topic-unmatchable"
+        signals:
+          - natsTopic: "request.reply.pyck.*.crud.inventory.Item.*.created"
+            temporalSignal: "itemCreated"
+            temporalSignalType: "start"
+            filterRule: "true"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL error returned"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+      - msg: "Refused as unmatchable"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "can never match a published event"
+
+  - name: "Register workflow with an uppercase Temporal token"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "TestSignalTopicUnmatchableTemporal"
+        taskQueue: "test-task-queue"
+        workerID: "scenario-user-workflow-signal-topic-unmatchable"
+        signals:
+          - natsTopic: "pyck.*.temporal.*.ChildWorkflow.*.*.completed"
+            temporalSignal: "childCompleted"
+            temporalSignalType: "start"
+            filterRule: "true"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL error returned"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+      - msg: "Refused as unmatchable"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "can never match a published event"
+
+  - name: "Refused workflows are not persisted"
+    operation: workflow.getWorkflows
+    vars:
+      where:
+        nameHasPrefix: "TestSignalTopicUnmatchable"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results"
+        assertions:
+          - ref: res.body.data.workflows.totalCount
+            equal: 0

@@ -18,6 +18,7 @@ graphql:
 
       mutation CreateLocation($input: CreateLocationInput!) {
         createLocation(input: $input) {
+          eventCount
           location {
             createdAt
             createdBy
@@ -32,11 +33,7 @@ graphql:
             updatedAt
             updatedBy
           }
-          workflows {
-            id
-            runID
-            type
-          }
+          transactionID
         }
       }
     variables: |-

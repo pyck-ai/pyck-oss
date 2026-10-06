@@ -20,6 +20,7 @@ const (
 	PyckTitleKey                = searchattributes.PyckTitleKey
 	PyckGroupTitleKey           = searchattributes.PyckGroupTitleKey
 	PyckSortKeyKey              = searchattributes.PyckSortKeyKey
+	PyckTransactionIDKey        = searchattributes.PyckTransactionIDKey
 )
 
 var (
@@ -35,8 +36,14 @@ var (
 	PyckTitle                = temporal.NewSearchAttributeKeyKeyword(searchattributes.PyckTitleKey)
 	PyckGroupTitle           = temporal.NewSearchAttributeKeyKeyword(searchattributes.PyckGroupTitleKey)
 	PyckSortKey              = temporal.NewSearchAttributeKeyInt64(searchattributes.PyckSortKeyKey)
+	PyckTransactionID        = temporal.NewSearchAttributeKeyKeyword(searchattributes.PyckTransactionIDKey)
 )
 
+// SearchAttributes lists every search attribute pyck registers per namespace.
+// Ten of them are Keyword type, and Temporal's SQL visibility (postgres12, which
+// our deployment uses) has exactly Keyword01..10 per namespace. All Keyword slots
+// are used, so no further Keyword attribute can be added, and an operator must
+// not register a custom Keyword attribute in pyck namespaces.
 var SearchAttributes = []temporal.SearchAttributeKey{
 	PyckDataID,
 	PyckWorkflowAssignee,
@@ -50,4 +57,5 @@ var SearchAttributes = []temporal.SearchAttributeKey{
 	PyckTitle,
 	PyckGroupTitle,
 	PyckSortKey,
+	PyckTransactionID,
 }

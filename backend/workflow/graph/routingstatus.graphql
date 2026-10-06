@@ -1,0 +1,93 @@
+"""
+How the router settled one event: finished, or given up on.
+"""
+enum RoutingOutcome {
+  """The router finished with the event: every target was delivered or refused for good."""
+  DONE
+  """The router stopped retrying the event after its last delivery. The FAILED targets say what is left undone."""
+  GAVE_UP
+}
+
+"""
+What happened to one target of an event.
+"""
+enum RoutingTargetKind {
+  """A workflow was started, or the start returned the run an earlier delivery of the event started."""
+  STARTED
+  """The start was refused because the workflow ID is taken by another event's run."""
+  ALREADY_RUNNING
+  """A running execution was signalled."""
+  SIGNALLED
+  """Nothing was delivered, for the reason given."""
+  DROPPED
+  """The delivery failed with the error given."""
+  FAILED
+}
+
+"""
+One workflow start or signal the router attempted for an event.
+"""
+type RoutingTarget {
+  kind: RoutingTargetKind!
+  """Name of the workflow, when the target belongs to one."""
+  workflow: String
+  workflowID: String
+  runID: String
+  """Signal name, for signal targets."""
+  signal: String
+  """Why nothing was delivered (DROPPED)."""
+  reason: String
+  """The failure (FAILED)."""
+  error: String
+}
+
+"""
+The routing status of one event of a transaction.
+"""
+type RoutingEntry {
+  tenantID: ID!
+  """The event's own ID (the outbox entry ID)."""
+  eventID: ID!
+  outcome: RoutingOutcome!
+  """The event's sequence in the event stream."""
+  sequence: UInt64!
+  """
+  What the router did for the event. Empty when nothing was subscribed to it:
+  the event is finished with nothing to do.
+  """
+  targets: [RoutingTarget!]!
+  recordedAt: Time!
+}
+
+"""
+What the router has done so far for the events of one transaction.
+"""
+type TransactionRouting {
+  transactionID: ID!
+  """
+  One entry per event the router has settled, oldest first. Routing is complete
+  when the number of entries equals the mutation's `eventCount`: fewer means
+  some events are not routed yet, so ask again. Status is best effort: an entry
+  can be missing for good (a status write can fail, and events can be skipped),
+  so poll with a deadline instead of waiting for `entries == eventCount`.
+  """
+  entries: [RoutingEntry!]!
+}
+
+extend type Query {
+  """
+  The routing status of the events a mutation published, by the `transactionID`
+  the mutation returned. Only events of the caller's tenants are returned.
+
+  Compare `entries` with the mutation's `eventCount`:
+  - `eventCount: 0`: nothing was published, there is nothing to route.
+  - fewer entries than `eventCount`: routing is not complete, ask again, but
+    give up after a deadline: an entry can be missing for good.
+  - as many entries as `eventCount`: routing is complete. Each entry's targets
+    say what happened; `workflowExecutions(where: {transactionID})` lists the
+    executions the transaction started.
+
+  Entries are kept for 72 hours.
+  """
+  transactionRouting(transactionID: ID!): TransactionRouting!
+}

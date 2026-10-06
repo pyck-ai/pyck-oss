@@ -9,6 +9,7 @@ import (
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
+	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/txid"
 
 	ent "github.com/pyck-ai/pyck/backend/management/ent/gen"
@@ -73,13 +74,15 @@ func (a *Activities) FindExpiredTenantsActivity(ctx context.Context, _ FindExpir
 // which drives DisableTenantWorkflow (Zitadel deactivation) and the
 // per-service revocation-cache eviction.
 //
-// Idempotent: n == 0 means the predicate no longer matches (tenant
+// Idempotent: NotFound means the predicate no longer matches (tenant
 // gone, already deleted, expiry extended, or no expiry). Returns nil.
 func (a *Activities) SoftDeleteExpiredTenantActivity(ctx context.Context, input SoftDeleteExpiredTenantActivityInput) (err error) {
-	// txid stamps the outbox row's tx-scoped UUID (NATS message-ID
+	// The tenant ID in the context lets MutationEventHook derive the tenant
+	// for the outbox row's NATS topic, the same way the deleteTenant
+	// resolver does. txid stamps the row's tx-scoped UUID (NATS message-ID
 	// component for dedup). Without it MutationEventHook fails with
 	// ErrNoTransactionID — the GraphQL path gets one from gqltx.
-	sysCtx := authn.Context(ctx, authn.SystemUser())
+	sysCtx := request.Context(ctx, authn.SystemUser(), input.TenantID)
 	sysCtx = txid.With(sysCtx, txid.New())
 
 	tx, err := a.ent.Tx(sysCtx)
@@ -96,14 +99,19 @@ func (a *Activities) SoftDeleteExpiredTenantActivity(ctx context.Context, input 
 	sysCtx = ent.NewTxContext(sysCtx, tx)
 
 	now := time.Now().UTC()
-	if _, err = tx.Tenant.Update().
+	// A single-row write emits the tenant's own delete event. The guards stay
+	// on the write; a tenant that no longer matches them surfaces as
+	// NotFound, which is "nothing to do".
+	if err = tx.Tenant.UpdateOneID(input.TenantID).
 		Where(
-			enttenant.IDEQ(input.TenantID),
 			enttenant.ExpiresAtNotNil(),
 			enttenant.ExpiresAtLTE(now),
 		).
 		SetDeletedAt(now).
-		Save(sysCtx); err != nil {
+		Exec(sysCtx); err != nil {
+		if ent.IsNotFound(err) {
+			return nil
+		}
 		return fmt.Errorf("soft-delete tenant: %w", err)
 	}
 	return nil

@@ -16,9 +16,12 @@ import (
 
 // SetWorkflowAssignee is the resolver for the setWorkflowAssignee field.
 func (r *mutationResolver) SetWorkflowAssignee(ctx context.Context, input model.SetWorkflowAssigneeInput) (*model.SetWorkflowAssigneeResponse, error) {
-	req := request.ForContext(ctx)
+	tenantID, err := writerTenantID(request.ForContext(ctx))
+	if err != nil {
+		return nil, err
+	}
 
-	workflowClient, err := r.workflowRouter.GetClient(ctx, req.MutationTenantID().String())
+	workflowClient, err := r.workflowRouter.GetClient(ctx, tenantID.String())
 	if err != nil {
 		return nil, err
 	}

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -13,7 +15,9 @@ import (
 	"go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	temporalclient "go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/temporal"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/pyck-ai/pyck/backend/common/log"
 	"github.com/pyck-ai/pyck/backend/common/memkv"
@@ -28,7 +32,27 @@ var (
 	ErrPageSizeOverflow     = errors.New("pageSize exceeds maximum int32 value")
 )
 
-const DefaultTaskQueue = "default"
+const (
+	DefaultTaskQueue = "default"
+
+	// MemoEventID is the memo key under which the signal router records the ID
+	// of the event that started a run through Signal-With-Start. The value is
+	// the event ID as a string, encoded by the SDK's default data converter.
+	MemoEventID = "pyck_event_id"
+
+	// MaxWorkflowIDLength is Temporal's default limit.maxIDLength, in bytes.
+	// Temporal enforces it when a workflow starts, so no longer ID can exist.
+	MaxWorkflowIDLength = 1000
+)
+
+// ValidateWorkflowID rejects an empty, too long or NUL-containing workflow ID.
+// Temporal retries its store's rejection of NUL until the 10 s RPC deadline.
+func ValidateWorkflowID(workflowID string) error {
+	if workflowID == "" || len(workflowID) > MaxWorkflowIDLength || strings.ContainsRune(workflowID, '\x00') {
+		return ErrInvalidWorkflowID
+	}
+	return nil
+}
 
 // Client is a wrapper around the Temporal client providing workflow-related operations.
 type Client struct {
@@ -39,6 +63,19 @@ type Client struct {
 	// (short TTL). Lazy expiry only (no cleanup goroutine), so it is safe to
 	// create one per cached client.
 	remoteUICache *memkv.InMemoryKVStore
+	// versionFlight dedupes concurrent cold lookups of one deployment version.
+	versionFlight singleflight.Group
+	// unstampedVersionCacheTTL is the negative-cache TTL of resolveVersionBundle.
+	unstampedVersionCacheTTL time.Duration
+}
+
+// ClientOption customizes a Client at construction.
+type ClientOption func(*Client)
+
+// WithUnstampedVersionCacheTTL overrides DefaultUnstampedVersionCacheTTL; zero
+// disables the negative cache.
+func WithUnstampedVersionCacheTTL(ttl time.Duration) ClientOption {
+	return func(c *Client) { c.unstampedVersionCacheTTL = ttl }
 }
 
 // StartWorkflowOptions represents options for starting a workflow.
@@ -46,35 +83,27 @@ type Client struct {
 type StartWorkflowOptions = temporalclient.StartWorkflowOptions
 
 // NewClient creates a new workflow Client with the given Temporal client.
-func NewClient(namespace string, client temporalclient.Client) (*Client, error) {
+func NewClient(namespace string, client temporalclient.Client, opts ...ClientOption) (*Client, error) {
 	if namespace == "" {
 		namespace = temporalclient.DefaultNamespace
 	}
 
-	return &Client{
-		temporal:      client,
-		namespace:     namespace,
-		remoteUICache: memkv.NewInMemoryKVStore(0),
-	}, nil
+	c := &Client{
+		temporal:                 client,
+		namespace:                namespace,
+		remoteUICache:            memkv.NewInMemoryKVStore(0),
+		unstampedVersionCacheTTL: DefaultUnstampedVersionCacheTTL,
+	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c, nil
 }
 
-// StartWorkflowWithOptions starts a workflow execution.
-//
-// If options are nil, defaults are used. If unspecified, the WorkflowID is
-// auto-generated and the TaskQueue defaults to DefaultTaskQueue. The workflow
-// type name is automatically set in search attributes.
-//
-// This method is safe for concurrent use.
-//
-// Example:
-//
-//	run, err := client.StartWorkflowWithOptions(ctx, "MyType", payload, nil)
-//	if err != nil {
-//		// handle error
-//	}
-//
-//nolint:ireturn // Returning WorkflowRun interface is required by Temporal SDK
-func (c *Client) StartWorkflowWithOptions(ctx context.Context, workflowTypeName string, payload any, options *temporalclient.StartWorkflowOptions) (temporalclient.WorkflowRun, error) {
+// startOptions applies the defaults every start goes through: the task queue,
+// a generated workflow ID, and the workflow name in the typed search attributes
+// (merged with any the caller set), which signal routing relies on.
+func (c *Client) startOptions(ctx context.Context, workflowTypeName string, options *temporalclient.StartWorkflowOptions) temporalclient.StartWorkflowOptions {
 	var opts temporalclient.StartWorkflowOptions
 
 	if options != nil {
@@ -115,6 +144,103 @@ func (c *Client) StartWorkflowWithOptions(ctx context.Context, workflowTypeName 
 		)
 	}
 
+	return opts
+}
+
+// SignalWithStartWorkflow signals the workflow workflowID with signalName and
+// signalArg, starting it first (with payload as its input) if it is not
+// running. options are the start options as for StartWorkflowWithOptions; ID is
+// set to workflowID. The caller chooses WorkflowIDConflictPolicy: Temporal
+// rejects FAIL for signal-with-start, so use USE_EXISTING. WorkflowIDReusePolicy
+// decides whether a finished run may be started again, and a refusal comes back
+// as a WorkflowExecutionAlreadyStarted error, whatever
+// WorkflowExecutionErrorWhenAlreadyStarted says. The SDK does not report whether
+// the call started a run.
+//
+// This method is safe for concurrent use.
+//
+//nolint:ireturn // Returning WorkflowRun interface is required by Temporal SDK
+func (c *Client) SignalWithStartWorkflow(ctx context.Context, workflowTypeName, workflowID, signalName string, signalArg, payload any, options *temporalclient.StartWorkflowOptions) (temporalclient.WorkflowRun, error) {
+	if workflowID == "" {
+		return nil, ErrInvalidWorkflowID
+	}
+
+	if signalName == "" {
+		return nil, ErrInvalidSignalName
+	}
+
+	opts := c.startOptions(ctx, workflowTypeName, options)
+	opts.ID = workflowID
+
+	return c.temporal.SignalWithStartWorkflow(ctx, workflowID, signalName, signalArg, opts, workflowTypeName, payload)
+}
+
+// DescribeLatestRun describes the latest run of workflowID, running or closed.
+// It fails with a NotFound error if the workflow ID has never been used.
+func (c *Client) DescribeLatestRun(ctx context.Context, workflowID string) (*workflow.WorkflowExecutionInfo, error) {
+	if workflowID == "" {
+		return nil, ErrInvalidWorkflowID
+	}
+
+	resp, err := c.temporal.DescribeWorkflowExecution(ctx, workflowID, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe workflow: %w", err)
+	}
+
+	return resp.GetWorkflowExecutionInfo(), nil
+}
+
+// StartedByEvent reports whether the run described by info records eventID in
+// its MemoEventID memo, that is, whether that event started it.
+func StartedByEvent(info *workflow.WorkflowExecutionInfo, eventID string) bool {
+	payload := info.GetMemo().GetFields()[MemoEventID]
+	if payload == nil {
+		return false
+	}
+
+	var recorded string
+
+	if err := converter.GetDefaultDataConverter().FromPayload(payload, &recorded); err != nil {
+		return false
+	}
+
+	return recorded == eventID
+}
+
+// SignalWorkflowByID signals the current run of workflowID, without knowing its
+// run ID. It fails with a NotFound error if there is no such workflow or its
+// current run has closed.
+func (c *Client) SignalWorkflowByID(ctx context.Context, workflowID, signalName string, arg any) error {
+	if workflowID == "" {
+		return ErrInvalidWorkflowID
+	}
+
+	if signalName == "" {
+		return ErrInvalidSignalName
+	}
+
+	return c.temporal.SignalWorkflow(ctx, workflowID, "", signalName, arg)
+}
+
+// StartWorkflowWithOptions starts a workflow execution.
+//
+// If options are nil, defaults are used. If unspecified, the WorkflowID is
+// auto-generated and the TaskQueue defaults to DefaultTaskQueue. The workflow
+// type name is automatically set in search attributes.
+//
+// This method is safe for concurrent use.
+//
+// Example:
+//
+//	run, err := client.StartWorkflowWithOptions(ctx, "MyType", payload, nil)
+//	if err != nil {
+//		// handle error
+//	}
+//
+//nolint:ireturn // Returning WorkflowRun interface is required by Temporal SDK
+func (c *Client) StartWorkflowWithOptions(ctx context.Context, workflowTypeName string, payload any, options *temporalclient.StartWorkflowOptions) (temporalclient.WorkflowRun, error) {
+	opts := c.startOptions(ctx, workflowTypeName, options)
+
 	workflow, err := c.temporal.ExecuteWorkflow(ctx, opts, workflowTypeName, payload)
 	if err != nil {
 		return nil, err
@@ -136,8 +262,8 @@ func (c *Client) StartWorkflowWithOptions(ctx context.Context, workflowTypeName 
 //
 // This method is safe for concurrent use.
 func (c *Client) GetWorkflowResult(ctx context.Context, workflowID string, runID string, valuePtr any) error {
-	if workflowID == "" {
-		return ErrInvalidWorkflowID
+	if err := ValidateWorkflowID(workflowID); err != nil {
+		return err
 	}
 
 	if runID == "" {
@@ -151,8 +277,8 @@ func (c *Client) GetWorkflowResult(ctx context.Context, workflowID string, runID
 //
 // This method is safe for concurrent use.
 func (c *Client) GetWorkflowExecutionInfo(ctx context.Context, workflowID, runID string) (*workflow.WorkflowExecutionInfo, error) {
-	if workflowID == "" {
-		return nil, ErrInvalidWorkflowID
+	if err := ValidateWorkflowID(workflowID); err != nil {
+		return nil, err
 	}
 
 	if runID == "" {
@@ -222,8 +348,8 @@ func (c *Client) ListWorkflows(ctx context.Context, query string) ([]*workflow.W
 }
 
 func (c *Client) GetWorkflowHistory(ctx context.Context, workflowID, runID string) ([]*historypb.HistoryEvent, error) {
-	if workflowID == "" {
-		return nil, ErrInvalidWorkflowID
+	if err := ValidateWorkflowID(workflowID); err != nil {
+		return nil, err
 	}
 
 	if runID == "" {
@@ -252,8 +378,8 @@ func (c *Client) GetWorkflowHistory(ctx context.Context, workflowID, runID strin
 //
 // This method is safe for concurrent use.
 func (c *Client) QueryWorkflow(ctx context.Context, workflowID, runID, queryName string, arg, result any) error {
-	if workflowID == "" {
-		return ErrInvalidWorkflowID
+	if err := ValidateWorkflowID(workflowID); err != nil {
+		return err
 	}
 
 	if runID == "" {
@@ -282,8 +408,8 @@ func (c *Client) QueryWorkflow(ctx context.Context, workflowID, runID, queryName
 //
 // This method is safe for concurrent use.
 func (c *Client) SignalWorkflow(ctx context.Context, workflowID, runID, signalName string, arg any) error {
-	if workflowID == "" {
-		return ErrInvalidWorkflowID
+	if err := ValidateWorkflowID(workflowID); err != nil {
+		return err
 	}
 
 	if runID == "" {
@@ -305,8 +431,8 @@ func (c *Client) SignalWorkflow(ctx context.Context, workflowID, runID, signalNa
 //
 // This method is safe for concurrent use.
 func (c *Client) CancelWorkflow(ctx context.Context, workflowID, runID string) error {
-	if workflowID == "" {
-		return ErrInvalidWorkflowID
+	if err := ValidateWorkflowID(workflowID); err != nil {
+		return err
 	}
 
 	if runID == "" {
@@ -323,8 +449,8 @@ func (c *Client) CancelWorkflow(ctx context.Context, workflowID, runID string) e
 //
 // This method is safe for concurrent use.
 func (c *Client) UpdateWorkflow(ctx context.Context, workflowID, runID, updateName string, arg, result any) error {
-	if workflowID == "" {
-		return ErrInvalidWorkflowID
+	if err := ValidateWorkflowID(workflowID); err != nil {
+		return err
 	}
 
 	if runID == "" {
@@ -370,33 +496,6 @@ func (c *Client) GetCurrentUserDataInput(ctx context.Context, workflowID, runID 
 	}
 
 	return &result, nil
-}
-
-// AwaitNextUserDataInput sends an update to a workflow execution to await the
-// next user data input of specified types.
-//
-// The result is returned as a UserDataInput pointer. If the workflow is not
-// running or the update fails, an error is returned.
-//
-// This method is safe for concurrent use.
-func (c *Client) AwaitNextUserDataInput(ctx context.Context, workflowID, runID string, waitForTypes []string) (*UserDataInput, error) {
-	resp, err := c.temporal.UpdateWorkflow(ctx, temporalclient.UpdateWorkflowOptions{
-		WorkflowID:   workflowID,
-		RunID:        runID,
-		UpdateName:   WorkflowQueryTypeAwaitUserDataInput.String(),
-		Args:         []any{waitForTypes},
-		WaitForStage: temporalclient.WorkflowUpdateStageCompleted,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to send await next user data input update: %w", err)
-	}
-
-	var input UserDataInput
-	if err := resp.Get(ctx, &input); err != nil {
-		return nil, fmt.Errorf("failed to get next user data input: %w", err)
-	}
-
-	return &input, nil
 }
 
 // GetWorkflowActions queries the available actions from a workflow execution.

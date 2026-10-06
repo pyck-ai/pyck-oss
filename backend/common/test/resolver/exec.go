@@ -19,7 +19,7 @@ type GQLResult[T any] struct {
 // GQLError represents a GraphQL error.
 type GQLError struct {
 	Message string
-	Path    []string
+	Path    []any // field names and list indices
 }
 
 // TemplateRenderer renders a GraphQL query template with the given data.

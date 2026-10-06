@@ -364,3 +364,18 @@ func BenchmarkHTTPMiddleware(b *testing.B) {
 		}
 	})
 }
+
+// asyncsignals is deprecated but must stay accepted, so clients that still send
+// it do not get an error on every request.
+func TestMiddleware_getFeatures_deprecatedAsyncSignals(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	req.Header.Set(feature.FeatureHeader, "asyncsignals")
+
+	features, err := (&feature.Middleware{}).GetFeatures(req)
+
+	require.NoError(t, err)
+	require.Len(t, features, 1)
+	assert.Equal(t, feature.FEATURE_ASYNC_SIGNALS, features[0])
+}

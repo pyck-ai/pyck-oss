@@ -10,3 +10,18 @@ func DataTypeEntities() []string {
 {{- end }}
 	}
 }
+
+// ServiceEntities maps each service to the Go type names of all its Ent
+// entities, as ent names them (e.g. "DataType"), whether or not they use
+// DataMixin.
+func ServiceEntities() map[string][]string {
+	return map[string][]string{
+{{- range $service, $types := .ServiceEntities }}
+		{{ printf "%q" $service }}: {
+{{- range $types }}
+			{{ printf "%q" . }},
+{{- end }}
+		},
+{{- end }}
+	}
+}

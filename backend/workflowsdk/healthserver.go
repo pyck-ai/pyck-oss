@@ -394,10 +394,9 @@ func healthHandler(state *healthState, maxStale time.Duration, logger *pycklog.L
 			status = http.StatusServiceUnavailable
 		}
 
-		// Fly polls /health every ~30s so the log volume is low. The
-		// entries are exactly what you want when investigating "why
-		// did fly restart this machine?".
-		logger.Info().
+		// Debug: at Info the probes drown the warnings the log is read for.
+		// A failing probe is already logged at Warn by the probe loop.
+		logger.Debug().
 			Int("status", status).
 			Bool("ok", ok).
 			Float64("age_seconds", age.Seconds()).

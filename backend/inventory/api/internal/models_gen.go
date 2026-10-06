@@ -486,6 +486,10 @@ type InventoryItemWhereInput struct {
 	DataHasKey     *string                       `json:"DataHasKey,omitempty"`
 	DataIn         []string                      `json:"DataIn,omitempty"`
 	DataContains   []string                      `json:"DataContains,omitempty"`
+	// Items with (true) or without (false) at least one non-empty current stock row. Current = the highest version per repository; a deleted head hides its pair; empty rows never count.
+	HasCurrentStock *bool `json:"hasCurrentStock,omitempty"`
+	// Items with at least one non-empty current stock row matching all of the given inputs (ANDed on one row, like hasItemStocksWith). Value filters such as quantityGT apply to the current row only. Current = the highest version per repository; a deleted head hides its pair; empty rows never match. A time cutoff in an input selects the as-of row.
+	HasCurrentStockWith []*StockWhereInput `json:"hasCurrentStockWith,omitempty"`
 }
 
 // Ordering options for ItemMovement connections

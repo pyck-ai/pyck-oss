@@ -18,6 +18,7 @@ graphql:
 
       mutation PatchInventoryItemData($id: ID!, $patches: [JSONPatchInput!]!) {
         patchInventoryItemData(id: $id, patches: $patches) {
+          eventCount
           inventoryItem {
             createdAt
             createdBy
@@ -32,11 +33,7 @@ graphql:
             updatedAt
             updatedBy
           }
-          workflows {
-            id
-            runID
-            type
-          }
+          transactionID
         }
       }
     variables: |-

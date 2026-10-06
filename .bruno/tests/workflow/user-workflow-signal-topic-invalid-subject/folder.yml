@@ -1,0 +1,11 @@
+info:
+  name: User - Workflow Signal Topic Invalid Subject
+  type: folder
+  seq: 1
+
+docs: |-
+  Registers mutation and Temporal state-change signal topics with an empty token, which parse but are not valid NATS subscription subjects (the signal router would read the empty token as a wildcard), and verifies each is refused, and that an empty Temporal namespace, which wildcard-tenant expansion would fill in, is refused as well, and nothing is persisted.
+
+
+request:
+  auth: inherit

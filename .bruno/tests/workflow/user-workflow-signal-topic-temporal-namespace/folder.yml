@@ -1,0 +1,11 @@
+info:
+  name: User - Workflow Signal Topic Temporal Namespace
+  type: folder
+  seq: 1
+
+docs: |-
+  Registers Temporal state-change signal topics whose namespace token is neither a wildcard nor a canonical tenant UUID, and verifies each is refused with a validation error instead of an internal error or a signal that never fires, and that nothing is persisted.
+
+
+request:
+  auth: inherit

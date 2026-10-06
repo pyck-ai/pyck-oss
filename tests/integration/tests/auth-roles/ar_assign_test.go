@@ -3,6 +3,8 @@
 package authroles
 
 import (
+	"slices"
+
 	"github.com/google/uuid"
 
 	"github.com/pyck-ai/pyck/backend/common/serviceroles"
@@ -35,12 +37,8 @@ func (s *AuthRolesSuite) TestAssignRolesAssignsAndReadsBack() {
 	s.Contains(resp.GetAssignRoles().GetRoles(), serviceroles.Picking.String(),
 		"response should reflect the assigned role")
 
-	read, err := c.GetUserServiceRoles(s.Ctx, managementapi.GetUserServiceRolesArgs{
-		Input: managementmodel.UserServiceRolesInput{TenantID: s.tenantUUID(), UserID: userID},
-	})
-	s.Require().NoError(err, "userServiceRoles")
-	s.Contains(read.GetUserServiceRoles(), serviceroles.Picking.String(),
-		"assigned role should be readable back")
+	s.waitForServiceRoles(c, userID, "assigned role should be readable back",
+		func(roles []string) bool { return slices.Contains(roles, serviceroles.Picking.String()) })
 }
 
 // TestAssignRolesIsAdditive assigns two roles in separate calls and confirms the

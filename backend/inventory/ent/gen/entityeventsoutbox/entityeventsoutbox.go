@@ -30,8 +30,6 @@ const (
 	FieldTopic = "topic"
 	// FieldPayload holds the string denoting the payload field in the database.
 	FieldPayload = "payload"
-	// FieldWithReply holds the string denoting the with_reply field in the database.
-	FieldWithReply = "with_reply"
 	// FieldRetryCount holds the string denoting the retry_count field in the database.
 	FieldRetryCount = "retry_count"
 	// FieldLastError holds the string denoting the last_error field in the database.
@@ -61,7 +59,6 @@ var Columns = []string{
 	FieldRequestID,
 	FieldTopic,
 	FieldPayload,
-	FieldWithReply,
 	FieldRetryCount,
 	FieldLastError,
 	FieldDeadAt,
@@ -86,8 +83,6 @@ var (
 	DefaultCreatedAt func() time.Time
 	// TopicValidator is a validator for the "topic" field. It is called by the builders before save.
 	TopicValidator func(string) error
-	// DefaultWithReply holds the default value on creation for the "with_reply" field.
-	DefaultWithReply bool
 	// DefaultRetryCount holds the default value on creation for the "retry_count" field.
 	DefaultRetryCount int
 	// DefaultID holds the default value on creation for the "id" field.
@@ -135,11 +130,6 @@ func ByRequestID(opts ...sql.OrderTermOption) OrderOption {
 // ByTopic orders the results by the topic field.
 func ByTopic(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTopic, opts...).ToFunc()
-}
-
-// ByWithReply orders the results by the with_reply field.
-func ByWithReply(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldWithReply, opts...).ToFunc()
 }
 
 // ByRetryCount orders the results by the retry_count field.

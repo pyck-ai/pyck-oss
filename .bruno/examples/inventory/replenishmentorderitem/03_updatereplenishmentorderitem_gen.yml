@@ -29,6 +29,7 @@ graphql:
 
       mutation UpdateReplenishmentOrderItem($id: ID!, $input: UpdateReplenishmentOrderItemInput!) {
         updateReplenishmentOrderItem(id: $id, input: $input) {
+          eventCount
           replenishmentOrderItem {
             createdAt
             createdBy
@@ -45,11 +46,7 @@ graphql:
             updatedAt
             updatedBy
           }
-          workflows {
-            id
-            runID
-            type
-          }
+          transactionID
         }
       }
     variables: |-

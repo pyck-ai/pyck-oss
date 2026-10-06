@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/nats-io/jwt/v2"
 	"github.com/nats-io/nats.go/micro"
 	"github.com/nats-io/nkeys"
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/log"
-	"github.com/pyck-ai/pyck/backend/common/request"
-	"github.com/pyck-ai/pyck/backend/common/tenant"
 )
 
 type authService struct {
@@ -98,18 +97,15 @@ func (service *authService) Handle(r micro.Request) {
 	// TODO(michael): This is just a work-around for now. Ideally, this handler
 	// should make use of the same middleware logic as the HTTP and GRPC
 	// handlers do. This would also allow easier integration with RBAC.
-	userCtx := authn.Context(context.TODO(), &user)
-	tenantIDs, err := tenant.ParseHeaders(userCtx, http.Header(r.Headers()))
+	tenantID, err := resolveTenant(context.TODO(), user, http.Header(r.Headers()))
 	if err != nil {
-		err = r.Error("401", "Authentication failed: Missing tenant headers", nil)
+		logger.Err(err).Msg("Tenant access denied")
+		err = r.Error("401", fmt.Sprintf("Authentication failed: %v", err), nil)
 		if err != nil {
 			logger.Err(err).Msg("Error responding to request")
 		}
 		return
 	}
-
-	tenantCtx := tenant.Context(userCtx, tenantIDs...)
-	tenantID := request.ForContext(tenantCtx).MutationTenantID()
 
 	// Define the fixed consumer suffixes
 	consumerSuffixes := []string{"one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"}
@@ -172,6 +168,14 @@ func (service *authService) Handle(r micro.Request) {
 		fmt.Sprintf("%s.*.crud.>", service.streamName),
 	}
 
+	// Tenant clients may publish under their own subjects, but not the
+	// state-change subjects the workflow signal router consumes: those are
+	// published only by the Temporal server, which connects with the
+	// auth_users credentials and bypasses this callout. Without the deny a
+	// tenant could forge state changes. Subscribing stays allowed.
+	deniedSubPatterns := deniedPubPatterns
+	deniedPubPatterns = append(slices.Clone(deniedPubPatterns), stateChangeDenyPattern(service.streamName))
+
 	// Log the key components and patterns
 	logger.Debug().
 		Str("user_nkey", userNkey).
@@ -194,7 +198,7 @@ func (service *authService) Handle(r micro.Request) {
 		},
 		Sub: jwt.Permission{
 			Allow: jwt.StringList(allowedSubPatterns),
-			Deny:  jwt.StringList(deniedPubPatterns),
+			Deny:  jwt.StringList(deniedSubPatterns),
 		},
 	}
 

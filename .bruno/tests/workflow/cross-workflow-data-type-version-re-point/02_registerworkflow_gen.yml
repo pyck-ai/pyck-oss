@@ -44,7 +44,8 @@ graphql:
           },
           "dataTypeID": "{{bru-test_cross-workflow-version-repoint_ddad3c97}}",
           "name": "RepointWf-{{$timestamp}}-2",
-          "taskQueue": "repoint-wf-queue-{{$timestamp}}-3"
+          "taskQueue": "repoint-wf-queue-{{$timestamp}}-3",
+          "workerID": "scenario-cross-workflow-version-repoint"
         }
       }
 

@@ -16,8 +16,9 @@ type CreateFileResult struct {
 }
 
 type Customer struct {
-	ID   uuid.UUID   `json:"id"`
-	File []*gen.File `json:"file,omitempty"`
+	ID       uuid.UUID   `json:"id"`
+	TenantID uuid.UUID   `json:"tenantID"`
+	File     []*gen.File `json:"file,omitempty"`
 }
 
 func (Customer) IsEntity() {}
@@ -35,22 +36,25 @@ type ImageAnalysisResponse struct {
 }
 
 type InventoryItem struct {
-	ID   uuid.UUID   `json:"id"`
-	File []*gen.File `json:"file,omitempty"`
+	ID       uuid.UUID   `json:"id"`
+	TenantID uuid.UUID   `json:"tenantID"`
+	File     []*gen.File `json:"file,omitempty"`
 }
 
 func (InventoryItem) IsEntity() {}
 
 type PickingOrder struct {
-	ID   uuid.UUID   `json:"id"`
-	File []*gen.File `json:"file,omitempty"`
+	ID       uuid.UUID   `json:"id"`
+	TenantID uuid.UUID   `json:"tenantID"`
+	File     []*gen.File `json:"file,omitempty"`
 }
 
 func (PickingOrder) IsEntity() {}
 
 type Repository struct {
-	ID   uuid.UUID   `json:"id"`
-	File []*gen.File `json:"file,omitempty"`
+	ID       uuid.UUID   `json:"id"`
+	TenantID uuid.UUID   `json:"tenantID"`
+	File     []*gen.File `json:"file,omitempty"`
 }
 
 func (Repository) IsEntity() {}
@@ -61,8 +65,9 @@ type ServiceInfo struct {
 }
 
 type Supplier struct {
-	ID   uuid.UUID   `json:"id"`
-	File []*gen.File `json:"file,omitempty"`
+	ID       uuid.UUID   `json:"id"`
+	TenantID uuid.UUID   `json:"tenantID"`
+	File     []*gen.File `json:"file,omitempty"`
 }
 
 func (Supplier) IsEntity() {}

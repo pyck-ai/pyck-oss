@@ -16,8 +16,8 @@ graphql:
 
       query GetRemoteUI($input: RemoteUIQueryInput!) {
         remoteUI(input: $input) {
-          mobile
-          web
+          mobileURL
+          webURL
         }
       }
 

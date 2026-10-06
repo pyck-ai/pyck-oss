@@ -701,14 +701,14 @@ func TaskQueueContainsFold(v string) predicate.Workflow {
 // HasWorkflowSignals applies the HasEdge predicate on the "workflowSignals" edge.
 func HasWorkflowSignals() predicate.Workflow {
 	return predicate.Workflow(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, WorkflowSignalsTable, WorkflowSignalsColumn),
-		)
+		step := newWorkflowSignalsStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.WorkflowSignal
 		step.Edge.Schema = schemaConfig.WorkflowSignal
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -719,6 +719,7 @@ func HasWorkflowSignalsWith(preds ...predicate.WorkflowSignal) predicate.Workflo
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.WorkflowSignal
 		step.Edge.Schema = schemaConfig.WorkflowSignal
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

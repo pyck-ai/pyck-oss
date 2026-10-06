@@ -1,0 +1,11 @@
+info:
+  name: User - Unregister Worker
+  type: folder
+  seq: 1
+
+docs: |-
+  unregisterWorker marks the calling worker's live subscriptions stopped and reports how many it stopped. A blank worker ID is refused, an unknown worker stops 0, only the caller's rows are counted (a second worker on the same workflow is left alone), and a worker that registers again is running again, so a second unregister stops the same count. Nothing is deleted: the workflow row and its subscriptions stay until the workflow is deleted.
+
+
+request:
+  auth: inherit

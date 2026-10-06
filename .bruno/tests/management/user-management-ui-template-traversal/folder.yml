@@ -1,0 +1,11 @@
+info:
+  name: User - Management UI Template Traversal
+  type: folder
+  seq: 1
+
+docs: |-
+  setTenantUITemplate refuses a URL template whose path leaves the owner prefix with ".." (#1501). The template is validated before anything is written, so the tenant's templates stay unchanged.
+
+
+request:
+  auth: inherit

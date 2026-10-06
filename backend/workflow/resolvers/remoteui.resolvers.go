@@ -73,3 +73,22 @@ func (r *queryResolver) WorkerDeploymentUIBundles(ctx context.Context, first *in
 
 	return paginateDeploymentVersionUIBundles(versions, first, after), nil
 }
+
+// RemoteUI is the resolver for the WorkflowExecutionInfo.remoteUI field.
+//
+// Same resolution as the top-level remoteUI query, but the pinned version and
+// workflow type come from the node's search attributes (no per-row describe)
+// and the tenant is the node's own, so a multi-tenant listing renders each row
+// with its tenant's templates and flavour.
+//
+// Never errors: the generated Go clients (gqlgenc) fail the whole operation on
+// any entry in errors[], so one row would take the listing down. Any failure
+// is null, logged server-side; the top-level query still reports the reason.
+func (r *workflowExecutionInfoResolver) RemoteUI(ctx context.Context, obj *model.WorkflowExecutionInfo) (*commonworkflow.UIBundleURLs, error) {
+	urls, err := r.resolveExecutionRemoteUI(ctx, obj)
+	if err != nil {
+		logRemoteUIFailure(ctx, obj, err)
+		return nil, nil
+	}
+	return urls, nil
+}

@@ -77,11 +77,6 @@ func (_q *EntityEventsOutboxQuery) collectField(ctx context.Context, oneNode boo
 				selectedFields = append(selectedFields, entityeventsoutbox.FieldPayload)
 				fieldSeen[entityeventsoutbox.FieldPayload] = struct{}{}
 			}
-		case "withReply":
-			if _, ok := fieldSeen[entityeventsoutbox.FieldWithReply]; !ok {
-				selectedFields = append(selectedFields, entityeventsoutbox.FieldWithReply)
-				fieldSeen[entityeventsoutbox.FieldWithReply] = struct{}{}
-			}
 		case "retryCount":
 			if _, ok := fieldSeen[entityeventsoutbox.FieldRetryCount]; !ok {
 				selectedFields = append(selectedFields, entityeventsoutbox.FieldRetryCount)

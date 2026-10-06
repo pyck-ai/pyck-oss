@@ -61,7 +61,7 @@ type ItemEdges struct {
 	// type was loaded (or requested) in eager-loading or not.
 	loadedTypes [4]bool
 	// totalCount holds the count of the edges above.
-	totalCount [4]map[string]int
+	totalCount [1]map[string]int
 
 	namedItemMovementItems map[string][]*ItemMovement
 	namedItemTransactions  map[string][]*Transaction

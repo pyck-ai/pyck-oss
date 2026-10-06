@@ -29,6 +29,7 @@ graphql:
 
       mutation ExecuteInventoryRepositoryMovement($id: ID!) {
         executeInventoryRepositoryMovement(id: $id) {
+          eventCount
           inventoryRepositoryMovement {
             blockedBy
             collectionID
@@ -52,11 +53,7 @@ graphql:
             updatedAt
             updatedBy
           }
-          workflows {
-            id
-            runID
-            type
-          }
+          transactionID
         }
       }
     variables: |-

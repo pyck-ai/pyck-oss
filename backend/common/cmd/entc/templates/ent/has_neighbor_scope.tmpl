@@ -1,0 +1,67 @@
+{{/* gotype: entgo.io/ent/entc/gen.Type */}}
+
+{{/*
+Overrides ent's builtin "dialect/sql/predicate/edge/has" template (the plain
+Has<Edge>() predicate, entc/gen/template/dialect/sql/predicate.tmpl, ent
+v0.14). When the neighbour carries tenant_id or deleted_at, the predicate
+becomes a Has<Edge>With whose only conditions are the neighbour scopes
+(mixin.ScopeNeighborToTenants, mixin.ScopeNeighborToLive), so hasX: true
+means hasXWith: {} on every edge kind. Without them it matched through
+another tenant's rows and through soft-deleted rows; an edge that owns its
+foreign key (many-to-one, inverse one-to-one) only tested its own column and
+matched a row whose neighbour the caller cannot read, while the edge itself
+resolves to nothing for that caller. The owning-FK case costs an EXISTS on
+the neighbour's primary key instead of an IS NOT NULL. Edge schemas with a
+composite id, and neighbours without either column, keep ent's body
+verbatim. Re-check the upstream template when ent is upgraded.
+*/}}
+{{ define "dialect/sql/predicate/edge/has" -}}
+	{{- $e := $.Scope.Edge -}}
+	{{- $tenant := false }}
+	{{- $history := false }}
+	{{- range $f := $e.Type.Fields }}
+		{{- if eq $f.Name "tenant_id" }}{{ $tenant = true }}{{ end }}
+		{{- if eq $f.Name "deleted_at" }}{{ $history = true }}{{ end }}
+	{{- end -}}
+	{{- if and (or $tenant $history) (not $.HasCompositeID) -}}
+	func(s *sql.Selector) {
+		step := new{{ pascal $e.Name }}Step()
+		{{- with $tmpls := matchTemplate "dialect/sql/predicate/edge/has/*" }}
+			{{- range $tmpl := $tmpls }}
+				{{- xtemplate $tmpl $ }}
+			{{- end }}
+		{{- end }}
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			{{- if $tenant }}
+			predicate.ScopeNeighborToTenants(s)
+			{{- end }}
+			{{- if $history }}
+			predicate.ScopeNeighborToLive(s)
+			{{- end }}
+		})
+	}
+	{{- else -}}
+	func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			{{- if $.HasCompositeID }}
+				sqlgraph.From(Table, {{ $e.ColumnConstant }}),
+			{{- else }}
+				sqlgraph.From(Table, {{ $.ID.Constant }}),
+			{{- end }}
+			sqlgraph.Edge(sqlgraph.{{ $e.Rel.Type }}, {{ $e.IsInverse }}, {{ $e.TableConstant }},
+				{{- if $e.M2M -}}
+					{{ $e.PKConstant }}...
+				{{- else -}}
+					{{ $e.ColumnConstant }}
+				{{- end -}}
+			),
+		)
+		{{- with $tmpls := matchTemplate "dialect/sql/predicate/edge/has/*" }}
+			{{- range $tmpl := $tmpls }}
+				{{- xtemplate $tmpl $ }}
+			{{- end }}
+		{{- end }}
+		sqlgraph.HasNeighbors(s, step)
+	}
+	{{- end }}
+{{- end }}

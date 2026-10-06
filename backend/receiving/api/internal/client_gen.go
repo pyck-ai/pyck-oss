@@ -661,47 +661,29 @@ func (t *CreateReceivingInbound_CreateReceivingInbound_ReceivingInbound) GetUpda
 	return t.UpdatedBy
 }
 
-type CreateReceivingInbound_CreateReceivingInbound_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreateReceivingInbound_CreateReceivingInbound_Workflows) GetID() string {
-	if t == nil {
-		t = &CreateReceivingInbound_CreateReceivingInbound_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreateReceivingInbound_CreateReceivingInbound_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreateReceivingInbound_CreateReceivingInbound_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreateReceivingInbound_CreateReceivingInbound_Workflows) GetType() string {
-	if t == nil {
-		t = &CreateReceivingInbound_CreateReceivingInbound_Workflows{}
-	}
-	return t.Type
-}
-
 type CreateReceivingInbound_CreateReceivingInbound struct {
+	EventCount       int                                                             "json:\"eventCount\" graphql:\"eventCount\""
 	ReceivingInbound *CreateReceivingInbound_CreateReceivingInbound_ReceivingInbound "json:\"receivingInbound,omitempty\" graphql:\"receivingInbound\""
-	Workflows        []*CreateReceivingInbound_CreateReceivingInbound_Workflows      "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID    string                                                          "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *CreateReceivingInbound_CreateReceivingInbound) GetEventCount() int {
+	if t == nil {
+		t = &CreateReceivingInbound_CreateReceivingInbound{}
+	}
+	return t.EventCount
+}
 func (t *CreateReceivingInbound_CreateReceivingInbound) GetReceivingInbound() *CreateReceivingInbound_CreateReceivingInbound_ReceivingInbound {
 	if t == nil {
 		t = &CreateReceivingInbound_CreateReceivingInbound{}
 	}
 	return t.ReceivingInbound
 }
-func (t *CreateReceivingInbound_CreateReceivingInbound) GetWorkflows() []*CreateReceivingInbound_CreateReceivingInbound_Workflows {
+func (t *CreateReceivingInbound_CreateReceivingInbound) GetTransactionID() string {
 	if t == nil {
 		t = &CreateReceivingInbound_CreateReceivingInbound{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type UpdateReceivingInbound_UpdateReceivingInbound_ReceivingInbound struct {
@@ -799,77 +781,35 @@ func (t *UpdateReceivingInbound_UpdateReceivingInbound_ReceivingInbound) GetUpda
 	return t.UpdatedBy
 }
 
-type UpdateReceivingInbound_UpdateReceivingInbound_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdateReceivingInbound_UpdateReceivingInbound_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdateReceivingInbound_UpdateReceivingInbound_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdateReceivingInbound_UpdateReceivingInbound_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdateReceivingInbound_UpdateReceivingInbound_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdateReceivingInbound_UpdateReceivingInbound_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdateReceivingInbound_UpdateReceivingInbound_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdateReceivingInbound_UpdateReceivingInbound struct {
+	EventCount       int                                                             "json:\"eventCount\" graphql:\"eventCount\""
 	ReceivingInbound *UpdateReceivingInbound_UpdateReceivingInbound_ReceivingInbound "json:\"receivingInbound,omitempty\" graphql:\"receivingInbound\""
-	Workflows        []*UpdateReceivingInbound_UpdateReceivingInbound_Workflows      "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID    string                                                          "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *UpdateReceivingInbound_UpdateReceivingInbound) GetEventCount() int {
+	if t == nil {
+		t = &UpdateReceivingInbound_UpdateReceivingInbound{}
+	}
+	return t.EventCount
+}
 func (t *UpdateReceivingInbound_UpdateReceivingInbound) GetReceivingInbound() *UpdateReceivingInbound_UpdateReceivingInbound_ReceivingInbound {
 	if t == nil {
 		t = &UpdateReceivingInbound_UpdateReceivingInbound{}
 	}
 	return t.ReceivingInbound
 }
-func (t *UpdateReceivingInbound_UpdateReceivingInbound) GetWorkflows() []*UpdateReceivingInbound_UpdateReceivingInbound_Workflows {
+func (t *UpdateReceivingInbound_UpdateReceivingInbound) GetTransactionID() string {
 	if t == nil {
 		t = &UpdateReceivingInbound_UpdateReceivingInbound{}
 	}
-	return t.Workflows
-}
-
-type DeleteReceivingInbound_DeleteReceivingInbound_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeleteReceivingInbound_DeleteReceivingInbound_Workflows) GetID() string {
-	if t == nil {
-		t = &DeleteReceivingInbound_DeleteReceivingInbound_Workflows{}
-	}
-	return t.ID
-}
-func (t *DeleteReceivingInbound_DeleteReceivingInbound_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeleteReceivingInbound_DeleteReceivingInbound_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeleteReceivingInbound_DeleteReceivingInbound_Workflows) GetType() string {
-	if t == nil {
-		t = &DeleteReceivingInbound_DeleteReceivingInbound_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeleteReceivingInbound_DeleteReceivingInbound struct {
-	DeletedID *string                                                    "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeleteReceivingInbound_DeleteReceivingInbound_Workflows "json:\"workflows,omitempty\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeleteReceivingInbound_DeleteReceivingInbound) GetDeletedID() *string {
@@ -878,11 +818,17 @@ func (t *DeleteReceivingInbound_DeleteReceivingInbound) GetDeletedID() *string {
 	}
 	return t.DeletedID
 }
-func (t *DeleteReceivingInbound_DeleteReceivingInbound) GetWorkflows() []*DeleteReceivingInbound_DeleteReceivingInbound_Workflows {
+func (t *DeleteReceivingInbound_DeleteReceivingInbound) GetEventCount() int {
 	if t == nil {
 		t = &DeleteReceivingInbound_DeleteReceivingInbound{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeleteReceivingInbound_DeleteReceivingInbound) GetTransactionID() string {
+	if t == nil {
+		t = &DeleteReceivingInbound_DeleteReceivingInbound{}
+	}
+	return t.TransactionID
 }
 
 type CreateReceivingInboundItem_CreateReceivingInboundItem_ReceivingInboundItem struct {
@@ -987,47 +933,29 @@ func (t *CreateReceivingInboundItem_CreateReceivingInboundItem_ReceivingInboundI
 	return t.UpdatedBy
 }
 
-type CreateReceivingInboundItem_CreateReceivingInboundItem_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreateReceivingInboundItem_CreateReceivingInboundItem_Workflows) GetID() string {
-	if t == nil {
-		t = &CreateReceivingInboundItem_CreateReceivingInboundItem_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreateReceivingInboundItem_CreateReceivingInboundItem_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreateReceivingInboundItem_CreateReceivingInboundItem_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreateReceivingInboundItem_CreateReceivingInboundItem_Workflows) GetType() string {
-	if t == nil {
-		t = &CreateReceivingInboundItem_CreateReceivingInboundItem_Workflows{}
-	}
-	return t.Type
-}
-
 type CreateReceivingInboundItem_CreateReceivingInboundItem struct {
+	EventCount           int                                                                         "json:\"eventCount\" graphql:\"eventCount\""
 	ReceivingInboundItem *CreateReceivingInboundItem_CreateReceivingInboundItem_ReceivingInboundItem "json:\"receivingInboundItem,omitempty\" graphql:\"receivingInboundItem\""
-	Workflows            []*CreateReceivingInboundItem_CreateReceivingInboundItem_Workflows          "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID        string                                                                      "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *CreateReceivingInboundItem_CreateReceivingInboundItem) GetEventCount() int {
+	if t == nil {
+		t = &CreateReceivingInboundItem_CreateReceivingInboundItem{}
+	}
+	return t.EventCount
+}
 func (t *CreateReceivingInboundItem_CreateReceivingInboundItem) GetReceivingInboundItem() *CreateReceivingInboundItem_CreateReceivingInboundItem_ReceivingInboundItem {
 	if t == nil {
 		t = &CreateReceivingInboundItem_CreateReceivingInboundItem{}
 	}
 	return t.ReceivingInboundItem
 }
-func (t *CreateReceivingInboundItem_CreateReceivingInboundItem) GetWorkflows() []*CreateReceivingInboundItem_CreateReceivingInboundItem_Workflows {
+func (t *CreateReceivingInboundItem_CreateReceivingInboundItem) GetTransactionID() string {
 	if t == nil {
 		t = &CreateReceivingInboundItem_CreateReceivingInboundItem{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type UpdateReceivingInboundItem_UpdateReceivingInboundItem_ReceivingInboundItem struct {
@@ -1132,77 +1060,35 @@ func (t *UpdateReceivingInboundItem_UpdateReceivingInboundItem_ReceivingInboundI
 	return t.UpdatedBy
 }
 
-type UpdateReceivingInboundItem_UpdateReceivingInboundItem_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdateReceivingInboundItem_UpdateReceivingInboundItem_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdateReceivingInboundItem_UpdateReceivingInboundItem_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdateReceivingInboundItem_UpdateReceivingInboundItem_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdateReceivingInboundItem_UpdateReceivingInboundItem_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdateReceivingInboundItem_UpdateReceivingInboundItem_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdateReceivingInboundItem_UpdateReceivingInboundItem_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdateReceivingInboundItem_UpdateReceivingInboundItem struct {
+	EventCount           int                                                                         "json:\"eventCount\" graphql:\"eventCount\""
 	ReceivingInboundItem *UpdateReceivingInboundItem_UpdateReceivingInboundItem_ReceivingInboundItem "json:\"receivingInboundItem,omitempty\" graphql:\"receivingInboundItem\""
-	Workflows            []*UpdateReceivingInboundItem_UpdateReceivingInboundItem_Workflows          "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID        string                                                                      "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *UpdateReceivingInboundItem_UpdateReceivingInboundItem) GetEventCount() int {
+	if t == nil {
+		t = &UpdateReceivingInboundItem_UpdateReceivingInboundItem{}
+	}
+	return t.EventCount
+}
 func (t *UpdateReceivingInboundItem_UpdateReceivingInboundItem) GetReceivingInboundItem() *UpdateReceivingInboundItem_UpdateReceivingInboundItem_ReceivingInboundItem {
 	if t == nil {
 		t = &UpdateReceivingInboundItem_UpdateReceivingInboundItem{}
 	}
 	return t.ReceivingInboundItem
 }
-func (t *UpdateReceivingInboundItem_UpdateReceivingInboundItem) GetWorkflows() []*UpdateReceivingInboundItem_UpdateReceivingInboundItem_Workflows {
+func (t *UpdateReceivingInboundItem_UpdateReceivingInboundItem) GetTransactionID() string {
 	if t == nil {
 		t = &UpdateReceivingInboundItem_UpdateReceivingInboundItem{}
 	}
-	return t.Workflows
-}
-
-type DeleteReceivingInboundItem_DeleteReceivingInboundItem_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeleteReceivingInboundItem_DeleteReceivingInboundItem_Workflows) GetID() string {
-	if t == nil {
-		t = &DeleteReceivingInboundItem_DeleteReceivingInboundItem_Workflows{}
-	}
-	return t.ID
-}
-func (t *DeleteReceivingInboundItem_DeleteReceivingInboundItem_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeleteReceivingInboundItem_DeleteReceivingInboundItem_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeleteReceivingInboundItem_DeleteReceivingInboundItem_Workflows) GetType() string {
-	if t == nil {
-		t = &DeleteReceivingInboundItem_DeleteReceivingInboundItem_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeleteReceivingInboundItem_DeleteReceivingInboundItem struct {
-	DeletedID *string                                                            "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeleteReceivingInboundItem_DeleteReceivingInboundItem_Workflows "json:\"workflows,omitempty\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeleteReceivingInboundItem_DeleteReceivingInboundItem) GetDeletedID() *string {
@@ -1211,11 +1097,17 @@ func (t *DeleteReceivingInboundItem_DeleteReceivingInboundItem) GetDeletedID() *
 	}
 	return t.DeletedID
 }
-func (t *DeleteReceivingInboundItem_DeleteReceivingInboundItem) GetWorkflows() []*DeleteReceivingInboundItem_DeleteReceivingInboundItem_Workflows {
+func (t *DeleteReceivingInboundItem_DeleteReceivingInboundItem) GetEventCount() int {
 	if t == nil {
 		t = &DeleteReceivingInboundItem_DeleteReceivingInboundItem{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeleteReceivingInboundItem_DeleteReceivingInboundItem) GetTransactionID() string {
+	if t == nil {
+		t = &DeleteReceivingInboundItem_DeleteReceivingInboundItem{}
+	}
+	return t.TransactionID
 }
 
 type CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification_ReceivingInboundShipmentNotification struct {
@@ -1306,47 +1198,29 @@ func (t *CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipme
 	return t.UpdatedBy
 }
 
-type CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification_Workflows) GetID() string {
-	if t == nil {
-		t = &CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification_Workflows{}
-	}
-	return t.ID
-}
-func (t *CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification_Workflows) GetRunID() string {
-	if t == nil {
-		t = &CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification_Workflows{}
-	}
-	return t.RunID
-}
-func (t *CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification_Workflows) GetType() string {
-	if t == nil {
-		t = &CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification_Workflows{}
-	}
-	return t.Type
-}
-
 type CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification struct {
+	EventCount                           int                                                                                                                         "json:\"eventCount\" graphql:\"eventCount\""
 	ReceivingInboundShipmentNotification *CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification_ReceivingInboundShipmentNotification "json:\"receivingInboundShipmentNotification,omitempty\" graphql:\"receivingInboundShipmentNotification\""
-	Workflows                            []*CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification_Workflows                          "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID                        string                                                                                                                      "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification) GetEventCount() int {
+	if t == nil {
+		t = &CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification{}
+	}
+	return t.EventCount
+}
 func (t *CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification) GetReceivingInboundShipmentNotification() *CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification_ReceivingInboundShipmentNotification {
 	if t == nil {
 		t = &CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification{}
 	}
 	return t.ReceivingInboundShipmentNotification
 }
-func (t *CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification) GetWorkflows() []*CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification_Workflows {
+func (t *CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification) GetTransactionID() string {
 	if t == nil {
 		t = &CreateReceivingInboundShipmentNotification_CreateReceivingInboundShipmentNotification{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification_ReceivingInboundShipmentNotification struct {
@@ -1437,77 +1311,35 @@ func (t *UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipme
 	return t.UpdatedBy
 }
 
-type UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification_Workflows) GetID() string {
-	if t == nil {
-		t = &UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification_Workflows{}
-	}
-	return t.ID
-}
-func (t *UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification_Workflows) GetRunID() string {
-	if t == nil {
-		t = &UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification_Workflows{}
-	}
-	return t.RunID
-}
-func (t *UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification_Workflows) GetType() string {
-	if t == nil {
-		t = &UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification_Workflows{}
-	}
-	return t.Type
-}
-
 type UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification struct {
+	EventCount                           int                                                                                                                         "json:\"eventCount\" graphql:\"eventCount\""
 	ReceivingInboundShipmentNotification *UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification_ReceivingInboundShipmentNotification "json:\"receivingInboundShipmentNotification,omitempty\" graphql:\"receivingInboundShipmentNotification\""
-	Workflows                            []*UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification_Workflows                          "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID                        string                                                                                                                      "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification) GetEventCount() int {
+	if t == nil {
+		t = &UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification{}
+	}
+	return t.EventCount
+}
 func (t *UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification) GetReceivingInboundShipmentNotification() *UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification_ReceivingInboundShipmentNotification {
 	if t == nil {
 		t = &UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification{}
 	}
 	return t.ReceivingInboundShipmentNotification
 }
-func (t *UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification) GetWorkflows() []*UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification_Workflows {
+func (t *UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification) GetTransactionID() string {
 	if t == nil {
 		t = &UpdateReceivingInboundShipmentNotification_UpdateReceivingInboundShipmentNotification{}
 	}
-	return t.Workflows
-}
-
-type DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification_Workflows) GetID() string {
-	if t == nil {
-		t = &DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification_Workflows{}
-	}
-	return t.ID
-}
-func (t *DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification_Workflows) GetRunID() string {
-	if t == nil {
-		t = &DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification_Workflows{}
-	}
-	return t.RunID
-}
-func (t *DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification_Workflows) GetType() string {
-	if t == nil {
-		t = &DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification_Workflows{}
-	}
-	return t.Type
+	return t.TransactionID
 }
 
 type DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification struct {
-	DeletedID *string                                                                                            "json:\"deletedID,omitempty\" graphql:\"deletedID\""
-	Workflows []*DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification_Workflows "json:\"workflows,omitempty\" graphql:\"workflows\""
+	DeletedID     *string "json:\"deletedID,omitempty\" graphql:\"deletedID\""
+	EventCount    int     "json:\"eventCount\" graphql:\"eventCount\""
+	TransactionID string  "json:\"transactionID\" graphql:\"transactionID\""
 }
 
 func (t *DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification) GetDeletedID() *string {
@@ -1516,11 +1348,17 @@ func (t *DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipme
 	}
 	return t.DeletedID
 }
-func (t *DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification) GetWorkflows() []*DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification_Workflows {
+func (t *DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification) GetEventCount() int {
 	if t == nil {
 		t = &DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification{}
 	}
-	return t.Workflows
+	return t.EventCount
+}
+func (t *DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification) GetTransactionID() string {
+	if t == nil {
+		t = &DeleteReceivingInboundShipmentNotification_DeleteReceivingInboundShipmentNotification{}
+	}
+	return t.TransactionID
 }
 
 type PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound struct {
@@ -1618,47 +1456,29 @@ func (t *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound) G
 	return t.UpdatedBy
 }
 
-type PatchReceivingInboundData_PatchReceivingInboundData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchReceivingInboundData_PatchReceivingInboundData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchReceivingInboundData_PatchReceivingInboundData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchReceivingInboundData_PatchReceivingInboundData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchReceivingInboundData_PatchReceivingInboundData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchReceivingInboundData_PatchReceivingInboundData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchReceivingInboundData_PatchReceivingInboundData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchReceivingInboundData_PatchReceivingInboundData struct {
+	EventCount       int                                                                   "json:\"eventCount\" graphql:\"eventCount\""
 	ReceivingInbound *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound "json:\"receivingInbound,omitempty\" graphql:\"receivingInbound\""
-	Workflows        []*PatchReceivingInboundData_PatchReceivingInboundData_Workflows      "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID    string                                                                "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *PatchReceivingInboundData_PatchReceivingInboundData) GetEventCount() int {
+	if t == nil {
+		t = &PatchReceivingInboundData_PatchReceivingInboundData{}
+	}
+	return t.EventCount
+}
 func (t *PatchReceivingInboundData_PatchReceivingInboundData) GetReceivingInbound() *PatchReceivingInboundData_PatchReceivingInboundData_ReceivingInbound {
 	if t == nil {
 		t = &PatchReceivingInboundData_PatchReceivingInboundData{}
 	}
 	return t.ReceivingInbound
 }
-func (t *PatchReceivingInboundData_PatchReceivingInboundData) GetWorkflows() []*PatchReceivingInboundData_PatchReceivingInboundData_Workflows {
+func (t *PatchReceivingInboundData_PatchReceivingInboundData) GetTransactionID() string {
 	if t == nil {
 		t = &PatchReceivingInboundData_PatchReceivingInboundData{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem struct {
@@ -1763,47 +1583,29 @@ func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingIn
 	return t.UpdatedBy
 }
 
-type PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchReceivingInboundItemData_PatchReceivingInboundItemData struct {
+	EventCount           int                                                                               "json:\"eventCount\" graphql:\"eventCount\""
 	ReceivingInboundItem *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem "json:\"receivingInboundItem,omitempty\" graphql:\"receivingInboundItem\""
-	Workflows            []*PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows          "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID        string                                                                            "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData) GetEventCount() int {
+	if t == nil {
+		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData{}
+	}
+	return t.EventCount
+}
 func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData) GetReceivingInboundItem() *PatchReceivingInboundItemData_PatchReceivingInboundItemData_ReceivingInboundItem {
 	if t == nil {
 		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData{}
 	}
 	return t.ReceivingInboundItem
 }
-func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData) GetWorkflows() []*PatchReceivingInboundItemData_PatchReceivingInboundItemData_Workflows {
+func (t *PatchReceivingInboundItemData_PatchReceivingInboundItemData) GetTransactionID() string {
 	if t == nil {
 		t = &PatchReceivingInboundItemData_PatchReceivingInboundItemData{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification struct {
@@ -1894,47 +1696,29 @@ func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShip
 	return t.UpdatedBy
 }
 
-type PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows struct {
-	ID    string "json:\"id\" graphql:\"id\""
-	RunID string "json:\"runID\" graphql:\"runID\""
-	Type  string "json:\"type\" graphql:\"type\""
-}
-
-func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows) GetID() string {
-	if t == nil {
-		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows{}
-	}
-	return t.ID
-}
-func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows) GetRunID() string {
-	if t == nil {
-		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows{}
-	}
-	return t.RunID
-}
-func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows) GetType() string {
-	if t == nil {
-		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows{}
-	}
-	return t.Type
-}
-
 type PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData struct {
+	EventCount                           int                                                                                                                               "json:\"eventCount\" graphql:\"eventCount\""
 	ReceivingInboundShipmentNotification *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification "json:\"receivingInboundShipmentNotification,omitempty\" graphql:\"receivingInboundShipmentNotification\""
-	Workflows                            []*PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows                          "json:\"workflows,omitempty\" graphql:\"workflows\""
+	TransactionID                        string                                                                                                                            "json:\"transactionID\" graphql:\"transactionID\""
 }
 
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData) GetEventCount() int {
+	if t == nil {
+		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData{}
+	}
+	return t.EventCount
+}
 func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData) GetReceivingInboundShipmentNotification() *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_ReceivingInboundShipmentNotification {
 	if t == nil {
 		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData{}
 	}
 	return t.ReceivingInboundShipmentNotification
 }
-func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData) GetWorkflows() []*PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData_Workflows {
+func (t *PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData) GetTransactionID() string {
 	if t == nil {
 		t = &PatchReceivingInboundShipmentNotificationData_PatchReceivingInboundShipmentNotificationData{}
 	}
-	return t.Workflows
+	return t.TransactionID
 }
 
 type GetReceivingInbounds struct {
@@ -2297,6 +2081,7 @@ func (c *Client) GetReceivingServiceInfo(ctx context.Context, interceptors ...cl
 
 const CreateReceivingInboundDocument = `mutation CreateReceivingInbound ($input: CreateReceivingInboundWithItemsInput!) {
 	createReceivingInbound(input: $input) {
+		eventCount
 		receivingInbound {
 			createdAt
 			createdBy
@@ -2312,11 +2097,7 @@ const CreateReceivingInboundDocument = `mutation CreateReceivingInbound ($input:
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2340,6 +2121,7 @@ func (c *Client) CreateReceivingInbound(ctx context.Context, input model.CreateR
 
 const UpdateReceivingInboundDocument = `mutation UpdateReceivingInbound ($id: ID!, $input: UpdateReceivingInboundInput!) {
 	updateReceivingInbound(id: $id, input: $input) {
+		eventCount
 		receivingInbound {
 			createdAt
 			createdBy
@@ -2355,11 +2137,7 @@ const UpdateReceivingInboundDocument = `mutation UpdateReceivingInbound ($id: ID
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2385,11 +2163,8 @@ func (c *Client) UpdateReceivingInbound(ctx context.Context, id string, input Up
 const DeleteReceivingInboundDocument = `mutation DeleteReceivingInbound ($id: ID!) {
 	deleteReceivingInbound(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -2413,6 +2188,7 @@ func (c *Client) DeleteReceivingInbound(ctx context.Context, id string, intercep
 
 const CreateReceivingInboundItemDocument = `mutation CreateReceivingInboundItem ($input: CreateReceivingInboundItemInput!) {
 	createReceivingInboundItem(input: $input) {
+		eventCount
 		receivingInboundItem {
 			createdAt
 			createdBy
@@ -2429,11 +2205,7 @@ const CreateReceivingInboundItemDocument = `mutation CreateReceivingInboundItem 
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2457,6 +2229,7 @@ func (c *Client) CreateReceivingInboundItem(ctx context.Context, input CreateRec
 
 const UpdateReceivingInboundItemDocument = `mutation UpdateReceivingInboundItem ($id: ID!, $input: UpdateReceivingInboundItemInput!) {
 	updateReceivingInboundItem(id: $id, input: $input) {
+		eventCount
 		receivingInboundItem {
 			createdAt
 			createdBy
@@ -2473,11 +2246,7 @@ const UpdateReceivingInboundItemDocument = `mutation UpdateReceivingInboundItem 
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2503,11 +2272,8 @@ func (c *Client) UpdateReceivingInboundItem(ctx context.Context, id string, inpu
 const DeleteReceivingInboundItemDocument = `mutation DeleteReceivingInboundItem ($id: ID!) {
 	deleteReceivingInboundItem(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -2531,6 +2297,7 @@ func (c *Client) DeleteReceivingInboundItem(ctx context.Context, id string, inte
 
 const CreateReceivingInboundShipmentNotificationDocument = `mutation CreateReceivingInboundShipmentNotification ($input: CreateReceivingInboundShipmentNotificationInput!) {
 	createReceivingInboundShipmentNotification(input: $input) {
+		eventCount
 		receivingInboundShipmentNotification {
 			createdAt
 			createdBy
@@ -2545,11 +2312,7 @@ const CreateReceivingInboundShipmentNotificationDocument = `mutation CreateRecei
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2573,6 +2336,7 @@ func (c *Client) CreateReceivingInboundShipmentNotification(ctx context.Context,
 
 const UpdateReceivingInboundShipmentNotificationDocument = `mutation UpdateReceivingInboundShipmentNotification ($id: ID!, $input: UpdateReceivingInboundShipmentNotificationInput!) {
 	updateReceivingInboundShipmentNotification(id: $id, input: $input) {
+		eventCount
 		receivingInboundShipmentNotification {
 			createdAt
 			createdBy
@@ -2587,11 +2351,7 @@ const UpdateReceivingInboundShipmentNotificationDocument = `mutation UpdateRecei
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2617,11 +2377,8 @@ func (c *Client) UpdateReceivingInboundShipmentNotification(ctx context.Context,
 const DeleteReceivingInboundShipmentNotificationDocument = `mutation DeleteReceivingInboundShipmentNotification ($id: ID!) {
 	deleteReceivingInboundShipmentNotification(id: $id) {
 		deletedID
-		workflows {
-			id
-			runID
-			type
-		}
+		eventCount
+		transactionID
 	}
 }
 `
@@ -2645,6 +2402,7 @@ func (c *Client) DeleteReceivingInboundShipmentNotification(ctx context.Context,
 
 const PatchReceivingInboundDataDocument = `mutation PatchReceivingInboundData ($id: ID!, $patches: [JSONPatchInput!]!) {
 	patchReceivingInboundData(id: $id, patches: $patches) {
+		eventCount
 		receivingInbound {
 			createdAt
 			createdBy
@@ -2660,11 +2418,7 @@ const PatchReceivingInboundDataDocument = `mutation PatchReceivingInboundData ($
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2689,6 +2443,7 @@ func (c *Client) PatchReceivingInboundData(ctx context.Context, id string, patch
 
 const PatchReceivingInboundItemDataDocument = `mutation PatchReceivingInboundItemData ($id: ID!, $patches: [JSONPatchInput!]!) {
 	patchReceivingInboundItemData(id: $id, patches: $patches) {
+		eventCount
 		receivingInboundItem {
 			createdAt
 			createdBy
@@ -2705,11 +2460,7 @@ const PatchReceivingInboundItemDataDocument = `mutation PatchReceivingInboundIte
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `
@@ -2734,6 +2485,7 @@ func (c *Client) PatchReceivingInboundItemData(ctx context.Context, id string, p
 
 const PatchReceivingInboundShipmentNotificationDataDocument = `mutation PatchReceivingInboundShipmentNotificationData ($id: ID!, $patches: [JSONPatchInput!]!) {
 	patchReceivingInboundShipmentNotificationData(id: $id, patches: $patches) {
+		eventCount
 		receivingInboundShipmentNotification {
 			createdAt
 			createdBy
@@ -2748,11 +2500,7 @@ const PatchReceivingInboundShipmentNotificationDataDocument = `mutation PatchRec
 			updatedAt
 			updatedBy
 		}
-		workflows {
-			id
-			runID
-			type
-		}
+		transactionID
 	}
 }
 `

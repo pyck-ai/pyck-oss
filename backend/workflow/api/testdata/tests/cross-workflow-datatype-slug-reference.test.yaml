@@ -40,6 +40,7 @@ steps:
       input:
         name: {$fake: "SlugRefWf-{{nonce}}"}
         taskQueue: "cache-slug-ref-queue"
+        workerID: "scenario-cross-workflow-datatype-slug-reference"
         dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
         data:
           priority: "high"

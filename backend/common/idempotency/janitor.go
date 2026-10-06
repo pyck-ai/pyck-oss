@@ -8,9 +8,8 @@ import (
 )
 
 // Janitor periodically prunes committed idempotency records older than the
-// configured TTL. It mirrors the pattern of common/events.ReplyRegistry —
-// owned by the host service and stopped when the root context is
-// cancelled.
+// configured TTL. It is owned by the host service and stops when the root
+// context is cancelled.
 type Janitor struct {
 	store    Store
 	interval time.Duration
@@ -24,9 +23,8 @@ func NewJanitor(store Store, interval, ttl time.Duration) *Janitor {
 	return &Janitor{store: store, interval: interval, ttl: ttl}
 }
 
-// Start spawns the prune goroutine and returns immediately. Mirrors the
-// convention of [common/events.ReplyRegistry.Start]: the lifecycle is
-// owned by the supplied ctx, and cancelling it terminates the
+// Start spawns the prune goroutine and returns immediately. The lifecycle
+// is owned by the supplied ctx, and cancelling it terminates the
 // goroutine without needing a separate Stop() call. Production callers
 // should use this; tests that need to observe loop completion can call
 // [Run] directly (it is exported for exactly that purpose).

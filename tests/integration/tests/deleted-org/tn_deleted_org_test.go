@@ -152,8 +152,10 @@ func (s *DeletedOrgSuite) TestCReconcileSkipsDeletedOrg() {
 	// the (soft-deleted row, deleted org) pair and skipped it, rather than the
 	// window falling between ticks. At the service-default cadence (5m) that
 	// window is 15 minutes — past go test's own timeout — so this test only
-	// runs against a test-cadence stack (local/CI .env sets 5s; envrc.sh
-	// forwards it). Skipping loudly beats a vacuous or timed-out run.
+	// runs against a test-cadence stack (`task up:integration` applies
+	// config/compose/integration.yaml, which sets 5s; envrc.sh reads it from the
+	// running management container). Skipping loudly beats a vacuous or
+	// timed-out run.
 	if s.Cfg.TenantReconcileInterval > 30*time.Second {
 		s.T().Skipf("stability window needs a test-cadence stack: reconcile interval is %s, want ≤30s (set PYCK_TENANT_RECONCILE_INTERVAL)", s.Cfg.TenantReconcileInterval)
 	}

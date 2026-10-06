@@ -1,0 +1,78 @@
+---
+name: "User - Workflow Signal Topic Temporal Namespace"
+description: >
+  Registers Temporal state-change signal topics whose namespace token is
+  neither a wildcard nor a canonical tenant UUID, and verifies each is refused
+  with a validation error instead of an internal error or a signal that never
+  fires, and that nothing is persisted.
+steps:
+  - name: "Register workflow with a non-UUID Temporal namespace"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "TestSignalTopicTemporalNamespace"
+        taskQueue: "test-task-queue"
+        workerID: "scenario-user-workflow-signal-topic-temporal-namespace"
+        signals:
+          - natsTopic: "pyck.default.temporal.q.t.w.r.s"
+            temporalSignal: "childCompleted"
+            temporalSignalType: "start"
+            filterRule: "true"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL error returned"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+      - msg: "Refused as an invalid topic"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "invalid nats topic"
+
+  - name: "Register workflow with a dashless namespace UUID"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "TestSignalTopicTemporalNamespaceDashless"
+        taskQueue: "test-task-queue"
+        workerID: "scenario-user-workflow-signal-topic-temporal-namespace"
+        signals:
+          - natsTopic: "pyck.0198a6b2000070008000000000000001.temporal.q.t.w.r.s"
+            temporalSignal: "childCompleted"
+            temporalSignalType: "start"
+            filterRule: "true"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL error returned"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+      - msg: "Refused as unmatchable"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "can never match a published event"
+
+  - name: "Refused workflows are not persisted"
+    operation: workflow.getWorkflows
+    vars:
+      where:
+        nameHasPrefix: "TestSignalTopicTemporalNamespace"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results"
+        assertions:
+          - ref: res.body.data.workflows.totalCount
+            equal: 0

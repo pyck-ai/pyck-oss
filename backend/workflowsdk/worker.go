@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"runtime"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -34,9 +35,16 @@ import (
 )
 
 var (
-	ErrAlreadyRunning = fmt.Errorf("worker is already running")
+	ErrAlreadyRunning = errors.New("worker is already running")
 
-	ErrReadBuildInfo = fmt.Errorf("failed to read build info")
+	ErrReadBuildInfo = errors.New("failed to read build info")
+
+	// ErrWorkerIDTooLong is returned by Start when the subscription worker ID
+	// ("<client identity>[#<suffix>]/<task queue>")
+	// for one of the workflows' task queues exceeds what the workflow service
+	// accepts as a worker ID. Shorten the task queue name or the client
+	// identity to fit.
+	ErrWorkerIDTooLong = errors.New("worker ID too long")
 
 	// ErrUnversionedBuild aliases the common/workflow sentinel rather than
 	// copying it: versioning errors are raised there and must stay matchable
@@ -47,6 +55,13 @@ var (
 const (
 	uiBundleStampRetryDelay    = 1 * time.Second
 	uiBundleStampMaxRetryDelay = 30 * time.Second
+
+	// maxSubscriptionWorkerIDLen mirrors the workflow service's maxWorkerIDLen,
+	// the longest worker ID it accepts.
+	maxSubscriptionWorkerIDLen = 255
+
+	workerIdentitySuffixLen      = 6
+	workerIdentitySuffixAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
 )
 
 // uiBundleMetadataEntries builds the ui.bundle.<Type>.{version,slug} metadata a
@@ -213,6 +228,11 @@ func RunDefaultWorker(opts ...WorkerOption) {
 		go worker.stampUIBundleMetadata(ctx, worker.client, depOpts.Version, bundle, ready)
 	}
 
+	// Self-promote the version for deployments the temporal-worker-controller
+	// does not manage (PYCK_WORKER_PROMOTE_ON_START); a no-op otherwise. Needs
+	// the workers started: a version registers only once it polls.
+	startPromotion(ctx, worker.client, depOpts)
+
 	// Spin up the health server. It uses a dedicated Temporal client
 	// (dialed inside the probe loop) so probe gRPC traffic is isolated
 	// from the worker's long-polls. The HTTP listener binds
@@ -243,6 +263,15 @@ func RunDefaultWorker(opts ...WorkerOption) {
 	}
 }
 
+// startPromotion makes this process's deployment version current in the
+// background when PYCK_WORKER_PROMOTE_ON_START is set and the worker is
+// versioned (see commonworkflow.VersioningConfig.StartPromotion, which is a
+// no-op otherwise). The one process runs one deployment version, shared by all
+// its task queues.
+func startPromotion(ctx context.Context, client temporalclient.Client, depOpts temporalworker.DeploymentOptions) {
+	Config.StartPromotion(ctx, client, depOpts)
+}
+
 func NewWorker(ctx context.Context, opts ...WorkerOption) (*worker, error) {
 	var err error
 
@@ -251,20 +280,20 @@ func NewWorker(ctx context.Context, opts ...WorkerOption) (*worker, error) {
 		return nil, fmt.Errorf("failed to load Temporal client options from environment: %w", err)
 	}
 
-	// Pin an explicit client identity. The Temporal worker inherits the
-	// client identity for its pollers (it only overrides when
-	// WorkerOptions.Identity is set, which we don't), so this is the exact
-	// string the health server matches against in DescribeTaskQueue —
-	// independent of the SDK's internal default-identity format.
-	if clientOpts.Identity == "" {
-		clientOpts.Identity = defaultWorkerIdentity()
-	}
-
 	wfapi, err := pyckworkflowapi.DefaultClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Pyck Workflow API client: %w", err)
 	}
 
+	return newWorkerFrom(clientOpts, wfapi, opts...), nil
+}
+
+// newWorkerFrom assembles a worker and applies opts, then pins the client
+// identity. The identity default must come after the options: WithClientOptions
+// replaces the client options wholesale, so a default set beforehand would be
+// wiped for callers that pass options without an Identity, leaving an empty
+// worker ID that the workflow service rejects.
+func newWorkerFrom(clientOpts temporalclient.Options, wfapi pyckworkflowapi.Client, opts ...WorkerOption) *worker {
 	worker := &worker{
 		clientOptions:   clientOpts,
 		pyckWorkflowAPI: wfapi,
@@ -275,7 +304,26 @@ func NewWorker(ctx context.Context, opts ...WorkerOption) (*worker, error) {
 		opt(worker)
 	}
 
-	return worker, nil
+	// Pin an explicit, per-instance client identity. The Temporal worker
+	// inherits the client identity for its pollers (it only overrides when
+	// WorkerOptions.Identity is set, which we don't), so this is the exact
+	// string the health server matches against in DescribeTaskQueue and the
+	// worker ID that scopes this instance's subscriptions in the workflow
+	// service. A caller-supplied identity (env or WithClientOptions) wins.
+	// Callers read the final value from worker.clientOptions.Identity (the
+	// health server config is filled from it in RunDefaultWorker).
+	if worker.clientOptions.Identity == "" {
+		worker.clientOptions.Identity = defaultWorkerIdentity()
+	} else {
+		// A pinned identity is shared by every replica that uses the same
+		// configuration, so it cannot scope subscriptions: one replica's
+		// unregister would stop the others' rows. Only the subscription
+		// worker ID gets a per-instance suffix; the client identity (and the
+		// health probe that matches on it) stays as configured.
+		worker.workerIDBase = worker.clientOptions.Identity + "#" + randomSuffix()
+	}
+
+	return worker
 }
 
 type worker struct {
@@ -291,18 +339,86 @@ type worker struct {
 	taskQueues      []string
 	healthConfig    healthServerConfig
 	heartbeatCancel context.CancelFunc
+	// heartbeatDone is closed when the heartbeat goroutine has returned.
+	heartbeatDone chan struct{}
+	// workerIDBase is the prefix of the subscription worker IDs when the client
+	// identity was supplied by the caller: "<identity>#<random suffix>". Empty
+	// means the identity is the generated, already per-instance default and is
+	// used directly.
+	workerIDBase string
+	// startCtx is the ctx passed to Start; its values (logger, auth) are reused,
+	// detached from cancellation, for the unregister calls made on Stop. Nil
+	// until this worker's subscriptions have been registered, and cleared once
+	// unregistered.
+	startCtx context.Context //nolint:containedctx // values are reused, detached from cancellation, on Stop
+	// registeredWorkerIDs are the worker IDs (one per workflow task queue) whose
+	// subscriptions were registered; Stop unregisters each of them.
+	registeredWorkerIDs []string
 }
 
-// defaultWorkerIdentity returns a stable per-process identity in the
-// Temporal-conventional "<pid>@<host>" form. Stable for the process
-// lifetime so the health server can match this worker's pollers across
-// probes.
+// subscriptionWorkerID is the worker ID the subscriptions of the workflows on
+// taskQueue are registered under: "<client identity>/<task queue>", or
+// "<client identity>#<suffix>/<task queue>" when the caller pinned the
+// identity (see workerIDBase). Each
+// Temporal worker (one per task queue) owns its own rows, so one queue's
+// refresh or unregister never touches another queue's. The client identity
+// itself, and the health probe that matches on it, are unchanged.
+func (w *worker) subscriptionWorkerID(taskQueue string) string {
+	base := w.workerIDBase
+	if base == "" {
+		base = w.clientOptions.Identity
+	}
+
+	return base + "/" + taskQueue
+}
+
+// subscriptionWorkerIDs returns the distinct worker IDs of the task queues the
+// given workflows run on, in sorted order.
+func (w *worker) subscriptionWorkerIDs(workflows []registry.WorkflowRegistryEntry) []string {
+	seen := make(map[string]struct{}, len(workflows))
+	ids := make([]string, 0, len(workflows))
+
+	for _, wf := range workflows {
+		id := w.subscriptionWorkerID(wf.TaskQueue())
+		if _, ok := seen[id]; ok {
+			continue
+		}
+
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+
+	slices.Sort(ids)
+
+	return ids
+}
+
+// defaultWorkerIdentity returns a per-instance identity of the form
+// "<pid>@<host>#<suffix>", where suffix is 6 random [a-z0-9] characters. It is
+// generated once per NewWorker and stays fixed for the worker's lifetime so the
+// health server can match this worker's pollers across probes. The suffix keeps
+// identities unique across instances that share a pid and host (containers each
+// running as pid 1 on one node, or a restarted worker in the same pod), because
+// the identity also scopes the worker's subscriptions in the workflow service.
 func defaultWorkerIdentity() string {
 	host, err := os.Hostname()
 	if err != nil {
 		host = "unknown"
 	}
-	return fmt.Sprintf("%d@%s", os.Getpid(), host)
+
+	return fmt.Sprintf("%d@%s#%s", os.Getpid(), host, randomSuffix())
+}
+
+// randomSuffix returns workerIdentitySuffixLen random [a-z0-9] characters, a
+// uniqueness token and not a secret.
+func randomSuffix() string {
+	suffix := make([]byte, workerIdentitySuffixLen)
+	for i := range suffix {
+		//nolint:gosec // uniqueness token, not a secret
+		suffix[i] = workerIdentitySuffixAlphabet[rand.IntN(len(workerIdentitySuffixAlphabet))]
+	}
+
+	return string(suffix)
 }
 
 func (w *worker) Stop() {
@@ -320,6 +436,19 @@ func (w *worker) stopLocked() {
 		w.heartbeatCancel = nil
 	}
 
+	// Wait for the heartbeat to return before unregistering: registerWorkflow
+	// clears the stopped mark, so a refresh already on the wire could land
+	// after the unregister and undo it. The goroutine never takes w.mu, which
+	// the caller holds, and once its ctx is cancelled it sends no further
+	// request and the one in flight is bounded by UnregisterTimeout, so the
+	// wait is bounded by that timeout.
+	if w.heartbeatDone != nil {
+		<-w.heartbeatDone
+		w.heartbeatDone = nil
+	}
+
+	w.unregisterLocked()
+
 	if w.workers != nil {
 		for _, wk := range w.workers {
 			wk.Stop()
@@ -336,6 +465,50 @@ func (w *worker) stopLocked() {
 	if w.workerErrs != nil {
 		close(w.workerErrs)
 		w.workerErrs = nil
+	}
+}
+
+// unregisterLocked tells the workflow service each worker ID this worker
+// registered (one per workflow task queue) is going away. The service marks
+// its subscriptions stopped: a hint the router weighs per event, ignoring them
+// while another worker holds running subscriptions on the workflow and
+// otherwise routing to them until their TTL lapses, as after a crash. Best
+// effort: a failure is logged and shutdown continues, TTL is the backstop. The caller must hold
+// w.mu; the calls run on a detached context bounded by UnregisterTimeout in
+// total, so a cancelled Start ctx (the usual shutdown trigger) does not abort
+// them and a stuck service cannot stall shutdown beyond that.
+func (w *worker) unregisterLocked() {
+	if w.startCtx == nil {
+		return
+	}
+	startCtx := w.startCtx
+	workerIDs := w.registeredWorkerIDs
+	w.startCtx = nil
+	w.registeredWorkerIDs = nil
+
+	if !Config.UnregisterOnStop || w.pyckWorkflowAPI == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(startCtx), Config.UnregisterTimeout)
+	defer cancel()
+
+	logger := pycklog.ForContext(ctx)
+
+	for _, workerID := range workerIDs {
+		res, err := w.pyckWorkflowAPI.UnregisterWorker(ctx, pyckworkflowapi.UnregisterWorkerArgs{WorkerID: workerID})
+		if err != nil {
+			logger.Warn().
+				Err(err).
+				Str("worker-id", workerID).
+				Msg("unregister worker failed; subscriptions will lapse via TTL")
+			continue
+		}
+
+		logger.Debug().
+			Str("worker-id", workerID).
+			Int("stopped", res.UnregisterWorker.Stopped).
+			Msg("marked worker subscriptions stopped")
 	}
 }
 
@@ -380,6 +553,10 @@ func (w *worker) Start(ctx context.Context) error {
 		workflows  = w.registry.Workflows()
 	)
 
+	if err := w.checkWorkerIDLengths(workflows); err != nil {
+		return err
+	}
+
 	w.registerAllWorkers(ctx, activities, workflows)
 
 	go w.handleWorkerErrors(ctx)
@@ -392,8 +569,8 @@ func (w *worker) Start(ctx context.Context) error {
 		return fmt.Errorf("register workflows: %w", err)
 	}
 
-	if err := w.registerAllWorkflowWithPyckRetrying(ctx, workflows); err != nil {
-		return fmt.Errorf("register workflow signals: %w", err)
+	if err := w.registerSubscriptionsLocked(ctx, workflows); err != nil {
+		return err
 	}
 
 	if err := w.startAllWorkers(ctx); err != nil {
@@ -404,11 +581,42 @@ func (w *worker) Start(ctx context.Context) error {
 	// Keep this worker's subscriptions alive past their TTL. Tie the heartbeat
 	// to Stop() so a worker that shuts down (including on a poller error) stops
 	// refreshing and lets its subscriptions expire.
-	hbCtx, cancel := context.WithCancel(ctx)
-	w.heartbeatCancel = cancel
-	go w.runRegistrationHeartbeat(hbCtx, workflows)
+	w.startHeartbeatLocked(ctx, workflows)
 
 	return nil
+}
+
+// registerSubscriptionsLocked registers the local workflows' subscriptions
+// under this worker's per-task-queue worker IDs; the caller must hold w.mu.
+func (w *worker) registerSubscriptionsLocked(ctx context.Context, workflows []registry.WorkflowRegistryEntry) error {
+	// Subscriptions may exist under this worker's per-task-queue worker IDs
+	// from the first registration on, even if a later one fails, so every
+	// teardown from here on (including a failed startAllWorkers) unregisters
+	// them. RunDefaultWorker exits on a Start error without running Stop.
+	w.startCtx = ctx
+	w.registeredWorkerIDs = w.subscriptionWorkerIDs(workflows)
+
+	if err := w.registerLocalWorkflowsRetrying(ctx, workflows); err != nil {
+		w.stopLocked() //nolint:contextcheck // unregisters on a ctx detached from startCtx on purpose
+		return fmt.Errorf("register workflow signals: %w", err)
+	}
+
+	return nil
+}
+
+// startHeartbeatLocked runs the registration heartbeat until stopLocked cancels
+// it; the caller must hold w.mu. stopLocked also waits for the goroutine to
+// return, so no refresh outlives Stop.
+func (w *worker) startHeartbeatLocked(ctx context.Context, workflows []registry.WorkflowRegistryEntry) {
+	hbCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	w.heartbeatCancel = cancel
+	w.heartbeatDone = done
+
+	go func() {
+		defer close(done)
+		w.runRegistrationHeartbeat(hbCtx, workflows)
+	}()
 }
 
 func (w *worker) configure(ctx context.Context) error {
@@ -425,6 +633,9 @@ func (w *worker) configure(ctx context.Context) error {
 	}
 
 	w.clientOptions.Interceptors = append(w.clientOptions.Interceptors, tracingInterceptor)
+	// Lets workflow code read the event ID the signal router sends (EventID,
+	// ReceiveEvent); no registration needed in workflows.
+	w.clientOptions.Interceptors = append(w.clientOptions.Interceptors, WorkerClientInterceptors(w.clientOptions.DataConverter)...)
 
 	return nil
 }
@@ -556,64 +767,33 @@ func (w *worker) registerWorkflow(ctx context.Context, workflow registry.Workflo
 	return nil
 }
 
-func (w *worker) registerAllWorkflowWithPyck(ctx context.Context, workflows []registry.WorkflowRegistryEntry) error {
-	logger := pycklog.ForContext(ctx)
-
-	// Build a set of local workflow names for quick lookup.
-	workflowName := make(map[string]struct{}, len(workflows))
-	for _, wf := range workflows {
-		workflowName[wf.Type()] = struct{}{}
-	}
-
-	// Fetch remote workflows from the Pyck Workflow API.
-	remoteWorkflows, err := w.pyckWorkflowAPI.GetWorkflows(ctx, pyckworkflowapi.GetWorkflowsArgs{})
-	if err != nil {
-		return fmt.Errorf("get registered pyck workflows: %w", err)
-	}
-
-	// Delete remote workflows that are not present in the local registry.
-	for _, edge := range remoteWorkflows.Workflows.Edges {
-		wfName := edge.Node.Name
-
-		if _, ok := workflowName[wfName]; ok {
-			continue // found
-		}
-
-		if _, err := w.pyckWorkflowAPI.DeleteWorkflow(ctx, pyckworkflowapi.DeleteWorkflowArgs{
-			Id: edge.Node.ID,
-		}); err != nil {
-			return fmt.Errorf("delete pyck workflow %q not in local registry: %w", wfName, err)
-		}
-
-		logger.Debug().
-			Str("workflow", wfName).
-			Msg("deleted pyck workflow not in local registry")
-	}
-
-	return w.registerLocalWorkflows(ctx, workflows)
-}
-
-// registerLocalWorkflows (re-)registers every local workflow's signals. Unlike
-// registerAllWorkflowWithPyck it skips the remote reconcile/delete, so it is
-// safe to call repeatedly from the heartbeat to refresh subscription TTLs.
+// registerLocalWorkflows (re-)registers every local workflow's signals, each
+// under the worker ID of its task queue. It only ever writes this worker's own subscriptions
+// (it never lists or deletes other workers' workflows), so it is safe to call
+// repeatedly from the heartbeat to refresh subscription TTLs.
 func (w *worker) registerLocalWorkflows(ctx context.Context, workflows []registry.WorkflowRegistryEntry) error {
+	var errs []error
+
+	// Register every workflow even after a failure: a workflow that fails
+	// persistently must not keep the heartbeat from refreshing the ones after
+	// it, whose subscriptions would then lapse via TTL.
 	for _, wf := range workflows {
 		if err := w.registerWorkflowWithPyck(ctx, wf); err != nil {
-			return fmt.Errorf("register pyck workflow %q: %w", wf.Type(), err)
+			errs = append(errs, fmt.Errorf("register pyck workflow %q: %w", wf.Type(), err))
 		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
-// registerAllWorkflowWithPyckRetrying runs the initial registration, retrying
+// registerLocalWorkflowsRetrying runs the initial registration, retrying
 // on transient serialization/deadlock conflicts. The workflow service already
 // retries these internally; this is the last-resort guard so a startup burst
 // (e.g. a fleet-wide rollout) that outlasts the server-side budget refreshes
 // rather than crash-looping the pod.
-func (w *worker) registerAllWorkflowWithPyckRetrying(ctx context.Context, workflows []registry.WorkflowRegistryEntry) error {
+func (w *worker) registerLocalWorkflowsRetrying(ctx context.Context, workflows []registry.WorkflowRegistryEntry) error {
 	return RetryOnConflict(ctx, Config.RegistrationRetryAttempts, Config.RegistrationRetryBackoff, func() error {
-		return w.registerAllWorkflowWithPyck(ctx, workflows)
+		return w.registerLocalWorkflows(ctx, workflows)
 	})
 }
 
@@ -670,8 +850,13 @@ func RetryOnConflict(ctx context.Context, attempts int, baseBackoff time.Duratio
 }
 
 // runRegistrationHeartbeat periodically refreshes this worker's subscription
-// TTLs until ctx is cancelled. A failed refresh is non-fatal: the next tick
-// retries and the TTL leaves ample margin.
+// TTLs (each task queue under its own worker ID) until ctx is cancelled.
+//
+// A failed refresh is non-fatal, but it is retried sooner than the next tick:
+// while the service was unreachable for longer than the TTL the rows are gone,
+// and the router drops events until the worker registers again. So after a
+// failure the wait is HeartbeatRetryBackoff, doubling per further failure up to
+// HeartbeatInterval, and the normal interval applies again after a success.
 func (w *worker) runRegistrationHeartbeat(ctx context.Context, workflows []registry.WorkflowRegistryEntry) {
 	interval := Config.HeartbeatInterval
 	if interval <= 0 {
@@ -680,19 +865,69 @@ func (w *worker) runRegistrationHeartbeat(ctx context.Context, workflows []regis
 
 	logger := pycklog.ForContext(ctx)
 
-	t := time.NewTicker(interval)
-	defer t.Stop()
+	wait := interval
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-t.C:
-			if err := w.registerLocalWorkflows(ctx, workflows); err != nil {
-				logger.Warn().Err(err).Msg("workflow subscription heartbeat failed")
-			}
+		case <-timer.C:
+		}
+
+		if err := w.refreshLocalWorkflows(ctx, workflows); err != nil {
+			wait = nextHeartbeatWait(wait, interval, Config.HeartbeatRetryBackoff)
+			logger.Warn().Err(err).Dur("retry-in", wait).Msg("workflow subscription heartbeat failed")
+		} else {
+			wait = interval
+		}
+
+		timer.Reset(wait)
+	}
+}
+
+// refreshLocalWorkflows is the heartbeat's registerLocalWorkflows. A refresh
+// must not be cut short by ctx: the client returns the moment ctx is
+// cancelled, but a request already sent keeps running in the gateway and the
+// service and can commit after Stop's unregister, clearing its stopped mark.
+// So each request runs on a detached ctx bounded by UnregisterTimeout, which
+// keeps the heartbeat goroutine (that Stop waits for) alive until it has
+// finished. Once ctx is cancelled no further request is sent, so Stop waits
+// for at most one request. Like registerLocalWorkflows, a failing workflow
+// does not keep the ones after it from being refreshed.
+func (w *worker) refreshLocalWorkflows(ctx context.Context, workflows []registry.WorkflowRegistryEntry) error {
+	var errs []error
+
+	for _, wf := range workflows {
+		if ctx.Err() != nil {
+			break
+		}
+
+		reqCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), Config.UnregisterTimeout)
+		err := w.registerWorkflowWithPyck(reqCtx, wf)
+		cancel()
+
+		if err != nil {
+			errs = append(errs, fmt.Errorf("register pyck workflow %q: %w", wf.Type(), err))
 		}
 	}
+
+	return errors.Join(errs...)
+}
+
+// nextHeartbeatWait returns the wait before the next heartbeat after a failure:
+// the base backoff after a healthy tick (prev == interval), doubled for each
+// consecutive failure, never above interval. A non-positive base keeps the
+// normal interval.
+func nextHeartbeatWait(prev, interval, base time.Duration) time.Duration {
+	if base <= 0 {
+		return interval
+	}
+	if prev >= interval {
+		return min(base, interval)
+	}
+	return min(prev*2, interval)
 }
 
 // isRetryableRegistrationError reports whether err is a transient PostgreSQL
@@ -729,13 +964,14 @@ func (w *worker) registerWorkflowWithPyck(ctx context.Context, wf registry.Workf
 	}
 
 	// The client identity is stable for the process lifetime and unique per
-	// worker, so it scopes this worker's subscriptions server-side.
-	identity := w.clientOptions.Identity
+	// worker; with the task queue it scopes this Temporal worker's subscriptions
+	// server-side.
+	workerID := w.subscriptionWorkerID(wf.TaskQueue())
 
 	input := model.RegisterWorkflowWithSignalsInput{
 		Name:      wf.Type(),
 		TaskQueue: wf.TaskQueue(),
-		WorkerID:  &identity,
+		WorkerID:  workerID,
 		Signals:   signalInputs,
 	}
 
@@ -796,6 +1032,22 @@ func (w *worker) startAllWorkers(ctx context.Context) error {
 		pycklog.ForContext(ctx).Debug().
 			Str("task-queue", q).
 			Msg("worker started")
+	}
+
+	return nil
+}
+
+// checkWorkerIDLengths fails if any "<identity>/<task queue>" worker ID would
+// exceed the workflow service's limit (maxSubscriptionWorkerIDLen bytes), so a
+// long task queue name or host name surfaces at Start with the queue named,
+// rather than as a late "worker id too long" from registerWorkflow.
+func (w *worker) checkWorkerIDLengths(workflows []registry.WorkflowRegistryEntry) error {
+	for _, wf := range workflows {
+		id := w.subscriptionWorkerID(wf.TaskQueue())
+		if len(id) > maxSubscriptionWorkerIDLen {
+			return fmt.Errorf("%w: worker ID %q for task queue %q is %d bytes, limit %d",
+				ErrWorkerIDTooLong, id, wf.TaskQueue(), len(id), maxSubscriptionWorkerIDLen)
+		}
 	}
 
 	return nil

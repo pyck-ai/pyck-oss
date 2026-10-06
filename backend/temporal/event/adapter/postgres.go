@@ -285,6 +285,18 @@ func formatUUID(b []byte) string {
 // 	}
 // }
 
+// TemporalAddress returns the address the adapter dials for the Temporal
+// frontend: TEMPORAL_ADDRESS, or TemporalDefaultAddr when unset. The server
+// uses it to check, before building the adapter, that the address is reachable
+// from the process that runs it.
+func TemporalAddress() string {
+	if v := os.Getenv("TEMPORAL_ADDRESS"); v != "" {
+		return v
+	}
+
+	return TemporalDefaultAddr
+}
+
 // NewPostgresAdapter creates a new PostgreSQL LISTEN adapter
 func NewPostgresAdapter(
 	handler *event.Handler,
@@ -301,10 +313,7 @@ func NewPostgresAdapter(
 		retryInterval:  1 * time.Second,
 	}
 
-	a.temporalAddr = TemporalDefaultAddr
-	if v := os.Getenv("TEMPORAL_ADDRESS"); v != "" {
-		a.temporalAddr = v
-	}
+	a.temporalAddr = TemporalAddress()
 
 	if a.ChannelName == "" {
 		return nil, fmt.Errorf("%w: missing channel name", ErrInvalidConfig)

@@ -39,13 +39,12 @@ which runs to completion:
 - **Fetch / persist phases** are DB transactions with no context deadline —
   DB-bound, normally milliseconds.
 - **Publish phase** is sequential over up to `PYCK_OUTBOX_BATCH_SIZE` (100)
-  transaction *groups* (a group can hold several entries). Per entry:
-  - with-reply: NATS request with `PYCK_OUTBOX_REPLY_TIMEOUT` (5s),
-  - fire-and-forget: JetStream publish ack, 5s (nats.go
-    `defaultAPITimeout`, not configurable).
+  transaction *groups* (a group can hold several entries). Every entry is a
+  JetStream publish that waits for its ack, 5s (nats.go `defaultAPITimeout`,
+  not configurable).
   The first failure in a group skips the group's remaining entries, so the
-  failure-mode ceiling is ≈ `BATCH_SIZE × 5s = 500s` — e.g. a full backlog
-  batch of with-reply entries whose responder is down, each timing out in
+  failure-mode ceiling is ≈ `BATCH_SIZE × 5s = 500s`: for example a full
+  backlog batch while JetStream does not ack, each publish timing out in
   turn. The DLQ drain goroutine has the same shape and the same ceiling.
 
 500s is far beyond any sane grace period, deliberately: the outbox is
@@ -172,9 +171,10 @@ health pool.
 | `PYCK_HTTP_SHUTDOWN_DRAIN_TIMEOUT` | 10s | cap; early-exit when idle |
 | `natsDrainTimeout` (const, service `main.go`) | 5s | cap on the NATS drain |
 | `PYCK_OTEL_SHUTDOWN_TIMEOUT` | 5s | cap; paid in full when the collector is down |
-| `PYCK_OUTBOX_BATCH_SIZE` × `PYCK_OUTBOX_REPLY_TIMEOUT` | 100 × 5s | ceiling of an in-progress outbox batch (unbounded step; SIGKILL is the watchdog) |
+| `PYCK_OUTBOX_BATCH_SIZE` × JetStream publish ack timeout | 100 × 5s | ceiling of an in-progress outbox batch (unbounded step; SIGKILL is the watchdog) |
 | `PYCK_OUTBOX_CLAIM_LEASE` | 30s | not part of the sum — recovery latency for rows a killed batch had claimed |
-| JetStream publish ack timeout (nats.go) | 5s | per fire-and-forget entry in the outbox batch; not configurable |
+| `PYCK_OUTBOX_PRUNE_INTERVAL` / `_RETENTION` / `_BATCH_SIZE` | 5m / 72h / 1000 | not part of the sum: the published-row janitor stops on context cancel and an interrupted sweep just resumes next start |
+| JetStream publish ack timeout (nats.go) | 5s | per entry in the outbox batch; not configurable |
 | `WorkerStopTimeout` (Temporal, unset) | 0 | worker stop does not wait; raising it adds directly to the sum |
 | `stop_grace_period` / `terminationGracePeriodSeconds` | 30s | the SIGKILL watchdog bounding everything above |
 

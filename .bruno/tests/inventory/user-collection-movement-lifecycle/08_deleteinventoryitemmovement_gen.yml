@@ -19,11 +19,8 @@ graphql:
       mutation DeleteInventoryItemMovement($id: ID!) {
         deleteInventoryItemMovement(id: $id) {
           deletedID
-          workflows {
-            id
-            runID
-            type
-          }
+          eventCount
+          transactionID
         }
       }
     variables: |-

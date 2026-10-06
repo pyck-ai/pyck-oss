@@ -45,7 +45,8 @@ graphql:
           },
           "dataTypeID": "{{bru-test_cross-workflow-version-repoint_f624adf4}}",
           "name": "{{bru-test_cross-workflow-version-repoint_2c89bccb}}",
-          "taskQueue": "{{bru-test_cross-workflow-version-repoint_20da15d0}}"
+          "taskQueue": "{{bru-test_cross-workflow-version-repoint_20da15d0}}",
+          "workerID": "scenario-cross-workflow-version-repoint"
         }
       }
 

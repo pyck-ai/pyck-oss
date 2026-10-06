@@ -1,0 +1,19 @@
+{{/* gotype: entgo.io/ent/entc/gen.typeScope */}}
+
+{{/*
+Extends the sqlSave of UpdateOne builders (extension point
+"dialect/sql/update/spec/*"). ent v0.14.6 builds the predicate selector of a
+single-row update without the query context (sqlgraph updater.node, also its
+not-found check ensureExists), unlike bulk Update and Delete. Predicates that
+read s.Context() then see an anonymous caller: the neighbour scopes
+(mixin.ScopeNeighborToTenants) match nothing, so UpdateOne with a relation
+predicate failed with not found, even for the system user. Upstream ent master
+still omits the context there.
+*/}}
+{{ define "dialect/sql/update/spec/predicatecontext" }}
+	{{- if hasSuffix (pascal $.Scope.Builder) "One" }}
+		if pred := _spec.Predicate; pred != nil {
+			_spec.Predicate = func(s *sql.Selector) { pred(s.WithContext(ctx)) }
+		}
+	{{- end }}
+{{- end }}

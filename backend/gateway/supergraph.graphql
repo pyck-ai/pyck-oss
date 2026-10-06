@@ -74,7 +74,6 @@ type EntityEventsOutbox implements NodeFile & NodeInventory & Node & NodeDataTyp
   requestID: String
   topic: String!
   payload: Map!
-  withReply: Boolean!
   retryCount: Int!
   lastError: String
   deadAt: Time
@@ -187,9 +186,6 @@ input EntityEventsOutboxWhereInput @join__type(graph: FILE) @join__type(graph: I
   topicHasSuffix: String
   topicEqualFold: String
   topicContainsFold: String
-  """with_reply field predicates"""
-  withReply: Boolean
-  withReplyNEQ: Boolean
   """retry_count field predicates"""
   retryCount: Int
   retryCountNEQ: Int
@@ -1202,7 +1198,7 @@ type Query @join__type(graph: FILE) @join__type(graph: INVENTORY) @join__type(gr
   stamped yet) it falls back to the system-wide default bundle if one is
   configured, otherwise it errors.
   """
-  remoteUI(input: RemoteUIQueryInput!): RemoteUI @join__field(graph: WORKFLOW)
+  remoteUI(input: RemoteUIQueryInput!): RemoteUIBundleURLs @join__field(graph: WORKFLOW)
   """
   Lists every Worker Deployment Version in the tenant's namespace with its
   drainage status and the UI bundle it ships. Used for drain visibility — which
@@ -1210,6 +1206,21 @@ type Query @join__type(graph: FILE) @join__type(graph: INVENTORY) @join__type(gr
   safe to retire (drained). Admin-only.
   """
   workerDeploymentUIBundles(first: Int, after: String): DeploymentVersionUIConnection! @join__field(graph: WORKFLOW)
+  """
+  The routing status of the events a mutation published, by the `transactionID`
+  the mutation returned. Only events of the caller's tenants are returned.
+
+  Compare `entries` with the mutation's `eventCount`:
+  - `eventCount: 0`: nothing was published, there is nothing to route.
+  - fewer entries than `eventCount`: routing is not complete, ask again, but
+    give up after a deadline: an entry can be missing for good.
+  - as many entries as `eventCount`: routing is complete. Each entry's targets
+    say what happened; `workflowExecutions(where: {transactionID})` lists the
+    executions the transaction started.
+
+  Entries are kept for 72 hours.
+  """
+  transactionRouting(transactionID: ID!): TransactionRouting! @join__field(graph: WORKFLOW)
   workflowServiceInfo: ServiceInfo! @join__field(graph: WORKFLOW)
   currentUserDataInput(input: UserDataInputQueryInput!): CurrentUserDataInput @join__field(graph: WORKFLOW)
   """
@@ -1295,10 +1306,10 @@ input UpdateFileInput @join__type(graph: FILE) {
   clearPublicAlias: Boolean
 }
 
-type InventoryItem implements NodeInventory @join__implements(graph: INVENTORY, interface: "NodeInventory") @join__type(graph: FILE, key: "id") @join__type(graph: INVENTORY, key: "sku") {
+type InventoryItem implements NodeInventory @join__implements(graph: INVENTORY, interface: "NodeInventory") @join__type(graph: FILE, key: "id tenantID") @join__type(graph: INVENTORY, key: "sku") {
   id: ID!
+  tenantID: UUID!
   file: [File] @join__field(graph: FILE)
-  tenantID: UUID! @join__field(graph: INVENTORY)
   dataTypeID: UUID @join__field(graph: INVENTORY)
   dataTypeSlug: String @join__field(graph: INVENTORY)
   data: Map @join__field(graph: INVENTORY)
@@ -1309,16 +1320,23 @@ type InventoryItem implements NodeInventory @join__implements(graph: INVENTORY, 
   deletedAt: Time @join__field(graph: INVENTORY)
   deletedBy: UUID @join__field(graph: INVENTORY)
   sku: String! @join__field(graph: INVENTORY)
-  itemmovementitems: [ItemMovement!] @join__field(graph: INVENTORY)
-  itemtransactions: [Transaction!] @join__field(graph: INVENTORY)
-  itemstocks: [Stock!] @join__field(graph: INVENTORY)
   itemset: [InventoryItemSet!] @join__field(graph: INVENTORY)
+  """
+  The current stock row of each repository where the item has stock: rows whose
+  stock values are all zero are omitted. Refused above 10000 rows; query
+  currentStocks for such items. The stock history is available through stocks.
+  """
+  itemstocks: [Stock!] @join__field(graph: INVENTORY)
+  """The item's 200 most recent movements."""
+  itemmovementitems: [ItemMovement!] @join__field(graph: INVENTORY) @deprecated(reason: "Capped at 200 rows; query itemMovements(where: {itemID}) to paginate.")
+  """The item's 200 most recent transactions."""
+  itemtransactions: [Transaction!] @join__field(graph: INVENTORY) @deprecated(reason: "Capped at 200 rows; query transactions(where: {itemID}) to paginate.")
 }
 
-type Supplier implements Node @join__implements(graph: MAINDATA, interface: "Node") @join__type(graph: FILE, key: "id") @join__type(graph: MAINDATA, key: "id") {
+type Supplier implements Node @join__implements(graph: MAINDATA, interface: "Node") @join__type(graph: FILE, key: "id tenantID") @join__type(graph: MAINDATA, key: "id") {
   id: ID!
+  tenantID: UUID!
   file: [File] @join__field(graph: FILE)
-  tenantID: UUID! @join__field(graph: MAINDATA)
   dataTypeID: UUID @join__field(graph: MAINDATA)
   dataTypeSlug: String @join__field(graph: MAINDATA)
   data: Map @join__field(graph: MAINDATA)
@@ -1330,10 +1348,10 @@ type Supplier implements Node @join__implements(graph: MAINDATA, interface: "Nod
   deletedBy: UUID @join__field(graph: MAINDATA)
 }
 
-type Customer implements Node @join__implements(graph: MAINDATA, interface: "Node") @join__type(graph: FILE, key: "id") @join__type(graph: MAINDATA, key: "id") {
+type Customer implements Node @join__implements(graph: MAINDATA, interface: "Node") @join__type(graph: FILE, key: "id tenantID") @join__type(graph: MAINDATA, key: "id") {
   id: ID!
+  tenantID: UUID!
   file: [File] @join__field(graph: FILE)
-  tenantID: UUID! @join__field(graph: MAINDATA)
   dataTypeID: UUID @join__field(graph: MAINDATA)
   dataTypeSlug: String @join__field(graph: MAINDATA)
   data: Map @join__field(graph: MAINDATA)
@@ -1345,10 +1363,10 @@ type Customer implements Node @join__implements(graph: MAINDATA, interface: "Nod
   deletedBy: UUID @join__field(graph: MAINDATA)
 }
 
-type Repository implements NodeInventory @join__implements(graph: INVENTORY, interface: "NodeInventory") @join__type(graph: FILE, key: "id") @join__type(graph: INVENTORY, key: "id") {
+type Repository implements NodeInventory @join__implements(graph: INVENTORY, interface: "NodeInventory") @join__type(graph: FILE, key: "id tenantID") @join__type(graph: INVENTORY, key: "id") {
   id: ID!
+  tenantID: UUID!
   file: [File] @join__field(graph: FILE)
-  tenantID: UUID! @join__field(graph: INVENTORY)
   dataTypeID: UUID @join__field(graph: INVENTORY)
   dataTypeSlug: String @join__field(graph: INVENTORY)
   data: Map @join__field(graph: INVENTORY)
@@ -1502,12 +1520,12 @@ type Repository implements NodeInventory @join__implements(graph: INVENTORY, int
   currentStock(itemId: ID!): Stock @join__field(graph: INVENTORY)
 }
 
-type PickingOrder implements NodePicking @join__implements(graph: PICKING, interface: "NodePicking") @join__type(graph: FILE, key: "id") @join__type(graph: MAINDATA, key: "customerID") @join__type(graph: PICKING, key: "id") {
+type PickingOrder implements NodePicking @join__implements(graph: PICKING, interface: "NodePicking") @join__type(graph: FILE, key: "id tenantID") @join__type(graph: MAINDATA, key: "customerID tenantID") @join__type(graph: PICKING, key: "id") {
   id: ID! @join__field(graph: FILE) @join__field(graph: PICKING)
+  tenantID: UUID!
   file: [File] @join__field(graph: FILE)
   customerID: UUID! @join__field(graph: MAINDATA) @join__field(graph: PICKING)
   customer: Customer @join__field(graph: MAINDATA)
-  tenantID: UUID! @join__field(graph: PICKING)
   dataTypeID: UUID @join__field(graph: PICKING)
   dataTypeSlug: String @join__field(graph: PICKING)
   data: Map @join__field(graph: PICKING)
@@ -1830,6 +1848,15 @@ type Mutation @join__type(graph: FILE) @join__type(graph: INVENTORY) @join__type
   submitUserDataInput(input: SubmitUserDataInputInput!): SubmitUserDataInputResponse! @join__field(graph: WORKFLOW)
   registerWorkflow(input: RegisterWorkflowWithSignalsInput!): Workflow @join__field(graph: WORKFLOW)
   deleteWorkflow(id: ID!): WorkflowDeletePayload! @join__field(graph: WORKFLOW)
+  """
+  Marks the calling worker's live signal subscriptions as stopped, e.g. on a
+  clean shutdown. A stopped subscription is a hint, not a deletion: the router
+  ignores it while another worker holds running subscriptions on the same
+  workflow, and otherwise keeps routing to it until its TTL lapses. A later
+  registerWorkflowWithSignals from the worker clears the mark. Never touches
+  workflow rows. Idempotent.
+  """
+  unregisterWorker(workerID: String!): UnregisterWorkerPayload! @join__field(graph: WORKFLOW)
   cancelWorkflow(input: CancelWorkflowInput!): CancelWorkflowPayload! @join__field(graph: WORKFLOW)
   setWorkflowAssignee(input: SetWorkflowAssigneeInput!): SetWorkflowAssigneeResponse @join__field(graph: WORKFLOW)
   """
@@ -2502,8 +2529,8 @@ input InventoryItemWhereInput @join__type(graph: INVENTORY) {
   hasItemTransactions: Boolean
   hasItemTransactionsWith: [TransactionWhereInput!]
   """itemStocks edge predicates"""
-  hasItemStocks: Boolean
-  hasItemStocksWith: [StockWhereInput!]
+  hasItemStocks: Boolean @deprecated(reason: "Matches any stock row, including superseded versions. Use hasCurrentStock / hasCurrentStockWith.")
+  hasItemStocksWith: [StockWhereInput!] @deprecated(reason: "Matches any stock row, including superseded versions. Use hasCurrentStock / hasCurrentStockWith.")
   """itemSet edge predicates"""
   hasItemSet: Boolean
   hasItemSetWith: [InventoryItemSetWhereInput!]
@@ -2511,6 +2538,14 @@ input InventoryItemWhereInput @join__type(graph: INVENTORY) {
   DataHasKey: String
   DataIn: [String!]
   DataContains: [String!]
+  """
+  Items with (true) or without (false) at least one non-empty current stock row. Current = the highest version per repository; a deleted head hides its pair; empty rows never count.
+  """
+  hasCurrentStock: Boolean
+  """
+  Items with at least one non-empty current stock row matching all of the given inputs (ANDed on one row, like hasItemStocksWith). Value filters such as quantityGT apply to the current row only. Current = the highest version per repository; a deleted head hides its pair; empty rows never match. A time cutoff in an input selects the as-of row.
+  """
+  hasCurrentStockWith: [StockWhereInput!]
 }
 
 type ItemMovement implements NodeInventory @join__implements(graph: INVENTORY, interface: "NodeInventory") @join__type(graph: INVENTORY) {
@@ -4279,7 +4314,14 @@ input CollectionMovementArrayInput @join__type(graph: INVENTORY) {
 type CreateCollectionMovementOutput @join__type(graph: INVENTORY) {
   id: ID!
   movements: [CollectionMovement]
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type CollectionMovement @join__type(graph: INVENTORY) {
@@ -4289,27 +4331,62 @@ type CollectionMovement @join__type(graph: INVENTORY) {
 
 type UpdateCollectionMovementOutput @join__type(graph: INVENTORY) {
   inventoryCollection: InventoryCollection!
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type InventoryItemOutput @join__type(graph: INVENTORY) {
   inventoryItem: InventoryItem
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type InventoryRepositoryOutput @join__type(graph: INVENTORY) {
   inventoryRepository: Repository
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type InventoryItemMovementOutput @join__type(graph: INVENTORY) {
   inventoryItemMovement: ItemMovement
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type InventoryRepositoryMovementOutput @join__type(graph: INVENTORY) {
   inventoryRepositoryMovement: RepositoryMovement
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type ItemMovementDeletePayload @join__type(graph: INVENTORY) {
@@ -4318,7 +4395,14 @@ type ItemMovementDeletePayload @join__type(graph: INVENTORY) {
 
 type InventoryItemSetOutput @join__type(graph: INVENTORY) {
   inventoryItemSet: InventoryItemSet
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 input CreateReplenishmentOrderItemsInput @join__type(graph: INVENTORY) {
@@ -4337,51 +4421,107 @@ input CreateReplenishmentOrderWithItemsInput @join__type(graph: INVENTORY) {
 
 type InventoryItemDeletePayload @join__type(graph: INVENTORY) {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type InventoryRepositoryDeletePayload @join__type(graph: INVENTORY) {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type InventoryItemMovementDeletePayload @join__type(graph: INVENTORY) {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type InventoryRepositoryMovementDeletePayload @join__type(graph: INVENTORY) {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type InventoryItemSetDeletePayload @join__type(graph: INVENTORY) {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type ReplenishmentOrderDeletePayload @join__type(graph: INVENTORY) {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type ReplenishmentOrderItemDeletePayload @join__type(graph: INVENTORY) {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type InventoryCollectionDeletePayload @join__type(graph: INVENTORY) {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
-type PickingOrderItem implements NodePicking @join__implements(graph: PICKING, interface: "NodePicking") @join__type(graph: INVENTORY, key: "sku") @join__type(graph: PICKING, key: "sku") {
+type PickingOrderItem implements NodePicking @join__implements(graph: PICKING, interface: "NodePicking") @join__type(graph: INVENTORY, key: "sku tenantID") @join__type(graph: PICKING, key: "sku") {
   sku: String!
+  tenantID: UUID!
   item: InventoryItem @join__field(graph: INVENTORY)
   availableStock: Int64 @join__field(graph: INVENTORY)
   reservedStock: Int64 @join__field(graph: INVENTORY)
   id: ID! @join__field(graph: PICKING)
-  tenantID: UUID! @join__field(graph: PICKING)
   dataTypeID: UUID @join__field(graph: PICKING)
   dataTypeSlug: String @join__field(graph: PICKING)
   data: Map @join__field(graph: PICKING)
@@ -4398,12 +4538,26 @@ type PickingOrderItem implements NodePicking @join__implements(graph: PICKING, i
 
 type ReplenishmentOrderOutput @join__type(graph: INVENTORY) {
   replenishmentOrder: ReplenishmentOrder
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type ReplenishmentOrderItemOutput @join__type(graph: INVENTORY) {
   replenishmentOrderItem: ReplenishmentOrderItem
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 input DataBoolInput @join__type(graph: INVENTORY) {
@@ -4444,17 +4598,6 @@ type RepositoryTreeConnection @join__type(graph: INVENTORY) {
 type RepositoryTreeEdge @join__type(graph: INVENTORY) {
   node: RepositoryTree!
   cursor: Cursor!
-}
-
-type TemporalMetadata @join__type(graph: INVENTORY) @join__type(graph: MANAGEMENT) @join__type(graph: PICKING) @join__type(graph: RECEIVING) @join__type(graph: WORKFLOW) {
-  key: String!
-  value: String!
-}
-
-type TemporalWorkflow @join__type(graph: INVENTORY) @join__type(graph: MANAGEMENT) @join__type(graph: PICKING) @join__type(graph: RECEIVING) @join__type(graph: WORKFLOW) {
-  type: String!
-  id: String!
-  runID: String!
 }
 
 """
@@ -6579,7 +6722,14 @@ input SendCustomEventInput @join__type(graph: MANAGEMENT) {
 
 type SendCustomEventResponse @join__type(graph: MANAGEMENT) {
   success: Boolean!
-  workflows: [TemporalWorkflow!]!
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type DataTypeDeletePayload @join__type(graph: MANAGEMENT) {
@@ -6588,22 +6738,50 @@ type DataTypeDeletePayload @join__type(graph: MANAGEMENT) {
 
 type DeviceOutput @join__type(graph: MANAGEMENT) {
   device: Device!
-  workflows: [TemporalWorkflow!]!
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type DeviceDeletePayload @join__type(graph: MANAGEMENT) {
   deletedID: ID
-  workflows: [TemporalWorkflow!]!
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type DeviceLocationOutput @join__type(graph: MANAGEMENT) {
   DeviceLocation: DeviceLocation!
-  workflows: [TemporalWorkflow!]!
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type DeviceLocationDeletePayload @join__type(graph: MANAGEMENT) {
   deletedID: ID
-  workflows: [TemporalWorkflow!]!
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type GenerateJsonSchemaResponse @join__type(graph: MANAGEMENT) {
@@ -6622,12 +6800,26 @@ input SetKeyValueInput @join__type(graph: MANAGEMENT) {
 
 type LocationOutput @join__type(graph: MANAGEMENT) {
   location: Location!
-  workflows: [TemporalWorkflow!]!
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type LocationDeletePayload @join__type(graph: MANAGEMENT) {
   deletedID: ID
-  workflows: [TemporalWorkflow!]!
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type RegisterTenantResponse @join__type(graph: MANAGEMENT) {
@@ -6641,7 +6833,14 @@ input CheckInUserDeviceInput @join__type(graph: MANAGEMENT) {
 
 type CheckInUserDeviceOutput @join__type(graph: MANAGEMENT) {
   deviceUser: DeviceUser!
-  workflows: [TemporalWorkflow!]!
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 input CheckOutUserDeviceInput @join__type(graph: MANAGEMENT) {
@@ -6650,7 +6849,14 @@ input CheckOutUserDeviceInput @join__type(graph: MANAGEMENT) {
 
 type CheckOutUserDeviceOutput @join__type(graph: MANAGEMENT) {
   deviceUser: [DeviceUser!]!
-  workflows: [TemporalWorkflow!]!
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type Organization @join__type(graph: MANAGEMENT) {
@@ -7447,32 +7653,74 @@ input CreatePickingOrderWithItemsInput @join__type(graph: PICKING) {
 
 type PickingOrderDeletePayload @join__type(graph: PICKING) {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type PickingOrderItemDeletePayload @join__type(graph: PICKING) {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type PickingOutboundShipmentNotificationOutput @join__type(graph: PICKING) {
   pickingOutboundShipmentNotification: PickingOutboundShipmentNotification
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type PickingOutboundShipmentNotificationDeletePayload @join__type(graph: PICKING) {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type PickingOrderOutput @join__type(graph: PICKING) {
   pickingOrder: PickingOrder
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type PickingOrderItemOutput @join__type(graph: PICKING) {
   pickingOrderItem: PickingOrderItem
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 """
@@ -8152,12 +8400,26 @@ input UpdateReceivingInboundShipmentNotificationInput @join__type(graph: RECEIVI
 
 type ReceivingInboundOutput @join__type(graph: RECEIVING) {
   receivingInbound: ReceivingInbound
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type ReceivingInboundItemOutput @join__type(graph: RECEIVING) {
   receivingInboundItem: ReceivingInboundItem
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 input CreateReceivingInboundItemsInput @join__type(graph: RECEIVING) {
@@ -8177,22 +8439,50 @@ input CreateReceivingInboundWithItemsInput @join__type(graph: RECEIVING) {
 
 type ReceivingInboundDeletePayload @join__type(graph: RECEIVING) {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type ReceivingInboundItemDeletePayload @join__type(graph: RECEIVING) {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type ReceivingInboundShipmentNotificationOutput @join__type(graph: RECEIVING) {
   receivingInboundShipmentNotification: ReceivingInboundShipmentNotification
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 type ReceivingInboundShipmentNotificationDeletePayload @join__type(graph: RECEIVING) {
   deletedID: ID
-  workflows: [TemporalWorkflow]
+  """
+  Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+  """
+  transactionID: ID!
+  """
+  Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+  """
+  eventCount: Int!
 }
 
 """
@@ -8398,6 +8688,8 @@ enum WorkflowSignalType @join__type(graph: WORKFLOW) {
   unknown @join__enumValue(graph: WORKFLOW)
   start @join__enumValue(graph: WORKFLOW)
   intermediate @join__enumValue(graph: WORKFLOW)
+  signal_with_start @join__enumValue(graph: WORKFLOW)
+  signal_by_id @join__enumValue(graph: WORKFLOW)
 }
 
 """
@@ -8662,10 +8954,16 @@ input RemoteUIQueryInput @join__type(graph: WORKFLOW) {
   workflowExecutionID: String!
 }
 
-"""Fully rendered web + mobile UI bundle URLs."""
-type RemoteUI @join__type(graph: WORKFLOW) {
-  web: String!
-  mobile: String!
+"""Fully rendered UI bundle asset URLs."""
+type RemoteUIBundleURLs @join__type(graph: WORKFLOW) {
+  """
+  Absolute URL of the web bundle; empty when the tenant has no web template.
+  """
+  webURL: String!
+  """
+  Absolute URL of the mobile bundle; empty when the tenant has no mobile template.
+  """
+  mobileURL: String!
 }
 
 """The UI bundle (slug + version) a deployment version ships."""
@@ -8717,7 +9015,92 @@ type DeploymentVersionUIPageInfo @join__type(graph: WORKFLOW) {
   endCursor: String
 }
 
+"""How the router settled one event: finished, or given up on."""
+enum RoutingOutcome @join__type(graph: WORKFLOW) {
+  """
+  The router finished with the event: every target was delivered or refused for good.
+  """
+  DONE @join__enumValue(graph: WORKFLOW)
+  """
+  The router stopped retrying the event after its last delivery. The FAILED targets say what is left undone.
+  """
+  GAVE_UP @join__enumValue(graph: WORKFLOW)
+}
+
+"""What happened to one target of an event."""
+enum RoutingTargetKind @join__type(graph: WORKFLOW) {
+  """
+  A workflow was started, or the start returned the run an earlier delivery of the event started.
+  """
+  STARTED @join__enumValue(graph: WORKFLOW)
+  """
+  The start was refused because the workflow ID is taken by another event's run.
+  """
+  ALREADY_RUNNING @join__enumValue(graph: WORKFLOW)
+  """A running execution was signalled."""
+  SIGNALLED @join__enumValue(graph: WORKFLOW)
+  """Nothing was delivered, for the reason given."""
+  DROPPED @join__enumValue(graph: WORKFLOW)
+  """The delivery failed with the error given."""
+  FAILED @join__enumValue(graph: WORKFLOW)
+}
+
+"""One workflow start or signal the router attempted for an event."""
+type RoutingTarget @join__type(graph: WORKFLOW) {
+  kind: RoutingTargetKind!
+  """Name of the workflow, when the target belongs to one."""
+  workflow: String
+  workflowID: String
+  runID: String
+  """Signal name, for signal targets."""
+  signal: String
+  """Why nothing was delivered (DROPPED)."""
+  reason: String
+  """The failure (FAILED)."""
+  error: String
+}
+
+"""The routing status of one event of a transaction."""
+type RoutingEntry @join__type(graph: WORKFLOW) {
+  tenantID: ID!
+  """The event's own ID (the outbox entry ID)."""
+  eventID: ID!
+  outcome: RoutingOutcome!
+  """The event's sequence in the event stream."""
+  sequence: UInt64!
+  """
+  What the router did for the event. Empty when nothing was subscribed to it:
+  the event is finished with nothing to do.
+  """
+  targets: [RoutingTarget!]!
+  recordedAt: Time!
+}
+
+"""What the router has done so far for the events of one transaction."""
+type TransactionRouting @join__type(graph: WORKFLOW) {
+  transactionID: ID!
+  """
+  One entry per event the router has settled, oldest first. Routing is complete
+  when the number of entries equals the mutation's `eventCount`: fewer means
+  some events are not routed yet, so ask again. Status is best effort: an entry
+  can be missing for good (a status write can fail, and events can be skipped),
+  so poll with a deadline instead of waiting for `entries == eventCount`.
+  """
+  entries: [RoutingEntry!]!
+}
+
 scalar Any @join__type(graph: WORKFLOW)
+
+type TemporalMetadata @join__type(graph: WORKFLOW) {
+  key: String!
+  value: String!
+}
+
+type TemporalWorkflow @join__type(graph: WORKFLOW) {
+  type: String!
+  id: String!
+  runID: String!
+}
 
 scalar UInt64 @join__type(graph: WORKFLOW)
 
@@ -8945,6 +9328,16 @@ input WorkflowExecutionsWhereInput @join__type(graph: WORKFLOW) {
   dataIdIsNil: Boolean
   dataIdNotNil: Boolean
   """
+  transactionID field predicates — the handle mutations return. Filtering by
+  it lists the executions that mutation started. An empty result means the
+  workflows are not started or not visible yet (poll again) or the mutation
+  triggered none. Exact match only (the value is a UUID).
+  """
+  transactionID: ID
+  transactionIDNEQ: ID
+  transactionIDIn: [ID!]
+  transactionIDNotIn: [ID!]
+  """
   targets field predicates (KeywordList — matches if the workflow's targets
   list contains any element of the supplied set; targetsNotIn excludes them).
   """
@@ -9056,6 +9449,16 @@ type WorkflowExecutionInfo @join__type(graph: WORKFLOW) {
   executionDuration: String
   """The root execution if this is part of a workflow chain."""
   rootExecution: WorkflowExecution
+  """
+  Fully rendered web + mobile UI bundle URLs for this execution, rendered with
+  the templates and flavour of the execution's own tenant.
+
+  Null when there is no UI to load (no pinned deployment version, no stamped
+  bundle and no configured default, or a tenant without URL templates). The
+  field never raises an error: any resolution failure also yields null; use
+  the top-level remoteUI query for the reason on a single execution.
+  """
+  remoteUI: RemoteUIBundleURLs
 }
 
 """
@@ -9122,7 +9525,7 @@ input RegisterWorkflowWithSignalsInput @join__type(graph: WORKFLOW) {
   data: Map
   name: String!
   taskQueue: String!
-  workerID: String
+  workerID: String!
   signals: [RegisterWorkflowSignalInput!]
 }
 
@@ -9135,6 +9538,13 @@ input RegisterWorkflowSignalInput @join__type(graph: WORKFLOW) {
 
 type WorkflowDeletePayload @join__type(graph: WORKFLOW) {
   deletedID: ID
+}
+
+type UnregisterWorkerPayload @join__type(graph: WORKFLOW) {
+  """
+  Live subscriptions newly marked stopped; 0 for an unknown worker or a repeat call.
+  """
+  stopped: Int!
 }
 
 input CancelWorkflowInput @join__type(graph: WORKFLOW) {

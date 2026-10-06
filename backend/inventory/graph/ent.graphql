@@ -120,7 +120,6 @@ type EntityEventsOutbox implements Node {
   requestID: String
   topic: String!
   payload: Map!
-  withReply: Boolean!
   retryCount: Int!
   lastError: String
   deadAt: Time
@@ -248,11 +247,6 @@ input EntityEventsOutboxWhereInput {
   topicHasSuffix: String
   topicEqualFold: String
   topicContainsFold: String
-  """
-  with_reply field predicates
-  """
-  withReply: Boolean
-  withReplyNEQ: Boolean
   """
   retry_count field predicates
   """
@@ -574,9 +568,6 @@ type InventoryItem implements Node @key(fields: "sku") @pyckImportable(identityF
   deletedAt: Time
   deletedBy: UUID
   sku: String!
-  itemmovementitems: [ItemMovement!] @goField(name: "ItemMovementItems", forceResolver: false)
-  itemtransactions: [Transaction!] @goField(name: "ItemTransactions", forceResolver: false)
-  itemstocks: [Stock!] @goField(name: "ItemStocks", forceResolver: false)
   itemset: [InventoryItemSet!] @goField(name: "ItemSet", forceResolver: false)
 }
 """
@@ -1021,8 +1012,8 @@ input InventoryItemWhereInput {
   """
   itemStocks edge predicates
   """
-  hasItemStocks: Boolean
-  hasItemStocksWith: [StockWhereInput!]
+  hasItemStocks: Boolean @deprecated(reason: "Matches any stock row, including superseded versions. Use hasCurrentStock / hasCurrentStockWith.")
+  hasItemStocksWith: [StockWhereInput!] @deprecated(reason: "Matches any stock row, including superseded versions. Use hasCurrentStock / hasCurrentStockWith.")
   """
   itemSet edge predicates
   """

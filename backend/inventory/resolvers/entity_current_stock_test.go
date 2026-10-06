@@ -35,7 +35,7 @@ func TestFindPickingOrderItemBySku_PicksHighestVersion(t *testing.T) {
 		"inventory", te.Ent, validator.NewValidator(te.DataTypeProvider), te.StockService,
 	).Entity()
 
-	got, err := entity.FindPickingOrderItemBySku(ctx, "federation-sku")
+	got, err := entity.FindPickingOrderItemBySkuAndTenantID(ctx, "federation-sku", tenantA)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
@@ -43,4 +43,26 @@ func TestFindPickingOrderItemBySku_PicksHighestVersion(t *testing.T) {
 		"a superseded row must not be served as the SKU's available stock")
 	require.Equal(t, int64(0), *got.ReservedStock,
 		"a superseded row must not be served as the SKU's reserved stock")
+}
+
+// Pins that an item with no stock row in the warehouse reads as zero stock,
+// not as an error: the stock lookup's not-found result is the empty state.
+func TestFindPickingOrderItemBySku_NoStockRowIsZero(t *testing.T) {
+	t.Parallel()
+
+	te := setup(t)
+	ctx := te.ctx(userA)
+
+	te.newRepository(ctx, userA).Name("federation-warehouse").Create()
+	te.newItem(ctx, userA).Sku("unstocked-sku").Create()
+
+	entity := resolvers.NewResolver(
+		"inventory", te.Ent, validator.NewValidator(te.DataTypeProvider), te.StockService,
+	).Entity()
+
+	got, err := entity.FindPickingOrderItemBySkuAndTenantID(ctx, "unstocked-sku", tenantA)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Equal(t, int64(0), *got.AvailableStock)
+	require.Equal(t, int64(0), *got.ReservedStock)
 }

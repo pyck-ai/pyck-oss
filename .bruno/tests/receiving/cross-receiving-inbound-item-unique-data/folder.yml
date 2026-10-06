@@ -1,0 +1,11 @@
+info:
+  name: Cross - Receiving Inbound Item Unique Data
+  type: folder
+  seq: 1
+
+docs: |-
+  An inbound item data type that marks a field "unique": true. The uniqueness check must run against the inbound-item table on every path: items created inline with createReceivingInbound, items added with createReceivingInboundItem, and items updated with updateReceivingInboundItem (which excludes the item itself). A duplicate value is refused on both create paths.
+
+
+request:
+  auth: inherit

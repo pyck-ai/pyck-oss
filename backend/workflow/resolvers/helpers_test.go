@@ -3,6 +3,7 @@ package resolvers_test
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/pyck-ai/pyck/backend/workflow/model"
@@ -55,6 +56,9 @@ func TestQuotedValues(t *testing.T) {
 
 func TestFormatPredicate(t *testing.T) {
 	t.Parallel()
+
+	testUUID := uuid.MustParse("01920b5a-0000-7000-8000-000000000001")
+	testUUID2 := uuid.MustParse("01920b5a-0000-7000-8000-000000000002")
 
 	tests := []struct {
 		name          string
@@ -202,6 +206,20 @@ func TestFormatPredicate(t *testing.T) {
 			value:         []int{10, 20},
 			operator:      "NOT IN",
 			expected:      `pyck_sort_key NOT IN (10, 20)`,
+		},
+		{
+			name:          "uuid pointer",
+			temporalField: "pyck_transaction_id",
+			value:         &testUUID,
+			operator:      "=",
+			expected:      `pyck_transaction_id = "` + testUUID.String() + `"`,
+		},
+		{
+			name:          "uuid slice with IN operator",
+			temporalField: "pyck_transaction_id",
+			value:         []uuid.UUID{testUUID, testUUID2},
+			operator:      "IN",
+			expected:      `pyck_transaction_id IN ("` + testUUID.String() + `", "` + testUUID2.String() + `")`,
 		},
 		{
 			name:          "empty int slice - empty result",

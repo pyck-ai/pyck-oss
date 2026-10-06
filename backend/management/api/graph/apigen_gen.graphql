@@ -382,12 +382,9 @@ mutation DeleteDataType($id: ID!) {
 
 mutation SendCustomEvent($input: SendCustomEventInput!) {
   sendCustomEvent(input: $input) {
+    eventCount
     success
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -522,6 +519,7 @@ mutation DeleteKeyValue($id: ID!) {
 
 mutation CreateLocation($input: CreateLocationInput!) {
   createLocation(input: $input) {
+    eventCount
     location {
       createdAt
       createdBy
@@ -536,17 +534,14 @@ mutation CreateLocation($input: CreateLocationInput!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
 
 mutation UpdateLocation($id: ID!, $input: UpdateLocationInput!) {
   updateLocation(id: $id, input: $input) {
+    eventCount
     location {
       createdAt
       createdBy
@@ -561,11 +556,7 @@ mutation UpdateLocation($id: ID!, $input: UpdateLocationInput!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -573,11 +564,8 @@ mutation UpdateLocation($id: ID!, $input: UpdateLocationInput!) {
 mutation DeleteLocation($id: ID!) {
   deleteLocation(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
@@ -598,11 +586,8 @@ mutation CreateDevice($input: CreateDeviceInput!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
@@ -623,11 +608,8 @@ mutation UpdateDevice($id: ID!, $input: UpdateDeviceInput!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
@@ -635,11 +617,8 @@ mutation UpdateDevice($id: ID!, $input: UpdateDeviceInput!) {
 mutation DeleteDevice($id: ID!) {
   deleteDevice(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
@@ -661,11 +640,8 @@ mutation SetDeviceLocation($input: CreateDeviceLocationInput!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
@@ -673,11 +649,8 @@ mutation SetDeviceLocation($input: CreateDeviceLocationInput!) {
 mutation UnsetDeviceLocation($id: ID!) {
   unsetDeviceLocation(id: $id) {
     deletedID
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
@@ -699,11 +672,8 @@ mutation CheckInUserDevice($input: CheckInUserDeviceInput!) {
       updatedBy
       userID
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
@@ -725,17 +695,15 @@ mutation CheckOutUserDevice($input: CheckOutUserDeviceInput!) {
       updatedBy
       userID
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
 
 mutation PatchLocationData($id: ID!, $patches: [JSONPatchInput!]!) {
   patchLocationData(id: $id, patches: $patches) {
+    eventCount
     location {
       createdAt
       createdBy
@@ -750,11 +718,7 @@ mutation PatchLocationData($id: ID!, $patches: [JSONPatchInput!]!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    transactionID
   }
 }
 
@@ -775,11 +739,8 @@ mutation PatchDeviceData($id: ID!, $patches: [JSONPatchInput!]!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 
@@ -801,11 +762,8 @@ mutation PatchDeviceLocationData($id: ID!, $patches: [JSONPatchInput!]!) {
       updatedAt
       updatedBy
     }
-    workflows {
-      id
-      runID
-      type
-    }
+    eventCount
+    transactionID
   }
 }
 

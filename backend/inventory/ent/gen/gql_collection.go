@@ -224,11 +224,6 @@ func (_q *EntityEventsOutboxQuery) collectField(ctx context.Context, oneNode boo
 				selectedFields = append(selectedFields, entityeventsoutbox.FieldPayload)
 				fieldSeen[entityeventsoutbox.FieldPayload] = struct{}{}
 			}
-		case "withReply":
-			if _, ok := fieldSeen[entityeventsoutbox.FieldWithReply]; !ok {
-				selectedFields = append(selectedFields, entityeventsoutbox.FieldWithReply)
-				fieldSeen[entityeventsoutbox.FieldWithReply] = struct{}{}
-			}
 		case "retryCount":
 			if _, ok := fieldSeen[entityeventsoutbox.FieldRetryCount]; !ok {
 				selectedFields = append(selectedFields, entityeventsoutbox.FieldRetryCount)
@@ -326,45 +321,6 @@ func (_q *ItemQuery) collectField(ctx context.Context, oneNode bool, opCtx *grap
 	)
 	for _, field := range graphql.CollectFields(opCtx, collected.Selections, satisfies) {
 		switch field.Name {
-
-		case "itemmovementitems":
-			var (
-				alias = field.Alias
-				path  = append(path, alias)
-				query = (&ItemMovementClient{config: _q.config}).Query()
-			)
-			if err := query.collectField(ctx, false, opCtx, field, path, mayAddCondition(satisfies, itemmovementImplementors)...); err != nil {
-				return err
-			}
-			_q.WithNamedItemMovementItems(alias, func(wq *ItemMovementQuery) {
-				*wq = *query
-			})
-
-		case "itemtransactions":
-			var (
-				alias = field.Alias
-				path  = append(path, alias)
-				query = (&TransactionClient{config: _q.config}).Query()
-			)
-			if err := query.collectField(ctx, false, opCtx, field, path, mayAddCondition(satisfies, transactionImplementors)...); err != nil {
-				return err
-			}
-			_q.WithNamedItemTransactions(alias, func(wq *TransactionQuery) {
-				*wq = *query
-			})
-
-		case "itemstocks":
-			var (
-				alias = field.Alias
-				path  = append(path, alias)
-				query = (&StockClient{config: _q.config}).Query()
-			)
-			if err := query.collectField(ctx, false, opCtx, field, path, mayAddCondition(satisfies, stockImplementors)...); err != nil {
-				return err
-			}
-			_q.WithNamedItemStocks(alias, func(wq *StockQuery) {
-				*wq = *query
-			})
 
 		case "itemset":
 			var (

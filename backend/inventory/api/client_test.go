@@ -212,7 +212,7 @@ func TestReplenishmentOrderCreate(t *testing.T) {
 			}
 
 			// Setup mocks
-			publisher.On("SendMutationEventWithReply", mock.Anything).Return([]byte(nil), nil).Maybe()
+			publisher.On("SendMutationEvent", mock.Anything).Return(nil).Maybe()
 
 			// Create API client
 			apiClient := api.NewClient(http.DefaultClient, server.URL, &clientv2.Options{
@@ -431,7 +431,7 @@ func TestReplenishmentOrderUpdate(t *testing.T) {
 			}
 
 			// Setup mocks
-			publisher.On("SendMutationEventWithReply", mock.Anything).Return([]byte(nil), nil).Maybe()
+			publisher.On("SendMutationEvent", mock.Anything).Return(nil).Maybe()
 			publisher.On("SendUpdateEvent", mock.Anything).Return(nil).Maybe()
 
 			// Create test order with items
@@ -521,7 +521,7 @@ func TestReplenishmentOrderDelete(t *testing.T) {
 			defer entClient.Close()
 
 			// Setup mocks
-			publisher.On("SendMutationEventWithReply", mock.Anything).Return([]byte(nil), nil).Maybe()
+			publisher.On("SendMutationEvent", mock.Anything).Return(nil).Maybe()
 
 			var orderID uuid.UUID
 			if tt.nonExistent {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -35,6 +36,11 @@ func ValidateRemoteUITemplate(tmpl string) error {
 	}
 	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return fmt.Errorf("%w: must be an absolute http(s) URL", ErrInvalidUITemplate)
+	}
+	// Render values are single segments, so a ".." is literal text that would
+	// fail every render; refuse it where the caller sees the error.
+	if slices.Contains(strings.Split(u.Path, "/"), "..") {
+		return fmt.Errorf("%w: path must not contain \"..\"", ErrInvalidUITemplate)
 	}
 	return nil
 }

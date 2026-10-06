@@ -1,0 +1,158 @@
+---
+name: "Cross - Custom Event Cannot Forge Entity Events"
+description: >
+  sendCustomEvent re-publishes its event on the subject that a management
+  entity's own CRUD events use. Every service's datatype cache consumes those
+  subjects and trusts the payload's id, so a custom "datatype delete" event
+  used to remove the datatype from every service's cache. This scenario
+  creates a datatype and a typed item, sends that forged event, checks that
+  it is refused, and checks that typed writes keep working. A custom event
+  with a type of its own must still be accepted. Everything is deleted at the
+  end.
+steps:
+- id: createDT
+  name: Create an inventory-item datatype
+  operation: management.createDataType
+  vars:
+    input:
+      name: "CEF Item Type"
+      slug: {$fake: "{{loremslug}}-{{nonce}}"}
+      entity: "inventoryitem"
+      jsonSchema: '{"type":"object","properties":{"weight":{"type":"number"}}}'
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Datatype created
+    assertions:
+    - ref: res.body.data.createDataType.id
+      nil: false
+- id: item1
+  name: Positive control - create a typed item
+  operation: inventory.createInventoryItem
+  vars:
+    input:
+      sku: {$fake: "{{uuid}}"}
+      dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+      data:
+        weight: 1
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Item created
+    assertions:
+    - ref: res.body.data.createInventoryItem.inventoryItem.id
+      nil: false
+- name: A custom event named after the datatype entity is refused
+  operation: management.sendCustomEvent
+  wait_after_ms: 1500
+  vars:
+    input:
+      type: "datatype"
+      operation: "delete"
+      payload:
+        id: {$ref: "res[createDT].body.data.createDataType.id"}
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: The forged entity event is refused
+    assertions:
+    - ref: res.body.errors
+      nil: false
+    - ref: res.body.errors[0].message
+      contains: "reserved"
+- id: item2
+  name: Typed writes keep working after the refused event
+  operation: inventory.createInventoryItem
+  vars:
+    input:
+      sku: {$fake: "{{uuid}}"}
+      dataTypeID: {$ref: "res[createDT].body.data.createDataType.id"}
+      data:
+        weight: 2
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Item created with the datatype
+    assertions:
+    - ref: res.body.data.createInventoryItem.inventoryItem.id
+      nil: false
+- name: Positive control - a custom event with its own type is accepted
+  operation: management.sendCustomEvent
+  vars:
+    input:
+      type: "bruno-custom-event"
+      operation: "create"
+      payload:
+        id: {$fake: uuid}
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+  - msg: Event accepted
+    assertions:
+    - ref: res.body.data.sendCustomEvent.success
+      equal: true
+- name: Delete the first item
+  operation: inventory.deleteInventoryItem
+  vars:
+    id: {$ref: "res[item1].body.data.createInventoryItem.inventoryItem.id"}
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+- name: Delete the second item
+  operation: inventory.deleteInventoryItem
+  vars:
+    id: {$ref: "res[item2].body.data.createInventoryItem.inventoryItem.id"}
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+- name: Delete the datatype
+  operation: management.deleteDataType
+  vars:
+    id: {$ref: "res[createDT].body.data.createDataType.id"}
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true

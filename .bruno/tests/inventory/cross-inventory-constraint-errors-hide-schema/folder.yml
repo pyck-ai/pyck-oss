@@ -1,0 +1,11 @@
+info:
+  name: Cross - Inventory Constraint Errors Hide Schema
+  type: folder
+  seq: 1
+
+docs: |-
+  Verifies that a database constraint violation reaches the client as a generic message. Creates an item and a repository, then creates each again with the same SKU / name. Both are refused with "record already exists (SQLSTATE 23505)", not with the raw Postgres error that names the unique index. The SQLSTATE stays in the message because worker SDKs retry a lost registration race by matching it. Cleans up the item and the repository.
+
+
+request:
+  auth: inherit

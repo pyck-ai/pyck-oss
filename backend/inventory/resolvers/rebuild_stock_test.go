@@ -15,6 +15,7 @@ import (
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
+	"github.com/pyck-ai/pyck/backend/common/feature"
 	"github.com/pyck-ai/pyck/backend/common/txid"
 
 	"github.com/pyck-ai/pyck/backend/inventory/api"
@@ -450,9 +451,10 @@ type rebuildTestRepo struct {
 func corruptAllStock(t *testing.T, ctx context.Context, entClient *ent.Client) {
 	t.Helper()
 
+	// Test fixture: a bulk delete never emits, so suppress events.
 	deleted, err := entClient.Stock.Delete().
 		Where(entstock.TenantID(tenantA)).
-		Exec(ctx)
+		Exec(feature.Context(ctx, feature.FEATURE_SUPPRESS_EVENTS))
 	require.NoError(t, err, "deleting stock rows should not error")
 
 	remaining, err := entClient.Stock.Query().
@@ -1974,7 +1976,7 @@ func corruptStockWithGarbageValues(t *testing.T, ctx context.Context, entClient 
 		SetOwnIncomingStock(garbage).
 		SetOutgoingStock(garbage).
 		SetOwnOutgoingStock(garbage).
-		Save(ctx)
+		Save(feature.Context(ctx, feature.FEATURE_SUPPRESS_EVENTS)) // test fixture: bulk writes never emit
 	require.NoError(t, err, "corrupting stock values should not error")
 	t.Logf("corruptStockWithGarbageValues: corrupted %d stock rows with sentinel value %d", affected, garbage)
 }

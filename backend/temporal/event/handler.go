@@ -2,12 +2,30 @@ package event
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	"github.com/pyck-ai/pyck/backend/temporal/config"
+)
+
+// Reasons an event is dropped without being published.
+const (
+	dropReasonQueueFull = "queue_full"
+	dropReasonShutdown  = "shutdown"
+)
+
+var droppedEvents = promauto.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "temporal_state_change_events_dropped_total",
+		Help: "Workflow state-change events dropped before reaching NATS, by reason",
+	},
+	[]string{"reason"},
 )
 
 const (
@@ -19,10 +37,20 @@ const (
 	// Events are dropped with a warning if the queue is full.
 	DefaultQueueSize = 1000
 
-	// DefaultPublishTimeout is the default timeout for publishing a single
-	// event to NATS. Events that exceed this timeout are logged as errors
-	// and the worker moves to the next event.
+	// DefaultPublishTimeout is the default timeout for a single publish
+	// attempt to NATS. An attempt that exceeds it is retried after a backoff.
 	DefaultPublishTimeout = 100 * time.Millisecond
+
+	// DefaultRetryInitialBackoff is the wait after the first failed attempt.
+	// It doubles per attempt up to DefaultRetryMaxBackoff.
+	DefaultRetryInitialBackoff = 100 * time.Millisecond
+
+	// DefaultRetryMaxBackoff caps the wait between publish attempts.
+	DefaultRetryMaxBackoff = 5 * time.Second
+
+	// DefaultShutdownGrace is how long Close lets workers drain the queue
+	// before it abandons in-flight retries and drops whatever is left.
+	DefaultShutdownGrace = 5 * time.Second
 )
 
 // EventConfig is an alias for config.EventConfig to avoid breaking existing code.
@@ -30,6 +58,19 @@ type EventConfig = config.EventWorkerConfig
 
 // Handler publishes Temporal workflow events to NATS using a worker pool
 // to avoid blocking Temporal's critical path.
+//
+// A failed or timed-out publish is retried with exponential backoff until it
+// succeeds or the handler shuts down. A retry can store a change twice (for
+// example when the first attempt timed out after the server stored it). That is
+// safe: the publish carries a JetStream message ID derived from the change, so
+// JetStream drops a repeat within its duplicate window, and the workflow signal
+// router derives its Temporal request IDs from the change itself, so Temporal
+// drops a repeat beyond it. A worker that is retrying one event stays on it;
+// the other workers keep draining the queue.
+//
+// Events are only ever dropped, never blocked on, when the queue is full or
+// when they are still pending once Close's grace period has elapsed. Each drop
+// is logged and counted in temporal_state_change_events_dropped_total.
 type Handler struct {
 	publisher events.Publisher
 	config    EventConfig
@@ -37,8 +78,12 @@ type Handler struct {
 	eventChan chan *publishRequest
 	wg        sync.WaitGroup
 	cancel    context.CancelFunc
-	closed    bool
-	closeMu   sync.Mutex
+
+	// stateMu guards closed and the close of eventChan, so Notify never sends
+	// on a closed channel. Notify only holds it for a non-blocking send.
+	stateMu sync.RWMutex
+	closed  bool
+	closeMu sync.Mutex
 }
 
 type publishRequest struct {
@@ -53,15 +98,39 @@ type publishRequest struct {
 // with a buffered queue of config.EventQueueSize.
 //
 // Configuration can be set via environment variables:
+//
 //   - PYCK_EVENT_WORKER_POOL_SIZE (default: 10)
+//
 //   - PYCK_EVENT_QUEUE_SIZE (default: 1000)
+//
 //   - PYCK_EVENT_PUBLISH_TIMEOUT (default: 100ms)
 //
-// Each worker enforces config.EventPublishTimeout to prevent blocking indefinitely
-// on slow NATS operations, ensuring workers remain responsive during shutdown.
+//   - PYCK_EVENT_WORKER_RETRY_INITIAL_BACKOFF (default: 100ms)
+//
+//   - PYCK_EVENT_WORKER_RETRY_MAX_BACKOFF (default: 5s)
+//
+//   - PYCK_EVENT_WORKER_SHUTDOWN_GRACE (default: 5s)
+//
+// config.EventWorkerPublishTimeout bounds how long the worker waits for one
+// publish attempt before retrying; it does not cancel the publish itself, which
+// keeps running under the JetStream client's default timeout. A failed attempt
+// is retried with exponential backoff. Non-positive backoff and grace values
+// fall back to the defaults.
 //
 // Always call Close() during application shutdown to ensure graceful cleanup.
 func NewHandler(ctx context.Context, publisher events.Publisher, cfg EventConfig) *Handler {
+	if cfg.EventWorkerRetryInitialBackoff <= 0 {
+		cfg.EventWorkerRetryInitialBackoff = DefaultRetryInitialBackoff
+	}
+
+	if cfg.EventWorkerRetryMaxBackoff < cfg.EventWorkerRetryInitialBackoff {
+		cfg.EventWorkerRetryMaxBackoff = max(DefaultRetryMaxBackoff, cfg.EventWorkerRetryInitialBackoff)
+	}
+
+	if cfg.EventWorkerShutdownGrace <= 0 {
+		cfg.EventWorkerShutdownGrace = DefaultShutdownGrace
+	}
+
 	bgCtx, cancel := context.WithCancel(ctx)
 
 	h := &Handler{
@@ -97,57 +166,114 @@ func (h *Handler) worker(bgCtx context.Context) {
 	defer h.wg.Done()
 
 	for req := range h.eventChan {
-		h.publish(bgCtx, req)
+		if bgCtx.Err() != nil {
+			// Shutdown grace elapsed: drain the queue without publishing.
+			h.dropOnShutdown(req)
+
+			continue
+		}
+
+		h.publishWithRetry(bgCtx, req)
 	}
 }
 
-// publish sends a single event to NATS with timeout, logging errors.
-func (h *Handler) publish(bgCtx context.Context, req *publishRequest) {
-	// Create context with timeout for this publish operation
+// publishWithRetry publishes one event, retrying with exponential backoff until
+// it succeeds or bgCtx is cancelled (shutdown), in which case the event is dropped.
+// A "duplicate message id is in process" error (another pod is storing the same
+// change) is retried like any other failure but logged at debug level.
+func (h *Handler) publishWithRetry(bgCtx context.Context, req *publishRequest) {
+	backoff := h.config.EventWorkerRetryInitialBackoff
+
+	for attempt := 1; ; attempt++ {
+		err := h.publishOnce(bgCtx, req)
+		if err == nil {
+			req.logger.Debug().
+				Str("namespace", req.event.Namespace).
+				Str("task-queue", req.event.TaskQueue).
+				Str("workflow-type", req.event.WorkflowTypeName).
+				Str("workflow-id", req.event.WorkflowID).
+				Str("run-id", req.event.RunID).
+				Str("status", req.event.Status).
+				Int("attempt", attempt).
+				Msg("published workflow event")
+
+			return
+		}
+
+		if bgCtx.Err() != nil {
+			h.dropOnShutdown(req)
+
+			return
+		}
+
+		level := log.WarnLevel
+		if events.IsDuplicateMsgIDInProcess(err) {
+			level = log.DebugLevel
+		}
+
+		req.logger.WithLevel(level).
+			Err(err).
+			Int("attempt", attempt).
+			Dur("retry-in", backoff).
+			Str("namespace", req.event.Namespace).
+			Str("workflow-id", req.event.WorkflowID).
+			Str("run-id", req.event.RunID).
+			Str("status", req.event.Status).
+			Msg("failed to publish workflow event, retrying")
+
+		timer := time.NewTimer(backoff)
+		select {
+		case <-timer.C:
+		case <-bgCtx.Done():
+			timer.Stop()
+			h.dropOnShutdown(req)
+
+			return
+		}
+
+		backoff = min(backoff*2, h.config.EventWorkerRetryMaxBackoff)
+	}
+}
+
+// publishOnce makes a single publish attempt and waits at most
+// EventWorkerPublishTimeout for it. The publisher runs in its own goroutine so
+// a publisher that ignores its context cannot hold the worker past the timeout;
+// that attempt may still complete later. A late success is harmless because the
+// workflow signal router derives its Temporal request IDs from the change, so a
+// repeated change starts and signals nothing new.
+func (h *Handler) publishOnce(bgCtx context.Context, req *publishRequest) error {
 	ctx, cancel := context.WithTimeout(bgCtx, h.config.EventWorkerPublishTimeout)
 	defer cancel()
 
-	// Create a channel to receive the publish result
 	done := make(chan error, 1)
 
-	// Execute publish in goroutine to enable timeout
 	go func() {
 		done <- h.publisher.SendTemporalWorkflowEvent(ctx, req.event)
 	}()
 
-	// Wait for either publish completion or timeout
 	select {
 	case err := <-done:
-		if err != nil {
-			req.logger.Error().
-				Err(err).
-				Msg("failed to publish workflow event")
-		}
+		return err
 	case <-ctx.Done():
-		req.logger.Error().
-			Dur("timeout", h.config.EventWorkerPublishTimeout).
-			Str("namespace", req.event.Namespace).
-			Str("task-queue", req.event.TaskQueue).
-			Str("workflow-type", req.event.WorkflowTypeName).
-			Str("workflow-id", req.event.WorkflowID).
-			Str("run-id", req.event.RunID).
-			Msg("timeout publishing workflow event")
+		return fmt.Errorf("publish attempt timed out after %s: %w", h.config.EventWorkerPublishTimeout, ctx.Err())
 	}
+}
 
-	req.logger.Debug().
+func (h *Handler) dropOnShutdown(req *publishRequest) {
+	droppedEvents.WithLabelValues(dropReasonShutdown).Inc()
+	req.logger.Warn().
 		Str("namespace", req.event.Namespace).
-		Str("task-queue", req.event.TaskQueue).
 		Str("workflow-type", req.event.WorkflowTypeName).
 		Str("workflow-id", req.event.WorkflowID).
 		Str("run-id", req.event.RunID).
 		Str("status", req.event.Status).
-		Msg("published workflow event")
+		Msg("handler shutting down - pending workflow event dropped")
 }
 
 // Notify publishes a Temporal workflow event asynchronously.
 //
 // Events are queued for background workers. If the queue is full,
-// the event is dropped and a warning is logged. This prevents
+// the event is dropped, counted and a warning is logged. This prevents
 // slow NATS publishing from blocking Temporal's critical path.
 //
 // After Close() is called, Notify will drop all events with a warning.
@@ -167,27 +293,40 @@ func (h *Handler) Notify(ctx context.Context, event *events.TemporalWorkflowStat
 		event:  event,
 	}
 
-	// Non-blocking send - drop if queue is full or closed
+	h.stateMu.RLock()
+	defer h.stateMu.RUnlock()
+
+	if h.closed {
+		droppedEvents.WithLabelValues(dropReasonShutdown).Inc()
+		logger.Warn().
+			Str("namespace", event.Namespace).
+			Str("workflow-id", event.WorkflowID).
+			Str("run-id", event.RunID).
+			Msg("handler shut down - workflow event dropped")
+
+		return
+	}
+
+	// Non-blocking send - drop if the queue is full
 	select {
 	case h.eventChan <- req:
 		// Successfully queued
 	default:
-		// Queue full or handler shutting down - drop and log
+		droppedEvents.WithLabelValues(dropReasonQueueFull).Inc()
 		logger.Warn().
 			Str("namespace", event.Namespace).
 			Str("workflow-type", event.WorkflowTypeName).
 			Str("workflow-id", event.WorkflowID).
 			Str("run-id", event.RunID).
-			Msg("event queue full or handler shutting down - workflow event dropped")
+			Str("status", event.Status).
+			Msg("event queue full - workflow event dropped")
 	}
 }
 
-// Close signals the handler to stop accepting new events, drains the queue,
-// and waits for all workers to exit. After Close() is called, Notify() will
-// drop all events.
-//
-// Close blocks until all queued events have been processed and all worker
-// goroutines have exited.
+// Close signals the handler to stop accepting new events and lets the workers
+// drain the queue. Events still unpublished after config.EventWorkerShutdownGrace
+// are dropped (logged and counted) and in-flight retries are abandoned, so Close
+// returns within roughly the grace period plus one publish attempt.
 //
 // Close is safe to call multiple times.
 func (h *Handler) Close() {
@@ -198,14 +337,28 @@ func (h *Handler) Close() {
 		return // Already closed
 	}
 
+	h.stateMu.Lock()
 	h.closed = true
-
-	// Close channel to signal workers to exit after draining queue
 	close(h.eventChan)
+	h.stateMu.Unlock()
 
-	// Wait for all workers to finish processing
-	h.wg.Wait()
+	drained := make(chan struct{})
 
-	// Cancel context after workers have finished to clean up resources
+	go func() {
+		h.wg.Wait()
+		close(drained)
+	}()
+
+	grace := time.NewTimer(h.config.EventWorkerShutdownGrace)
+	defer grace.Stop()
+
+	select {
+	case <-drained:
+	case <-grace.C:
+		// Cancel in-flight retries; workers drop what is left.
+		h.cancel()
+		<-drained
+	}
+
 	h.cancel()
 }

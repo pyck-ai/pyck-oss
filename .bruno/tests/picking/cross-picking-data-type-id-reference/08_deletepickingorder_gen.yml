@@ -19,11 +19,8 @@ graphql:
       mutation DeletePickingOrder($id: ID!) {
         deletePickingOrder(id: $id) {
           deletedID
-          workflows {
-            id
-            runID
-            type
-          }
+          eventCount
+          transactionID
         }
       }
     variables: |-

@@ -55,6 +55,7 @@ func (r *mutationResolver) CreateInventoryItem(ctx context.Context, input ent.Cr
 	}
 
 	var resp model.InventoryItemOutput
+	resp.TransactionID = gqltx.TransactionID(ctx)
 
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
@@ -77,7 +78,6 @@ func (r *mutationResolver) CreateInventoryItem(ctx context.Context, input ent.Cr
 	}
 
 	resp.InventoryItem = item
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -96,6 +96,7 @@ func (r *mutationResolver) UpdateInventoryItem(ctx context.Context, id uuid.UUID
 	}
 
 	var resp model.InventoryItemOutput
+	resp.TransactionID = gqltx.TransactionID(ctx)
 
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
@@ -124,7 +125,6 @@ func (r *mutationResolver) UpdateInventoryItem(ctx context.Context, id uuid.UUID
 	}
 
 	resp.InventoryItem = item
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -138,6 +138,7 @@ func (r *mutationResolver) DeleteInventoryItem(ctx context.Context, id uuid.UUID
 	}
 
 	var resp model.InventoryItemDeletePayload
+	resp.TransactionID = gqltx.TransactionID(ctx)
 	req := request.ForContext(ctx)
 
 	repositoryMap, err := r.stock.GetRepositoriesDetails(ctx, tx)
@@ -183,7 +184,6 @@ func (r *mutationResolver) DeleteInventoryItem(ctx context.Context, id uuid.UUID
 	}
 
 	resp.DeletedID = &id
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -202,6 +202,7 @@ func (r *mutationResolver) CreateInventoryRepository(ctx context.Context, input 
 	}
 
 	var resp model.InventoryRepositoryOutput
+	resp.TransactionID = gqltx.TransactionID(ctx)
 
 	inputVirtualRepoFlag := true
 	if input.VirtualRepo != nil {
@@ -246,7 +247,6 @@ func (r *mutationResolver) CreateInventoryRepository(ctx context.Context, input 
 	}
 
 	resp.InventoryRepository = repo
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -265,6 +265,7 @@ func (r *mutationResolver) UpdateInventoryRepository(ctx context.Context, id uui
 	}
 
 	var resp model.InventoryRepositoryOutput
+	resp.TransactionID = gqltx.TransactionID(ctx)
 
 	if input.ParentID != nil {
 		response, err := tx.Repository.Get(ctx, *input.ParentID)
@@ -304,7 +305,6 @@ func (r *mutationResolver) UpdateInventoryRepository(ctx context.Context, id uui
 	}
 
 	resp.InventoryRepository = repo
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -318,6 +318,7 @@ func (r *mutationResolver) DeleteInventoryRepository(ctx context.Context, id uui
 	}
 
 	var resp model.InventoryRepositoryDeletePayload
+	resp.TransactionID = gqltx.TransactionID(ctx)
 	req := request.ForContext(ctx)
 
 	stockMap, err := r.stock.GetCurrentRepositoriesStock(ctx, tx, []uuid.UUID{id})
@@ -360,7 +361,6 @@ func (r *mutationResolver) DeleteInventoryRepository(ctx context.Context, id uui
 	}
 
 	resp.DeletedID = &id
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -395,7 +395,7 @@ func (r *mutationResolver) CreateInventoryItemMovement(ctx context.Context, inpu
 	if err != nil {
 		return nil, err
 	}
-	return &model.InventoryItemMovementOutput{InventoryItemMovement: movement, Workflows: make([]*model.TemporalWorkflow, 0)}, nil
+	return &model.InventoryItemMovementOutput{InventoryItemMovement: movement, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // UpdateInventoryItemMovement is the resolver for the updateInventoryItemMovement field.
@@ -412,6 +412,7 @@ func (r *mutationResolver) UpdateInventoryItemMovement(ctx context.Context, id u
 	}
 
 	var resp model.InventoryItemMovementOutput
+	resp.TransactionID = gqltx.TransactionID(ctx)
 
 	_, err = tx.ItemMovement.Get(ctx, id)
 	if err != nil {
@@ -435,7 +436,6 @@ func (r *mutationResolver) UpdateInventoryItemMovement(ctx context.Context, id u
 	}
 
 	resp.InventoryItemMovement = movement
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -453,7 +453,7 @@ func (r *mutationResolver) ExecuteInventoryItemMovement(ctx context.Context, id 
 	if err != nil {
 		return nil, err
 	}
-	return &model.InventoryItemMovementOutput{InventoryItemMovement: itemMovement, Workflows: make([]*model.TemporalWorkflow, 0)}, nil
+	return &model.InventoryItemMovementOutput{InventoryItemMovement: itemMovement, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // DeleteInventoryItemMovement is the resolver for the deleteInventoryItemMovement field.
@@ -469,7 +469,7 @@ func (r *mutationResolver) DeleteInventoryItemMovement(ctx context.Context, id u
 	}); err != nil {
 		return nil, err
 	}
-	return &model.InventoryItemMovementDeletePayload{DeletedID: &id, Workflows: make([]*model.TemporalWorkflow, 0)}, nil
+	return &model.InventoryItemMovementDeletePayload{DeletedID: &id, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // CreateInventoryRepositoryMovement is the resolver for the createInventoryRepositoryMovement field.
@@ -502,7 +502,7 @@ func (r *mutationResolver) CreateInventoryRepositoryMovement(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-	return &model.InventoryRepositoryMovementOutput{InventoryRepositoryMovement: movement, Workflows: make([]*model.TemporalWorkflow, 0)}, nil
+	return &model.InventoryRepositoryMovementOutput{InventoryRepositoryMovement: movement, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // UpdateInventoryRepositoryMovement is the resolver for the updateInventoryRepositoryMovement field.
@@ -519,6 +519,7 @@ func (r *mutationResolver) UpdateInventoryRepositoryMovement(ctx context.Context
 	}
 
 	var resp model.InventoryRepositoryMovementOutput
+	resp.TransactionID = gqltx.TransactionID(ctx)
 
 	_, err = tx.RepositoryMovement.Get(ctx, id)
 	if err != nil {
@@ -542,7 +543,6 @@ func (r *mutationResolver) UpdateInventoryRepositoryMovement(ctx context.Context
 	}
 
 	resp.InventoryRepositoryMovement = movement
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -560,7 +560,7 @@ func (r *mutationResolver) ExecuteInventoryRepositoryMovement(ctx context.Contex
 	if err != nil {
 		return nil, err
 	}
-	return &model.InventoryRepositoryMovementOutput{InventoryRepositoryMovement: repositoryMovement, Workflows: make([]*model.TemporalWorkflow, 0)}, nil
+	return &model.InventoryRepositoryMovementOutput{InventoryRepositoryMovement: repositoryMovement, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // DeleteInventoryRepositoryMovement is the resolver for the deleteInventoryRepositoryMovement field.
@@ -576,7 +576,7 @@ func (r *mutationResolver) DeleteInventoryRepositoryMovement(ctx context.Context
 	}); err != nil {
 		return nil, err
 	}
-	return &model.InventoryRepositoryMovementDeletePayload{DeletedID: &id, Workflows: make([]*model.TemporalWorkflow, 0)}, nil
+	return &model.InventoryRepositoryMovementDeletePayload{DeletedID: &id, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // CreateInventoryCollectionMovement is the resolver for the createInventoryCollectionMovement field.
@@ -641,7 +641,7 @@ func (r *mutationResolver) CreateInventoryCollectionMovement(ctx context.Context
 	for i, m := range out.Movements {
 		movements[i] = &model.CollectionMovement{ID: m.ID, MovementType: m.MovementType}
 	}
-	return &model.CreateCollectionMovementOutput{ID: out.ID, Movements: movements}, nil
+	return &model.CreateCollectionMovementOutput{ID: out.ID, Movements: movements, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // UpdateInventoryCollectionMovement is the resolver for the updateInventoryCollectionMovement field.
@@ -652,7 +652,7 @@ func (r *mutationResolver) UpdateInventoryCollectionMovement(ctx context.Context
 		return nil, err
 	}
 
-	resp := model.UpdateCollectionMovementOutput{}
+	resp := model.UpdateCollectionMovementOutput{TransactionID: gqltx.TransactionID(ctx)}
 
 	if input.Handler != nil && *input.Handler == "" {
 		input.Handler = nil
@@ -680,7 +680,6 @@ func (r *mutationResolver) UpdateInventoryCollectionMovement(ctx context.Context
 	}
 
 	resp.InventoryCollection = collectionMovement
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -698,7 +697,7 @@ func (r *mutationResolver) DeleteInventoryCollection(ctx context.Context, id uui
 	}); err != nil {
 		return nil, err
 	}
-	return &model.InventoryCollectionDeletePayload{DeletedID: &id, Workflows: make([]*model.TemporalWorkflow, 0)}, nil
+	return &model.InventoryCollectionDeletePayload{DeletedID: &id, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // DeleteInventoryStock is the resolver for the deleteInventoryStock field.
@@ -901,6 +900,7 @@ func (r *mutationResolver) CreateInventoryItemSet(ctx context.Context, input ent
 	}
 
 	var resp model.InventoryItemSetOutput
+	resp.TransactionID = gqltx.TransactionID(ctx)
 	req := request.ForContext(ctx)
 
 	items, err := tx.Item.Query().
@@ -943,7 +943,6 @@ func (r *mutationResolver) CreateInventoryItemSet(ctx context.Context, input ent
 	}
 
 	resp.InventoryItemSet = itemSet
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -962,6 +961,7 @@ func (r *mutationResolver) UpdateInventoryItemSet(ctx context.Context, id uuid.U
 	}
 
 	var resp model.InventoryItemSetOutput
+	resp.TransactionID = gqltx.TransactionID(ctx)
 	req := request.ForContext(ctx)
 
 	// Verify the item set belongs to the caller's tenant before validating input.
@@ -1012,7 +1012,6 @@ func (r *mutationResolver) UpdateInventoryItemSet(ctx context.Context, id uuid.U
 	}
 
 	resp.InventoryItemSet = itemSet
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -1026,6 +1025,7 @@ func (r *mutationResolver) DeleteInventoryItemSet(ctx context.Context, id uuid.U
 	}
 
 	var resp model.InventoryItemSetDeletePayload
+	resp.TransactionID = gqltx.TransactionID(ctx)
 	req := request.ForContext(ctx)
 
 	_, err = tx.ItemSet.UpdateOneID(id).
@@ -1037,7 +1037,6 @@ func (r *mutationResolver) DeleteInventoryItemSet(ctx context.Context, id uuid.U
 	}
 
 	resp.DeletedID = &id
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -1124,8 +1123,8 @@ func (r *mutationResolver) CreateReplenishmentOrder(ctx context.Context, input m
 	}
 
 	resp := &model.ReplenishmentOrderOutput{
+		TransactionID:      gqltx.TransactionID(ctx),
 		ReplenishmentOrder: createdOrder,
-		Workflows:          make([]*model.TemporalWorkflow, 0),
 	}
 
 	return resp, nil
@@ -1146,6 +1145,7 @@ func (r *mutationResolver) UpdateReplenishmentOrder(ctx context.Context, id uuid
 	}
 
 	var resp model.ReplenishmentOrderOutput
+	resp.TransactionID = gqltx.TransactionID(ctx)
 
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
@@ -1173,7 +1173,6 @@ func (r *mutationResolver) UpdateReplenishmentOrder(ctx context.Context, id uuid
 	}
 
 	resp.ReplenishmentOrder = order
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -1187,6 +1186,7 @@ func (r *mutationResolver) DeleteReplenishmentOrder(ctx context.Context, id uuid
 	}
 
 	var resp model.ReplenishmentOrderDeletePayload
+	resp.TransactionID = gqltx.TransactionID(ctx)
 	req := request.ForContext(ctx)
 
 	// Get the order before deletion for event publishing
@@ -1226,7 +1226,6 @@ func (r *mutationResolver) DeleteReplenishmentOrder(ctx context.Context, id uuid
 	}
 
 	resp.DeletedID = &id
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -1239,16 +1238,27 @@ func (r *mutationResolver) CreateReplenishmentOrderItem(ctx context.Context, inp
 		return nil, err
 	}
 
-	create, _, err := tx.ReplenishmentOrderItem.Create().SetInputWithDataType(ctx, input, r.validator)
+	create, dataType, err := tx.ReplenishmentOrderItem.Create().SetInputWithDataType(ctx, input, r.validator)
 	if err != nil {
 		return nil, err
 	}
 
 	var resp model.ReplenishmentOrderItemOutput
+	resp.TransactionID = gqltx.TransactionID(ctx)
 
 	// Verify the parent order belongs to the caller's tenant.
 	if _, err := tx.ReplenishmentOrder.Get(ctx, input.ReplenishmentOrderID); err != nil {
 		return nil, fmt.Errorf("invalid replenishment order: %w", err)
+	}
+
+	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
+		Input:     input.Data,
+		DataType:  dataType,
+		TableName: replenishmentorderitem.Table,
+		FieldName: replenishmentorderitem.FieldData,
+		DbDriver:  core.Config.DbDriver,
+	}); err != nil {
+		return nil, err
 	}
 
 	orderItem, err := create.Save(ctx)
@@ -1257,7 +1267,6 @@ func (r *mutationResolver) CreateReplenishmentOrderItem(ctx context.Context, inp
 	}
 
 	resp.ReplenishmentOrderItem = orderItem
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -1276,6 +1285,7 @@ func (r *mutationResolver) UpdateReplenishmentOrderItem(ctx context.Context, id 
 	}
 
 	var resp model.ReplenishmentOrderItemOutput
+	resp.TransactionID = gqltx.TransactionID(ctx)
 
 	if err = r.validator.ValidateInputDataUniqueness(ctx, tx, validator.UniquenessValidationParams{
 		Input:     input.Data,
@@ -1295,7 +1305,6 @@ func (r *mutationResolver) UpdateReplenishmentOrderItem(ctx context.Context, id 
 	}
 
 	resp.ReplenishmentOrderItem = orderItem
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -1309,6 +1318,7 @@ func (r *mutationResolver) DeleteReplenishmentOrderItem(ctx context.Context, id 
 	}
 
 	var resp model.ReplenishmentOrderItemDeletePayload
+	resp.TransactionID = gqltx.TransactionID(ctx)
 	req := request.ForContext(ctx)
 
 	_, err = tx.ReplenishmentOrderItem.UpdateOneID(id).
@@ -1320,7 +1330,6 @@ func (r *mutationResolver) DeleteReplenishmentOrderItem(ctx context.Context, id 
 	}
 
 	resp.DeletedID = &id
-	resp.Workflows = make([]*model.TemporalWorkflow, 0)
 
 	return &resp, nil
 }
@@ -1363,7 +1372,7 @@ func (r *mutationResolver) PatchInventoryItemData(ctx context.Context, id uuid.U
 		return nil, err
 	}
 
-	return &model.InventoryItemOutput{InventoryItem: updated}, nil
+	return &model.InventoryItemOutput{InventoryItem: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // PatchInventoryRepositoryData applies RFC 6902 JSON Patch operations to the repository's data field.
@@ -1404,7 +1413,7 @@ func (r *mutationResolver) PatchInventoryRepositoryData(ctx context.Context, id 
 		return nil, err
 	}
 
-	return &model.InventoryRepositoryOutput{InventoryRepository: updated}, nil
+	return &model.InventoryRepositoryOutput{InventoryRepository: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // PatchInventoryItemMovementData applies RFC 6902 JSON Patch operations to the item movement's data field.
@@ -1445,7 +1454,7 @@ func (r *mutationResolver) PatchInventoryItemMovementData(ctx context.Context, i
 		return nil, err
 	}
 
-	return &model.InventoryItemMovementOutput{InventoryItemMovement: updated}, nil
+	return &model.InventoryItemMovementOutput{InventoryItemMovement: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // PatchInventoryRepositoryMovementData applies RFC 6902 JSON Patch operations to the repository movement's data field.
@@ -1486,7 +1495,7 @@ func (r *mutationResolver) PatchInventoryRepositoryMovementData(ctx context.Cont
 		return nil, err
 	}
 
-	return &model.InventoryRepositoryMovementOutput{InventoryRepositoryMovement: updated}, nil
+	return &model.InventoryRepositoryMovementOutput{InventoryRepositoryMovement: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // PatchInventoryCollectionMovementData applies RFC 6902 JSON Patch operations to the collection movement's data field.
@@ -1527,7 +1536,7 @@ func (r *mutationResolver) PatchInventoryCollectionMovementData(ctx context.Cont
 		return nil, err
 	}
 
-	return &model.UpdateCollectionMovementOutput{InventoryCollection: updated}, nil
+	return &model.UpdateCollectionMovementOutput{InventoryCollection: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // PatchInventoryItemSetData applies RFC 6902 JSON Patch operations to the item set's data field.
@@ -1568,7 +1577,7 @@ func (r *mutationResolver) PatchInventoryItemSetData(ctx context.Context, id uui
 		return nil, err
 	}
 
-	return &model.InventoryItemSetOutput{InventoryItemSet: updated}, nil
+	return &model.InventoryItemSetOutput{InventoryItemSet: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // PatchReplenishmentOrderData applies RFC 6902 JSON Patch operations to the replenishment order's data field.
@@ -1609,7 +1618,7 @@ func (r *mutationResolver) PatchReplenishmentOrderData(ctx context.Context, id u
 		return nil, err
 	}
 
-	return &model.ReplenishmentOrderOutput{ReplenishmentOrder: updated}, nil
+	return &model.ReplenishmentOrderOutput{ReplenishmentOrder: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // PatchReplenishmentOrderItemData applies RFC 6902 JSON Patch operations to the replenishment order item's data field.
@@ -1650,7 +1659,7 @@ func (r *mutationResolver) PatchReplenishmentOrderItemData(ctx context.Context, 
 		return nil, err
 	}
 
-	return &model.ReplenishmentOrderItemOutput{ReplenishmentOrderItem: updated}, nil
+	return &model.ReplenishmentOrderItemOutput{ReplenishmentOrderItem: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // Mutation returns exec.MutationResolver implementation.

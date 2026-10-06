@@ -18,6 +18,7 @@ graphql:
 
       mutation CreateReceivingInboundShipmentNotification($input: CreateReceivingInboundShipmentNotificationInput!) {
         createReceivingInboundShipmentNotification(input: $input) {
+          eventCount
           receivingInboundShipmentNotification {
             createdAt
             createdBy
@@ -32,11 +33,7 @@ graphql:
             updatedAt
             updatedBy
           }
-          workflows {
-            id
-            runID
-            type
-          }
+          transactionID
         }
       }
     variables: |-

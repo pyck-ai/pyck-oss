@@ -88,6 +88,10 @@ includes:
       dir: ./tests/integration,
     }
 
+vars:
+  # Services `up` and `up:integration` bring up (defined once, used by both).
+  UP_SERVICES: management inventory main-data picking receiving workflow gateway file
+
 tasks:
   default:
     aliases: [help]
@@ -246,15 +250,15 @@ tasks:
       - task: temporal:{{.TASK}}
 
   test:integration:
-    desc: "Run integration suites against a running stack (start it with: task up)"
+    desc: "Run integration suites against a running stack (start it with: task up:integration)"
     cmds:
       - task: integration:test:integration:run
         vars: { CLI_ARGS: '{{.CLI_ARGS}}' }
 
   test:integration:up:
-    desc: Boot the stack, then run the integration suites.
+    desc: Boot the stack with the integration cadences (up:integration), then run the integration suites.
     cmds:
-      - task: up
+      - task: up:integration
       - task: integration:test:integration:run
         vars: { CLI_ARGS: '{{.CLI_ARGS}}' }
 
@@ -307,17 +311,24 @@ tasks:
     env:
       GOPRIVATE: github.com/pyck-ai
     cmds:
-      - if: '!test -f .env'
+      - if: '[ ! -f .env ]'
         cmd: cp .env.example .env
       - rm -f config/keys/*.json config/keys/*.key config/keys/*.pat config/keys/*.env
       - docker compose up --build bootstrap
 
   up:
-    desc: "Start all backend services"
+    desc: "Start all backend services (production cadences)"
     deps:
       - task: init
     cmds:
-      - docker compose up --build --wait management inventory main-data picking receiving workflow gateway file
+      - docker compose up --build --wait {{.UP_SERVICES}}
+
+  up:integration:
+    desc: "Start all backend services with the fast integration-test cadences (config/compose/integration.yaml)"
+    deps:
+      - task: init
+    cmds:
+      - docker compose -f docker-compose.yml -f config/compose/integration.yaml up --build --wait {{.UP_SERVICES}}
 
 
   ci-ready:

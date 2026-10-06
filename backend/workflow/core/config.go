@@ -27,13 +27,35 @@ type config struct {
 
 	RemoteUIConfig
 	WorkflowSubscriptionConfig
+	SignalRouterConsumerConfig
+}
+
+// SignalRouterConsumerConfig tunes the signal router's durable JetStream
+// consumer; see services.ConsumerConfig. The defaults are the services
+// defaults, repeated here so the env documentation and the code agree.
+type SignalRouterConsumerConfig struct {
+	ConsumerAckWait       time.Duration   `env:"PYCK_WORKFLOW_ROUTER_ACK_WAIT" envDefault:"60s"`
+	ConsumerMaxAckPending int             `env:"PYCK_WORKFLOW_ROUTER_MAX_ACK_PENDING" envDefault:"256"`
+	ConsumerMaxDeliver    int             `env:"PYCK_WORKFLOW_ROUTER_MAX_DELIVER" envDefault:"20"`
+	ConsumerNakBackoff    []time.Duration `env:"PYCK_WORKFLOW_ROUTER_NAK_BACKOFF" envDefault:"1s,5s,30s,2m,5m"`
+	ConsumerConcurrency   int             `env:"PYCK_WORKFLOW_ROUTER_CONCURRENCY" envDefault:"16"`
+
+	// The health gate pauses fetching while Temporal or the database is down.
+	HealthInterval  time.Duration `env:"PYCK_WORKFLOW_ROUTER_HEALTH_INTERVAL" envDefault:"5s"`
+	HealthTimeout   time.Duration `env:"PYCK_WORKFLOW_ROUTER_HEALTH_TIMEOUT" envDefault:"2s"`
+	HealthResumeMin time.Duration `env:"PYCK_WORKFLOW_ROUTER_RESUME_MIN_INTERVAL" envDefault:"1s"`
+	HealthResumeMax time.Duration `env:"PYCK_WORKFLOW_ROUTER_RESUME_MAX_INTERVAL" envDefault:"5s"`
+
+	// HealthPausedWarnInterval is how often a router that stays paused logs it.
+	HealthPausedWarnInterval time.Duration `env:"PYCK_WORKFLOW_ROUTER_PAUSED_WARN_INTERVAL" envDefault:"1m"`
 }
 
 // WorkflowSubscriptionConfig tunes the worker-owned signal subscription
-// lifecycle. Workers refresh their subscriptions well within SubscriptionTTL;
-// the janitor reaps any that outlive it (e.g. crashed workers).
+// lifecycle. Workers refresh their subscriptions (every 5m by default) well
+// within SubscriptionTTL (1h by default); the janitor removes any that outlive
+// it (e.g. crashed workers). It never removes workflow rows.
 type WorkflowSubscriptionConfig struct {
-	SubscriptionTTL             time.Duration `env:"PYCK_WORKFLOW_SUBSCRIPTION_TTL" envDefault:"15m"`
+	SubscriptionTTL             time.Duration `env:"PYCK_WORKFLOW_SUBSCRIPTION_TTL" envDefault:"1h"`
 	SubscriptionJanitorInterval time.Duration `env:"PYCK_WORKFLOW_SUBSCRIPTION_JANITOR_INTERVAL" envDefault:"5m"`
 }
 

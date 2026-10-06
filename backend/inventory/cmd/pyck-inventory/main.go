@@ -210,10 +210,7 @@ func run(ctx context.Context) error {
 	}
 	defer revocationCC.Stop()
 
-	jetstreamPub, err := events.NewEventPublisher(jetstreamClient, natsClient, core.Config.NatsStreamName, core.Config.NatsReplyTimeout)
-	if err != nil {
-		return fmt.Errorf("failed setting up event publisher: %w", err)
-	}
+	jetstreamPub := events.NewEventPublisher(jetstreamClient, natsClient, core.Config.NatsStreamName)
 
 	// Set up event system (mutation hook + outbox handler)
 	eventSystem := events.NewEventSystem(events.EventSystemConfig[*ent.Tx]{
@@ -261,8 +258,8 @@ func run(ctx context.Context) error {
 	// createItemMovementViaProc — which INSERTs the movement directly via
 	// SQL and bypasses the Ent mutation hook — still produces an outbox row
 	// in the same DB transaction. Without this the proc fast path would
-	// silently drop the NATS event for every ItemMovement create, and any
-	// resolver waiting on a workflow reply would block until OutboxReplyTimeout.
+	// silently drop the NATS event for every ItemMovement create, so no
+	// workflow would start for the mutation's transaction-ID handle.
 	stockService, err := stock.New(core.Config.DbDriver, eventSystem.EmitEvent)
 	if err != nil {
 		return fmt.Errorf("failed setting up inventory stock service: %w", err)
@@ -299,7 +296,6 @@ func run(ctx context.Context) error {
 		gqltx.WithIdempotency(idemStore, idempotency.DefaultAuthLookup),
 		gqltx.WithIdempotencyMaxResponseBytes(core.Config.IdempotencyMaxResponseBytes),
 	))
-	gqlServer.Use(gqltx.NewWorkflowReplyMiddleware(eventSystem.Registry(), core.Config.OutboxReplyTimeout))
 	gqlServer.Use(otel.NewTracingMiddleware())
 	gqlServer.Use(resolvers.NewLoaderExtension(dbClient))
 

@@ -403,6 +403,9 @@ func (_q *ReplenishmentOrderQuery) sqlAll(ctx context.Context, hooks ...queryHoo
 	}
 	_spec.Node.Schema = _q.schemaConfig.ReplenishmentOrder
 	ctx = internal.NewSchemaConfigContext(ctx, _q.schemaConfig)
+	if _spec.From != nil {
+		_spec.From.WithContext(ctx)
+	}
 	if len(_q.modifiers) > 0 {
 		_spec.Modifiers = _q.modifiers
 	}
@@ -474,6 +477,9 @@ func (_q *ReplenishmentOrderQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
 	_spec.Node.Schema = _q.schemaConfig.ReplenishmentOrder
 	ctx = internal.NewSchemaConfigContext(ctx, _q.schemaConfig)
+	if _spec.From != nil {
+		_spec.From.WithContext(ctx)
+	}
 	if len(_q.modifiers) > 0 {
 		_spec.Modifiers = _q.modifiers
 	}

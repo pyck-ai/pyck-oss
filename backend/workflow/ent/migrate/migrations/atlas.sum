@@ -1,4 +1,4 @@
-h1:jV0GgCwbk4R2aKGg90+gtzRr0GU3ec9Q7QD5oD/sVVg=
+h1:YxR/6I2SnbJeY2sDZY3ZJserFc0L2JuC2D/oXQ2MfrA=
 20250526135017_default_state.up.sql h1:IP7cytAblxKuuldOpucQG9Oz+7/A21K3NJlIUFnFgls=
 20250619225307_consistent_nulls.up.sql h1:DwedqKZ0yGWhfraQTkSwql6cAhxEMnEQn696wdIzpck=
 20250930101615_workflows_temporal_signal.up.sql h1:a9jaSyoPIymp6x43E//7zjr+ERL50hjszVIBdq5k2n4=
@@ -13,3 +13,8 @@ h1:jV0GgCwbk4R2aKGg90+gtzRr0GU3ec9Q7QD5oD/sVVg=
 20260616120000_add_idempotency_keys.up.sql h1:QLano5Mny25lWcpD07/2CDMcpikZPcMNnPVWQbcZapc=
 20260622134237_reconcile_idempotency_schema_drift.up.sql h1:xWO4sWS0pfHU31oQFBIsicIhmbRiNleCmcXTt0XV1NA=
 20260713102631_worker_scoped_subscriptions.up.sql h1:oR4S+9qyEZqGRgw4crMrpP89ik15Pun2bagbrkFNdT0=
+20260929111710_worker_required_subscriptions.up.sql h1:lBQkcoojl2W7XTmyOaiTyCZGZiUXIFJ5+/cHP1kmhI0=
+20260930100000_normalize_signal_topics.up.sql h1:yZ/CvoM+gErjLARREpD3XDpioHuZ7IwFRR2ZcANf7Lw=
+20260930100100_salvage_outbox_reply_topics.up.sql h1:CXybUVhPnqvd/AstACmDR8xXQZOSwoBnQL/rfax27D0=
+20260930203846_prune_published_outbox.up.sql h1:/VEQVUZICHgTrhMX8EUqG0QTwDAZM1WwYaAmBuAVLUU=
+20261001190542_drop_outbox_with_reply.up.sql h1:ddyQOGhmV0rH7NdJhbEJ+IN+pt4JvYBjfiZnuLYQiEI=

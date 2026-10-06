@@ -8,42 +8,6 @@ import (
 	"github.com/99designs/gqlgen/graphql"
 )
 
-func (_m *Item) ItemMovementItems(ctx context.Context) (result []*ItemMovement, err error) {
-	if fc := graphql.GetFieldContext(ctx); fc != nil && fc.Field.Alias != "" {
-		result, err = _m.NamedItemMovementItems(graphql.GetFieldContext(ctx).Field.Alias)
-	} else {
-		result, err = _m.Edges.ItemMovementItemsOrErr()
-	}
-	if IsNotLoaded(err) {
-		result, err = _m.QueryItemMovementItems().All(ctx)
-	}
-	return result, err
-}
-
-func (_m *Item) ItemTransactions(ctx context.Context) (result []*Transaction, err error) {
-	if fc := graphql.GetFieldContext(ctx); fc != nil && fc.Field.Alias != "" {
-		result, err = _m.NamedItemTransactions(graphql.GetFieldContext(ctx).Field.Alias)
-	} else {
-		result, err = _m.Edges.ItemTransactionsOrErr()
-	}
-	if IsNotLoaded(err) {
-		result, err = _m.QueryItemTransactions().All(ctx)
-	}
-	return result, err
-}
-
-func (_m *Item) ItemStocks(ctx context.Context) (result []*Stock, err error) {
-	if fc := graphql.GetFieldContext(ctx); fc != nil && fc.Field.Alias != "" {
-		result, err = _m.NamedItemStocks(graphql.GetFieldContext(ctx).Field.Alias)
-	} else {
-		result, err = _m.Edges.ItemStocksOrErr()
-	}
-	if IsNotLoaded(err) {
-		result, err = _m.QueryItemStocks().All(ctx)
-	}
-	return result, err
-}
-
 func (_m *Item) ItemSet(ctx context.Context) (result []*ItemSet, err error) {
 	if fc := graphql.GetFieldContext(ctx); fc != nil && fc.Field.Alias != "" {
 		result, err = _m.NamedItemSet(graphql.GetFieldContext(ctx).Field.Alias)

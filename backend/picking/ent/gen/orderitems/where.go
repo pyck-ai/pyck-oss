@@ -701,14 +701,14 @@ func QuantityLTE(v int64) predicate.OrderItems {
 // HasOrder applies the HasEdge predicate on the "order" edge.
 func HasOrder() predicate.OrderItems {
 	return predicate.OrderItems(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, OrderTable, OrderColumn),
-		)
+		step := newOrderStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Order
 		step.Edge.Schema = schemaConfig.OrderItems
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -719,6 +719,7 @@ func HasOrderWith(preds ...predicate.Order) predicate.OrderItems {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Order
 		step.Edge.Schema = schemaConfig.OrderItems
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

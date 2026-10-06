@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/pyck-ai/pyck/backend/common/feature"
 	"github.com/pyck-ai/pyck/backend/common/services/temporal"
 	"github.com/pyck-ai/pyck/backend/common/services/zitadel/sdk"
 	"github.com/pyck-ai/pyck/backend/common/tenant"
@@ -330,8 +331,13 @@ func (*Activities) SetOrgMetadataActivity(ctx context.Context, input SetOrgMetad
 func (a *Activities) CreateTenantInDbActivity(ctx context.Context, input CreateTenantInDbActivityInput) (err error) {
 	tenantID := a.nsGetter.GetTenantID(input.OrganizationID)
 	// Mirror what gqltx does on the GraphQL path: explicit tx + per-attempt
-	// txid so MutationEventHook can stamp the outbox row.
+	// txid. Events are suppressed below, so no outbox row is written for
+	// this tx.
 	serviceUserCtx := authn.Context(ctx, authn.SystemUser())
+	// Tenant is self-tenant, so this write would emit a tenant event. The
+	// registration workflow's tenant row writes are internal and must stay
+	// event-free: suppress explicitly.
+	serviceUserCtx = feature.Context(serviceUserCtx, feature.FEATURE_SUPPRESS_EVENTS)
 	serviceUserCtx = txid.With(serviceUserCtx, txid.New())
 
 	tx, err := a.entClient.Tx(serviceUserCtx)
@@ -406,8 +412,13 @@ func (a *Activities) CreateTenantInDbActivity(ctx context.Context, input CreateT
 func (a *Activities) DeleteTenantFromDbActivity(ctx context.Context, input DeleteTenantFromDbActivityInput) (err error) {
 	tenantID := a.nsGetter.GetTenantID(input.OrganizationID)
 	// Mirror what gqltx does on the GraphQL path: explicit tx + per-attempt
-	// txid so MutationEventHook can stamp the outbox row.
+	// txid. Events are suppressed below, so no outbox row is written for
+	// this tx.
 	serviceUserCtx := authn.Context(ctx, authn.SystemUser())
+	// Tenant is self-tenant, so this write would emit a tenant event. The
+	// registration workflow's tenant row writes are internal and must stay
+	// event-free: suppress explicitly.
+	serviceUserCtx = feature.Context(serviceUserCtx, feature.FEATURE_SUPPRESS_EVENTS)
 	serviceUserCtx = txid.With(serviceUserCtx, txid.New())
 
 	tx, err := a.entClient.Tx(serviceUserCtx)

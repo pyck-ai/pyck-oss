@@ -29,6 +29,7 @@ graphql:
 
       mutation PatchPickingOrderData($id: ID!, $patches: [JSONPatchInput!]!) {
         patchPickingOrderData(id: $id, patches: $patches) {
+          eventCount
           pickingOrder {
             createdAt
             createdBy
@@ -43,11 +44,7 @@ graphql:
             updatedAt
             updatedBy
           }
-          workflows {
-            id
-            runID
-            type
-          }
+          transactionID
         }
       }
     variables: |-

@@ -631,14 +631,14 @@ func SkuContainsFold(v string) predicate.Item {
 // HasItemMovementItems applies the HasEdge predicate on the "itemMovementItems" edge.
 func HasItemMovementItems() predicate.Item {
 	return predicate.Item(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, ItemMovementItemsTable, ItemMovementItemsColumn),
-		)
+		step := newItemMovementItemsStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.ItemMovement
 		step.Edge.Schema = schemaConfig.ItemMovement
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -649,6 +649,7 @@ func HasItemMovementItemsWith(preds ...predicate.ItemMovement) predicate.Item {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.ItemMovement
 		step.Edge.Schema = schemaConfig.ItemMovement
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)
@@ -660,14 +661,14 @@ func HasItemMovementItemsWith(preds ...predicate.ItemMovement) predicate.Item {
 // HasItemTransactions applies the HasEdge predicate on the "itemTransactions" edge.
 func HasItemTransactions() predicate.Item {
 	return predicate.Item(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, ItemTransactionsTable, ItemTransactionsColumn),
-		)
+		step := newItemTransactionsStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Transaction
 		step.Edge.Schema = schemaConfig.Transaction
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -678,6 +679,7 @@ func HasItemTransactionsWith(preds ...predicate.Transaction) predicate.Item {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Transaction
 		step.Edge.Schema = schemaConfig.Transaction
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)
@@ -689,14 +691,14 @@ func HasItemTransactionsWith(preds ...predicate.Transaction) predicate.Item {
 // HasItemStocks applies the HasEdge predicate on the "itemStocks" edge.
 func HasItemStocks() predicate.Item {
 	return predicate.Item(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, ItemStocksTable, ItemStocksColumn),
-		)
+		step := newItemStocksStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Stock
 		step.Edge.Schema = schemaConfig.Stock
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -707,6 +709,7 @@ func HasItemStocksWith(preds ...predicate.Stock) predicate.Item {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Stock
 		step.Edge.Schema = schemaConfig.Stock
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)
@@ -718,14 +721,14 @@ func HasItemStocksWith(preds ...predicate.Stock) predicate.Item {
 // HasItemSet applies the HasEdge predicate on the "itemSet" edge.
 func HasItemSet() predicate.Item {
 	return predicate.Item(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, true, ItemSetTable, ItemSetPrimaryKey...),
-		)
+		step := newItemSetStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.ItemSet
 		step.Edge.Schema = schemaConfig.ItemSetItems
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -736,6 +739,7 @@ func HasItemSetWith(preds ...predicate.ItemSet) predicate.Item {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.ItemSet
 		step.Edge.Schema = schemaConfig.ItemSetItems
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

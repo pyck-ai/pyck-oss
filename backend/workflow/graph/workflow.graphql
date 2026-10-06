@@ -263,6 +263,16 @@ input WorkflowExecutionsWhereInput {
   dataIdIsNil: Boolean
   dataIdNotNil: Boolean
   """
+  transactionID field predicates — the handle mutations return. Filtering by
+  it lists the executions that mutation started. An empty result means the
+  workflows are not started or not visible yet (poll again) or the mutation
+  triggered none. Exact match only (the value is a UUID).
+  """
+  transactionID: ID
+  transactionIDNEQ: ID
+  transactionIDIn: [ID!]
+  transactionIDNotIn: [ID!]
+  """
   targets field predicates (KeywordList — matches if the workflow's targets
   list contains any element of the supplied set; targetsNotIn excludes them).
   """
@@ -510,6 +520,15 @@ type WorkflowEvent {
 extend type Mutation {
   registerWorkflow(input: RegisterWorkflowWithSignalsInput!): Workflow
   deleteWorkflow(id: ID!): WorkflowDeletePayload!
+  """
+  Marks the calling worker's live signal subscriptions as stopped, e.g. on a
+  clean shutdown. A stopped subscription is a hint, not a deletion: the router
+  ignores it while another worker holds running subscriptions on the same
+  workflow, and otherwise keeps routing to it until its TTL lapses. A later
+  registerWorkflowWithSignals from the worker clears the mark. Never touches
+  workflow rows. Idempotent.
+  """
+  unregisterWorker(workerID: String!): UnregisterWorkerPayload!
   cancelWorkflow(input: CancelWorkflowInput!): CancelWorkflowPayload!
 }
 
@@ -519,8 +538,8 @@ input RegisterWorkflowWithSignalsInput {
     name: String!
     taskQueue: String!
     # Identifies the calling worker so each worker owns its own subscriptions.
-    # Omitted by legacy workers, which keep sharing a single subscription set.
-    workerID: String
+    # Required: a blank value is rejected at resolver level.
+    workerID: String!
     signals: [RegisterWorkflowSignalInput!]
 }
 
@@ -533,6 +552,11 @@ input RegisterWorkflowSignalInput {
 
 type WorkflowDeletePayload {
   deletedID: ID
+}
+
+type UnregisterWorkerPayload {
+  "Live subscriptions newly marked stopped; 0 for an unknown worker or a repeat call."
+  stopped: Int!
 }
 
 input CancelWorkflowInput {

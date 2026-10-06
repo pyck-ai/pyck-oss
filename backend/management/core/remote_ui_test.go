@@ -186,9 +186,11 @@ func TestValidateRemoteUITemplate(t *testing.T) {
 		t.Parallel()
 		bad := []string{
 			"", // empty
-			"https://cdn.example.com/web/{{.Slug}}/x.json", // missing {{.Version}}
-			"/{{.Version}}/x.json",                         // not absolute
-			"ftp://cdn.example.com/{{.Version}}",           // wrong scheme
+			"https://cdn.example.com/web/{{.Slug}}/x.json",                                        // missing {{.Version}}
+			"/{{.Version}}/x.json",                                                                // not absolute
+			"ftp://cdn.example.com/{{.Version}}",                                                  // wrong scheme
+			"https://cdn.example.com/{{.Owner}}/../../tenants/other/{{.Version}}/mf.json",         // traversal
+			"https://cdn.example.com/{{.Owner}}/%2e%2e/%2e%2e/tenants/other/{{.Version}}/mf.json", // encoded traversal
 		}
 		for _, tmpl := range bad {
 			assert.ErrorIs(t, core.ValidateRemoteUITemplate(tmpl), core.ErrInvalidUITemplate, tmpl)

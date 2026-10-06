@@ -292,7 +292,7 @@ func BuildPredicates(input *ent.StockWhereInput) []entpredicate.Stock {
 		if *input.HasItem {
 			predicates = append(predicates, entstock.HasItem())
 		} else {
-			predicates = append(predicates, entstock.HasItemWith())
+			predicates = append(predicates, entstock.Not(entstock.HasItem()))
 		}
 	}
 	for _, hw := range input.HasItemWith {
@@ -304,7 +304,7 @@ func BuildPredicates(input *ent.StockWhereInput) []entpredicate.Stock {
 		if *input.HasRepository {
 			predicates = append(predicates, entstock.HasRepository())
 		} else {
-			predicates = append(predicates, entstock.HasRepositoryWith())
+			predicates = append(predicates, entstock.Not(entstock.HasRepository()))
 		}
 	}
 	for _, hw := range input.HasRepositoryWith {

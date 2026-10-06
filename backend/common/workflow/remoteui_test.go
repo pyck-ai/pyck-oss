@@ -75,6 +75,37 @@ func TestResolveUIBundle(t *testing.T) {
 		require.ErrorIs(t, err, ErrUIBundleMetadataMissing)
 	})
 
+	t.Run("an empty per-type version is no override", func(t *testing.T) {
+		t.Parallel()
+		for name, empty := range map[string]*commonpb.Payload{
+			"empty string": mustPayload(t, ""),
+			"nil payload":  nil,
+		} {
+			meta := map[string]*commonpb.Payload{
+				"ui.bundle.slug":                    mustPayload(t, "default"),
+				"ui.bundle.version":                 mustPayload(t, "1.0.0"),
+				"ui.bundle.PickingWorkflow.version": empty,
+			}
+			got, err := resolveUIBundle(meta, "PickingWorkflow")
+			require.NoError(t, err, name)
+			assert.Equal(t, UIBundle{Slug: "default", Version: "1.0.0"}, got, name)
+		}
+	})
+
+	t.Run("an empty version-wide version stays stamped and fails at render", func(t *testing.T) {
+		t.Parallel()
+		meta := map[string]*commonpb.Payload{
+			"ui.bundle.slug":    mustPayload(t, "default"),
+			"ui.bundle.version": mustPayload(t, ""),
+		}
+		got, err := resolveUIBundle(meta, "PickingWorkflow")
+		require.NoError(t, err)
+		assert.Equal(t, UIBundle{Slug: "default", Version: ""}, got)
+
+		_, err = renderUIBundleURLs(got, UIBundleTemplate{Web: "https://cdn/{{.Slug}}/{{.Version}}/mf.json"}, UITemplateContext{})
+		require.ErrorIs(t, err, ErrInvalidUIBundleValue)
+	})
+
 	t.Run("version without slug resolves (slug optional for per-tenant bundles)", func(t *testing.T) {
 		t.Parallel()
 		meta := map[string]*commonpb.Payload{
@@ -108,6 +139,22 @@ func TestUIBundlesFromMetadata(t *testing.T) {
 			{WorkflowType: "", Slug: "default", Version: "1.0.0"},
 			{WorkflowType: "PickingWorkflow", Slug: "picking", Version: "9.9.9"},
 			{WorkflowType: "ReceivingWorkflow", Slug: "", Version: "4e5950c5"},
+		}, got)
+	})
+
+	t.Run("skips an empty per-type version but lists an empty default", func(t *testing.T) {
+		t.Parallel()
+		meta := map[string]*commonpb.Payload{
+			"ui.bundle.version":                 mustPayload(t, ""),
+			"ui.bundle.slug":                    mustPayload(t, "default"),
+			"ui.bundle.PickingWorkflow.version": mustPayload(t, ""),
+			"ui.bundle.PickingWorkflow.slug":    mustPayload(t, "picking"),
+		}
+
+		got, err := uiBundlesFromMetadata(meta)
+		require.NoError(t, err)
+		assert.Equal(t, []DeploymentVersionUIBundle{
+			{WorkflowType: "", Slug: "default", Version: ""},
 		}, got)
 	})
 
@@ -202,6 +249,81 @@ func TestRenderRemoteUIURL(t *testing.T) {
 		for _, tmpl := range []string{"https://cdn/{{.Slug}/x", "https://cdn/{{.Nope}}/x"} {
 			_, err := renderRemoteUIURL(tmpl, render)
 			assert.ErrorIs(t, err, ErrRenderedURLInvalid, tmpl)
+		}
+	})
+}
+
+func TestRenderUIBundleURLs(t *testing.T) {
+	t.Parallel()
+
+	const (
+		tenantA    = "0198a3c1-0000-7000-8000-00000000000a"
+		tenantB    = "0198a3c1-0000-7000-8000-00000000000b"
+		ownerTmpl  = "https://cdn.example.com/{{.Owner}}/{{.Version}}/{{.Slug}}/mf.json"
+		ownerOfA   = "https://cdn.example.com/tenants/" + tenantA + "/1.2.3/picking/mf.json"
+		flavourURL = "https://cdn.example.com/extensions/pyck-go/1.2.3/picking/mf.json"
+	)
+	bundle := UIBundle{Slug: "picking", Version: "1.2.3"}
+	web := func(tmpl string) UIBundleTemplate { return UIBundleTemplate{Web: tmpl} }
+
+	t.Run("renders the caller's own owner prefix", func(t *testing.T) {
+		t.Parallel()
+		got, err := renderUIBundleURLs(bundle, web(ownerTmpl), UITemplateContext{TenantID: tenantA, Env: "dev"})
+		require.NoError(t, err)
+		assert.Equal(t, ownerOfA, got.Web)
+
+		got, err = renderUIBundleURLs(bundle, web(ownerTmpl), UITemplateContext{TenantID: tenantA, Flavour: "pyck-go"})
+		require.NoError(t, err)
+		assert.Equal(t, flavourURL, got.Web)
+	})
+
+	t.Run("refuses an empty tenant", func(t *testing.T) {
+		t.Parallel()
+		for _, tmpl := range []string{ownerTmpl, "https://cdn.example.com/tenants/{{.TenantID}}/{{.Version}}/mf.json"} {
+			_, err := renderUIBundleURLs(bundle, web(tmpl), UITemplateContext{})
+			require.ErrorIs(t, err, ErrInvalidUIBundleValue, tmpl)
+		}
+	})
+
+	t.Run("rejects a tenant id that is not one path segment", func(t *testing.T) {
+		t.Parallel()
+		for _, tenantID := range []string{
+			"../tenants/" + tenantB,
+			"%2e%2e/tenants/" + tenantB,
+			"../" + tenantB,
+			tenantB + "/x",
+			"..",
+		} {
+			got, err := renderUIBundleURLs(bundle, web(ownerTmpl), UITemplateContext{TenantID: tenantID})
+			require.ErrorIs(t, err, ErrInvalidUIBundleValue, tenantID)
+			assert.Nil(t, got, tenantID)
+		}
+	})
+
+	t.Run("rejects an env that is not one path segment", func(t *testing.T) {
+		t.Parallel()
+		tmpl := "https://cdn.example.com/{{.Env}}/{{.Version}}/{{.Slug}}/mf.json"
+		for _, env := range []string{"../../tenants/" + tenantB, "dev/x", "dev?x=1"} {
+			_, err := renderUIBundleURLs(bundle, web(tmpl), UITemplateContext{TenantID: tenantA, Env: env})
+			require.ErrorIs(t, err, ErrInvalidUIBundleValue, env)
+		}
+	})
+
+	t.Run("rejects a tenant id that adds a query parameter", func(t *testing.T) {
+		t.Parallel()
+		tmpl := "https://cdn.example.com/{{.Owner}}/{{.Version}}/mf.json?tenant={{.TenantID}}"
+		_, err := renderUIBundleURLs(bundle, web(tmpl), UITemplateContext{TenantID: tenantB + "&admin=true", Flavour: "pyck-go"})
+		require.ErrorIs(t, err, ErrInvalidUIBundleValue)
+	})
+
+	t.Run("rejects traversal written into the template", func(t *testing.T) {
+		t.Parallel()
+		for _, tmpl := range []string{
+			"https://cdn.example.com/{{.Owner}}/../../tenants/" + tenantB + "/{{.Version}}/mf.json",
+			"https://cdn.example.com/{{.Owner}}/%2e%2e/%2e%2e/tenants/" + tenantB + "/{{.Version}}/mf.json",
+		} {
+			_, err := renderUIBundleURLs(bundle, web(tmpl), UITemplateContext{TenantID: tenantA})
+			require.ErrorIs(t, err, ErrRenderedURLInvalid, tmpl)
 		}
 	})
 }

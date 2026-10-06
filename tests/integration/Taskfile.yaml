@@ -5,7 +5,7 @@ set: [errexit, nounset, pipefail]
 # Taskfile for the integration test module. Unlike the backend modules, this
 # module is NOT part of the backend/* unit-test matrix — it needs a live stack,
 # so run it explicitly (`task test:integration` at the repo root, or the
-# `test:integration:*` goals here, after `task up`). All suites are behind the
+# `test:integration:*` goals here, after `task up:integration`). All suites are behind the
 # `integration` build tag, so a plain `go test ./...` is a no-op here.
 
 tasks:
@@ -16,7 +16,7 @@ tasks:
   test:integration:run:
     desc: >-
       Run every integration suite against the running local stack. Requires
-      `task up` first. scripts/start.sh loads the env, checks the stack, then
+      `task up:integration` first (fast sweep/token-cache cadences). scripts/start.sh loads the env, checks the stack, then
       runs the suites (gotestsum if present). Forwards extra args, e.g.
       `task test:integration:run -- -run TestTenantClaim`.
     cmds:
@@ -26,7 +26,7 @@ tasks:
   # Handy locally; CI brings the stack up as a separate workflow step so it
   # can tear it down even when the tests fail.
   test:integration:up:
-    desc: Boot the stack (task up at repo root) and run the integration suites.
+    desc: Boot the stack with the integration cadences (task up:integration at repo root) and run the integration suites.
     cmds:
-      - task -d .. up
+      - task -d .. up:integration
       - task: test:integration:run

@@ -1,0 +1,11 @@
+info:
+  name: Cross - Custom Event Cannot Forge Entity Events
+  type: folder
+  seq: 1
+
+docs: |-
+  sendCustomEvent re-publishes its event on the subject that a management entity's own CRUD events use. Every service's datatype cache consumes those subjects and trusts the payload's id, so a custom "datatype delete" event used to remove the datatype from every service's cache. This scenario creates a datatype and a typed item, sends that forged event, checks that it is refused, and checks that typed writes keep working. A custom event with a type of its own must still be accepted. Everything is deleted at the end.
+
+
+request:
+  auth: inherit

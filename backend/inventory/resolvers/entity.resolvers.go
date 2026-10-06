@@ -8,7 +8,6 @@ package resolvers
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
@@ -31,22 +30,26 @@ func (r *entityResolver) FindInventoryItemBySku(ctx context.Context, sku string)
 	return inventoryItem, nil
 }
 
-// FindPickingOrderItemBySku is the resolver for the findPickingOrderItemBySku field.
-func (r *entityResolver) FindPickingOrderItemBySku(ctx context.Context, sku string) (*model.PickingOrderItem, error) {
-	inventoryItem, err := r.client.Item.Query().Where(item.Sku(sku)).First(ctx)
+// FindPickingOrderItemBySkuAndTenantID resolves a picking order item's item and
+// warehouse stock. The gateway hands us the order item's sku and tenantID. A
+// SKU is unique per tenant only, so the item and the warehouse are restricted
+// to the order item's tenant, and the stock row follows from their ids: the
+// system user skips the tenant filter and a multi-tenant reader's filter spans
+// every tenant it acts in, so without it another tenant's item and stock under
+// the same SKU could be returned.
+func (r *entityResolver) FindPickingOrderItemBySkuAndTenantID(ctx context.Context, sku string, tenantID uuid.UUID) (*model.PickingOrderItem, error) {
+	inventoryItem, err := r.client.Item.Query().Where(item.Sku(sku), item.TenantID(tenantID)).First(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	warehouseRepo, err := r.client.Repository.Query().
+		Where(repository.TenantID(tenantID)).
 		Where(sql.FieldIsNull(repository.FieldParentID)).
 		Where(sql.FieldEQ(repository.FieldVirtualRepo, false)).
 		First(ctx)
 	if err != nil {
 		return nil, err
-	}
-	if warehouseRepo == nil {
-		return nil, fmt.Errorf("failed reading warehouse: %w", err)
 	}
 	where := predicate.Stock(func(s *sql.Selector) {
 		s.Where(sql.EQ(stock.RepositoryColumn, warehouseRepo.ID))
@@ -58,8 +61,8 @@ func (r *entityResolver) FindPickingOrderItemBySku(ctx context.Context, sku stri
 		Where(where).
 		Order(gen.Desc(stock.FieldVersion)).
 		First(ctx)
-	// "stock not found" err means that stock for item-repository combination is 0
-	if err != nil && !strings.EqualFold(err.Error(), "gen: stock not found") {
+	// No stock row for the item-repository pair means its stock is 0.
+	if err != nil && !gen.IsNotFound(err) {
 		return nil, fmt.Errorf("failed reading stock: %w", err)
 	}
 
@@ -73,6 +76,7 @@ func (r *entityResolver) FindPickingOrderItemBySku(ctx context.Context, sku stri
 
 	response := model.PickingOrderItem{
 		Sku:            sku,
+		TenantID:       tenantID,
 		Item:           inventoryItem,
 		AvailableStock: &availableStock,
 		ReservedStock:  &reservedStock,

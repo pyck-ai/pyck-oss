@@ -22,7 +22,7 @@ This file contains essential guidelines for AI agents working on this codebase.
 - **Messaging**: NATS.io with JetStream for event streaming
 - **Authentication**: Zitadel OIDC/OAuth2
 - **Observability**: OpenTelemetry (OTLP), Jaeger tracing
-- **Storage**: MinIO (S3-compatible)
+- **Storage**: RustFS (S3-compatible)
 - **Container Orchestration**: Docker Compose for local dev, Kubernetes for production
 
 **Microservices:**
@@ -116,7 +116,7 @@ do it in the `tests/integration/` module, not a `backend/<service>` unit test.
 Read [tests/integration/AGENTS.md](./tests/integration/AGENTS.md) first — it documents the
 build tag, the shared `Base`/fixtures, the fresh-tenant provisioning recipe,
 and the poll-don't-sleep rule. Run with `task test:integration` (needs
-`task up`); `task test` never runs these.
+`task up:integration`, the fast-cadence stack); `task test` never runs these.
 
 ### Deployment
 

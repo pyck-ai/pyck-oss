@@ -19,11 +19,8 @@ graphql:
       mutation UnsetDeviceLocation($id: ID!) {
         unsetDeviceLocation(id: $id) {
           deletedID
-          workflows {
-            id
-            runID
-            type
-          }
+          eventCount
+          transactionID
         }
       }
     variables: |-

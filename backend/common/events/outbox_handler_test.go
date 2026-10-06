@@ -24,10 +24,7 @@ import (
 type outboxMockPublisher struct {
 	mu            sync.Mutex
 	publishCalls  []publishCall
-	requestCalls  []requestCall
 	publishErr    error
-	requestReply  *events.EventReply
-	requestErr    error
 	publishRawErr error
 }
 
@@ -37,18 +34,8 @@ type publishCall struct {
 	MsgID   string
 }
 
-type requestCall struct {
-	Topic   string
-	Payload []byte
-	Timeout time.Duration
-}
-
 func (m *outboxMockPublisher) SendMutationEvent(context.Context, *events.MutationEventMessage) error {
 	return nil
-}
-
-func (m *outboxMockPublisher) SendMutationEventWithReply(context.Context, *events.MutationEventMessage) ([]byte, error) {
-	return nil, nil
 }
 
 func (m *outboxMockPublisher) SendUpdateEvent(context.Context, *events.UpdateEventMessage) error {
@@ -83,37 +70,10 @@ func (m *outboxMockPublisher) PublishRaw(_ context.Context, topic string, payloa
 	return m.publishErr
 }
 
-func (m *outboxMockPublisher) RequestRaw(_ context.Context, topic string, payload []byte, timeout time.Duration) (*events.EventReply, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.requestCalls = append(m.requestCalls, requestCall{
-		Topic:   topic,
-		Payload: payload,
-		Timeout: timeout,
-	})
-
-	if m.requestErr != nil {
-		return nil, m.requestErr
-	}
-
-	if m.requestReply != nil {
-		return m.requestReply, nil
-	}
-
-	return &events.EventReply{Success: true}, nil
-}
-
 func (m *outboxMockPublisher) getPublishCalls() []publishCall {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return append([]publishCall{}, m.publishCalls...)
-}
-
-func (m *outboxMockPublisher) getRequestCalls() []requestCall {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return append([]requestCall{}, m.requestCalls...)
 }
 
 var _ events.Publisher = (*outboxMockPublisher)(nil)
@@ -294,6 +254,54 @@ func TestBuildMessageID(t *testing.T) {
 // OUTBOX HANDLER INTEGRATION TESTS
 // =============================================================================
 
+// TestOutboxHandler_RetryKeepsEventID pins that republishing the same outbox
+// row sends the same payload, and so the same event_id, on every attempt: the
+// ID is written once, when the row is created, and never regenerated.
+func TestOutboxHandler_RetryKeepsEventID(t *testing.T) {
+	t.Parallel()
+
+	rowID := uuid.Must(uuid.NewV7())
+	payloadBytes, err := json.Marshal(events.MutationEventMessage{
+		Service:   "test",
+		Schema:    "Order",
+		Operation: "update",
+		ID:        uuid.New(),
+		TenantID:  uuid.New(),
+		EventID:   rowID,
+	})
+	require.NoError(t, err)
+
+	row := events.OutboxRow{
+		ID:            rowID,
+		TransactionID: uuid.New(),
+		Topic:         "pyck.test.order.update",
+		Payload:       payloadBytes,
+	}
+
+	publisher := &outboxMockPublisher{publishRawErr: errors.New("nats down")}
+	outboxFuncs := &mockOutboxFunctions{}
+
+	// First attempt fails, second succeeds.
+	require.NoError(t, events.ProcessEntryForTest(context.Background(), nil, row, publisher,
+		outboxFuncs.markPublished, outboxFuncs.markFailed))
+
+	publisher.mu.Lock()
+	publisher.publishRawErr = nil
+	publisher.mu.Unlock()
+
+	require.NoError(t, events.ProcessEntryForTest(context.Background(), nil, row, publisher,
+		outboxFuncs.markPublished, outboxFuncs.markFailed))
+
+	calls := publisher.getPublishCalls()
+	require.Len(t, calls, 2)
+
+	for _, call := range calls {
+		var msg events.MutationEventMessage
+		require.NoError(t, json.Unmarshal(call.Payload, &msg))
+		assert.Equal(t, row.ID, msg.EventID, "every attempt carries the row ID as event_id")
+	}
+}
+
 func TestOutboxHandler_ProcessEntry(t *testing.T) {
 	t.Parallel()
 
@@ -302,7 +310,6 @@ func TestOutboxHandler_ProcessEntry(t *testing.T) {
 
 		publisher := &outboxMockPublisher{}
 		outboxFuncs := &mockOutboxFunctions{}
-		registry := events.NewReplyRegistry(time.Minute)
 
 		entityID := uuid.New()
 		payload := events.MutationEventMessage{
@@ -314,12 +321,12 @@ func TestOutboxHandler_ProcessEntry(t *testing.T) {
 		}
 		payloadBytes, _ := json.Marshal(payload)
 
+		transactionID := uuid.New()
 		entry := events.OutboxRow{
 			ID:            uuid.New(),
-			TransactionID: uuid.New(),
+			TransactionID: transactionID,
 			Topic:         "pyck.test.order.create",
 			Payload:       payloadBytes,
-			WithReply:     false,
 			RetryCount:    0,
 		}
 
@@ -328,102 +335,27 @@ func TestOutboxHandler_ProcessEntry(t *testing.T) {
 			nil, // tx not used by mock
 			entry,
 			publisher,
-			registry,
 			outboxFuncs.markPublished,
 			outboxFuncs.markFailed,
-			10*time.Second,
 		)
 		require.NoError(t, err)
 
-		// Should have published
+		// Exactly one fire-and-forget publish — the single publish path.
 		calls := publisher.getPublishCalls()
 		require.Len(t, calls, 1)
 		assert.Equal(t, "pyck.test.order.create", calls[0].Topic)
 
+		// The publish must carry a non-empty, deterministic msgID so
+		// JetStream dedup suppresses republishes of the same row (e.g.
+		// after an outbox-handler restart between PublishRaw success and
+		// markEntryPublished).
+		assert.NotEmpty(t, calls[0].MsgID, "publish msgID must be non-empty for JetStream dedup to engage")
+		assert.Contains(t, calls[0].MsgID, transactionID.String(), "msgID should include the transaction ID")
+		assert.Contains(t, calls[0].MsgID, entry.ID.String(), "msgID should include the outbox entry ID")
+
 		// Should be marked as published
 		assert.Len(t, outboxFuncs.markPublishedIDs, 1)
 		assert.Equal(t, entry.ID, outboxFuncs.markPublishedIDs[0])
-	})
-
-	t.Run("processes with-reply entry and delivers workflows", func(t *testing.T) {
-		t.Parallel()
-
-		workflows := []*events.WorkflowDetails{
-			{Type: "TestWorkflow", ID: "wf-123", RunID: "run-abc"},
-		}
-		workflowsJSON, _ := json.Marshal(workflows)
-
-		publisher := &outboxMockPublisher{
-			requestReply: &events.EventReply{
-				Success: true,
-				Data:    workflowsJSON,
-			},
-		}
-		outboxFuncs := &mockOutboxFunctions{}
-		registry := events.NewReplyRegistry(time.Minute)
-		ctx := context.Background()
-		registry.Start(ctx)
-		defer registry.Stop()
-
-		// Pre-register for reply, keyed by the same transaction ID we
-		// put on the outbox row.
-		transactionID := uuid.New()
-		replyCh := registry.Register(transactionID, 5*time.Second)
-
-		entityID := uuid.New()
-		payload := events.MutationEventMessage{
-			Service:   "test",
-			Schema:    "Order",
-			Operation: "create",
-			ID:        entityID,
-			TenantID:  uuid.New(),
-		}
-		payloadBytes, _ := json.Marshal(payload)
-
-		entry := events.OutboxRow{
-			ID:            uuid.New(),
-			TransactionID: transactionID,
-			Topic:         "request.reply.pyck.test.order.create",
-			Payload:       payloadBytes,
-			WithReply:     true,
-			RetryCount:    0,
-		}
-
-		err := events.ProcessEntryForTest(
-			context.Background(),
-			nil,
-			entry,
-			publisher,
-			registry,
-			outboxFuncs.markPublished,
-			outboxFuncs.markFailed,
-			10*time.Second,
-		)
-		require.NoError(t, err)
-
-		// Should have called RequestRaw
-		requestCalls := publisher.getRequestCalls()
-		require.Len(t, requestCalls, 1)
-		assert.Equal(t, "request.reply.pyck.test.order.create", requestCalls[0].Topic)
-
-		// Should have delivered to registry
-		select {
-		case received := <-replyCh:
-			require.Len(t, received, 1)
-			assert.Equal(t, "wf-123", received[0].ID)
-		case <-time.After(time.Second):
-			t.Fatal("timeout waiting for workflows")
-		}
-
-		// Chase fire-and-forget publish must carry a non-empty, deterministic
-		// msgID so JetStream dedup can suppress republishes of the same row
-		// (e.g. after an outbox-handler restart between PublishRaw success
-		// and markEntryPublished). Empty msgID was the pre-fix regression.
-		chaseCalls := publisher.getPublishCalls()
-		require.Len(t, chaseCalls, 1, "expected exactly one chase publish on the fire-and-forget topic")
-		assert.NotEmpty(t, chaseCalls[0].MsgID, "chase publish msgID must be non-empty for JetStream dedup to engage")
-		assert.Contains(t, chaseCalls[0].MsgID, transactionID.String(), "chase publish msgID should include the transaction ID")
-		assert.Contains(t, chaseCalls[0].MsgID, entry.ID.String(), "chase publish msgID should include the outbox entry ID")
 	})
 
 	t.Run("marks entry failed on publish error", func(t *testing.T) {
@@ -433,14 +365,12 @@ func TestOutboxHandler_ProcessEntry(t *testing.T) {
 			publishRawErr: errors.New("NATS connection failed"),
 		}
 		outboxFuncs := &mockOutboxFunctions{}
-		registry := events.NewReplyRegistry(time.Minute)
 
 		entry := events.OutboxRow{
 			ID:            uuid.New(),
 			TransactionID: uuid.New(),
 			Topic:         "pyck.test.order.create",
 			Payload:       []byte(`{}`),
-			WithReply:     false,
 			RetryCount:    0,
 		}
 
@@ -451,10 +381,8 @@ func TestOutboxHandler_ProcessEntry(t *testing.T) {
 			nil,
 			entry,
 			publisher,
-			registry,
 			outboxFuncs.markPublished,
 			outboxFuncs.markFailed,
-			10*time.Second,
 		)
 		// When markFailed succeeds, processEntry returns nil
 		require.NoError(t, err)
@@ -477,14 +405,12 @@ func TestOutboxHandler_ProcessEntry(t *testing.T) {
 		outboxFuncs := &mockOutboxFunctions{
 			markFailedErr: errors.New("database error"),
 		}
-		registry := events.NewReplyRegistry(time.Minute)
 
 		entry := events.OutboxRow{
 			ID:            uuid.New(),
 			TransactionID: uuid.New(),
 			Topic:         "pyck.test.order.create",
 			Payload:       []byte(`{}`),
-			WithReply:     false,
 			RetryCount:    0,
 		}
 
@@ -493,10 +419,8 @@ func TestOutboxHandler_ProcessEntry(t *testing.T) {
 			nil,
 			entry,
 			publisher,
-			registry,
 			outboxFuncs.markPublished,
 			outboxFuncs.markFailed,
-			10*time.Second,
 		)
 		// When markFailed fails, processEntry returns the error
 		require.Error(t, err)
@@ -530,7 +454,6 @@ func TestOutboxHandler_ProcessTransactionGroup(t *testing.T) {
 		markDead := func(_ context.Context, _ *sql.Tx, _ uuid.UUID, _ string) error {
 			return nil
 		}
-		registry := events.NewReplyRegistry(time.Minute)
 
 		id1 := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 		id2 := uuid.MustParse("00000000-0000-0000-0000-000000000002")
@@ -549,12 +472,10 @@ func TestOutboxHandler_ProcessTransactionGroup(t *testing.T) {
 			txID,
 			entries,
 			publisher,
-			registry,
 			markPublished,
 			markFailed,
 			markDead,
 			10,
-			10*time.Second,
 		)
 
 		mu.Lock()
@@ -586,7 +507,6 @@ func TestOutboxHandler_ProcessTransactionGroup(t *testing.T) {
 		markDead := func(_ context.Context, _ *sql.Tx, _ uuid.UUID, _ string) error {
 			return nil
 		}
-		registry := events.NewReplyRegistry(time.Minute)
 
 		txID := uuid.New()
 		entries := []events.OutboxRow{
@@ -601,12 +521,10 @@ func TestOutboxHandler_ProcessTransactionGroup(t *testing.T) {
 			txID,
 			entries,
 			publisher,
-			registry,
 			markPublished,
 			markFailed,
 			markDead,
 			10,
-			10*time.Second,
 		)
 
 		// Should have only processed 2 (first success, second fails)
@@ -632,7 +550,6 @@ func TestOutboxHandler_ProcessTransactionGroup(t *testing.T) {
 			mu.Unlock()
 			return nil
 		}
-		registry := events.NewReplyRegistry(time.Minute)
 
 		// Entry with retry count >= max retries
 		deadTxID := uuid.New()
@@ -646,12 +563,10 @@ func TestOutboxHandler_ProcessTransactionGroup(t *testing.T) {
 			deadTxID,
 			entries,
 			publisher,
-			registry,
 			markPublished,
 			markFailed,
 			markDead,
 			10, // maxRetries
-			10*time.Second,
 		)
 
 		mu.Lock()

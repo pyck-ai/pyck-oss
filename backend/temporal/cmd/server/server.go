@@ -72,10 +72,7 @@ func runServer(ctx context.Context, c *cli.Command) error {
 		return fmt.Errorf("failed setting up jetstream: %w", err)
 	}
 
-	jetstreamPub, err := events.NewEventPublisher(jetstreamClient, natsClient, config.Config.NatsStreamName, config.Config.NatsReplyTimeout)
-	if err != nil {
-		return fmt.Errorf("failed setting up event publisher: %w", err)
-	}
+	jetstreamPub := events.NewEventPublisher(jetstreamClient, natsClient, config.Config.NatsStreamName)
 
 	// Set up event handler for Temporal workflow events
 	eventHandler := temporalevent.NewHandler(ctx, jetstreamPub, config.Config.EventWorkerConfig)
@@ -111,12 +108,33 @@ func runServer(ctx context.Context, c *cli.Command) error {
 		return fmt.Errorf("unable to load temporal configuration: %w", cfgErr)
 	}
 
+	declared := make([]string, 0, len(temporalCfg.Services))
+	for name := range temporalCfg.Services {
+		declared = append(declared, name)
+	}
+
+	flagServices, legacyServices := serviceFlagValues(c)
+
+	services, usedLegacy, err := resolveServices(flagServices, legacyServices, declared)
+	if err != nil {
+		return fmt.Errorf("unable to resolve temporal services: %w", err)
+	}
+
+	if usedLegacy {
+		log.ForContext(ctx).Warn().
+			Msg("the --services flag is deprecated, use --service or TEMPORAL_SERVICES")
+	}
+
+	log.ForContext(ctx).Info().
+		Strs("services", services).
+		Msg("starting temporal services")
+
 	// Set up Temporal Server
 	serverCtx := context.WithoutCancel(ctx)
 	serverCtx, shutdown := signal.NotifyContext(serverCtx, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer shutdown()
 
-	server := NewTemporalServer(eventHandler, logger, temporalCfg, jetstreamClient, config.Config.NatsStreamName, serviceName)
+	server := NewTemporalServer(eventHandler, logger, temporalCfg, services, jetstreamClient, config.Config.NatsStreamName, serviceName)
 
 	if err := server.Start(serverCtx); err != nil {
 		// Start may have allocated the revocation subscriber and the
@@ -148,6 +166,7 @@ type temporalServer struct {
 	eventHandler    *temporalevent.Handler
 	logger          log.Logger
 	cfg             *temporalconfig.Config
+	services        []string
 	server          temporal.Server
 	pgAdapter       *adapter.PostgresAdapter
 	jetstreamClient jetstream.JetStream
@@ -161,6 +180,7 @@ func NewTemporalServer(
 	eventHandler *temporalevent.Handler,
 	logger log.Logger,
 	cfg *temporalconfig.Config,
+	services []string,
 	jetstreamClient jetstream.JetStream,
 	streamName, serviceName string,
 ) *temporalServer {
@@ -168,6 +188,7 @@ func NewTemporalServer(
 		eventHandler:    eventHandler,
 		logger:          logger,
 		cfg:             cfg,
+		services:        services,
 		jetstreamClient: jetstreamClient,
 		streamName:      streamName,
 		serviceName:     serviceName,
@@ -319,11 +340,34 @@ func (s *temporalServer) Start(ctx context.Context) error {
 	nsFilter := authz.NewNamespaceFilter(ctx)
 	opts = append(opts, temporal.WithChainedFrontendGrpcInterceptors(nsFilter))
 
+	// Services this process starts (resolved in runServer); also what
+	// temporal.ForServices gets below.
+	services := s.services
+
 	// Set up event adapter
 	switch config.Config.EventAdapter {
 	case config.AdapterTypeDefault, config.AdapterTypePostgresListen:
 		// PostgreSQL LISTEN/NOTIFY adapter - real-time events using database triggers
 		// This reuses Temporal's existing SQL configuration for the visibility store
+		adapterAddr := adapter.TemporalAddress()
+
+		runListener, skipReason, err := decideListenAdapter(
+			config.Config.EventAdapterServices, services, adapterAddr, workflowServicePorts(cfg, services))
+		if err != nil {
+			return err
+		}
+
+		if !runListener {
+			s.logger.Info().
+				Strs("services", services).
+				Strs("adapter_services", config.Config.EventAdapterServices).
+				Str("temporal_address", adapterAddr).
+				Str("reason", skipReason).
+				Msg("PostgreSQL LISTEN/NOTIFY event adapter disabled for this role")
+
+			break
+		}
+
 		postgresAdapter, err := adapter.NewPostgresAdapter(s.eventHandler, config.Config.EventAdapterPostgresListenChannel, cfg)
 		if err != nil {
 			return fmt.Errorf("failed to create PostgreSQL LISTEN adapter: %w", err)
@@ -346,12 +390,6 @@ func (s *temporalServer) Start(ctx context.Context) error {
 	}
 
 	// Set up Temporal server
-	services := make([]string, 0, len(cfg.Services))
-
-	for name := range cfg.Services {
-		services = append(services, name)
-	}
-
 	opts = append(
 		opts,
 		temporal.ForServices(services),

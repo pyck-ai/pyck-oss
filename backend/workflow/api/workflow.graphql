@@ -76,6 +76,12 @@ mutation DeleteWorkflow($id: ID!) {
   }
 }
 
+mutation UnregisterWorker($workerID: String!) {
+  unregisterWorker(workerID: $workerID) {
+    stopped
+  }
+}
+
 mutation SubmitUserDataInput($input: UserDataInput!) {
   userDataInput(input: $input) {
     result

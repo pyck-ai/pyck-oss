@@ -12,7 +12,7 @@ extend type Query {
   stamped yet) it falls back to the system-wide default bundle if one is
   configured, otherwise it errors.
   """
-  remoteUI(input: RemoteUIQueryInput!): RemoteUI
+  remoteUI(input: RemoteUIQueryInput!): RemoteUIBundleURLs
 
   """
   Lists every Worker Deployment Version in the tenant's namespace with its
@@ -23,15 +23,30 @@ extend type Query {
   workerDeploymentUIBundles(first: Int, after: String): DeploymentVersionUIConnection!
 }
 
+extend type WorkflowExecutionInfo {
+  """
+  Fully rendered web + mobile UI bundle URLs for this execution, rendered with
+  the templates and flavour of the execution's own tenant.
+
+  Null when there is no UI to load (no pinned deployment version, no stamped
+  bundle and no configured default, or a tenant without URL templates). The
+  field never raises an error: any resolution failure also yields null; use
+  the top-level remoteUI query for the reason on a single execution.
+  """
+  remoteUI: RemoteUIBundleURLs
+}
+
 input RemoteUIQueryInput {
   workflowID: String!
   workflowExecutionID: String!
 }
 
-"""Fully rendered web + mobile UI bundle URLs."""
-type RemoteUI {
-  web: String!
-  mobile: String!
+"""Fully rendered UI bundle asset URLs."""
+type RemoteUIBundleURLs {
+  """Absolute URL of the web bundle; empty when the tenant has no web template."""
+  webURL: String!
+  """Absolute URL of the mobile bundle; empty when the tenant has no mobile template."""
+  mobileURL: String!
 }
 
 """The UI bundle (slug + version) a deployment version ships."""

@@ -8,7 +8,7 @@ The bootstrap process initializes external dependencies before the management se
 |---|---|---|
 | `zitadel` | `zitadel-bootstrap` | Seeds organizations, users, projects, roles, and exports credentials |
 | `temporal` | `temporal-bootstrap` | Creates the Temporal namespace and registers setup workflows |
-| `minio` | `minio-bootstrap` | Ensures the configured S3 bucket exists |
+| `minio` | `bootstrap-rustfs` | Ensures the configured S3 bucket exists on any S3-compatible store (RustFS in Docker Compose) |
 
 Each module is selected via the `PYCK_BOOTSTRAP_MODULE` environment variable.
 
@@ -84,7 +84,7 @@ The `zitadel-bootstrap` container requires several volume mounts to function cor
 | Project root (`../../../`) | `/data/env/` | Project root directory — `.env.local` with exported tokens is written here for other services to consume |
 | `config/bootstrap.yaml` | `/data/config/bootstrap.yaml` | Optional external bootstrap config file (used when `PYCK_BOOTSTRAP_CONFIG_FILE` is set) |
 
-The `minio-bootstrap` and `temporal-bootstrap` containers use `env_file:` to load environment variables directly and do not require additional volume mounts beyond the base `.env` files.
+The `bootstrap-rustfs` and `temporal-bootstrap` containers use `env_file:` to load environment variables directly and do not require additional volume mounts beyond the base `.env` files.
 
 ## Zitadel
 

@@ -81,7 +81,7 @@ func TestHandler_Notify(t *testing.T) {
 			expectCalled: true,
 		},
 		{
-			name: "publisher error",
+			name: "publisher error is retried",
 			event: &events.TemporalWorkflowStateChangeMessage{
 				Namespace:  "test-namespace",
 				RunID:      "run-123",
@@ -89,7 +89,9 @@ func TestHandler_Notify(t *testing.T) {
 				WorkflowID: "workflow-456",
 			},
 			setupMocks: func(mp *mocks.MockPublisher) {
-				mp.ExpectTemporalWorkflowEvent().Return(assert.AnError)
+				// First attempt fails, the retry succeeds.
+				mp.ExpectTemporalWorkflowEvent().Return(assert.AnError).Once()
+				mp.ExpectTemporalWorkflowEvent().Return(nil).Once()
 			},
 			expectCalled: true,
 		},

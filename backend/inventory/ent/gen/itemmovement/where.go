@@ -1006,14 +1006,14 @@ func PositionLTE(v int) predicate.ItemMovement {
 // HasFrom applies the HasEdge predicate on the "from" edge.
 func HasFrom() predicate.ItemMovement {
 	return predicate.ItemMovement(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, FromTable, FromColumn),
-		)
+		step := newFromStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Repository
 		step.Edge.Schema = schemaConfig.ItemMovement
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -1024,6 +1024,7 @@ func HasFromWith(preds ...predicate.Repository) predicate.ItemMovement {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Repository
 		step.Edge.Schema = schemaConfig.ItemMovement
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)
@@ -1035,14 +1036,14 @@ func HasFromWith(preds ...predicate.Repository) predicate.ItemMovement {
 // HasTo applies the HasEdge predicate on the "to" edge.
 func HasTo() predicate.ItemMovement {
 	return predicate.ItemMovement(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, ToTable, ToColumn),
-		)
+		step := newToStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Repository
 		step.Edge.Schema = schemaConfig.ItemMovement
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -1053,6 +1054,7 @@ func HasToWith(preds ...predicate.Repository) predicate.ItemMovement {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Repository
 		step.Edge.Schema = schemaConfig.ItemMovement
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)
@@ -1064,14 +1066,14 @@ func HasToWith(preds ...predicate.Repository) predicate.ItemMovement {
 // HasItem applies the HasEdge predicate on the "item" edge.
 func HasItem() predicate.ItemMovement {
 	return predicate.ItemMovement(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, ItemTable, ItemColumn),
-		)
+		step := newItemStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Item
 		step.Edge.Schema = schemaConfig.ItemMovement
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -1082,6 +1084,7 @@ func HasItemWith(preds ...predicate.Item) predicate.ItemMovement {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Item
 		step.Edge.Schema = schemaConfig.ItemMovement
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

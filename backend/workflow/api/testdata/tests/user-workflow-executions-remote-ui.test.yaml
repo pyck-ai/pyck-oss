@@ -1,0 +1,52 @@
+---
+name: "User - WorkflowExecutions RemoteUI Field"
+description: >
+  Smoke test for the remoteUI field on workflowExecutions nodes (#1455). The
+  generated GetWorkflowExecutions operation selects remoteUI on every node, so
+  a listing must return a valid connection with no GraphQL errors whatever the
+  tenant's executions or UI configuration: an execution with no UI to load
+  yields null, not an error. URL rendering for pinned executions is covered by
+  the resolver unit tests.
+steps:
+  - name: "List executions with remoteUI selected"
+    operation: workflow.getWorkflowExecutions
+    vars:
+      first: 10
+      orderBy:
+        direction: DESC
+        field: START_TIME
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors (null remoteUI is not an error)"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Connection envelope returned"
+        assertions:
+          - ref: res.body.data.workflowExecutions.totalCount
+            greaterOrEqual: 0
+          - ref: res.body.data.workflowExecutions.edges
+            isType: "array"
+
+  - name: "Running executions with remoteUI selected"
+    operation: workflow.getWorkflowExecutions
+    vars:
+      first: 10
+      where:
+        status: "Running"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Connection envelope returned"
+        assertions:
+          - ref: res.body.data.workflowExecutions.edges
+            isType: "array"

@@ -123,10 +123,6 @@ type EntityEventsOutboxWhereInput struct {
 	TopicEqualFold    *string  `json:"topicEqualFold,omitempty"`
 	TopicContainsFold *string  `json:"topicContainsFold,omitempty"`
 
-	// "with_reply" field predicates.
-	WithReply    *bool `json:"withReply,omitempty"`
-	WithReplyNEQ *bool `json:"withReplyNEQ,omitempty"`
-
 	// "retry_count" field predicates.
 	RetryCount      *int  `json:"retryCount,omitempty"`
 	RetryCountNEQ   *int  `json:"retryCountNEQ,omitempty"`
@@ -549,12 +545,6 @@ func (i *EntityEventsOutboxWhereInput) P() (predicate.EntityEventsOutbox, error)
 	}
 	if i.TopicContainsFold != nil {
 		predicates = append(predicates, entityeventsoutbox.TopicContainsFold(*i.TopicContainsFold))
-	}
-	if i.WithReply != nil {
-		predicates = append(predicates, entityeventsoutbox.WithReplyEQ(*i.WithReply))
-	}
-	if i.WithReplyNEQ != nil {
-		predicates = append(predicates, entityeventsoutbox.WithReplyNEQ(*i.WithReplyNEQ))
 	}
 	if i.RetryCount != nil {
 		predicates = append(predicates, entityeventsoutbox.RetryCountEQ(*i.RetryCount))

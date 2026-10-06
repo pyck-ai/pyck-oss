@@ -108,11 +108,10 @@ type ZitadelConfig struct {
 }
 
 type NatsConfig struct {
-	NatsUrl            string        `env:"PYCK_NATS_URL,notEmpty,required" json:"-"`
-	NatsStreamName     string        `env:"PYCK_NATS_STREAM_NAME,notEmpty,required"`
-	NatsWsUrl          string        `env:"PYCK_NATS_WS_URL,notEmpty,required"`
-	NatsReplicasNumber int           `env:"PYCK_NATS_REPLICAS_NO,notEmpty,required"`
-	NatsReplyTimeout   time.Duration `env:"PYCK_NATS_REPLY_TIMEOUT,notEmpty" envDefault:"100ms"`
+	NatsUrl            string `env:"PYCK_NATS_URL,notEmpty,required" json:"-"`
+	NatsStreamName     string `env:"PYCK_NATS_STREAM_NAME,notEmpty,required"`
+	NatsWsUrl          string `env:"PYCK_NATS_WS_URL,notEmpty,required"`
+	NatsReplicasNumber int    `env:"PYCK_NATS_REPLICAS_NO,notEmpty,required"`
 }
 
 type GraphQLConfig struct {
@@ -132,15 +131,29 @@ type IdempotencyConfig struct {
 	IdempotencyMaxResponseBytes int `env:"PYCK_IDEMPOTENCY_MAX_RESPONSE_BYTES,notEmpty" envDefault:"1048576"`
 }
 
+// EventOutboxConfig holds the transactional-outbox tunables shared by every
+// service (see common/events).
+//
+// Retries: a failed publish is retried with backoff 2^n seconds capped at 1h,
+// so OutboxMaxRetries=15 spans about 4h before the transaction group is
+// dead-lettered.
+//
+// Pruning: the OutboxJanitor deletes published rows (published_at set) older
+// than OutboxPruneRetention, every OutboxPruneInterval, at most
+// OutboxPruneBatchSize rows per statement, pausing OutboxPruneBatchPause between
+// full batches to smooth WAL and replica lag. The 72h default equals the
+// JetStream stream MaxAge. Unpublished and dead rows are never pruned.
 type EventOutboxConfig struct {
 	OutboxPollInterval         time.Duration `env:"PYCK_OUTBOX_POLL_INTERVAL,notEmpty" envDefault:"100ms"`
 	OutboxBatchSize            int           `env:"PYCK_OUTBOX_BATCH_SIZE,notEmpty" envDefault:"100"`
-	OutboxReplyTimeout         time.Duration `env:"PYCK_OUTBOX_REPLY_TIMEOUT,notEmpty" envDefault:"5s"`
-	OutboxMaxRetries           int           `env:"PYCK_OUTBOX_MAX_RETRIES,notEmpty" envDefault:"10"`
+	OutboxMaxRetries           int           `env:"PYCK_OUTBOX_MAX_RETRIES,notEmpty" envDefault:"15"`
 	OutboxNotifyChannel        string        `env:"PYCK_OUTBOX_NOTIFY_CHANNEL,notEmpty" envDefault:"outbox_events"`
 	OutboxListenerPingInterval time.Duration `env:"PYCK_OUTBOX_LISTENER_PING_INTERVAL,notEmpty" envDefault:"3s"`
-	OutboxReplyCleanupInterval time.Duration `env:"PYCK_OUTBOX_REPLY_CLEANUP_INTERVAL,notEmpty" envDefault:"5s"`
 	OutboxListenNotifyEnabled  bool          `env:"PYCK_OUTBOX_LISTEN_NOTIFY_ENABLED,notEmpty" envDefault:"true"`
 	OutboxClaimLease           time.Duration `env:"PYCK_OUTBOX_CLAIM_LEASE,notEmpty" envDefault:"30s"`
 	OutboxDLQDrainInterval     time.Duration `env:"PYCK_OUTBOX_DLQ_DRAIN_INTERVAL,notEmpty" envDefault:"5s"`
+	OutboxPruneInterval        time.Duration `env:"PYCK_OUTBOX_PRUNE_INTERVAL,notEmpty" envDefault:"5m"`
+	OutboxPruneRetention       time.Duration `env:"PYCK_OUTBOX_PRUNE_RETENTION,notEmpty" envDefault:"72h"`
+	OutboxPruneBatchSize       int           `env:"PYCK_OUTBOX_PRUNE_BATCH_SIZE,notEmpty" envDefault:"1000"`
+	OutboxPruneBatchPause      time.Duration `env:"PYCK_OUTBOX_PRUNE_BATCH_PAUSE,notEmpty" envDefault:"100ms"`
 }

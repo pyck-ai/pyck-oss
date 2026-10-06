@@ -701,14 +701,14 @@ func QuantityLTE(v int64) predicate.InboundItem {
 // HasInbound applies the HasEdge predicate on the "inbound" edge.
 func HasInbound() predicate.InboundItem {
 	return predicate.InboundItem(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, InboundTable, InboundColumn),
-		)
+		step := newInboundStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Inbound
 		step.Edge.Schema = schemaConfig.InboundItem
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -719,6 +719,7 @@ func HasInboundWith(preds ...predicate.Inbound) predicate.InboundItem {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Inbound
 		step.Edge.Schema = schemaConfig.InboundItem
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -17,11 +18,15 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/feature"
 	json_schema "github.com/pyck-ai/pyck/backend/common/json-schema"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 
+	ent "github.com/pyck-ai/pyck/backend/workflow/ent/gen"
+	entworkflowsignal "github.com/pyck-ai/pyck/backend/workflow/ent/gen/workflowsignal"
+	"github.com/pyck-ai/pyck/backend/workflow/resolvers"
 	"github.com/pyck-ai/pyck/backend/workflow/services"
 )
 
@@ -49,8 +54,8 @@ var (
 		registerWorkflow(input: {
 			name: "{{.Name}}",
 			taskQueue: "{{.TaskQueue}}",
-			{{- if .WorkerID }}
-			workerID: "{{.WorkerID}}",
+			{{- if not .NoWorkerID }}
+			workerID: "{{or .WorkerID "test-worker"}}",
 			{{- end }}
 			{{- if .DataTypeID }}
 			dataTypeID: "{{.DataTypeID}}",
@@ -91,6 +96,12 @@ var (
 			createdBy
 			updatedAt
 			updatedBy
+		}
+	}`)
+
+	unregisterWorker = resolver.ParseTemplate(`mutation {
+		unregisterWorker(workerID: "{{.WorkerID}}") {
+			stopped
 		}
 	}`)
 
@@ -309,6 +320,13 @@ func natsSignalTopic(t *testing.T, tenantID *uuid.UUID, op string) string {
 		tid = tenantID.String()
 	}
 	return fmt.Sprintf("request.reply.pyck.%s.crud.workflow.workflowsignal.*.%s", tid, op)
+}
+
+// invalidSubjectErr is the full message registerWorkflow returns when a
+// signal topic is not a valid NATS subscription subject: the
+// ErrInvalidSignalTopic text the client sees, then the quoted subject.
+func invalidSubjectErr(subject string) string {
+	return resolvers.ErrInvalidSignalTopic.Error() + ": " + strconv.Quote(subject) + " is not a valid NATS subscription subject"
 }
 
 func natsSignalTopicAttrOp(t *testing.T, tenantID *uuid.UUID, op string) string {
@@ -578,6 +596,236 @@ func TestWorkflowRegister_Signals(t *testing.T) {
 		te.assertNoEvents(ctx)
 	})
 
+	// Empty tokens pass Parse and Matchable but are not valid subscription
+	// subjects, and the signal router reads an empty token as a wildcard: a
+	// stored row would fire on events the caller never named. Each row
+	// expects the refusal to quote the input topic, before tenant expansion.
+	t.Run("refuses topics that are not valid subscription subjects", func(t *testing.T) {
+		t.Parallel()
+
+		const entityID = "123e4567-e89b-12d3-a456-426614174000"
+		a := tenantA.String()
+
+		cases := []struct {
+			name   string
+			topics []string
+			// wantErr is the sentinel text plus the full quoted subject and
+			// the guard's phrase, so a row cannot pass through the Parse,
+			// Matchable or duplicate guards, and the guard cannot wrap the
+			// wrong sentinel.
+			wantErr string
+		}{
+			{
+				name:    "concrete tenant empty service",
+				topics:  []string{"request.reply.pyck." + a + ".crud..item." + entityID + ".created"},
+				wantErr: invalidSubjectErr(`request.reply.pyck.` + a + `.crud..item.` + entityID + `.created`),
+			},
+			{
+				name:    "concrete tenant empty trailing operation",
+				topics:  []string{"request.reply.pyck." + a + ".crud.workflow.item." + entityID + "."},
+				wantErr: invalidSubjectErr(`request.reply.pyck.` + a + `.crud.workflow.item.` + entityID + `.`),
+			},
+			{
+				name:    "wildcard tenant empty service",
+				topics:  []string{"request.reply.pyck.*.crud..item.*.created"},
+				wantErr: invalidSubjectErr(`request.reply.pyck.*.crud..item.*.created`),
+			},
+			{
+				name:    "wildcard tenant empty stream",
+				topics:  []string{"request.reply..*.crud.workflow.item.*.created"},
+				wantErr: invalidSubjectErr(`request.reply..*.crud.workflow.item.*.created`),
+			},
+			{
+				name:    "temporal concrete tenant empty task queue",
+				topics:  []string{"pyck." + a + ".temporal..t.w.r.s"},
+				wantErr: invalidSubjectErr(`pyck.` + a + `.temporal..t.w.r.s`),
+			},
+			{
+				name:    "temporal wildcard tenant empty task queue",
+				topics:  []string{"pyck.*.temporal..t.w.r.s"},
+				wantErr: invalidSubjectErr(`pyck.*.temporal..t.w.r.s`),
+			},
+			{
+				// Regression row: an empty namespace would read as the
+				// wildcard tenant and expansion would fill it in. Parse
+				// already refuses it as a namespace that is not a UUID.
+				name:    "temporal empty namespace",
+				topics:  []string{"pyck..temporal.q.t.w.r.s"},
+				wantErr: "invalid namespace UUID",
+			},
+			{
+				// The valid first signal must not be stored either: the
+				// refusal rolls back the whole registration.
+				name: "valid signal in the same batch is not stored",
+				topics: []string{
+					natsSignalTopicAttrOp(t, &tenantA, "created"),
+					"request.reply.pyck." + a + ".crud..item." + entityID + ".created",
+				},
+				wantErr: invalidSubjectErr(`request.reply.pyck.` + a + `.crud..item.` + entityID + `.created`),
+			},
+			{
+				// Regression row: a repeated invalid topic is reported as
+				// invalid, not as a duplicate. Two inputs share a dedup key
+				// only when they expand to the same subject, so the first
+				// copy always meets the syntax check before the second
+				// reaches the duplicate check, wherever the check sits in
+				// the loop body. The row pins the reported error, not the
+				// order of the two checks.
+				name: "invalid topic sent twice is reported as invalid",
+				topics: []string{
+					"request.reply.pyck." + a + ".crud..item." + entityID + ".created",
+					"request.reply.pyck." + a + ".crud..item." + entityID + ".created",
+				},
+				wantErr: invalidSubjectErr(`request.reply.pyck.` + a + `.crud..item.` + entityID + `.created`),
+			},
+			{
+				// Regression row: whitespace inside a token is already
+				// refused by Matchable before the expansion loop.
+				name:    "space inside the service token",
+				topics:  []string{"request.reply.pyck." + a + ".crud.work flow.item." + entityID + ".created"},
+				wantErr: "can never match a published event",
+			},
+		}
+
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+				te := setup(t)
+				defer te.Close(t)
+				ctx := te.ctx(userWriter)
+
+				signals := make([]SignalInput, 0, len(tc.topics))
+				for _, topic := range tc.topics {
+					signals = append(signals, SignalInput{NATSTopic: topic, TemporalSignal: "S", TemporalSignalType: "intermediate", FilterRule: "true"})
+				}
+
+				execErr(te, ctx, registerWorkflow, map[string]any{
+					"Name":       "wf_invalid_subject",
+					"TaskQueue":  "test-queue",
+					"DataTypeID": itemDataTypeID,
+					"DataName":   "wf_invalid_subject",
+					"DataWeight": 0,
+					"Signals":    signals,
+				}, tc.wantErr)
+
+				assert.Empty(t, te.Ent.WorkflowSignal.Query().AllX(ctx))
+				assert.Empty(t, te.Ent.Workflow.Query().AllX(ctx))
+				te.assertNoEvents(ctx)
+			})
+		}
+	})
+
+	// A START signal starts a workflow on every matching event, so an empty
+	// token read as a wildcard would start workflows for events the caller
+	// never named. The guard must cover START, not only intermediate.
+	t.Run("start signal with empty service token is refused", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userWriter)
+
+		topic := "request.reply.pyck." + tenantA.String() + ".crud..item.*.created"
+		execErr(te, ctx, registerWorkflow, map[string]any{
+			"Name":       "wf_invalid_subject_start",
+			"TaskQueue":  "test-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "wf_invalid_subject_start",
+			"DataWeight": 0,
+			"Signals": []SignalInput{
+				{NATSTopic: topic, TemporalSignal: "", TemporalSignalType: "start", FilterRule: "true"},
+			},
+		}, invalidSubjectErr(topic))
+
+		assert.Empty(t, te.Ent.WorkflowSignal.Query().AllX(ctx))
+		assert.Empty(t, te.Ent.Workflow.Query().AllX(ctx))
+		te.assertNoEvents(ctx)
+	})
+
+	t.Run("refused invalid subject leaves earlier signals untouched", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userWriter)
+
+		valid := natsSignalTopicAttrOp(t, &tenantA, "created")
+		vars := func(topic string) map[string]any {
+			return map[string]any{
+				"Name":       "wf_invalid_subject_rereg",
+				"TaskQueue":  "test-queue",
+				"DataTypeID": itemDataTypeID,
+				"DataName":   "wf_invalid_subject_rereg",
+				"DataWeight": 0,
+				"Signals": []SignalInput{
+					{NATSTopic: topic, TemporalSignal: "S", TemporalSignalType: "intermediate", FilterRule: "true"},
+				},
+			}
+		}
+
+		execOK[registerWorkflowData](te, ctx, registerWorkflow, vars(valid))
+		before := te.Ent.WorkflowSignal.Query().AllX(ctx)
+		require.Len(t, before, 1)
+		te.clearEvents(ctx)
+
+		invalid := "request.reply.pyck." + tenantA.String() + ".crud..item.*.created"
+		execErr(te, ctx, registerWorkflow, vars(invalid),
+			invalidSubjectErr(invalid))
+
+		after := te.Ent.WorkflowSignal.Query().AllX(ctx)
+		require.Len(t, after, 1)
+		assert.Equal(t, before[0].ID, after[0].ID)
+		// The valid request.reply.* signal is stored in the normalised form.
+		assert.Equal(t, strings.TrimPrefix(valid, "request.reply."), after[0].NatsTopic)
+		assert.True(t, after[0].DeletedAt.IsZero(), "the refused re-registration must not soft-delete the stored signal")
+		te.assertNoEvents(ctx)
+	})
+
+	// A ">" tail on a mutation topic is no longer a valid signal: once the
+	// request.reply prefix is dropped it also parses as an update event, so
+	// the topic is ambiguous. The Temporal state-change tail is still valid.
+	t.Run("full wildcard tail is still accepted", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userWriter)
+
+		execOK[registerWorkflowData](te, ctx, registerWorkflow, map[string]any{
+			"Name":       "wf_full_wildcard_tail",
+			"TaskQueue":  "test-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "wf_full_wildcard_tail",
+			"DataWeight": 0,
+			"Signals": []SignalInput{
+				{NATSTopic: "pyck." + tenantA.String() + ".temporal.q.>", TemporalSignal: "B", TemporalSignalType: "intermediate", FilterRule: "true"},
+			},
+		})
+
+		got := te.Ent.WorkflowSignal.Query().Select(entworkflowsignal.FieldNatsTopic).StringsX(ctx)
+		assert.ElementsMatch(t, []string{
+			"pyck." + tenantA.String() + ".temporal.q.>",
+		}, got)
+	})
+
+	t.Run("full wildcard tail on a mutation topic is refused as ambiguous", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		execErr(te, ctx, registerWorkflow, map[string]any{
+			"Name":       "wf_full_wildcard_tail_ambiguous",
+			"TaskQueue":  "test-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "wf_full_wildcard_tail_ambiguous",
+			"DataWeight": 0,
+			"Signals": []SignalInput{
+				{NATSTopic: "request.reply.pyck.*.crud.workflow.>", TemporalSignal: "A", TemporalSignalType: "intermediate", FilterRule: "true"},
+			},
+		}, "invalid nats topic")
+
+		assert.Empty(t, te.Ent.WorkflowSignal.Query().AllX(ctx))
+		te.assertNoEvents(ctx)
+	})
+
 	t.Run("wildcard single segment allowed", func(t *testing.T) {
 		t.Parallel()
 		te := setup(t)
@@ -632,6 +880,117 @@ func TestWorkflowRegister_Signals(t *testing.T) {
 		})
 	})
 
+	t.Run("wildcard tenant expansion keeps other wildcards", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		execOK[registerWorkflowData](te, ctx, registerWorkflow, map[string]any{
+			"Name":       "wf_wildcard_tenant_expansion",
+			"TaskQueue":  "test-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "wf_wildcard_tenant_expansion",
+			"DataWeight": 0,
+			"Signals": []SignalInput{
+				{NATSTopic: "request.reply.pyck.*.crud.inventory.*.*.created", TemporalSignal: "A", TemporalSignalType: "intermediate", FilterRule: "true"},
+				{NATSTopic: "pyck.*.temporal.*.childworkflow.*.*.completed", TemporalSignal: "B", TemporalSignalType: "intermediate", FilterRule: "true"},
+			},
+		})
+
+		got := te.Ent.WorkflowSignal.Query().Select(entworkflowsignal.FieldNatsTopic).StringsX(ctx)
+		assert.ElementsMatch(t, []string{
+			// The legacy request.reply.* form is stored fire-and-forget, with
+			// its wildcard tokens intact.
+			"pyck." + tenantA.String() + ".crud.inventory.*.*.created",
+			"pyck." + tenantA.String() + ".temporal.*.childworkflow.*.*.completed",
+		}, got)
+	})
+
+	t.Run("topic that can never match is refused", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		execErr(te, ctx, registerWorkflow, map[string]any{
+			"Name":       "wf_unmatchable_topic",
+			"TaskQueue":  "test-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "wf_unmatchable_topic",
+			"DataWeight": 0,
+			"Signals": []SignalInput{
+				{NATSTopic: "pyck.*.temporal.*.ChildWorkflow.*.*.completed", TemporalSignal: "A", TemporalSignalType: "intermediate", FilterRule: "true"},
+			},
+		}, "can never match a published event")
+
+		assert.Empty(t, te.Ent.WorkflowSignal.Query().AllX(ctx))
+	})
+
+	t.Run("topic that parses as the legacy request reply form is refused", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		// Wildcards match the literal request, reply and crud tokens, so the
+		// prefix strip does not apply and the stored subject would stay in
+		// the legacy form that nothing publishes to.
+		execErr(te, ctx, registerWorkflow, map[string]any{
+			"Name":       "wf_legacy_form_wildcards",
+			"TaskQueue":  "test-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "wf_legacy_form_wildcards",
+			"DataWeight": 0,
+			"Signals": []SignalInput{
+				{NATSTopic: "*.*.*.*.*.*.*.*.*", TemporalSignal: "A", TemporalSignalType: "intermediate", FilterRule: "true"},
+			},
+		}, "can never match a published event")
+
+		assert.Empty(t, te.Ent.WorkflowSignal.Query().AllX(ctx))
+	})
+
+	t.Run("temporal topic with a non-UUID namespace is refused", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		execErr(te, ctx, registerWorkflow, map[string]any{
+			"Name":       "wf_non_uuid_namespace",
+			"TaskQueue":  "test-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "wf_non_uuid_namespace",
+			"DataWeight": 0,
+			"Signals": []SignalInput{
+				{NATSTopic: "pyck.default.temporal.q.t.w.r.s", TemporalSignal: "A", TemporalSignalType: "intermediate", FilterRule: "true"},
+			},
+		}, "invalid nats topic")
+
+		assert.Empty(t, te.Ent.WorkflowSignal.Query().AllX(ctx))
+	})
+
+	t.Run("temporal topic with a dashless namespace UUID is refused", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		dashless := strings.ReplaceAll(tenantA.String(), "-", "")
+		execErr(te, ctx, registerWorkflow, map[string]any{
+			"Name":       "wf_dashless_namespace",
+			"TaskQueue":  "test-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "wf_dashless_namespace",
+			"DataWeight": 0,
+			"Signals": []SignalInput{
+				{NATSTopic: "pyck." + dashless + ".temporal.q.t.w.r.s", TemporalSignal: "A", TemporalSignalType: "intermediate", FilterRule: "true"},
+			},
+		}, "can never match a published event")
+
+		assert.Empty(t, te.Ent.WorkflowSignal.Query().AllX(ctx))
+	})
+
 	t.Run("wildcard no tenant access fails", func(t *testing.T) {
 		t.Parallel()
 		te := setup(t)
@@ -665,6 +1024,123 @@ func TestWorkflowRegister_Signals(t *testing.T) {
 	})
 }
 
+// TestWorkflowRegister_SignalWithStartAndByIDKinds: the two routed-by-ID kinds
+// round-trip through registerWorkflow, and a kind plus signal name is one
+// subscription identity (same topic, same name, two kinds are two rows; same
+// kind and name twice is a duplicate).
+func TestWorkflowRegister_SignalWithStartAndByIDKinds(t *testing.T) {
+	t.Parallel()
+
+	te := setup(t)
+	defer te.Close(t)
+	ctx := te.ctx(userA)
+
+	topic := natsSignalTopicAttrOp(t, &tenantA, "updated")
+
+	data := execOK[registerWorkflowData](te, ctx, registerWorkflow, map[string]any{
+		"Name":       "wf_sws_kinds",
+		"TaskQueue":  "test-queue",
+		"DataTypeID": itemDataTypeID,
+		"DataName":   "wf_sws_kinds",
+		"DataWeight": 0,
+		"Signals": []SignalInput{
+			{NATSTopic: topic, TemporalSignal: "Updated", TemporalSignalType: "signal_with_start", FilterRule: "true"},
+			{NATSTopic: topic, TemporalSignal: "Updated", TemporalSignalType: "signal_by_id", FilterRule: "true"},
+			{NATSTopic: topic, TemporalSignal: "Updated", TemporalSignalType: "intermediate", FilterRule: "true"},
+		},
+	})
+
+	rows, err := te.Ent.WorkflowSignal.Query().
+		Where(entworkflowsignal.WorkflowIDEQ(data.RegisterWorkflow.ID), entworkflowsignal.DeletedAtIsNil()).
+		AllPages(te.ctx(userA), mixin.Limit)
+	require.NoError(t, err)
+
+	got := map[entworkflowsignal.TemporalSignalType]string{}
+	for _, r := range rows {
+		got[r.TemporalSignalType] = r.TemporalSignal
+	}
+
+	assert.Equal(t, map[entworkflowsignal.TemporalSignalType]string{
+		entworkflowsignal.TemporalSignalTypeSignalWithStart: "Updated",
+		entworkflowsignal.TemporalSignalTypeSignalByID:      "Updated",
+		entworkflowsignal.TemporalSignalTypeIntermediate:    "Updated",
+	}, got)
+
+	// Re-registering the same three is a heartbeat, not a change.
+	execOK[registerWorkflowData](te, ctx, registerWorkflow, map[string]any{
+		"Name":       "wf_sws_kinds",
+		"TaskQueue":  "test-queue",
+		"DataTypeID": itemDataTypeID,
+		"DataName":   "wf_sws_kinds",
+		"DataWeight": 0,
+		"Signals": []SignalInput{
+			{NATSTopic: topic, TemporalSignal: "Updated", TemporalSignalType: "signal_with_start", FilterRule: "true"},
+			{NATSTopic: topic, TemporalSignal: "Updated", TemporalSignalType: "signal_by_id", FilterRule: "true"},
+			{NATSTopic: topic, TemporalSignal: "Updated", TemporalSignalType: "intermediate", FilterRule: "true"},
+		},
+	})
+
+	n, err := te.Ent.WorkflowSignal.Query().
+		Where(entworkflowsignal.WorkflowIDEQ(data.RegisterWorkflow.ID), entworkflowsignal.DeletedAtIsNil()).
+		Count(te.ctx(userA))
+	require.NoError(t, err)
+	assert.Equal(t, 3, n, "no rows were added or removed")
+
+	// The same kind, topic and name twice in one registration is a duplicate.
+	execErr(te, ctx, registerWorkflow, map[string]any{
+		"Name":       "wf_sws_kinds_dup",
+		"TaskQueue":  "test-queue",
+		"DataTypeID": itemDataTypeID,
+		"DataName":   "wf_sws_kinds_dup",
+		"DataWeight": 0,
+		"Signals": []SignalInput{
+			{NATSTopic: topic, TemporalSignal: "Updated", TemporalSignalType: "signal_by_id", FilterRule: "true"},
+			{NATSTopic: topic, TemporalSignal: "Updated", TemporalSignalType: "signal_by_id", FilterRule: "true"},
+		},
+	}, "duplicate signal subscription")
+
+	// The same kind and topic with two names are two subscriptions.
+	execOK[registerWorkflowData](te, ctx, registerWorkflow, map[string]any{
+		"Name":       "wf_sws_kinds_names",
+		"TaskQueue":  "test-queue",
+		"DataTypeID": itemDataTypeID,
+		"DataName":   "wf_sws_kinds_names",
+		"DataWeight": 0,
+		"Signals": []SignalInput{
+			{NATSTopic: topic, TemporalSignal: "A", TemporalSignalType: "signal_with_start", FilterRule: "true"},
+			{NATSTopic: topic, TemporalSignal: "B", TemporalSignalType: "signal_with_start", FilterRule: "true"},
+		},
+	})
+}
+
+// A Signal-With-Start or signal-by-ID subscription without a signal name can
+// never be delivered, so registration refuses it instead of letting every
+// matching event fail.
+func TestWorkflowRegister_SignalWithStartAndByIDNeedASignalName(t *testing.T) {
+	t.Parallel()
+
+	te := setup(t)
+	defer te.Close(t)
+	ctx := te.ctx(userA)
+
+	topic := natsSignalTopicAttrOp(t, &tenantA, "updated")
+
+	for _, typ := range []string{"signal_with_start", "signal_by_id"} {
+		for _, name := range []string{"", "   "} {
+			execErr(te, ctx, registerWorkflow, map[string]any{
+				"Name":       "wf_no_signal_name_" + typ,
+				"TaskQueue":  "test-queue",
+				"DataTypeID": itemDataTypeID,
+				"DataName":   "wf_no_signal_name_" + typ,
+				"DataWeight": 0,
+				"Signals": []SignalInput{
+					{NATSTopic: topic, TemporalSignal: name, TemporalSignalType: typ, FilterRule: "true"},
+				},
+			}, "needs a signal name")
+		}
+	}
+}
+
 // =============================================================================
 // WORKER-SCOPED SUBSCRIPTION TESTS
 // =============================================================================
@@ -683,9 +1159,7 @@ func TestWorkflowRegister_WorkerScoped(t *testing.T) {
 				{NATSTopic: natsSignalTopicAttrOp(t, &tenantA, "created"), TemporalSignal: "OrderCreated", TemporalSignalType: "intermediate", FilterRule: "true"},
 			},
 		}
-		if worker != "" {
-			vars["WorkerID"] = worker
-		}
+		vars["WorkerID"] = worker
 		return execOK[registerWorkflowData](te, ctx, registerWorkflow, vars).RegisterWorkflow.ID
 	}
 
@@ -701,9 +1175,7 @@ func TestWorkflowRegister_WorkerScoped(t *testing.T) {
 
 		byWorker := map[string]int{}
 		for _, s := range te.Ent.WorkflowSignal.Query().AllX(ctx) {
-			require.NotNil(t, s.WorkerID, "worker subscription must carry an owner")
-			byWorker[*s.WorkerID]++
-			require.NotNil(t, s.ExpiresAt, "worker subscription must carry an expiry")
+			byWorker[s.WorkerID]++
 			assert.True(t, s.ExpiresAt.After(time.Now()), "expiry must be in the future")
 		}
 		// Neither worker deleted the other's row: one subscription each.
@@ -742,22 +1214,110 @@ func TestWorkflowRegister_WorkerScoped(t *testing.T) {
 
 		sigs := te.Ent.WorkflowSignal.Query().AllX(ctx)
 		require.Len(t, sigs, 1)
-		require.NotNil(t, sigs[0].WorkerID)
-		assert.Len(t, *sigs[0].WorkerID, 255)
+		assert.Len(t, sigs[0].WorkerID, 255)
 	})
 
-	t.Run("legacy registration has no owner or expiry", func(t *testing.T) {
+	// workerID is String!, so the schema rejects an omitted one before the resolver.
+	t.Run("rejects a missing worker id", func(t *testing.T) {
 		t.Parallel()
 		te := setup(t)
 		defer te.Close(t)
 		ctx := te.ctx(userA)
 
-		register(te, ctx, "")
+		execErr(te, ctx, registerWorkflow, map[string]any{
+			"Name":       "wf_worker_scoped",
+			"TaskQueue":  "test-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "testWorkflow",
+			"DataWeight": 0,
+			"NoWorkerID": true,
+			"Signals": []SignalInput{
+				{NATSTopic: natsSignalTopicAttrOp(t, &tenantA, "created"), TemporalSignal: "OrderCreated", TemporalSignalType: "intermediate", FilterRule: "true"},
+			},
+		}, `"RegisterWorkflowWithSignalsInput.workerID" of required type "String!" was not provided`)
 
-		sigs := te.Ent.WorkflowSignal.Query().AllX(ctx)
-		require.Len(t, sigs, 1)
-		assert.Nil(t, sigs[0].WorkerID)
-		assert.Nil(t, sigs[0].ExpiresAt, "legacy subscription never expires")
+		assert.Empty(t, te.Ent.WorkflowSignal.Query().AllX(ctx))
+		assert.Empty(t, te.Ent.Workflow.Query().AllX(ctx), "rejected registration must not create the workflow")
+	})
+
+	t.Run("rejects a blank worker id", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		execErr(te, ctx, registerWorkflow, map[string]any{
+			"Name":       "wf_worker_scoped",
+			"TaskQueue":  "test-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "testWorkflow",
+			"DataWeight": 0,
+			"WorkerID":   "   ",
+		}, "a worker id is required")
+	})
+
+	t.Run("a second worker on the same workflow and queue gets its own rows", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		id1 := register(te, ctx, "worker-a")
+		first := te.Ent.WorkflowSignal.Query().AllX(ctx)
+		require.Len(t, first, 1)
+
+		id2 := register(te, ctx, "worker-b")
+		assert.Equal(t, id1, id2, "same workflow row, no duplicate")
+		assert.Len(t, te.Ent.Workflow.Query().AllX(ctx), 1)
+
+		all := te.Ent.WorkflowSignal.Query().AllX(ctx)
+		require.Len(t, all, 2)
+
+		byWorker := map[string]*ent.WorkflowSignal{}
+		for _, s := range all {
+			byWorker[s.WorkerID] = s
+		}
+		require.Contains(t, byWorker, "worker-a")
+		require.Contains(t, byWorker, "worker-b")
+		assert.NotEqual(t, byWorker["worker-a"].ID, byWorker["worker-b"].ID)
+
+		// worker-a's row is untouched by worker-b's registration.
+		assert.Equal(t, first[0].ID, byWorker["worker-a"].ID)
+		assert.True(t, first[0].ExpiresAt.Equal(byWorker["worker-a"].ExpiresAt), "worker-a's expiry not refreshed by worker-b")
+		assert.True(t, first[0].UpdatedAt.Equal(byWorker["worker-a"].UpdatedAt), "worker-a's row not modified")
+	})
+
+	t.Run("rejects a task queue change", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		id := register(te, ctx, "worker-a")
+		before := te.Ent.WorkflowSignal.Query().AllX(ctx)
+		require.Len(t, before, 1)
+
+		execErr(te, ctx, registerWorkflow, map[string]any{
+			"Name":       "wf_worker_scoped",
+			"TaskQueue":  "other-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "testWorkflow",
+			"DataWeight": 0,
+			"WorkerID":   "worker-b",
+			"Signals": []SignalInput{
+				{NATSTopic: natsSignalTopicAttrOp(t, &tenantA, "created"), TemporalSignal: "OrderCreated", TemporalSignalType: "intermediate", FilterRule: "true"},
+			},
+		}, `registered on task queue "test-queue", not "other-queue"`)
+
+		wfs := te.Ent.Workflow.Query().AllX(ctx)
+		require.Len(t, wfs, 1, "no second workflow row")
+		assert.Equal(t, id, wfs[0].ID)
+		assert.Equal(t, "test-queue", wfs[0].TaskQueue)
+
+		after := te.Ent.WorkflowSignal.Query().AllX(ctx)
+		require.Len(t, after, 1, "no signals created or removed")
+		assert.Equal(t, before[0].ID, after[0].ID)
+		assert.Equal(t, before[0].WorkerID, after[0].WorkerID)
 	})
 
 	t.Run("re-registration refreshes expiry without duplicating", func(t *testing.T) {
@@ -769,13 +1329,11 @@ func TestWorkflowRegister_WorkerScoped(t *testing.T) {
 		register(te, ctx, "worker-a")
 		first := te.Ent.WorkflowSignal.Query().AllX(ctx)
 		require.Len(t, first, 1)
-		require.NotNil(t, first[0].ExpiresAt)
 
 		register(te, ctx, "worker-a")
 		second := te.Ent.WorkflowSignal.Query().AllX(ctx)
 		require.Len(t, second, 1, "heartbeat must not create a duplicate row")
-		require.NotNil(t, second[0].ExpiresAt)
-		assert.False(t, second[0].ExpiresAt.Before(*first[0].ExpiresAt), "expiry must be refreshed")
+		assert.False(t, second[0].ExpiresAt.Before(first[0].ExpiresAt), "expiry must be refreshed")
 	})
 }
 
@@ -797,19 +1355,16 @@ func TestSubscriptionJanitor_Sweep(t *testing.T) {
 				{NATSTopic: topic, TemporalSignal: "OrderCreated", TemporalSignalType: "intermediate", FilterRule: "true"},
 			},
 		}
-		if worker != "" {
-			vars["WorkerID"] = worker
-		}
+		vars["WorkerID"] = worker
 		execOK[registerWorkflowData](te, ctx, registerWorkflow, vars)
 	}
 	reg("dead-worker")
 	reg("live-worker")
-	reg("") // legacy, never expires
 
 	// Lapse the dead worker's subscription.
 	var deadID uuid.UUID
 	for _, s := range te.Ent.WorkflowSignal.Query().AllX(ctx) {
-		if s.WorkerID != nil && *s.WorkerID == "dead-worker" {
+		if s.WorkerID == "dead-worker" {
 			deadID = s.ID
 		}
 	}
@@ -824,15 +1379,174 @@ func TestSubscriptionJanitor_Sweep(t *testing.T) {
 
 	remaining := map[string]bool{}
 	for _, s := range te.Ent.WorkflowSignal.Query().AllX(ctx) {
-		if s.WorkerID == nil {
-			remaining["legacy"] = true
-		} else {
-			remaining[*s.WorkerID] = true
-		}
+		remaining[s.WorkerID] = true
 	}
 	assert.False(t, remaining["dead-worker"], "expired subscription must be reaped")
 	assert.True(t, remaining["live-worker"], "live subscription must survive")
-	assert.True(t, remaining["legacy"], "legacy subscription must survive")
+}
+
+// =============================================================================
+// UNREGISTER WORKER TESTS
+// =============================================================================
+
+type unregisterWorkerData struct {
+	UnregisterWorker struct {
+		Stopped int
+	}
+}
+
+func TestUnregisterWorker(t *testing.T) {
+	t.Parallel()
+
+	register := func(te *testEnv, ctx context.Context, name, worker, filter string) uuid.UUID {
+		return execOK[registerWorkflowData](te, ctx, registerWorkflow, map[string]any{
+			"Name":       name,
+			"TaskQueue":  "test-queue",
+			"DataTypeID": itemDataTypeID,
+			"DataName":   "testWorkflow",
+			"DataWeight": 0,
+			"WorkerID":   worker,
+			"Signals": []SignalInput{
+				{NATSTopic: natsSignalTopicAttrOp(t, &tenantA, "created"), TemporalSignal: "OrderCreated", TemporalSignalType: "intermediate", FilterRule: filter},
+			},
+		}).RegisterWorkflow.ID
+	}
+
+	// stopped maps worker ID to how many of its rows are marked stopped, and
+	// total maps it to how many rows it owns: unregister never deletes.
+	stopped := func(te *testEnv, ctx context.Context) (stoppedRows, total map[string]int) {
+		stoppedRows, total = map[string]int{}, map[string]int{}
+		for _, s := range te.Ent.WorkflowSignal.Query().AllX(ctx) {
+			total[s.WorkerID]++
+			if s.StoppedAt != nil {
+				stoppedRows[s.WorkerID]++
+			}
+		}
+		return stoppedRows, total
+	}
+
+	t.Run("marks only its own rows stopped and deletes nothing", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		register(te, ctx, "wf_one", "worker-a", "true")
+		register(te, ctx, "wf_one", "worker-b", "true")
+		register(te, ctx, "wf_two", "worker-a", "true")
+		register(te, ctx, "wf_solo", "worker-c", "true")
+
+		got := execOK[unregisterWorkerData](te, ctx, unregisterWorker, map[string]any{"WorkerID": "worker-a"})
+		assert.Equal(t, 2, got.UnregisterWorker.Stopped)
+
+		stoppedRows, total := stopped(te, ctx)
+		assert.Equal(t, map[string]int{"worker-a": 2}, stoppedRows)
+		assert.Equal(t, map[string]int{"worker-a": 2, "worker-b": 1, "worker-c": 1}, total, "no row is deleted")
+		assert.Len(t, te.Ent.Workflow.Query().AllX(ctx), 3, "workflow rows are never touched")
+	})
+
+	t.Run("the last worker's stop is the same single update", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		register(te, ctx, "wf_solo", "worker-a", "true")
+
+		got := execOK[unregisterWorkerData](te, ctx, unregisterWorker, map[string]any{"WorkerID": "worker-a"})
+		assert.Equal(t, 1, got.UnregisterWorker.Stopped)
+
+		stoppedRows, total := stopped(te, ctx)
+		assert.Equal(t, map[string]int{"worker-a": 1}, stoppedRows)
+		assert.Equal(t, map[string]int{"worker-a": 1}, total, "rows stay and lapse via TTL")
+	})
+
+	t.Run("skips rows that already lapsed", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		register(te, ctx, "wf_one", "worker-a", "true")
+
+		supCtx := feature.Context(ctx, feature.FEATURE_SUPPRESS_EVENTS)
+		for _, s := range te.Ent.WorkflowSignal.Query().AllX(ctx) {
+			te.Ent.WorkflowSignal.UpdateOneID(s.ID).SetExpiresAt(time.Now().UTC().Add(-time.Hour)).ExecX(supCtx)
+		}
+
+		got := execOK[unregisterWorkerData](te, ctx, unregisterWorker, map[string]any{"WorkerID": "worker-a"})
+		assert.Equal(t, 0, got.UnregisterWorker.Stopped)
+	})
+
+	t.Run("idempotent and unknown worker", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		register(te, ctx, "wf_one", "worker-a", "true")
+		register(te, ctx, "wf_one", "worker-b", "true")
+
+		first := execOK[unregisterWorkerData](te, ctx, unregisterWorker, map[string]any{"WorkerID": "worker-a"})
+		assert.Equal(t, 1, first.UnregisterWorker.Stopped)
+
+		again := execOK[unregisterWorkerData](te, ctx, unregisterWorker, map[string]any{"WorkerID": "worker-a"})
+		assert.Equal(t, 0, again.UnregisterWorker.Stopped, "a repeat call stops nothing new")
+
+		unknown := execOK[unregisterWorkerData](te, ctx, unregisterWorker, map[string]any{"WorkerID": "nobody"})
+		assert.Equal(t, 0, unknown.UnregisterWorker.Stopped)
+
+		stoppedRows, _ := stopped(te, ctx)
+		assert.Equal(t, map[string]int{"worker-a": 1}, stoppedRows)
+	})
+
+	t.Run("re-registration clears stopped_at", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		register(te, ctx, "wf_one", "worker-a", "true")
+		register(te, ctx, "wf_two", "worker-a", "true")
+		execOK[unregisterWorkerData](te, ctx, unregisterWorker, map[string]any{"WorkerID": "worker-a"})
+		stoppedRows, _ := stopped(te, ctx)
+		require.Equal(t, map[string]int{"worker-a": 2}, stoppedRows)
+
+		// Unchanged signals (a heartbeat): the TTL-only branch.
+		register(te, ctx, "wf_one", "worker-a", "true")
+		// Changed filter: the content-update branch.
+		register(te, ctx, "wf_two", "worker-a", "false")
+
+		stoppedRows, total := stopped(te, ctx)
+		assert.Empty(t, stoppedRows, "a registering worker is running again")
+		assert.Equal(t, map[string]int{"worker-a": 2}, total)
+	})
+
+	t.Run("is tenant scoped", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+		ctxA := te.ctx(userA)
+		ctxB := te.ctx(userB)
+
+		register(te, ctxA, "wf_one", "worker-a", "true")
+		register(te, ctxA, "wf_one", "worker-b", "true")
+
+		// Same worker ID in another tenant: nothing to stop there.
+		got := execOK[unregisterWorkerData](te, ctxB, unregisterWorker, map[string]any{"WorkerID": "worker-a"})
+		assert.Equal(t, 0, got.UnregisterWorker.Stopped)
+
+		stoppedRows, _ := stopped(te, ctxA)
+		assert.Empty(t, stoppedRows)
+	})
+
+	t.Run("rejects a blank worker id", func(t *testing.T) {
+		t.Parallel()
+		te := setup(t)
+		defer te.Close(t)
+
+		execErr(te, te.ctx(userA), unregisterWorker, map[string]any{"WorkerID": "  "}, "a worker id is required")
+	})
 }
 
 // =============================================================================
@@ -1627,6 +2341,7 @@ var (
 		registerWorkflow(input: {
 			name: "{{.Name}}",
 			taskQueue: "test-queue",
+			workerID: "test-worker",
 			dataTypeID: "{{.DataTypeID}}"
 		}) {
 			id
@@ -1639,6 +2354,7 @@ var (
 		registerWorkflow(input: {
 			name: "{{.Name}}",
 			taskQueue: "test-queue",
+			workerID: "test-worker",
 			dataTypeID: "{{.DataTypeID}}",
 			data: { label: "{{.Label}}" }
 		}) {

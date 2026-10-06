@@ -631,14 +631,14 @@ func NameContainsFold(v string) predicate.Location {
 // HasDeviceLocationsLocation applies the HasEdge predicate on the "deviceLocationsLocation" edge.
 func HasDeviceLocationsLocation() predicate.Location {
 	return predicate.Location(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, DeviceLocationsLocationTable, DeviceLocationsLocationColumn),
-		)
+		step := newDeviceLocationsLocationStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.DeviceLocation
 		step.Edge.Schema = schemaConfig.DeviceLocation
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -649,6 +649,7 @@ func HasDeviceLocationsLocationWith(preds ...predicate.DeviceLocation) predicate
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.DeviceLocation
 		step.Edge.Schema = schemaConfig.DeviceLocation
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

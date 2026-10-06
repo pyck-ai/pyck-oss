@@ -63,18 +63,23 @@ func (WorkflowSignal) Fields() []ent.Field {
 			Annotations(
 				entgql.OrderField("FILTER_RULE"),
 			),
-		// worker_id identifies the worker process that owns this subscription.
-		// Nil means a legacy shared subscription (no owning worker), which also
-		// keeps existing rows valid after migration. Internal bookkeeping only,
-		// so it is hidden from the GraphQL API.
+		// worker_id identifies the worker instance that owns this subscription.
+		// Always set: every subscription belongs to exactly one worker. Internal
+		// bookkeeping only, so it is hidden from the GraphQL API.
 		field.String("worker_id").
-			Optional().
-			Nillable().
+			NotEmpty().
 			Immutable().
 			Annotations(entgql.Skip()),
-		// expires_at is when a worker-owned subscription goes stale absent a
-		// refresh. Nil means it never expires (legacy shared subscription).
+		// expires_at is when the subscription goes stale absent a refresh from
+		// its worker. Always set. Hidden from the GraphQL API.
 		field.Time("expires_at").
+			Annotations(entgql.Skip()),
+		// stopped_at is set when the owning worker shut down cleanly
+		// (unregisterWorker) and cleared by that worker's next registerWorkflow.
+		// It is a hint, not a deletion: the router prefers rows with no
+		// stopped_at and only falls back to stopped rows until their TTL lapses.
+		// Hidden from the GraphQL API.
+		field.Time("stopped_at").
 			Optional().
 			Nillable().
 			Annotations(entgql.Skip()),
@@ -101,6 +106,8 @@ func (WorkflowSignal) Indexes() []ent.Index {
 			Annotations(mixin.HistoryMixinNotDeletedIndexAnnotation()),
 		// Supports the janitor's sweep of expired subscriptions.
 		index.Fields("expires_at"),
+		// Supports unregisterWorker, which looks up one worker's subscriptions.
+		index.Fields("tenant_id", "worker_id"),
 	}
 }
 

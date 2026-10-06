@@ -631,14 +631,14 @@ func SkuContainsFold(v string) predicate.ItemSet {
 // HasItems applies the HasEdge predicate on the "items" edge.
 func HasItems() predicate.ItemSet {
 	return predicate.ItemSet(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, false, ItemsTable, ItemsPrimaryKey...),
-		)
+		step := newItemsStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Item
 		step.Edge.Schema = schemaConfig.ItemSetItems
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -649,6 +649,7 @@ func HasItemsWith(preds ...predicate.Item) predicate.ItemSet {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Item
 		step.Edge.Schema = schemaConfig.ItemSetItems
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

@@ -70,9 +70,14 @@ func (Item) Indexes() []ent.Index {
 
 func (Item) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.To("itemMovementItems", ItemMovement.Type),
-		edge.To("itemTransactions", Transaction.Type),
-		edge.To("itemStocks", Stock.Type),
+		// Resolved in graph/item.graphql: eager-loading these append-only edges
+		// is unbounded, since the LimitMixin cap does not reach eager loads.
+		edge.To("itemMovementItems", ItemMovement.Type).
+			Annotations(entgql.Skip(entgql.SkipType)),
+		edge.To("itemTransactions", Transaction.Type).
+			Annotations(entgql.Skip(entgql.SkipType)),
+		edge.To("itemStocks", Stock.Type).
+			Annotations(entgql.Skip(entgql.SkipType)),
 		edge.From("itemSet", ItemSet.Type).Ref("items"),
 	}
 }

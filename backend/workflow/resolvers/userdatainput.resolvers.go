@@ -16,9 +16,12 @@ import (
 
 // SubmitUserDataInput is the resolver for the submitUserDataInput field.
 func (r *mutationResolver) SubmitUserDataInput(ctx context.Context, input model.SubmitUserDataInputInput) (*model.SubmitUserDataInputResponse, error) {
-	req := request.ForContext(ctx)
+	tenantID, err := writerTenantID(request.ForContext(ctx))
+	if err != nil {
+		return nil, err
+	}
 
-	workflowClient, err := r.workflowRouter.GetClient(ctx, req.MutationTenantID().String())
+	workflowClient, err := r.workflowRouter.GetClient(ctx, tenantID.String())
 	if err != nil || workflowClient == nil {
 		return nil, ErrInvalidWorkflowClient
 	}

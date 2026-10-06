@@ -1,0 +1,40 @@
+---
+volumes:
+  rustfs_data: {}
+
+---
+services:
+  rustfs:
+    image: rustfs/rustfs:1.0.0
+    container_name: rustfs
+    restart: always
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - rustfs_data:/data
+    environment:
+      RUSTFS_ACCESS_KEY: ${PYCK_AWS_ACCESS_KEY_ID}
+      RUSTFS_SECRET_KEY: ${PYCK_AWS_SECRET_ACCESS_KEY}
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      # Empty directory sends logs to stdout instead of files under /logs.
+      RUSTFS_OBS_LOG_DIRECTORY: ""
+      RUSTFS_OBS_LOGGER_LEVEL: error
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:9000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 196M
+    sysctls:
+      - net.core.somaxconn=256
+      - net.ipv4.tcp_fin_timeout=30
+    tmpfs:
+      - /tmp:size=32M

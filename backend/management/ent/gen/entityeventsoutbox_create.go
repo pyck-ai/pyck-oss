@@ -112,20 +112,6 @@ func (_c *EntityEventsOutboxCreate) SetPayload(v map[string]interface{}) *Entity
 	return _c
 }
 
-// SetWithReply sets the "with_reply" field.
-func (_c *EntityEventsOutboxCreate) SetWithReply(v bool) *EntityEventsOutboxCreate {
-	_c.mutation.SetWithReply(v)
-	return _c
-}
-
-// SetNillableWithReply sets the "with_reply" field if the given value is not nil.
-func (_c *EntityEventsOutboxCreate) SetNillableWithReply(v *bool) *EntityEventsOutboxCreate {
-	if v != nil {
-		_c.SetWithReply(*v)
-	}
-	return _c
-}
-
 // SetRetryCount sets the "retry_count" field.
 func (_c *EntityEventsOutboxCreate) SetRetryCount(v int) *EntityEventsOutboxCreate {
 	_c.mutation.SetRetryCount(v)
@@ -269,10 +255,6 @@ func (_c *EntityEventsOutboxCreate) defaults() {
 		v := entityeventsoutbox.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
 	}
-	if _, ok := _c.mutation.WithReply(); !ok {
-		v := entityeventsoutbox.DefaultWithReply
-		_c.mutation.SetWithReply(v)
-	}
 	if _, ok := _c.mutation.RetryCount(); !ok {
 		v := entityeventsoutbox.DefaultRetryCount
 		_c.mutation.SetRetryCount(v)
@@ -301,9 +283,6 @@ func (_c *EntityEventsOutboxCreate) check() error {
 	}
 	if _, ok := _c.mutation.Payload(); !ok {
 		return &ValidationError{Name: "payload", err: errors.New(`gen: missing required field "EntityEventsOutbox.payload"`)}
-	}
-	if _, ok := _c.mutation.WithReply(); !ok {
-		return &ValidationError{Name: "with_reply", err: errors.New(`gen: missing required field "EntityEventsOutbox.with_reply"`)}
 	}
 	if _, ok := _c.mutation.RetryCount(); !ok {
 		return &ValidationError{Name: "retry_count", err: errors.New(`gen: missing required field "EntityEventsOutbox.retry_count"`)}
@@ -379,10 +358,6 @@ func (_c *EntityEventsOutboxCreate) createSpec() (*EntityEventsOutbox, *sqlgraph
 	if value, ok := _c.mutation.Payload(); ok {
 		_spec.SetField(entityeventsoutbox.FieldPayload, field.TypeJSON, value)
 		_node.Payload = value
-	}
-	if value, ok := _c.mutation.WithReply(); ok {
-		_spec.SetField(entityeventsoutbox.FieldWithReply, field.TypeBool, value)
-		_node.WithReply = value
 	}
 	if value, ok := _c.mutation.RetryCount(); ok {
 		_spec.SetField(entityeventsoutbox.FieldRetryCount, field.TypeInt, value)
@@ -569,18 +544,6 @@ func (u *EntityEventsOutboxUpsert) SetPayload(v map[string]interface{}) *EntityE
 // UpdatePayload sets the "payload" field to the value that was provided on create.
 func (u *EntityEventsOutboxUpsert) UpdatePayload() *EntityEventsOutboxUpsert {
 	u.SetExcluded(entityeventsoutbox.FieldPayload)
-	return u
-}
-
-// SetWithReply sets the "with_reply" field.
-func (u *EntityEventsOutboxUpsert) SetWithReply(v bool) *EntityEventsOutboxUpsert {
-	u.Set(entityeventsoutbox.FieldWithReply, v)
-	return u
-}
-
-// UpdateWithReply sets the "with_reply" field to the value that was provided on create.
-func (u *EntityEventsOutboxUpsert) UpdateWithReply() *EntityEventsOutboxUpsert {
-	u.SetExcluded(entityeventsoutbox.FieldWithReply)
 	return u
 }
 
@@ -878,20 +841,6 @@ func (u *EntityEventsOutboxUpsertOne) SetPayload(v map[string]interface{}) *Enti
 func (u *EntityEventsOutboxUpsertOne) UpdatePayload() *EntityEventsOutboxUpsertOne {
 	return u.Update(func(s *EntityEventsOutboxUpsert) {
 		s.UpdatePayload()
-	})
-}
-
-// SetWithReply sets the "with_reply" field.
-func (u *EntityEventsOutboxUpsertOne) SetWithReply(v bool) *EntityEventsOutboxUpsertOne {
-	return u.Update(func(s *EntityEventsOutboxUpsert) {
-		s.SetWithReply(v)
-	})
-}
-
-// UpdateWithReply sets the "with_reply" field to the value that was provided on create.
-func (u *EntityEventsOutboxUpsertOne) UpdateWithReply() *EntityEventsOutboxUpsertOne {
-	return u.Update(func(s *EntityEventsOutboxUpsert) {
-		s.UpdateWithReply()
 	})
 }
 
@@ -1376,20 +1325,6 @@ func (u *EntityEventsOutboxUpsertBulk) SetPayload(v map[string]interface{}) *Ent
 func (u *EntityEventsOutboxUpsertBulk) UpdatePayload() *EntityEventsOutboxUpsertBulk {
 	return u.Update(func(s *EntityEventsOutboxUpsert) {
 		s.UpdatePayload()
-	})
-}
-
-// SetWithReply sets the "with_reply" field.
-func (u *EntityEventsOutboxUpsertBulk) SetWithReply(v bool) *EntityEventsOutboxUpsertBulk {
-	return u.Update(func(s *EntityEventsOutboxUpsert) {
-		s.SetWithReply(v)
-	})
-}
-
-// UpdateWithReply sets the "with_reply" field to the value that was provided on create.
-func (u *EntityEventsOutboxUpsertBulk) UpdateWithReply() *EntityEventsOutboxUpsertBulk {
-	return u.Update(func(s *EntityEventsOutboxUpsert) {
-		s.UpdateWithReply()
 	})
 }
 

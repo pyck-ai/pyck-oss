@@ -25,47 +25,54 @@ type CreateReceivingInboundWithItemsInput struct {
 }
 
 type ReceivingInboundDeletePayload struct {
-	DeletedID *uuid.UUID          `json:"deletedID,omitempty"`
-	Workflows []*TemporalWorkflow `json:"workflows,omitempty"`
+	DeletedID *uuid.UUID `json:"deletedID,omitempty"`
+	// Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+	TransactionID uuid.UUID `json:"transactionID"`
+	// Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+	EventCount int `json:"eventCount"`
 }
 
 type ReceivingInboundItemDeletePayload struct {
-	DeletedID *uuid.UUID          `json:"deletedID,omitempty"`
-	Workflows []*TemporalWorkflow `json:"workflows,omitempty"`
+	DeletedID *uuid.UUID `json:"deletedID,omitempty"`
+	// Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+	TransactionID uuid.UUID `json:"transactionID"`
+	// Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+	EventCount int `json:"eventCount"`
 }
 
 type ReceivingInboundItemOutput struct {
-	ReceivingInboundItem *gen.InboundItem    `json:"receivingInboundItem,omitempty"`
-	Workflows            []*TemporalWorkflow `json:"workflows,omitempty"`
+	ReceivingInboundItem *gen.InboundItem `json:"receivingInboundItem,omitempty"`
+	// Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+	TransactionID uuid.UUID `json:"transactionID"`
+	// Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+	EventCount int `json:"eventCount"`
 }
 
 type ReceivingInboundOutput struct {
-	ReceivingInbound *gen.Inbound        `json:"receivingInbound,omitempty"`
-	Workflows        []*TemporalWorkflow `json:"workflows,omitempty"`
+	ReceivingInbound *gen.Inbound `json:"receivingInbound,omitempty"`
+	// Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+	TransactionID uuid.UUID `json:"transactionID"`
+	// Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+	EventCount int `json:"eventCount"`
 }
 
 type ReceivingInboundShipmentNotificationDeletePayload struct {
-	DeletedID *uuid.UUID          `json:"deletedID,omitempty"`
-	Workflows []*TemporalWorkflow `json:"workflows,omitempty"`
+	DeletedID *uuid.UUID `json:"deletedID,omitempty"`
+	// Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+	TransactionID uuid.UUID `json:"transactionID"`
+	// Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+	EventCount int `json:"eventCount"`
 }
 
 type ReceivingInboundShipmentNotificationOutput struct {
 	ReceivingInboundShipmentNotification *gen.InboundShipmentNotification `json:"receivingInboundShipmentNotification,omitempty"`
-	Workflows                            []*TemporalWorkflow              `json:"workflows,omitempty"`
+	// Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+	TransactionID uuid.UUID `json:"transactionID"`
+	// Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+	EventCount int `json:"eventCount"`
 }
 
 type ServiceInfo struct {
 	Version string     `json:"version"`
 	Date    *time.Time `json:"date,omitempty"`
-}
-
-type TemporalMetadata struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
-type TemporalWorkflow struct {
-	Type  string `json:"type"`
-	ID    string `json:"id"`
-	RunID string `json:"runID"`
 }

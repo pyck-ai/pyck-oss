@@ -711,14 +711,14 @@ func ExpiresAtNotNil() predicate.Tenant {
 // HasTenantUsers applies the HasEdge predicate on the "tenantUsers" edge.
 func HasTenantUsers() predicate.Tenant {
 	return predicate.Tenant(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, TenantUsersTable, TenantUsersColumn),
-		)
+		step := newTenantUsersStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.User
 		step.Edge.Schema = schemaConfig.User
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -729,6 +729,7 @@ func HasTenantUsersWith(preds ...predicate.User) predicate.Tenant {
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.User
 		step.Edge.Schema = schemaConfig.User
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

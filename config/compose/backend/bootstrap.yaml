@@ -6,9 +6,9 @@ services:
     command: ["true"]
     depends_on:
       bootstrap-zitadel: { condition: service_completed_successfully }
-      bootstrap-minio: { condition: service_completed_successfully }
+      bootstrap-rustfs: { condition: service_completed_successfully }
       db: { condition: service_healthy }
-      minio: { condition: service_healthy }
+      rustfs: { condition: service_healthy }
       zitadel-proxy: { condition: service_healthy }
       zitadel-login: { condition: service_healthy }
       nats: { condition: service_healthy }
@@ -61,7 +61,7 @@ services:
     depends_on:
       zitadel-proxy: { condition: service_healthy }
 
-  bootstrap-minio:
+  bootstrap-rustfs:
     <<: *common
     environment:
       - PYCK_BOOTSTRAP_TIMEOUT=10m
@@ -71,4 +71,4 @@ services:
     volumes:
       - ./../../../:/src:ro,z
     depends_on:
-      minio: { condition: service_healthy }
+      rustfs: { condition: service_healthy }

@@ -17,16 +17,32 @@ type WorkflowConfig struct {
 // RegistrationConfig tunes how the worker keeps its signal subscriptions
 // registered with the workflow service.
 type RegistrationConfig struct {
-	// HeartbeatInterval is how often the worker refreshes its subscription TTLs.
-	// It must be shorter than the service's PYCK_WORKFLOW_SUBSCRIPTION_TTL;
-	// non-positive disables the heartbeat.
+	// HeartbeatInterval is how often the worker refreshes its subscription TTLs
+	// (each task queue under its own worker ID). It must be shorter than the
+	// service's PYCK_WORKFLOW_SUBSCRIPTION_TTL (1h by default); non-positive
+	// disables the heartbeat.
 	HeartbeatInterval time.Duration `env:"PYCK_WORKER_REGISTRATION_HEARTBEAT_INTERVAL" envDefault:"5m"`
+	// HeartbeatRetryBackoff is the delay before the first retry of a failed
+	// heartbeat. It doubles per further failure, capped at HeartbeatInterval,
+	// and the normal interval resumes after a success. Without it a worker
+	// would stay unsubscribed for a whole interval after an outage, dropping
+	// events meanwhile.
+	HeartbeatRetryBackoff time.Duration `env:"PYCK_WORKER_REGISTRATION_HEARTBEAT_RETRY_BACKOFF" envDefault:"5s"`
 	// RegistrationRetryAttempts is how many times the initial registration is
 	// tried on a transient serialization/deadlock conflict before giving up.
 	RegistrationRetryAttempts int `env:"PYCK_WORKER_REGISTRATION_RETRY_ATTEMPTS" envDefault:"5"`
 	// RegistrationRetryBackoff is the base delay for the exponential backoff
 	// between registration retries.
 	RegistrationRetryBackoff time.Duration `env:"PYCK_WORKER_REGISTRATION_RETRY_BACKOFF" envDefault:"1s"`
+	// UnregisterOnStop makes Stop tell the workflow service this worker is going
+	// away so its subscriptions are marked stopped (the router then prefers
+	// running workers' subscriptions) instead of waiting for their TTL. Failure is
+	// non-fatal; the TTL remains the backstop.
+	UnregisterOnStop bool `env:"PYCK_WORKER_UNREGISTER_ON_STOP" envDefault:"true"`
+	// UnregisterTimeout bounds the unregister calls made on Stop (one per
+	// worker ID, all together) so an unreachable workflow service cannot stall
+	// shutdown.
+	UnregisterTimeout time.Duration `env:"PYCK_WORKER_UNREGISTER_TIMEOUT" envDefault:"5s"`
 }
 
 // WorkerVersioningConfig configures Temporal Worker Deployment Versioning (#1132):

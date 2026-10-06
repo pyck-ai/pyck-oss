@@ -19,11 +19,8 @@ graphql:
       mutation DeleteLocation($id: ID!) {
         deleteLocation(id: $id) {
           deletedID
-          workflows {
-            id
-            runID
-            type
-          }
+          eventCount
+          transactionID
         }
       }
     variables: |-

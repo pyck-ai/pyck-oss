@@ -9,6 +9,7 @@ steps:
       input:
         name: "Caf\u00E9 M\u00FCnchner"
         taskQueue: "test-task-queue"
+        workerID: "scenario-user-workflow-unicode-encoding"
     tests:
       - msg: Status is 200
         assertions:

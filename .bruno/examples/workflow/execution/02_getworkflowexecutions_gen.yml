@@ -48,6 +48,10 @@ graphql:
                 workflowId
               }
               parentNamespaceId
+              remoteUI {
+                mobileURL
+                webURL
+              }
               rootExecution {
                 id
                 workflowId

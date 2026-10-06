@@ -44,7 +44,8 @@ graphql:
           },
           "dataTypeID": "{{bru-test_cross-workflow-datatype-slug-reference_f216fba0}}",
           "name": "SlugRefWf-{{$timestamp}}-2",
-          "taskQueue": "cache-slug-ref-queue"
+          "taskQueue": "cache-slug-ref-queue",
+          "workerID": "scenario-cross-workflow-datatype-slug-reference"
         }
       }
 

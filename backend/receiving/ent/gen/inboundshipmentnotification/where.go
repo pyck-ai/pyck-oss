@@ -586,14 +586,14 @@ func InboundIDNotIn(vs ...uuid.UUID) predicate.InboundShipmentNotification {
 // HasInbound applies the HasEdge predicate on the "inbound" edge.
 func HasInbound() predicate.InboundShipmentNotification {
 	return predicate.InboundShipmentNotification(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, InboundTable, InboundColumn),
-		)
+		step := newInboundStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Inbound
 		step.Edge.Schema = schemaConfig.InboundShipmentNotification
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -604,6 +604,7 @@ func HasInboundWith(preds ...predicate.Inbound) predicate.InboundShipmentNotific
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.Inbound
 		step.Edge.Schema = schemaConfig.InboundShipmentNotification
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

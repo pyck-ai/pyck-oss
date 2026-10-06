@@ -2,12 +2,6 @@ package workflow
 
 import json_schema "github.com/pyck-ai/pyck/backend/common/json-schema"
 
-type WorkflowDetails struct {
-	Type  string `json:"type"`
-	ID    string `json:"id"`
-	RunID string `json:"runID"`
-}
-
 type WorkflowUpdateType struct {
 	ID     string              `json:"id"`
 	Schema *json_schema.Schema `json:"schema,omitempty"`

@@ -142,6 +142,8 @@ func run(ctx context.Context) error {
 		procCtx,
 		serviceName,
 		core.Config.DbConfig,
+		// SERIALIZABLE stays for registerWorkflow's (tenant, name) create race
+		// and the OCC retries in gqltx; unregisterWorker no longer depends on it.
 		db.WithWriterIsolation("serializable"),
 	)
 	if err != nil {
@@ -210,10 +212,7 @@ func run(ctx context.Context) error {
 	}
 	defer revocationCC.Stop()
 
-	jetstreamPub, err := events.NewEventPublisher(jetstreamClient, natsClient, core.Config.NatsStreamName, core.Config.NatsReplyTimeout)
-	if err != nil {
-		return fmt.Errorf("failed setting up event publisher: %w", err)
-	}
+	jetstreamPub := events.NewEventPublisher(jetstreamClient, natsClient, core.Config.NatsStreamName)
 
 	// Set up event system (mutation hook + outbox handler)
 	eventSystem := events.NewEventSystem(events.EventSystemConfig[*ent.Tx]{
@@ -272,10 +271,28 @@ func run(ctx context.Context) error {
 	workflowRouter := services.NewSignalRouter(dbClient, services.SignalRouterConfig{
 		ClientFactory:   temporalClientFactory,
 		EventPublisher:  jetstreamPub,
-		NatsClient:      natsClient,
 		JetstreamClient: jetstreamClient,
 		StreamName:      core.Config.NatsStreamName,
 		ServiceName:     serviceName,
+		Consumer: services.ConsumerConfig{
+			AckWait:       core.Config.ConsumerAckWait,
+			MaxAckPending: core.Config.ConsumerMaxAckPending,
+			MaxDeliver:    core.Config.ConsumerMaxDeliver,
+			Backoff:       core.Config.ConsumerNakBackoff,
+			Concurrency:   core.Config.ConsumerConcurrency,
+			Health: services.HealthConfig{
+				Checks: []services.HealthCheck{
+					services.SQLHealthCheck("database", pgxDriver.HealthDB()),
+					services.TemporalHealthCheck("temporal", temporalClient),
+				},
+				Interval:  core.Config.HealthInterval,
+				Timeout:   core.Config.HealthTimeout,
+				ResumeMin: core.Config.HealthResumeMin,
+				ResumeMax: core.Config.HealthResumeMax,
+
+				PausedWarnInterval: core.Config.HealthPausedWarnInterval,
+			},
+		},
 	})
 
 	if err := workflowRouter.Start(procCtx); err != nil {
@@ -317,6 +334,7 @@ func run(ctx context.Context) error {
 	idempotency.NewJanitor(idemStore, 5*time.Minute, 24*time.Hour).Start(janitorCtx)
 
 	// Reap signal subscriptions left behind by workers that stopped refreshing.
+	// Workflow rows are never reaped: only deleteWorkflow removes them.
 	services.NewSubscriptionJanitor(dbClient, core.Config.SubscriptionJanitorInterval).Start(janitorCtx)
 
 	gqlServer := gqlserver.New(resolvers.NewSchema(resolver))
@@ -325,7 +343,6 @@ func run(ctx context.Context) error {
 		gqltx.WithIdempotency(idemStore, idempotency.DefaultAuthLookup),
 		gqltx.WithIdempotencyMaxResponseBytes(core.Config.IdempotencyMaxResponseBytes),
 	))
-	gqlServer.Use(gqltx.NewWorkflowReplyMiddleware(eventSystem.Registry(), core.Config.OutboxReplyTimeout))
 
 	gqlHandler := chi.NewRouter()
 	gqlHandler.Use(
@@ -374,7 +391,9 @@ func run(ctx context.Context) error {
 	// Liveness: static 200, no dependency checks — see http.LivenessHandler.
 	httpRouter.Handle("/health", http.LivenessHandler())
 	// Readiness: 503 the moment shutdown begins, so routing stops before
-	// the listener closes.
+	// the listener closes. The signal router is deliberately not a component:
+	// it pauses and holds events on its own (workflow_signal_router_paused),
+	// and a Temporal outage must not take the whole service out of rotation.
 	httpRouter.Handle("/health/ready", httpServer.ReadinessHandler(db.NewDbHealthChecker(pgxDriver.HealthDB())))
 
 	if err := startup.Check(appCtx, "http wiring"); err != nil {

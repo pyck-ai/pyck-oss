@@ -31,3 +31,68 @@ func DataTypeEntities() []string {
 		"workflow",
 	}
 }
+
+// ServiceEntities maps each service to the Go type names of all its Ent
+// entities, as ent names them (e.g. "DataType"), whether or not they use
+// DataMixin.
+func ServiceEntities() map[string][]string {
+	return map[string][]string{
+		"file": {
+			"EntityEventsOutbox",
+			"File",
+			"IdempotencyKey",
+		},
+		"inventory": {
+			"Collection_Movement",
+			"EntityEventsOutbox",
+			"IdempotencyKey",
+			"Item",
+			"ItemMovement",
+			"ItemSet",
+			"ReplenishmentOrder",
+			"ReplenishmentOrderItem",
+			"Repository",
+			"RepositoryMovement",
+			"Stock",
+			"Transaction",
+		},
+		"main-data": {
+			"Customer",
+			"EntityEventsOutbox",
+			"IdempotencyKey",
+			"Supplier",
+		},
+		"management": {
+			"DataType",
+			"Device",
+			"DeviceLocation",
+			"DeviceUser",
+			"EntityEventsOutbox",
+			"IdempotencyKey",
+			"KeyValue",
+			"Location",
+			"Tenant",
+			"User",
+		},
+		"picking": {
+			"EntityEventsOutbox",
+			"IdempotencyKey",
+			"Order",
+			"OrderItems",
+			"OutboundShipmentNotification",
+		},
+		"receiving": {
+			"EntityEventsOutbox",
+			"IdempotencyKey",
+			"Inbound",
+			"InboundItem",
+			"InboundShipmentNotification",
+		},
+		"workflow": {
+			"EntityEventsOutbox",
+			"IdempotencyKey",
+			"Workflow",
+			"WorkflowSignal",
+		},
+	}
+}

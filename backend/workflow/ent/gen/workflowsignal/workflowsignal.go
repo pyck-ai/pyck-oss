@@ -46,6 +46,8 @@ const (
 	FieldWorkerID = "worker_id"
 	// FieldExpiresAt holds the string denoting the expires_at field in the database.
 	FieldExpiresAt = "expires_at"
+	// FieldStoppedAt holds the string denoting the stopped_at field in the database.
+	FieldStoppedAt = "stopped_at"
 	// EdgeWorkflow holds the string denoting the workflow edge name in mutations.
 	EdgeWorkflow = "workflow"
 	// Table holds the table name of the workflowsignal in the database.
@@ -76,6 +78,7 @@ var Columns = []string{
 	FieldFilterRule,
 	FieldWorkerID,
 	FieldExpiresAt,
+	FieldStoppedAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -94,11 +97,13 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/pyck-ai/pyck/backend/workflow/ent/gen/runtime"
 var (
-	Hooks        [3]ent.Hook
+	Hooks        [4]ent.Hook
 	Interceptors [1]ent.Interceptor
 	Policy       ent.Policy
 	// NatsTopicValidator is a validator for the "nats_topic" field. It is called by the builders before save.
 	NatsTopicValidator func(string) error
+	// WorkerIDValidator is a validator for the "worker_id" field. It is called by the builders before save.
+	WorkerIDValidator func(string) error
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -108,9 +113,11 @@ type TemporalSignalType string
 
 // TemporalSignalType values.
 const (
-	TemporalSignalTypeUnknown      TemporalSignalType = "unknown"
-	TemporalSignalTypeStart        TemporalSignalType = "start"
-	TemporalSignalTypeIntermediate TemporalSignalType = "intermediate"
+	TemporalSignalTypeUnknown         TemporalSignalType = "unknown"
+	TemporalSignalTypeStart           TemporalSignalType = "start"
+	TemporalSignalTypeIntermediate    TemporalSignalType = "intermediate"
+	TemporalSignalTypeSignalWithStart TemporalSignalType = "signal_with_start"
+	TemporalSignalTypeSignalByID      TemporalSignalType = "signal_by_id"
 )
 
 func (tst TemporalSignalType) String() string {
@@ -120,7 +127,7 @@ func (tst TemporalSignalType) String() string {
 // TemporalSignalTypeValidator is a validator for the "temporal_signal_type" field enum values. It is called by the builders before save.
 func TemporalSignalTypeValidator(tst TemporalSignalType) error {
 	switch tst {
-	case TemporalSignalTypeUnknown, TemporalSignalTypeStart, TemporalSignalTypeIntermediate:
+	case TemporalSignalTypeUnknown, TemporalSignalTypeStart, TemporalSignalTypeIntermediate, TemporalSignalTypeSignalWithStart, TemporalSignalTypeSignalByID:
 		return nil
 	default:
 		return fmt.Errorf("workflowsignal: invalid enum value for temporal_signal_type field: %q", tst)
@@ -203,6 +210,11 @@ func ByWorkerID(opts ...sql.OrderTermOption) OrderOption {
 // ByExpiresAt orders the results by the expires_at field.
 func ByExpiresAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldExpiresAt, opts...).ToFunc()
+}
+
+// ByStoppedAt orders the results by the stopped_at field.
+func ByStoppedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStoppedAt, opts...).ToFunc()
 }
 
 // ByWorkflowField orders the results by workflow field.

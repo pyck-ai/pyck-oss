@@ -26,8 +26,11 @@ type CheckInUserDeviceInput struct {
 }
 
 type CheckInUserDeviceOutput struct {
-	DeviceUser *gen.DeviceUser     `json:"deviceUser"`
-	Workflows  []*TemporalWorkflow `json:"workflows"`
+	DeviceUser *gen.DeviceUser `json:"deviceUser"`
+	// Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+	TransactionID uuid.UUID `json:"transactionID"`
+	// Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+	EventCount int `json:"eventCount"`
 }
 
 type CheckOutUserDeviceInput struct {
@@ -35,8 +38,11 @@ type CheckOutUserDeviceInput struct {
 }
 
 type CheckOutUserDeviceOutput struct {
-	DeviceUser []*gen.DeviceUser   `json:"deviceUser"`
-	Workflows  []*TemporalWorkflow `json:"workflows"`
+	DeviceUser []*gen.DeviceUser `json:"deviceUser"`
+	// Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+	TransactionID uuid.UUID `json:"transactionID"`
+	// Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+	EventCount int `json:"eventCount"`
 }
 
 type CustomEventPayloadInput struct {
@@ -62,23 +68,35 @@ type DeleteTenantResponse struct {
 }
 
 type DeviceDeletePayload struct {
-	DeletedID *uuid.UUID          `json:"deletedID,omitempty"`
-	Workflows []*TemporalWorkflow `json:"workflows"`
+	DeletedID *uuid.UUID `json:"deletedID,omitempty"`
+	// Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+	TransactionID uuid.UUID `json:"transactionID"`
+	// Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+	EventCount int `json:"eventCount"`
 }
 
 type DeviceLocationDeletePayload struct {
-	DeletedID *uuid.UUID          `json:"deletedID,omitempty"`
-	Workflows []*TemporalWorkflow `json:"workflows"`
+	DeletedID *uuid.UUID `json:"deletedID,omitempty"`
+	// Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+	TransactionID uuid.UUID `json:"transactionID"`
+	// Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+	EventCount int `json:"eventCount"`
 }
 
 type DeviceLocationOutput struct {
 	DeviceLocation *gen.DeviceLocation `json:"DeviceLocation"`
-	Workflows      []*TemporalWorkflow `json:"workflows"`
+	// Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+	TransactionID uuid.UUID `json:"transactionID"`
+	// Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+	EventCount int `json:"eventCount"`
 }
 
 type DeviceOutput struct {
-	Device    *gen.Device         `json:"device"`
-	Workflows []*TemporalWorkflow `json:"workflows"`
+	Device *gen.Device `json:"device"`
+	// Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+	TransactionID uuid.UUID `json:"transactionID"`
+	// Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+	EventCount int `json:"eventCount"`
 }
 
 type GenerateJSONSchemaResponse struct {
@@ -90,13 +108,19 @@ type KeyValueDeletePayload struct {
 }
 
 type LocationDeletePayload struct {
-	DeletedID *uuid.UUID          `json:"deletedID,omitempty"`
-	Workflows []*TemporalWorkflow `json:"workflows"`
+	DeletedID *uuid.UUID `json:"deletedID,omitempty"`
+	// Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+	TransactionID uuid.UUID `json:"transactionID"`
+	// Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+	EventCount int `json:"eventCount"`
 }
 
 type LocationOutput struct {
-	Location  *gen.Location       `json:"location"`
-	Workflows []*TemporalWorkflow `json:"workflows"`
+	Location *gen.Location `json:"location"`
+	// Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+	TransactionID uuid.UUID `json:"transactionID"`
+	// Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+	EventCount int `json:"eventCount"`
 }
 
 type Organization struct {
@@ -158,8 +182,11 @@ type SendCustomEventInput struct {
 }
 
 type SendCustomEventResponse struct {
-	Success   bool                `json:"success"`
-	Workflows []*TemporalWorkflow `json:"workflows"`
+	Success bool `json:"success"`
+	// Handle to look up the workflows this mutation started: poll workflowExecutions(where: {transactionID: ...}) on the workflow service. An empty result means none started (yet).
+	TransactionID uuid.UUID `json:"transactionID"`
+	// Number of outbox events this mutation published. With 0 there is nothing to route, so workflowExecutions(where: {transactionID: ...}) stays empty. All root mutation fields of one operation share one transaction and counter: each field reports the running total when it resolves, so the last field holds the total.
+	EventCount int `json:"eventCount"`
 }
 
 type ServiceInfo struct {
@@ -215,17 +242,6 @@ type SetTenantUITemplateInput struct {
 // exist. Idempotent when the provided values already match what is stored.
 type SetTenantUITemplateResponse struct {
 	Success bool `json:"success"`
-}
-
-type TemporalMetadata struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
-type TemporalWorkflow struct {
-	Type  string `json:"type"`
-	ID    string `json:"id"`
-	RunID string `json:"runID"`
 }
 
 type UserProfile struct {

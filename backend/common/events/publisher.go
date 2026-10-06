@@ -2,117 +2,60 @@ package events
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	"github.com/pyck-ai/pyck/backend/common/std"
 )
 
-var (
-	ErrReplyFailed = errors.New("reply indicates failure")
+const (
+	// StateChangeMsgIDPrefix prefixes the JetStream message ID of a state change.
+	StateChangeMsgIDPrefix = "statechange-"
 
-	mutationEventRequests = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "mutation_event_requests_total",
-			Help: "Total number of mutation event requests with reply",
-		},
-		[]string{"service", "schema", "operation"},
-	)
-
-	mutationEventTimeouts = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "mutation_event_reply_timeouts_total",
-			Help: "Total number of mutation event replies that timed out",
-		},
-		[]string{"service", "schema", "operation"},
-	)
+	// JSErrCodeDuplicateMsgIDInProcess is the JetStream error code (10158) for
+	// "duplicate message id is in process". Another publisher's copy with the
+	// same Nats-Msg-Id is still being stored, so the server cannot yet answer
+	// with the normal duplicate ack. The message is not lost: a retry gets the
+	// duplicate ack once the other copy is stored. nats.go has no named
+	// constant for it.
+	JSErrCodeDuplicateMsgIDInProcess jetstream.ErrorCode = 10158
 )
 
-func NewEventPublisher(js jetstream.JetStream, natsClient *nats.Conn, streamName string, replyTimeout time.Duration) (*EventPublisher, error) {
+// IsDuplicateMsgIDInProcess reports whether err wraps a JetStream API error
+// with code JSErrCodeDuplicateMsgIDInProcess. It is expected when several
+// publishers send the same message ID at the same moment and is safe to retry.
+func IsDuplicateMsgIDInProcess(err error) bool {
+	var apiErr *jetstream.APIError
+
+	return errors.As(err, &apiErr) && apiErr != nil && apiErr.ErrorCode == JSErrCodeDuplicateMsgIDInProcess
+}
+
+func NewEventPublisher(js jetstream.JetStream, natsClient *nats.Conn, streamName string) *EventPublisher {
 	return &EventPublisher{
-		jetstream:    js,
-		streamName:   streamName,
-		natsClient:   natsClient,
-		replyTimeout: replyTimeout,
-	}, nil
+		jetstream:  js,
+		streamName: streamName,
+		natsClient: natsClient,
+	}
 }
 
 type Publisher interface {
 	SendCustomEvent(ctx context.Context, msg *CustomEventMessage) error
 	SendMutationEvent(ctx context.Context, msg *MutationEventMessage) error
-	SendMutationEventWithReply(ctx context.Context, msg *MutationEventMessage) ([]byte, error)
 	SendTemporalWorkflowEvent(ctx context.Context, msg *TemporalWorkflowStateChangeMessage) error
 	SendUpdateEvent(ctx context.Context, msg *UpdateEventMessage) error
 	SendWorkflowEvent(ctx context.Context, msg *WorkflowEventMessage) error
 
-	// Raw methods for pre-serialized payloads (used by OutboxHandler)
+	// PublishRaw publishes a pre-serialized payload (used by OutboxHandler).
 	PublishRaw(ctx context.Context, topic string, payload []byte, msgID string) error
-	RequestRaw(ctx context.Context, topic string, payload []byte, timeout time.Duration) (*EventReply, error)
-}
-
-type EventReply struct {
-	Success bool            `json:"success"`
-	Error   string          `json:"error,omitempty"`
-	Data    json.RawMessage `json:"data,omitempty"`
-	Msg     *nats.Msg       `json:"-"`
-}
-
-// ReplyTransport delivers workflow-reply payloads between pods over core NATS
-// pub/sub. The outbox handler that processed a row (any replica) publishes the
-// reply; the resolver pod that is waiting subscribed for it. This decouples
-// delivery from the in-process ReplyRegistry map, so the reply reaches the
-// waiting pod even when a different pod's outbox handler processed the row.
-//
-// Subjects live outside the JetStream stream's "<stream>.>" capture, so this is
-// ephemeral core NATS (like request/reply inboxes), never persisted.
-type ReplyTransport interface {
-	// PublishReply sends a reply payload to subject (fire-and-forget core NATS).
-	PublishReply(subject string, data []byte) error
-	// SubscribeReply registers interest in subject and invokes handler for each
-	// message received. It flushes before returning so the server has registered
-	// the subscription, closing the race where a reply is published immediately
-	// after. Returns an unsubscribe func the caller must invoke to release it.
-	SubscribeReply(subject string, handler func(data []byte)) (unsubscribe func() error, err error)
-}
-
-var _ ReplyTransport = (*EventPublisher)(nil)
-
-// PublishReply implements ReplyTransport.
-func (e *EventPublisher) PublishReply(subject string, data []byte) error {
-	return e.natsClient.Publish(subject, data)
-}
-
-// SubscribeReply implements ReplyTransport.
-func (e *EventPublisher) SubscribeReply(subject string, handler func(data []byte)) (func() error, error) {
-	sub, err := e.natsClient.Subscribe(subject, func(msg *nats.Msg) {
-		handler(msg.Data)
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Ensure the server has the subscription before we return: a reply
-	// published right after Register must not race ahead of the interest.
-	if err := e.natsClient.Flush(); err != nil {
-		_ = sub.Unsubscribe()
-		return nil, fmt.Errorf("failed to flush reply subscription: %w", err)
-	}
-
-	return sub.Unsubscribe, nil
 }
 
 type EventPublisher struct {
-	jetstream    jetstream.JetStream
-	natsClient   *nats.Conn
-	streamName   string
-	replyTimeout time.Duration
+	jetstream  jetstream.JetStream
+	natsClient *nats.Conn
+	streamName string
 }
 
 var _ Publisher = (*EventPublisher)(nil)
@@ -138,105 +81,6 @@ func (e *EventPublisher) SendMutationEvent(ctx context.Context, msg *MutationEve
 	return e.publish(ctx, topic.String(), msg)
 }
 
-// SendMutationEventWithReply sends a mutation event using the request/reply pattern and waits for a response.
-//
-// This method combines request/reply semantics with fire-and-forget event publishing:
-//
-// 1. Sends a request to the request/reply topic and waits for a response (subject to timeout)
-// 2. If successful, publishes the same event to the fire-and-forget topic for other subscribers
-//
-// Timeout Behavior (IMPORTANT):
-// The timeout (configured in EventPublisher.replyTimeout) only affects waiting for the REPLY,
-// not the actual processing of the request. This means:
-//
-// - If the timeout expires, this method returns (nil, nil) - NOT an error
-// - The request handler may still be processing the event in the background
-// - Workflows may have been started even though no reply was received
-// - The caller should NOT retry immediately, as this could cause duplicate workflows
-//
-// Why timeout returns nil instead of error:
-// Timeouts are often caused by slow workflow startup or database queries, not failures.
-// Returning nil allows the HTTP request to complete successfully while workflows continue
-// processing asynchronously. A timeout metric is incremented for monitoring.
-//
-// Use Cases:
-// - Creating/updating entities where you want confirmation before responding to the client
-// - Operations that need to know which workflows were started
-// - Synchronous-style operations in an async architecture
-//
-// Return Values:
-// - ([]byte, nil): Success - returns the reply data from the handler
-// - (nil, nil): Timeout - request sent but no reply received within timeout period
-// - (nil, error): Failure - request failed to send, reply parsing failed, or handler returned error
-//
-// Metrics:
-// - mutation_event_requests_total: Incremented on every call
-// - mutation_event_reply_timeouts_total: Incremented when timeout occurs
-//
-// Example:
-//
-//	data, err := publisher.SendMutationEventWithReply(ctx, &events.MutationEventMessage{
-//	    Service: "inventory",
-//	    Schema: "item",
-//	    Operation: "create",
-//	    ID: itemID,
-//	    TenantID: tenantID,
-//	    Data: itemData,
-//	})
-//	if err != nil {
-//	    // Handler explicitly returned an error
-//	    return err
-//	}
-//	if data == nil {
-//	    // Timeout - workflow may still be processing
-//	    log.Warn("workflow start timed out, processing continues in background")
-//	}
-//	// data contains response from workflow handler (e.g., workflow IDs)
-func (e *EventPublisher) SendMutationEventWithReply(ctx context.Context, msg *MutationEventMessage) (data []byte, err error) {
-	mutationEventRequests.WithLabelValues(msg.Service, msg.Schema, msg.Operation).Inc()
-
-	topic := &MutationEventWithReplyTopic{
-		StreamName:    e.streamName,
-		TenantID:      msg.TenantID,
-		ServiceName:   msg.Service,
-		SchemaName:    msg.Schema,
-		EntityID:      msg.ID,
-		OperationName: msg.Operation,
-	}
-
-	response, err := e.request(ctx, topic.String(), msg, e.replyTimeout)
-	if err != nil {
-		if errors.Is(err, nats.ErrTimeout) {
-			mutationEventTimeouts.WithLabelValues(msg.Service, msg.Schema, msg.Operation).Inc()
-			log.ForContext(ctx).Warn().
-				Str("topic", topic.String()).
-				Msg("mutation event reply timed out")
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	reply := &EventReply{
-		Msg: response,
-	}
-
-	if response != nil {
-		if err := json.Unmarshal(response.Data, &reply); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal response: %w", err)
-		}
-
-		if !reply.Success {
-			return nil, fmt.Errorf("%w: %s", ErrReplyFailed, reply.Error)
-		}
-	}
-
-	if err := e.SendMutationEvent(ctx, msg); err != nil {
-		return nil, err
-	}
-
-	return reply.Data, nil
-}
-
 func (e *EventPublisher) SendTemporalWorkflowEvent(ctx context.Context, msg *TemporalWorkflowStateChangeMessage) error {
 	topic := &TemporalWorkflowStateChangeTopic{
 		StreamName:       e.streamName,
@@ -248,7 +92,13 @@ func (e *EventPublisher) SendTemporalWorkflowEvent(ctx context.Context, msg *Tem
 		Status:           msg.Status,
 	}
 
-	return e.publish(ctx, topic.String(), msg)
+	// Every Temporal pod that receives the database notification publishes the
+	// change, so the message ID lets JetStream keep one copy per duplicate
+	// window. The ID is predictable, so a client that can publish to the stream
+	// could suppress the change by guessing it; that is accepted until each
+	// tenant has its own stream (#1656). The signal router deduplicates by
+	// Temporal request ID beyond the window.
+	return e.publish(ctx, topic.String(), msg, jetstream.WithMsgID(StateChangeMsgIDPrefix+msg.EventID().String()))
 }
 
 func (e *EventPublisher) SendUpdateEvent(ctx context.Context, msg *UpdateEventMessage) error {
@@ -276,7 +126,7 @@ func (e *EventPublisher) SendWorkflowEvent(ctx context.Context, msg *WorkflowEve
 	return e.publish(ctx, topic.String(), msg)
 }
 
-func (e *EventPublisher) publish(ctx context.Context, topic string, msg any) (err error) {
+func (e *EventPublisher) publish(ctx context.Context, topic string, msg any, opts ...jetstream.PublishOpt) (err error) {
 	payload, err := std.MarshalJson(msg)
 	if err != nil {
 		return fmt.Errorf("failed to marshal publish payload: %w", err)
@@ -291,26 +141,27 @@ func (e *EventPublisher) publish(ctx context.Context, topic string, msg any) (er
 	// automatically cancelled once the request body is fully sent to the client.
 	// If we used the parent context directly, events could be lost when the
 	// HTTP response completes but before NATS has acknowledged the publish.
-	_, err = e.jetstream.PublishMsg(context.WithoutCancel(ctx), natsMsg)
+	_, err = e.jetstream.PublishMsg(context.WithoutCancel(ctx), natsMsg, opts...)
 
-	log.ForContext(ctx).Err(err).
+	logger := log.ForContext(ctx)
+
+	// A concurrent publisher of the same message ID is expected and the caller
+	// retries, so it is not an error worth alerting on.
+	if IsDuplicateMsgIDInProcess(err) {
+		logger.Debug().Err(err).
+			Str("topic", topic).
+			Any("payload", msg).
+			Msg("publish nats message")
+
+		return err
+	}
+
+	logger.Err(err).
 		Str("topic", topic).
 		Any("payload", msg).
 		Msg("publish nats message")
 
 	return err
-}
-
-func (e *EventPublisher) request(ctx context.Context, topic string, msg any, timeout time.Duration) (*nats.Msg, error) {
-	payload, err := std.MarshalJson(msg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request payload: %w", err)
-	}
-
-	natsMsg := &nats.Msg{Subject: topic, Data: payload}
-	injectIntoMsg(ctx, natsMsg)
-
-	return e.natsClient.RequestMsg(natsMsg, timeout)
 }
 
 // PublishRaw publishes a pre-serialized payload to the given topic via JetStream.
@@ -326,24 +177,4 @@ func (e *EventPublisher) PublishRaw(ctx context.Context, topic string, payload [
 
 	_, err := e.jetstream.PublishMsg(context.WithoutCancel(ctx), natsMsg, opts...)
 	return err
-}
-
-// RequestRaw sends a pre-serialized payload using NATS request/reply pattern.
-// Returns the parsed EventReply or an error.
-func (e *EventPublisher) RequestRaw(ctx context.Context, topic string, payload []byte, timeout time.Duration) (*EventReply, error) {
-	natsMsg := &nats.Msg{Subject: topic, Data: payload}
-	injectIntoMsg(ctx, natsMsg)
-
-	msg, err := e.natsClient.RequestMsg(natsMsg, timeout)
-	if err != nil {
-		return nil, err
-	}
-
-	var reply EventReply
-	if err := json.Unmarshal(msg.Data, &reply); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal reply: %w", err)
-	}
-
-	reply.Msg = msg
-	return &reply, nil
 }

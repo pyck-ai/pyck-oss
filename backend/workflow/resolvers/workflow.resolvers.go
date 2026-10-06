@@ -28,7 +28,9 @@ import (
 	ent "github.com/pyck-ai/pyck/backend/workflow/ent/gen"
 	entworkflow "github.com/pyck-ai/pyck/backend/workflow/ent/gen/workflow"
 	entworkflowsignal "github.com/pyck-ai/pyck/backend/workflow/ent/gen/workflowsignal"
+	"github.com/pyck-ai/pyck/backend/workflow/exec"
 	"github.com/pyck-ai/pyck/backend/workflow/model"
+	"github.com/pyck-ai/pyck/backend/workflow/services"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 )
@@ -44,6 +46,14 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 	req := request.ForContext(ctx)
 	user := authn.ForContext(ctx)
 
+	// MutationTenantID panics (and logs the caller's token) without a single
+	// tenant; answer with an error instead. The WRITER check is left to ent
+	// privacy, which every write path here goes through.
+	tenantID, err := singleTenantID(req)
+	if err != nil {
+		return nil, err
+	}
+
 	if input.Name != strings.TrimSpace(input.Name) {
 		return nil, ErrInvalidName
 	}
@@ -53,35 +63,35 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 	}
 
 	// worker_id scopes subscriptions to the calling worker so concurrent
-	// registrations no longer contend on each other's rows. Legacy workers omit
-	// it (nil) and keep sharing a single, non-expiring subscription set.
-	workerID := ""
-	if input.WorkerID != nil {
-		workerID = strings.TrimSpace(*input.WorkerID)
+	// registrations no longer contend on each other's rows, and gives every
+	// subscription an owner whose liveness (expires_at) can be tracked.
+	workerID := strings.TrimSpace(input.WorkerID)
+	if workerID == "" {
+		return nil, ErrWorkerIDRequired
 	}
 	if len(workerID) > maxWorkerIDLen {
 		return nil, ErrWorkerIDTooLong
 	}
-	var (
-		workerIDPtr *string
-		expiresAt   *time.Time
-	)
-	if workerID != "" {
-		workerIDPtr = &workerID
-		t := time.Now().UTC().Add(core.Config.SubscriptionTTL)
-		expiresAt = &t
-	}
+	expiresAt := time.Now().UTC().Add(core.Config.SubscriptionTTL)
 
-	// Find existing workflow
+	// Find the existing workflow. Names are unique per tenant, so look up by
+	// (tenant, name) only: the same name under another task queue is a
+	// conflicting move, not a second workflow.
 	wf, err := tx.Workflow.Query().
 		Where(
-			entworkflow.TenantIDEQ(req.MutationTenantID()),
-			entworkflow.TaskQueueEQ(input.TaskQueue),
+			entworkflow.TenantIDEQ(tenantID),
 			entworkflow.NameEQ(input.Name),
 			entworkflow.DeletedAtIsNil(),
 		).First(ctx)
 	if err != nil && !ent.IsNotFound(err) {
 		return nil, err
+	}
+
+	// task_queue is immutable. Fail with a message the SDK does not treat as a
+	// transient conflict, so a misplaced worker fails fast instead of retrying.
+	if wf != nil && wf.TaskQueue != input.TaskQueue {
+		return nil, fmt.Errorf("%w: workflow %q is registered on task queue %q, not %q",
+			ErrTaskQueueChanged, input.Name, wf.TaskQueue, input.TaskQueue)
 	}
 
 	// Validate workflow data type and resolve slug (DataTypeID is the pin).
@@ -158,8 +168,8 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 		}
 	}
 
-	// Uniqueness key for a signal. signal is only meaningful for INTERMEDIATE
-	// (empty otherwise); typ keeps the two apart, so a plain string compares by
+	// Uniqueness key for a signal. signal is only meaningful for the kinds that
+	// deliver a signal (see signalTypeHasName; empty otherwise); typ keeps the two apart, so a plain string compares by
 	// value in the map — a *string would compare by identity and never match.
 	type key struct {
 		topic  string
@@ -167,16 +177,11 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 		signal string
 	}
 
-	// Load this worker's existing active signals for the workflow (legacy
-	// registrations own the nil-worker set).
-	workerScope := entworkflowsignal.WorkerIDIsNil()
-	if workerIDPtr != nil {
-		workerScope = entworkflowsignal.WorkerIDEQ(*workerIDPtr)
-	}
+	// Load this worker's existing active signals for the workflow.
 	existingSignalList, err := tx.WorkflowSignal.Query().Where(
-		entworkflowsignal.TenantIDEQ(req.MutationTenantID()),
+		entworkflowsignal.TenantIDEQ(tenantID),
 		entworkflowsignal.WorkflowIDEQ(wf.ID),
-		workerScope,
+		entworkflowsignal.WorkerIDEQ(workerID),
 		entworkflowsignal.DeletedAtIsNil(),
 	).AllPages(ctx, mixin.Limit)
 	if err != nil {
@@ -190,7 +195,7 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 			topic: strings.TrimSpace(es.NatsTopic),
 			typ:   es.TemporalSignalType.String(),
 		}
-		if es.TemporalSignalType == entworkflowsignal.TemporalSignalTypeIntermediate {
+		if signalTypeHasName(es.TemporalSignalType) {
 			k.signal = strings.TrimSpace(es.TemporalSignal)
 		}
 		existing[k] = es
@@ -212,6 +217,22 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 		filterRule := strings.TrimSpace(in.FilterRule)
 		sType := in.TemporalSignalType
 
+		// These kinds deliver a named signal. Without a name every matching
+		// event would fail at delivery, so refuse the registration.
+		if temporalSignal == "" &&
+			(sType == entworkflowsignal.TemporalSignalTypeSignalWithStart || sType == entworkflowsignal.TemporalSignalTypeSignalByID) {
+			return nil, fmt.Errorf("%w: %q needs a signal name", ErrInvalidSignalName, sType)
+		}
+
+		// The router evaluates the rule on every matching event; a rule it
+		// cannot evaluate would fail each of them, and one past the bounds
+		// could crash the shared process.
+		if filterRule != "" {
+			if err := services.ValidateFilterRule(filterRule); err != nil {
+				return nil, fmt.Errorf("invalid workflow signal: %w", err)
+			}
+		}
+
 		// Validate and potentially expand wildcard tenants in natsTopic
 		var expandedTopics []string
 		if natsTopic != "" { //nolint:nestif // Complex topic validation requires multiple tenant and permission checks
@@ -227,12 +248,55 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 			// For now we only allow these specific topic types for workflow
 			// events. Future types must be explicitly allowed here.
 			switch topic.(type) {
-			case *events.MutationEventWithReplyTopic:
-				break
-			case *events.TemporalWorkflowStateChangeTopic:
-				break
+			case *events.MutationEventTopic,
+				*events.MutationEventWithReplyTopic,
+				*events.TemporalWorkflowStateChangeTopic:
 			default:
 				return nil, fmt.Errorf("%w: %#v", ErrInvalidSignalTopic, topic)
+			}
+
+			if !events.Matchable(natsTopic) {
+				return nil, fmt.Errorf("%w: %q can never match a published event", ErrInvalidSignalTopic, natsTopic)
+			}
+
+			// Parse and Matchable accept empty tokens ("crud..item"), which
+			// NATS refuses in a subject. The signal router reads an empty field
+			// as a wildcard (an empty stream as the default stream), so the
+			// stored signal would fire on events the caller never named. The
+			// input is checked, before tenant expansion fills in the tenant
+			// token, so an empty tenant token cannot slip through and the
+			// refusal quotes what the caller wrote. Expansion only writes
+			// UUIDs, "*" and ">", so a valid input stays valid.
+			if !events.IsValidSubscriptionSubject(natsTopic) {
+				return nil, fmt.Errorf("%w: %q is not a valid NATS subscription subject", ErrInvalidSignalTopic, natsTopic)
+			}
+
+			// Normalize legacy request/reply registrations to the
+			// fire-and-forget form. Topic matching is type-strict, and
+			// mutation events are consumed from the fire-and-forget subject,
+			// so a stored request.reply.* signal would never match an event.
+			//
+			// The rewrite is textual: rebuilding the topic from its parsed
+			// fields would turn a wildcard schema or entity token into "-".
+			normalizedTopic := natsTopic
+			if _, ok := topic.(*events.MutationEventWithReplyTopic); ok {
+				normalizedTopic = strings.TrimPrefix(natsTopic, "request.reply.")
+
+				mt, err := events.Parse(normalizedTopic)
+				if err != nil {
+					return nil, fmt.Errorf("%w: %w", ErrInvalidSignalTopic, err)
+				}
+
+				topic = mt
+			}
+
+			// Wildcards match the literal "request" and "reply" tokens, so
+			// a topic such as nine "*" tokens parses as the legacy form
+			// without the prefix, and the strip above leaves it unchanged.
+			// Nothing publishes to the legacy form any more, so the stored
+			// signal could never match an event.
+			if _, ok := topic.(*events.MutationEventWithReplyTopic); ok {
+				return nil, fmt.Errorf("%w: %q can never match a published event: it is only valid as a legacy request/reply subject", ErrInvalidSignalTopic, natsTopic)
 			}
 
 			// Check if topic provides tenant information (required for workflow signals)
@@ -245,7 +309,10 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 				return nil, ErrSignalTopicNoTenant
 			}
 
-			tenantID := tenantTopic.GetTenantID()
+			tenantID, err := tenantTopic.GetTenantID()
+			if err != nil {
+				return nil, fmt.Errorf("%w: %w", ErrInvalidSignalTopic, err)
+			}
 
 			if tenantID == uuid.Nil {
 				// Wildcard tenant: expand to individual tenant topics
@@ -265,13 +332,10 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 
 				// Create a topic for each tenant the user has access to
 				for _, tid := range userTenantIDs {
-					topic := topic // copy for closure
-					if e, ok := topic.(events.TenantProvider); ok {
-						e.SetTenantID(tid)
-					} else {
-						return nil, ErrSignalTopicNoTenant
+					expandedTopic, err := events.WithTenant(normalizedTopic, tid)
+					if err != nil {
+						return nil, fmt.Errorf("%w: %w", ErrInvalidSignalTopic, err)
 					}
-					expandedTopic := topic.String()
 					expandedTopics = append(expandedTopics, expandedTopic)
 				}
 			} else {
@@ -284,7 +348,7 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 						Msg("topic validation failed: user lacks permission for tenant")
 					return nil, ErrSignalTopicPermission
 				}
-				expandedTopics = []string{natsTopic}
+				expandedTopics = []string{normalizedTopic}
 			}
 		} else {
 			// Empty natsTopic means no NATS subscription (valid for START type)
@@ -294,14 +358,14 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 		// Process each expanded topic (one for concrete, multiple for wildcards)
 		for _, expandedTopic := range expandedTopics {
 			k := key{topic: expandedTopic, typ: sType.String()}
-			if sType == entworkflowsignal.TemporalSignalTypeIntermediate {
+			if signalTypeHasName(sType) {
 				k.signal = temporalSignal
 			}
 
 			// Enforce uniqueness per key in the input batch
 			if originalTopic, dup := seenOriginalTopics[k]; dup {
 				// Show original input topic for clarity (especially for wildcards)
-				if sType == entworkflowsignal.TemporalSignalTypeIntermediate {
+				if signalTypeHasName(sType) {
 					return nil, fmt.Errorf(
 						"%w: input topic %q expands to %q with type=%q temporalSignal=%q",
 						ErrDuplicateSignalSubscription, originalTopic, expandedTopic, sType, temporalSignal,
@@ -324,7 +388,9 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 
 				// Persist content changes, and always refresh the TTL so an
 				// unchanged re-registration (a worker heartbeat) keeps the
-				// subscription alive.
+				// subscription alive. Re-registering also clears stopped_at: a
+				// worker that registers is running, whatever an earlier
+				// unregisterWorker said.
 				if changed {
 					updateInput := ent.UpdateWorkflowSignalInput{
 						NatsTopic:          &expandedTopic,
@@ -334,16 +400,18 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 					}
 					if _, err := tx.WorkflowSignal.UpdateOneID(es.ID).
 						SetInput(updateInput).
-						SetNillableExpiresAt(expiresAt).
+						SetExpiresAt(expiresAt).
+						ClearStoppedAt().
 						Save(ctx); err != nil {
 						return nil, err
 					}
-				} else if expiresAt != nil {
+				} else {
 					// TTL-only refresh (a heartbeat): nothing business-visible
 					// changed, so suppress the CRUD event to spare the outbox.
 					refreshCtx := feature.Context(ctx, feature.FEATURE_SUPPRESS_EVENTS)
 					if _, err := tx.WorkflowSignal.UpdateOneID(es.ID).
-						SetExpiresAt(*expiresAt).
+						SetExpiresAt(expiresAt).
+						ClearStoppedAt().
 						Save(refreshCtx); err != nil {
 						return nil, err
 					}
@@ -361,8 +429,8 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 				}
 				if _, err := tx.WorkflowSignal.Create().
 					SetInput(createInput).
-					SetNillableWorkerID(workerIDPtr).
-					SetNillableExpiresAt(expiresAt).
+					SetWorkerID(workerID).
+					SetExpiresAt(expiresAt).
 					Save(ctx); err != nil {
 					return nil, err
 				}
@@ -453,11 +521,68 @@ func (r *mutationResolver) DeleteWorkflow(ctx context.Context, id uuid.UUID) (*m
 	return &model.WorkflowDeletePayload{DeletedID: &id}, nil
 }
 
+// UnregisterWorker is the resolver for the unregisterWorker field.
+//
+// A clean stop is a hint, not a deletion: this worker's live subscriptions are
+// marked stopped (stopped_at) in a single update, without reading them first.
+// The decision what routes is made per event by the router (see
+// services.PreferRunning): stopped rows are ignored while any running worker
+// holds live rows on the same workflow, and otherwise keep routing until their
+// TTL lapses, exactly as after a crash. A re-registration clears the mark.
+// Workflow rows are never touched. Idempotent: an unknown worker, or a repeat
+// call, stops 0 rows.
+func (r *mutationResolver) UnregisterWorker(ctx context.Context, workerID string) (*model.UnregisterWorkerPayload, error) {
+	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
+	if err != nil {
+		return nil, err
+	}
+
+	// Stopping subscriptions needs WRITER like every other mutation that
+	// touches a tenant's routing, and MutationTenantID would panic (logging the
+	// caller's token) without a single tenant.
+	tenantID, err := writerTenantID(request.ForContext(ctx))
+	if err != nil {
+		return nil, err
+	}
+
+	workerID = strings.TrimSpace(workerID)
+	if workerID == "" {
+		return nil, ErrWorkerIDRequired
+	}
+	if len(workerID) > maxWorkerIDLen {
+		return nil, ErrWorkerIDTooLong
+	}
+
+	now := time.Now().UTC()
+
+	// Bulk update of ephemeral liveness rows: suppress CRUD events (bulk writes
+	// that change rows fail without it).
+	stopCtx := feature.Context(ctx, feature.FEATURE_SUPPRESS_EVENTS)
+
+	n, err := tx.WorkflowSignal.Update().
+		Where(
+			entworkflowsignal.TenantIDEQ(tenantID),
+			entworkflowsignal.WorkerIDEQ(workerID),
+			services.LiveSignal(now),
+			entworkflowsignal.StoppedAtIsNil(),
+		).
+		SetStoppedAt(now).
+		Save(stopCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.UnregisterWorkerPayload{Stopped: n}, nil
+}
+
 // CancelWorkflow is the resolver for the cancelWorkflow field.
 func (r *mutationResolver) CancelWorkflow(ctx context.Context, input model.CancelWorkflowInput) (*model.CancelWorkflowPayload, error) {
-	req := request.ForContext(ctx)
+	tenantID, err := writerTenantID(request.ForContext(ctx))
+	if err != nil {
+		return nil, err
+	}
 
-	workflowClient, err := r.workflowRouter.GetClient(ctx, req.MutationTenantID().String())
+	workflowClient, err := r.workflowRouter.GetClient(ctx, tenantID.String())
 	if err != nil || workflowClient == nil {
 		return nil, ErrInvalidWorkflowClient
 	}
@@ -553,15 +678,13 @@ func (r *workflowWhereInputResolver) Data(ctx context.Context, obj *ent.Workflow
 		return nil
 	}
 
-	if len(data) == 2 {
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(entworkflow.FieldData, data[1], jsonPath))
-		})
+	jsonPath, value, err := sqljsonpath.PathValue(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueEQ(entworkflow.FieldData, value, jsonPath))
+	})
 	return nil
 }
 
@@ -571,15 +694,13 @@ func (r *workflowWhereInputResolver) DataHasKey(ctx context.Context, obj *ent.Wo
 		return nil
 	}
 
-	if *data != "" {
-		jsonPath, err := sqljsonpath.DotPath(*data)
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(entworkflow.FieldData, jsonPath))
-		})
+	jsonPath, err := sqljsonpath.KeyPath(*data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.HasKey(entworkflow.FieldData, jsonPath))
+	})
 	return nil
 }
 
@@ -589,19 +710,13 @@ func (r *workflowWhereInputResolver) DataIn(ctx context.Context, obj *ent.Workfl
 		return nil
 	}
 
-	if len(data) >= 2 {
-		var args []any
-		for _, v := range data[1:] {
-			args = append(args, v)
-		}
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(entworkflow.FieldData, args, jsonPath))
-		})
+	jsonPath, values, err := sqljsonpath.PathValues(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueIn(entworkflow.FieldData, values, jsonPath))
+	})
 	return nil
 }
 
@@ -611,14 +726,19 @@ func (r *workflowWhereInputResolver) DataContains(ctx context.Context, obj *ent.
 		return nil
 	}
 
-	if len(data) == 2 {
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(entworkflow.FieldData, data[1], jsonPath))
-		})
+	jsonPath, value, err := sqljsonpath.PathValue(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueContains(entworkflow.FieldData, value, jsonPath))
+	})
 	return nil
 }
+
+// WorkflowExecutionInfo returns exec.WorkflowExecutionInfoResolver implementation.
+func (r *Resolver) WorkflowExecutionInfo() exec.WorkflowExecutionInfoResolver {
+	return &workflowExecutionInfoResolver{r}
+}
+
+type workflowExecutionInfoResolver struct{ *Resolver }

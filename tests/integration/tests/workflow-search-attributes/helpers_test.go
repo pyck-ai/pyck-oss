@@ -3,15 +3,18 @@
 package workflow
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
 	"github.com/brianvoe/gofakeit/v6"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	commonpb "go.temporal.io/api/common/v1"
 	"go.temporal.io/api/enums/v1"
 	temporalclient "go.temporal.io/sdk/client"
@@ -201,19 +204,19 @@ func (l *wfLifecycle) startLifecycle() bool {
 		return false
 	}
 
-	// Trigger a workflow run via NATS, exercising the full client
-	// path — same as myworkflow/cmd/trigger publishes:
-	//   nats.Request → pyck-workflow signalrouter → SignalWithStartWorkflow
-	// → pyck-temporal → our in-process worker picks up the task →
-	// the test workflow runs and blocks on Await.
+	// Trigger a workflow run via NATS, exercising the full production
+	// path: a fire-and-forget JetStream publish (what the outbox
+	// drainer emits) → pyck-workflow signalrouter →
+	// SignalWithStartWorkflow → pyck-temporal → our in-process worker
+	// picks up the task → the test workflow runs and blocks on Await.
 	//
-	// The signalrouter constructs the workflow ID as
-	// "<workflowName>_<entityID>", so the entity UUID we publish
-	// determines the resulting workflow ID; we capture both via the
-	// router's reply payload.
+	// Mutation events are one-way, so the started execution is
+	// resolved the way real clients do it: polling workflowExecutions
+	// filtered by the pyck_transaction_id handle stamped on the event
+	// until the execution becomes visible.
 	return l.base.Run("trigger workflow via NATS", func() {
 		r := l.base.Require()
-		entityID, wfID, rID, err := publishWfTrigger(l.base.Ctx, l.base.Cfg, l.id, l.registered.ID)
+		entityID, wfID, rID, err := publishWfTrigger(l.base.Ctx, l.base.Cfg, l.id, l.registered.ID, l.pat)
 		r.NoError(err)
 		l.workflowID = wfID
 		l.runID = rID
@@ -337,7 +340,7 @@ func (kw *wfWorker) Stop() {
 // construction (where the same fields are filled in with concrete
 // values).
 func signalTopicString(id wfIdentity) string {
-	return events.MutationEventWithReplyTopic{
+	return events.MutationEventTopic{
 		ServiceName:   signalServiceName,
 		SchemaName:    id.SignalSchema,
 		OperationName: signalOperationName,
@@ -349,7 +352,7 @@ func signalTopicString(id wfIdentity) string {
 // of this exact shape and matches them against the registered
 // signalTopicString(id).
 func triggerSubject(stream string, id wfIdentity, tenantID, entityID uuid.UUID) string {
-	return events.MutationEventWithReplyTopic{
+	return events.MutationEventTopic{
 		StreamName:    stream,
 		TenantID:      tenantID,
 		ServiceName:   signalServiceName,
@@ -359,16 +362,22 @@ func triggerSubject(stream string, id wfIdentity, tenantID, entityID uuid.UUID) 
 	}.String()
 }
 
-// publishWfTrigger publishes a MutationEventWithReplyTopic event
-// matching the workflow's start signal, using nats.Request so we get
-// the signalrouter's reply (the workflow ID + run ID). Mirrors what
-// myworkflow/cmd/trigger does, except scoped to the integration test's
-// service/schema/operation tuple.
+// publishWfTrigger publishes a fire-and-forget mutation event matching
+// the workflow's start signal, mirroring what the outbox drainer does in
+// production: a JetStream publish on the pyck.<tenant>.crud... subject
+// with a pyck_transaction_id search attribute (the per-mutation handle
+// the outbox hook stamps on every event).
 //
-// Returns the workflow ID and run ID extracted from the router's
-// response so the caller can poll Temporal for status. tenantID is
-// the management tenant row ID (string form of the per-tenant UUID).
-func publishWfTrigger(ctx context.Context, cfg *config.Config, id wfIdentity, tenantID string) (entityID uuid.UUID, workflowID, runID string, err error) {
+// There is no reply — mutation events are one-way. The started
+// execution is resolved the way real clients do it: by polling the
+// gateway's workflowExecutions query filtered by the transaction-ID
+// handle until the execution becomes visible.
+//
+// Returns the entity ID plus the workflow ID and run ID from the
+// lookup so the caller can poll Temporal for status. tenantID is the
+// management tenant row ID (string form of the per-tenant UUID);
+// token is a PAT of a machine user in that tenant.
+func publishWfTrigger(ctx context.Context, cfg *config.Config, id wfIdentity, tenantID, token string) (entityID uuid.UUID, workflowID, runID string, err error) {
 	tenantUUID, err := uuid.Parse(tenantID)
 	if err != nil {
 		return uuid.Nil, "", "", fmt.Errorf("parse tenant id %q: %w", tenantID, err)
@@ -380,7 +389,13 @@ func publishWfTrigger(ctx context.Context, cfg *config.Config, id wfIdentity, te
 	}
 	defer nc.Close()
 
+	js, err := jetstream.New(nc)
+	if err != nil {
+		return uuid.Nil, "", "", fmt.Errorf("jetstream: %w", err)
+	}
+
 	entityID = uuid.New()
+	transactionID := uuid.New()
 	subject := triggerSubject(cfg.NatsStream, id, tenantUUID, entityID)
 
 	payload, err := json.Marshal(events.MutationEventMessage{
@@ -396,57 +411,122 @@ func publishWfTrigger(ctx context.Context, cfg *config.Config, id wfIdentity, te
 		},
 		// Must be supplied by the publisher — the pyck signalrouter
 		// only propagates attributes listed here as Temporal typed
-		// search attributes. Without pyck_tenant_id the execution
-		// won't be visible via the workflowExecutions resolver, even
-		// though it is running in Temporal.
+		// search attributes. pyck_tenant_id makes the execution
+		// visible to the workflowExecutions resolver at all;
+		// pyck_transaction_id is the handle the lookup below (and
+		// every real client) filters on.
 		WfSearchAttributes: map[string]string{
-			"pyck_tenant_id": tenantUUID.String(),
-			"pyck_data_id":   entityID.String(),
+			"pyck_tenant_id":      tenantUUID.String(),
+			"pyck_data_id":        entityID.String(),
+			"pyck_transaction_id": transactionID.String(),
 		},
 	})
 	if err != nil {
 		return uuid.Nil, "", "", fmt.Errorf("marshal event: %w", err)
 	}
 
-	reply, err := nc.RequestWithContext(ctx, subject, payload)
+	if _, err := js.Publish(ctx, subject, payload); err != nil {
+		return uuid.Nil, "", "", fmt.Errorf("jetstream publish %s: %w", subject, err)
+	}
+
+	workflowID, runID, err = lookupExecutionByTransactionID(ctx, cfg, token, tenantID, transactionID.String())
 	if err != nil {
-		return uuid.Nil, "", "", fmt.Errorf("nats request %s: %w", subject, err)
+		return uuid.Nil, "", "", err
 	}
 
-	// The signalrouter replies with {data: [{type,id,runID},...], success}.
-	// One trigger event can fan out to multiple workflows, but the
-	// integration test only registers one — so we expect a single entry.
-	var envelope routerReplyEnvelope
-	if err := json.Unmarshal(reply.Data, &envelope); err != nil {
-		return uuid.Nil, "", "", fmt.Errorf("decode router reply (%s): %w", string(reply.Data), err)
-	}
-	if !envelope.Success {
-		return uuid.Nil, "", "", fmt.Errorf("router reply success=false: %s", string(reply.Data))
-	}
-	if len(envelope.Data) == 0 {
-		return uuid.Nil, "", "", fmt.Errorf("router reply contained no workflows: %s", string(reply.Data))
-	}
-	if envelope.Data[0].ID == "" {
-		return uuid.Nil, "", "", fmt.Errorf("router reply missing workflow id: %s", string(reply.Data))
-	}
-
-	return entityID, envelope.Data[0].ID, envelope.Data[0].RunID, nil
+	return entityID, workflowID, runID, nil
 }
 
-// routerReplyEnvelope is the wrapper the signalrouter returns over
-// NATS request/reply. data holds a TemporalWorkflow list because one
-// event can fan out to multiple registered workflows; success
-// distinguishes "router got the event but skipped it" from an actual
-// hit.
-type routerReplyEnvelope struct {
-	Success bool          `json:"success"`
-	Data    []routerReply `json:"data"`
-}
+// lookupExecutionByTransactionID polls the gateway's workflowExecutions
+// query filtered by the pyck_transaction_id handle until the started
+// execution becomes visible in Temporal's visibility store, and returns
+// its workflow ID and run ID. An empty connection is the documented
+// "not started / not visible yet" state, so the poll simply retries
+// until the deadline.
+//
+// This uses a raw GraphQL request instead of the generated workflow API
+// client because that client was generated before the transactionID
+// where-filter existed; regenerating it is part of adopting the new
+// gateway schema wholesale and out of scope for this suite.
+func lookupExecutionByTransactionID(ctx context.Context, cfg *config.Config, token, tenantID, transactionID string) (workflowID, runID string, err error) {
+	const query = `query($h: ID!) {
+		workflowExecutions(where: {transactionID: $h}) {
+			totalCount
+			edges { node { execution { workflowId id } } }
+		}
+	}`
 
-type routerReply struct {
-	Type  string `json:"type"`
-	ID    string `json:"id"`
-	RunID string `json:"runID"`
+	body, err := json.Marshal(map[string]any{
+		"query":     query,
+		"variables": map[string]string{"h": transactionID},
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("marshal lookup query: %w", err)
+	}
+
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.GatewayURL, bytes.NewReader(body))
+		if err != nil {
+			return "", "", fmt.Errorf("build lookup request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("X-Pyck-Tenant-Id", tenantID)
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return "", "", fmt.Errorf("lookup request: %w", err)
+		}
+
+		var out struct {
+			Data struct {
+				WorkflowExecutions struct {
+					TotalCount int `json:"totalCount"`
+					Edges      []struct {
+						Node struct {
+							Execution struct {
+								WorkflowID string `json:"workflowId"`
+								RunID      string `json:"id"`
+							} `json:"execution"`
+						} `json:"node"`
+					} `json:"edges"`
+				} `json:"workflowExecutions"`
+			} `json:"data"`
+			Errors []struct {
+				Message string `json:"message"`
+			} `json:"errors"`
+		}
+		decodeErr := json.NewDecoder(resp.Body).Decode(&out)
+		closeErr := resp.Body.Close()
+		if decodeErr != nil {
+			return "", "", fmt.Errorf("decode lookup response: %w", decodeErr)
+		}
+		if closeErr != nil {
+			return "", "", fmt.Errorf("close lookup response: %w", closeErr)
+		}
+		if len(out.Errors) > 0 {
+			return "", "", fmt.Errorf("lookup query error: %s", out.Errors[0].Message)
+		}
+
+		if out.Data.WorkflowExecutions.TotalCount > 0 {
+			exec := out.Data.WorkflowExecutions.Edges[0].Node.Execution
+			if exec.WorkflowID == "" {
+				return "", "", fmt.Errorf("lookup returned execution without workflowId")
+			}
+			return exec.WorkflowID, exec.RunID, nil
+		}
+
+		if time.Now().After(deadline) {
+			return "", "", fmt.Errorf("execution for transactionID %s not visible after 15s", transactionID)
+		}
+
+		select {
+		case <-ctx.Done():
+			return "", "", ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }
 
 // waitForWorkflowStatus polls DescribeWorkflowExecution until the
@@ -477,10 +557,13 @@ func waitForWorkflowStatus(ctx context.Context, c temporalclient.Client, workflo
 // registration / unregistration explicitly.
 func registerWithPyck(ctx context.Context, cfg *config.Config, token string, id wfIdentity) (string, error) {
 	c := gateway.NewWorkflowClient(cfg, token)
+	// The service requires a worker ID; this helper plays a worker.
+	workerID := "integration-test-" + id.WorkflowName
 	resp, err := c.RegisterWorkflow(ctx, workflowapi.RegisterWorkflowArgs{
 		Input: workflowmodel.RegisterWorkflowWithSignalsInput{
 			Name:      id.WorkflowName,
 			TaskQueue: id.TaskQueue,
+			WorkerID:  workerID,
 			Signals: []*workflowmodel.RegisterWorkflowSignalInput{
 				{
 					NatsTopic:          signalTopicString(id),

@@ -137,6 +137,9 @@ func (r *queryResolver) Transactions(ctx context.Context, after *entgql.Cursor[u
 		)
 }
 
+// InventoryItem returns exec.InventoryItemResolver implementation.
+func (r *Resolver) InventoryItem() exec.InventoryItemResolver { return &inventoryItemResolver{r} }
+
 // Query returns exec.QueryResolver implementation.
 func (r *Resolver) Query() exec.QueryResolver { return &queryResolver{r} }
 
@@ -187,6 +190,7 @@ func (r *Resolver) RepositoryWhereInput() exec.RepositoryWhereInputResolver {
 func (r *Resolver) StockWhereInput() exec.StockWhereInputResolver { return &stockWhereInputResolver{r} }
 
 type (
+	inventoryItemResolver                    struct{ *Resolver }
 	queryResolver                            struct{ *Resolver }
 	repositoryResolver                       struct{ *Resolver }
 	inventoryCollectionWhereInputResolver    struct{ *Resolver }

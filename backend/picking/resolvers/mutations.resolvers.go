@@ -75,7 +75,7 @@ func (r *mutationResolver) CreatePickingOrder(ctx context.Context, input model.C
 		}
 	}
 
-	// Create picking order (MutationEventHook captures automatically, WorkflowReplyMiddleware handles reply)
+	// Create picking order (MutationEventHook captures automatically)
 	orderInput := ent.CreatePickingOrderInput{
 		DataTypeID: input.DataTypeID,
 		Data:       input.Data,
@@ -114,7 +114,7 @@ func (r *mutationResolver) CreatePickingOrder(ctx context.Context, input model.C
 		return nil, err
 	}
 
-	return &model.PickingOrderOutput{PickingOrder: createdOrder}, nil
+	return &model.PickingOrderOutput{PickingOrder: createdOrder, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // UpdatePickingOrder is the resolver for the updatePickingOrder field.
@@ -148,7 +148,7 @@ func (r *mutationResolver) UpdatePickingOrder(ctx context.Context, id uuid.UUID,
 		return nil, err
 	}
 
-	return &model.PickingOrderOutput{PickingOrder: updated}, nil
+	return &model.PickingOrderOutput{PickingOrder: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // DeletePickingOrder is the resolver for the deletePickingOrder field.
@@ -161,7 +161,7 @@ func (r *mutationResolver) DeletePickingOrder(ctx context.Context, id uuid.UUID)
 		return nil, err
 	}
 
-	// Soft delete order (MutationEventHook detects soft delete, WorkflowReplyMiddleware handles reply)
+	// Soft delete order (MutationEventHook detects soft delete)
 	_, err = tx.Order.
 		UpdateOneID(id).
 		SetDeletedAt(time.Now().UTC()).
@@ -191,7 +191,7 @@ func (r *mutationResolver) DeletePickingOrder(ctx context.Context, id uuid.UUID)
 		}
 	}
 
-	return &model.PickingOrderDeletePayload{DeletedID: &id}, nil
+	return &model.PickingOrderDeletePayload{DeletedID: &id, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // CreatePickingOrderItem is the resolver for the createPickingOrderItem field.
@@ -223,13 +223,13 @@ func (r *mutationResolver) CreatePickingOrderItem(ctx context.Context, input ent
 		return nil, fmt.Errorf("invalid order: %w", err)
 	}
 
-	// Create item (MutationEventHook captures automatically, WorkflowReplyMiddleware handles reply)
+	// Create item (MutationEventHook captures automatically)
 	orderItem, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return &model.PickingOrderItemOutput{PickingOrderItem: orderItem}, nil
+	return &model.PickingOrderItemOutput{PickingOrderItem: orderItem, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // UpdatePickingOrderItem is the resolver for the updatePickingOrderItem field.
@@ -269,7 +269,7 @@ func (r *mutationResolver) UpdatePickingOrderItem(ctx context.Context, id uuid.U
 		return nil, err
 	}
 
-	return &model.PickingOrderItemOutput{PickingOrderItem: orderItem}, nil
+	return &model.PickingOrderItemOutput{PickingOrderItem: orderItem, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // DeletePickingOrderItem is the resolver for the deletePickingOrderItem field.
@@ -281,7 +281,7 @@ func (r *mutationResolver) DeletePickingOrderItem(ctx context.Context, id uuid.U
 		return nil, err
 	}
 
-	// Soft delete item (MutationEventHook detects soft delete, WorkflowReplyMiddleware handles reply)
+	// Soft delete item (MutationEventHook detects soft delete)
 	_, err = tx.OrderItems.
 		UpdateOneID(id).
 		SetDeletedAt(time.Now().UTC()).
@@ -291,7 +291,7 @@ func (r *mutationResolver) DeletePickingOrderItem(ctx context.Context, id uuid.U
 		return nil, err
 	}
 
-	return &model.PickingOrderItemDeletePayload{DeletedID: &id}, nil
+	return &model.PickingOrderItemDeletePayload{DeletedID: &id, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // CreatePickingOutboundShipmentNotification is the resolver for the createPickingOutboundShipmentNotification field.
@@ -321,13 +321,13 @@ func (r *mutationResolver) CreatePickingOutboundShipmentNotification(ctx context
 		return nil, fmt.Errorf("invalid order: %w", err)
 	}
 
-	// Create notification (MutationEventHook captures automatically, WorkflowReplyMiddleware handles reply)
+	// Create notification (MutationEventHook captures automatically)
 	notification, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return &model.PickingOutboundShipmentNotificationOutput{PickingOutboundShipmentNotification: notification}, nil
+	return &model.PickingOutboundShipmentNotificationOutput{PickingOutboundShipmentNotification: notification, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // UpdatePickingOutboundShipmentNotification is the resolver for the updatePickingOutboundShipmentNotification field.
@@ -366,7 +366,7 @@ func (r *mutationResolver) UpdatePickingOutboundShipmentNotification(ctx context
 		return nil, err
 	}
 
-	return &model.PickingOutboundShipmentNotificationOutput{PickingOutboundShipmentNotification: notification}, nil
+	return &model.PickingOutboundShipmentNotificationOutput{PickingOutboundShipmentNotification: notification, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // DeletePickingOutboundShipmentNotification is the resolver for the deletePickingOutboundShipmentNotification field.
@@ -376,7 +376,7 @@ func (r *mutationResolver) DeletePickingOutboundShipmentNotification(ctx context
 		return nil, err
 	}
 
-	// Soft delete notification (MutationEventHook detects soft delete, WorkflowReplyMiddleware handles reply)
+	// Soft delete notification (MutationEventHook detects soft delete)
 	_, err = tx.OutboundShipmentNotification.
 		UpdateOneID(id).
 		SetDeletedAt(time.Now().UTC()).
@@ -386,7 +386,7 @@ func (r *mutationResolver) DeletePickingOutboundShipmentNotification(ctx context
 		return nil, err
 	}
 
-	return &model.PickingOutboundShipmentNotificationDeletePayload{DeletedID: &id}, nil
+	return &model.PickingOutboundShipmentNotificationDeletePayload{DeletedID: &id, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // PatchPickingOrderData applies RFC 6902 JSON Patch operations to the picking order's data field.
@@ -427,7 +427,7 @@ func (r *mutationResolver) PatchPickingOrderData(ctx context.Context, id uuid.UU
 		return nil, err
 	}
 
-	return &model.PickingOrderOutput{PickingOrder: updated}, nil
+	return &model.PickingOrderOutput{PickingOrder: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // PatchPickingOrderItemData applies RFC 6902 JSON Patch operations to the picking order item's data field.
@@ -468,7 +468,7 @@ func (r *mutationResolver) PatchPickingOrderItemData(ctx context.Context, id uui
 		return nil, err
 	}
 
-	return &model.PickingOrderItemOutput{PickingOrderItem: updated}, nil
+	return &model.PickingOrderItemOutput{PickingOrderItem: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // PatchPickingOutboundShipmentNotificationData applies RFC 6902 JSON Patch operations to the notification's data field.
@@ -509,7 +509,7 @@ func (r *mutationResolver) PatchPickingOutboundShipmentNotificationData(ctx cont
 		return nil, err
 	}
 
-	return &model.PickingOutboundShipmentNotificationOutput{PickingOutboundShipmentNotification: updated}, nil
+	return &model.PickingOutboundShipmentNotificationOutput{PickingOutboundShipmentNotification: updated, TransactionID: gqltx.TransactionID(ctx)}, nil
 }
 
 // Mutation returns exec.MutationResolver implementation.

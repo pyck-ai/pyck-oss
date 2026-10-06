@@ -1,0 +1,63 @@
+{{/* gotype: entgo.io/ent/entc/gen.Graph */}}
+
+{{/*
+Overrides ent's builtin "predicate" template (entc/gen/template/predicate.tmpl,
+ent v0.14). The body is ent's verbatim; the additions are ScopeNeighborToTenants
+and ScopeNeighborToLive at the end. They live here because every generated
+where.go already imports the predicate package, so the relation predicate
+templates (haswith_neighbor_scope.tmpl for Has<Edge>With,
+has_neighbor_scope.tmpl for the plain Has<Edge>()) can reach them without
+touching the per-file import lists. Re-check the upstream template when ent is
+upgraded.
+*/}}
+{{ define "predicate" }}
+
+{{- with extend $ "Package" "predicate" -}}
+	{{ template "header" . }}
+{{ end }}
+
+import (
+	"fmt"
+
+	"entgo.io/ent/dialect/gremlin/graph/dsl"
+	"entgo.io/ent/dialect/sql"
+
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
+)
+
+{{ range $n := $.Nodes -}}
+	// {{ $n.Name }} is the predicate function for {{ $n.Package }} builders.
+	type {{ $n.Name }} func({{ $.Storage.Builder }})
+
+	{{- with $n.HasValueScanner }}
+		// {{ $n.Name }}OrErr calls the predicate only if the error is not nit.
+		func {{ $n.Name }}OrErr(p {{ $n.Name }}, err error) {{ $n.Name }} {
+			return func(s {{ $.Storage.Builder }}) {
+				if err != nil {
+					s.AddError(err)
+					return
+				}
+				p(s)
+			}
+		}
+	{{- end }}
+{{ end }}
+
+// ScopeNeighborToTenants narrows the sub-select of a relation predicate
+// (Has<Edge>With, and the plain Has<Edge>()) to the tenants the caller may
+// read. Generated where.go files apply it in every relation predicate whose
+// target entity carries tenant_id; the tenant privacy filter itself never
+// reaches those sub-selects.
+func ScopeNeighborToTenants(s *sql.Selector) {
+	mixin.ScopeNeighborToTenants(s)
+}
+
+// ScopeNeighborToLive drops soft-deleted rows from the sub-select of a
+// relation predicate (Has<Edge>With, and the plain Has<Edge>()). Generated
+// where.go files apply it in every relation predicate whose target entity
+// carries deleted_at; the soft-delete privacy filter itself never reaches
+// those sub-selects.
+func ScopeNeighborToLive(s *sql.Selector) {
+	mixin.ScopeNeighborToLive(s)
+}
+{{ end }}

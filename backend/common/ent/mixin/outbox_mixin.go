@@ -112,12 +112,6 @@ func (OutboxMixin) Fields() []ent.Field {
 				dialect.Postgres: "jsonb",
 			}),
 
-		// Whether the resolver is waiting for workflow IDs in response
-		// When true, the outbox handler should wait for NATS reply and
-		// deliver workflow details back to the resolver via ReplyRegistry
-		field.Bool(outboxfields.WithReply).
-			Default(false),
-
 		// Number of failed publish attempts
 		// Used for retry logic and monitoring
 		field.Int(outboxfields.RetryCount).
@@ -163,6 +157,9 @@ var outboxPendingWhere = outboxfields.PublishedAt + " IS NULL AND " + outboxfiel
 // outboxDeadWhere is the partial index predicate for dead rows awaiting DLQ drain.
 var outboxDeadWhere = outboxfields.DeadAt + " IS NOT NULL AND " + outboxfields.PublishedAt + " IS NULL"
 
+// outboxPublishedWhere is the partial index predicate for published rows awaiting pruning.
+var outboxPublishedWhere = outboxfields.PublishedAt + " IS NOT NULL"
+
 // Indexes returns the outbox table indexes.
 func (OutboxMixin) Indexes() []ent.Index {
 	return []ent.Index{
@@ -188,5 +185,11 @@ func (OutboxMixin) Indexes() []ent.Index {
 		// keeping the unconditional drain scan an index scan.
 		index.Fields(outboxfields.CreatedAt).
 			Annotations(entsql.IndexWhere(outboxDeadWhere)),
+
+		// Prune index: published rows, scanned by the OutboxJanitor
+		// (published_at < cutoff). Unpublished and dead rows are excluded, so the
+		// index only ever holds rows that are about to be pruned.
+		index.Fields(outboxfields.PublishedAt).
+			Annotations(entsql.IndexWhere(outboxPublishedWhere)),
 	}
 }

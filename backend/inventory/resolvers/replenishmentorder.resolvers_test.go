@@ -37,7 +37,8 @@ var (
 				id tenantID supplierID dataTypeID dataTypeSlug data
 				createdAt createdBy updatedAt updatedBy deletedAt deletedBy
 			}
-			workflows { type id runID }
+			transactionID
+			eventCount
 		}
 	}`)
 
@@ -61,14 +62,16 @@ var (
 				id tenantID supplierID dataTypeID dataTypeSlug data
 				createdAt createdBy updatedAt updatedBy deletedAt deletedBy
 			}
-			workflows { type id runID }
+			transactionID
+			eventCount
 		}
 	}`)
 
 	deleteReplenishmentOrderTpl = resolver.ParseTemplate(`mutation {
 		deleteReplenishmentOrder(id: "{{ .ID }}") {
 			deletedID
-			workflows { type id runID }
+			transactionID
+			eventCount
 		}
 	}`)
 
@@ -162,7 +165,8 @@ var (
 				id tenantID supplierID dataTypeID dataTypeSlug data
 				createdAt createdBy updatedAt updatedBy deletedAt deletedBy
 			}
-			workflows { type id runID }
+			transactionID
+			eventCount
 		}
 	}`)
 )
@@ -189,21 +193,24 @@ type replenishmentOrderNode struct {
 type createReplenishmentOrderData struct {
 	CreateReplenishmentOrder struct {
 		ReplenishmentOrder replenishmentOrderNode
-		Workflows          []*struct{ Name string }
+		TransactionID      string
+		EventCount         int
 	}
 }
 
 type updateReplenishmentOrderData struct {
 	UpdateReplenishmentOrder struct {
 		ReplenishmentOrder replenishmentOrderNode
-		Workflows          []*struct{ Name string }
+		TransactionID      string
+		EventCount         int
 	}
 }
 
 type deleteReplenishmentOrderData struct {
 	DeleteReplenishmentOrder struct {
-		DeletedID uuid.UUID
-		Workflows []*struct{ Name string }
+		DeletedID     uuid.UUID
+		TransactionID string
+		EventCount    int
 	}
 }
 
@@ -644,6 +651,7 @@ func TestReplenishmentOrder_Delete(t *testing.T) {
 		})
 
 		assert.Equal(t, order.ID, data.DeleteReplenishmentOrder.DeletedID)
+		assert.Equal(t, 1, data.DeleteReplenishmentOrder.EventCount)
 
 		// Verify deleted
 		_, err := te.Ent.ReplenishmentOrder.Get(ctx, order.ID)
@@ -1050,6 +1058,11 @@ func TestReplenishmentOrder_CreateWithItems(t *testing.T) {
 		assert.Equal(t, tenantA, created.TenantID)
 		assert.Equal(t, supplierID, created.SupplierID)
 		assert.Equal(t, itemDataTypeID, created.DataTypeID)
+
+		// eventCount is the number of outbox events the mutation wrote: the
+		// order plus its two items.
+		assert.Equal(t, 3, data.CreateReplenishmentOrder.EventCount)
+		te.assertEventCounts(ctx, map[string]int{"replenishmentorder": 1, "replenishmentorderitem": 2})
 
 		// Verify order in database
 		orders, err := te.Ent.ReplenishmentOrder.Query().AllPages(ctx, mixin.Limit)

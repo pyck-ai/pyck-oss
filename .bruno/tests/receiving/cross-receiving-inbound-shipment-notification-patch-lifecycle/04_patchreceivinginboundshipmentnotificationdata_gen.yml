@@ -18,6 +18,7 @@ graphql:
 
       mutation PatchReceivingInboundShipmentNotificationData($id: ID!, $patches: [JSONPatchInput!]!) {
         patchReceivingInboundShipmentNotificationData(id: $id, patches: $patches) {
+          eventCount
           receivingInboundShipmentNotification {
             createdAt
             createdBy
@@ -32,11 +33,7 @@ graphql:
             updatedAt
             updatedBy
           }
-          workflows {
-            id
-            runID
-            type
-          }
+          transactionID
         }
       }
     variables: |-

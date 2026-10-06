@@ -1,0 +1,11 @@
+info:
+  name: User - Workflow Signal Topic Unmatchable
+  type: folder
+  seq: 1
+
+docs: |-
+  Registers a signal topic with an uppercase token, which publishers never emit, and verifies it is refused and nothing is persisted.
+
+
+request:
+  auth: inherit

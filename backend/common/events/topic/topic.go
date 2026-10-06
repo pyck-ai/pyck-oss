@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -58,7 +59,7 @@ const (
 	TopicTypeWorkflowEvent
 
 	// TopicTypeTemporalWorkflowStateChangeEvent represents a temporal workflow state change event.
-	// Pattern: <stream>.<namespace>.temporal.<workflowID>.<runID>.<status>
+	// Pattern: <stream>.<namespace>.temporal.<taskQueue>.<workflowTypeName>.<workflowID>.<runID>.<status>
 	TopicTypeTemporalWorkflowStateChangeEvent
 )
 
@@ -176,6 +177,73 @@ func MustParse(topic string) Topic {
 	return t
 }
 
+// WithTenant sets the tenant token of subject to tenantID, keeping every other
+// token verbatim. A '>' covering the tenant position is expanded around it.
+func WithTenant(subject string, tenantID uuid.UUID) (string, error) {
+	pattern, parts, err := splitSubject(subject)
+	if err != nil {
+		return "", err
+	}
+
+	idx := slices.IndexFunc(pattern, func(tok topicToken) bool {
+		return tok.field == "tenant" || tok.field == "namespace"
+	})
+	if idx < 0 {
+		return "", fmt.Errorf("%w: %q has no tenant token", ErrInvalidTopic, subject)
+	}
+
+	if last := len(parts) - 1; parts[last] == ">" && idx >= last {
+		parts = parts[:last]
+		for len(parts) <= idx {
+			parts = append(parts, "*")
+		}
+		if idx < len(pattern)-1 {
+			parts = append(parts, ">")
+		}
+	}
+	parts[idx] = tenantID.String()
+
+	return strings.Join(parts, "."), nil
+}
+
+// Matchable reports whether subject can match a published subject, whose string
+// tokens are always escaped by formatTopicPart. A temporal namespace is matched
+// as a string and published as the tenant's canonical UUID, so any other UUID
+// spelling, such as one without dashes, can never match.
+func Matchable(subject string) bool {
+	pattern, parts, err := splitSubject(subject)
+	if err != nil {
+		return false
+	}
+
+	for i, tok := range pattern {
+		if i >= len(parts) || parts[i] == ">" {
+			break
+		}
+		if tok.isLiteral || tok.fieldType != fieldTypeString || parts[i] == "*" {
+			continue
+		}
+		if escapeTopicToken(parts[i]) != parts[i] {
+			return false
+		}
+		if tok.field == "namespace" {
+			if id, err := uuid.Parse(parts[i]); err != nil || id.String() != parts[i] {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func splitSubject(subject string) ([]topicToken, []string, error) {
+	t, err := Parse(subject)
+	if err != nil {
+		return nil, nil, err
+	}
+	return knownTopics[t.Type()].pattern, strings.Split(strings.TrimSpace(subject), "."), nil
+}
+
 // ParseTenantFromTopic parses a topic and extracts tenant IDs.
 // For topics with explicit tenant UUIDs, returns a single-element slice.
 // For topics with wildcard tenants (*), it extracts tenant IDs from the context.
@@ -191,7 +259,7 @@ func ParseTenantFromTopic(ctx context.Context, topic string) ([]uuid.UUID, strin
 	typeName := parsed.Type().String()
 
 	if t, ok := parsed.(MutationEventTopic); ok {
-		tenantID = t.GetTenantID()
+		tenantID = t.TenantID
 	} else {
 		return nil, typeName, fmt.Errorf("%w: topic type %s does not contain tenant information", ErrInvalidTopic, typeName)
 	}
@@ -268,8 +336,11 @@ type StreamProvider interface {
 	GetStreamName() string
 }
 
+// TenantProvider is a topic that names a tenant. GetTenantID returns uuid.Nil
+// for a wildcard tenant and an error when the tenant token is not a tenant ID,
+// so callers never mistake a malformed token for a wildcard.
 type TenantProvider interface {
-	GetTenantID() uuid.UUID
+	GetTenantID() (uuid.UUID, error)
 	SetTenantID(tenantID uuid.UUID)
 }
 
@@ -312,8 +383,11 @@ func matchesStream(a, b StreamProvider) bool {
 }
 
 func matchesTenant(a, b TenantProvider) bool {
-	aTenant := a.GetTenantID()
-	bTenant := b.GetTenantID()
+	aTenant, aErr := a.GetTenantID()
+	bTenant, bErr := b.GetTenantID()
+	if aErr != nil || bErr != nil {
+		return false
+	}
 	return aTenant == uuid.Nil || aTenant == bTenant
 }
 
@@ -367,8 +441,8 @@ func (t MutationEventTopic) GetStreamName() string {
 	return getStreamName(t.StreamName)
 }
 
-func (t MutationEventTopic) GetTenantID() uuid.UUID {
-	return t.TenantID
+func (t MutationEventTopic) GetTenantID() (uuid.UUID, error) {
+	return t.TenantID, nil
 }
 
 func (t *MutationEventTopic) SetTenantID(tenantID uuid.UUID) {
@@ -412,7 +486,13 @@ func (t MutationEventTopic) Matches(other Topic) bool {
 		matchesString(t.OperationName, otherTopic.OperationName)
 }
 
-// MutationEventWithReplyTopic represents a CRUD mutation with request-reply pattern.
+// MutationEventWithReplyTopic represents the legacy request/reply form of a
+// CRUD mutation topic.
+//
+// Deprecated: mutation events are published fire-and-forget only. The type is
+// kept solely so registerWorkflow can parse legacy request.reply.* signal
+// registrations and normalize them to MutationEventTopic. Delete it once no
+// client registers the legacy form anymore.
 type MutationEventWithReplyTopic struct {
 	StreamName    string
 	TenantID      uuid.UUID
@@ -426,8 +506,8 @@ func (t MutationEventWithReplyTopic) GetStreamName() string {
 	return getStreamName(t.StreamName)
 }
 
-func (t MutationEventWithReplyTopic) GetTenantID() uuid.UUID {
-	return t.TenantID
+func (t MutationEventWithReplyTopic) GetTenantID() (uuid.UUID, error) {
+	return t.TenantID, nil
 }
 
 func (t *MutationEventWithReplyTopic) SetTenantID(tenantID uuid.UUID) {
@@ -488,7 +568,7 @@ func (t DeadLetterEventTopic) GetStreamName() string {
 	return getStreamName(t.StreamName)
 }
 
-func (t DeadLetterEventTopic) GetTenantID() uuid.UUID { return t.TenantID }
+func (t DeadLetterEventTopic) GetTenantID() (uuid.UUID, error) { return t.TenantID, nil }
 
 func (t *DeadLetterEventTopic) SetTenantID(tenantID uuid.UUID) { t.TenantID = tenantID }
 
@@ -542,8 +622,8 @@ func (t UpdateEventTopic) GetStreamName() string {
 	return getStreamName(t.StreamName)
 }
 
-func (t UpdateEventTopic) GetTenantID() uuid.UUID {
-	return t.TenantID
+func (t UpdateEventTopic) GetTenantID() (uuid.UUID, error) {
+	return t.TenantID, nil
 }
 
 func (t *UpdateEventTopic) SetTenantID(tenantID uuid.UUID) {
@@ -600,8 +680,8 @@ func (t WorkflowEventTopic) GetStreamName() string {
 	return getStreamName(t.StreamName)
 }
 
-func (t WorkflowEventTopic) GetTenantID() uuid.UUID {
-	return t.TenantID
+func (t WorkflowEventTopic) GetTenantID() (uuid.UUID, error) {
+	return t.TenantID, nil
 }
 
 func (t *WorkflowEventTopic) SetTenantID(tenantID uuid.UUID) {
@@ -677,19 +757,28 @@ func (t TemporalWorkflowStateChangeTopic) GetStatus() string {
 	return t.Status
 }
 
-func (t TemporalWorkflowStateChangeTopic) GetTenantID() uuid.UUID {
+// GetTenantID returns the namespace as a tenant ID, or uuid.Nil when the
+// namespace is a wildcard. A namespace that is not a UUID, such as a Temporal
+// system namespace, is an error, not a wildcard.
+func (t TemporalWorkflowStateChangeTopic) GetTenantID() (uuid.UUID, error) {
 	ns := t.GetNamespace()
-
-	if ns == "" || ns == "*" {
-		return uuid.Nil
+	if ns == "" {
+		return uuid.Nil, nil
 	}
 
-	tenantID, err := uuid.Parse(ns)
+	return parseNamespace(ns)
+}
+
+// parseNamespace parses a temporal namespace token as a tenant ID, with "*"
+// as the wildcard. An empty token is an error here; GetTenantID reads the
+// empty field of a topic built in code as a wildcard before calling it.
+func parseNamespace(ns string) (uuid.UUID, error) {
+	tenantID, err := parseUUIDOrWildcard(ns)
 	if err != nil {
-		panic(fmt.Sprintf("invalid namespace UUID in topic: %v", err))
+		return uuid.Nil, fmt.Errorf("%w: invalid namespace UUID: %w", ErrInvalidUUID, err)
 	}
 
-	return tenantID
+	return tenantID, nil
 }
 
 func (t *TemporalWorkflowStateChangeTopic) SetTenantID(tenantID uuid.UUID) {
@@ -941,7 +1030,15 @@ var knownTopics = map[TopicType]topicSpec{
 				RunID:            b.getString("runID"),
 				Status:           b.getString("status"),
 			}
-			return topic, b.err
+			if b.err != nil {
+				return nil, b.err
+			}
+			// The namespace is the tenant ID; any other value is never
+			// published for a tenant.
+			if _, err := parseNamespace(topic.Namespace); err != nil {
+				return nil, err
+			}
+			return topic, nil
 		},
 	},
 }
@@ -1051,6 +1148,15 @@ func parseUUIDOrWildcard(s string) (uuid.UUID, error) {
 		return uuid.Nil, nil
 	}
 	return uuid.Parse(s)
+}
+
+// NormalizeToken returns the subject segment a string becomes when it is used
+// as a topic token: "" becomes the wildcard "*"; anything else is trimmed,
+// lower-cased and every character other than [a-z0-9] replaced by "-", so
+// whitespace-only input becomes "". Compare tokens with it, not with the raw
+// strings, when two inputs must not land on the same subject.
+func NormalizeToken(s string) string {
+	return formatTopicPart(s)
 }
 
 // formatTopicPart converts a value to a topic token, using "*" for empty/nil values.

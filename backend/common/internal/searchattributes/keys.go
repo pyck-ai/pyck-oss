@@ -17,4 +17,5 @@ const (
 	PyckTitleKey                = "pyck_title"
 	PyckGroupTitleKey           = "pyck_group_title"
 	PyckSortKeyKey              = "pyck_sort_key"
+	PyckTransactionIDKey        = "pyck_transaction_id"
 )

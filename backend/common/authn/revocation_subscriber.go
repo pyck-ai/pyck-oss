@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go/jetstream"
+	"github.com/rs/zerolog"
 
 	"github.com/pyck-ai/pyck/backend/common/events/topic"
 	"github.com/pyck-ai/pyck/backend/common/log"
@@ -95,16 +96,16 @@ func handleRevocationMessage(ctx context.Context, msg jetstream.Msg, onDisabled 
 	var event topic.MutationEventMessage
 	if err := json.Unmarshal(msg.Data(), &event); err != nil {
 		logger.Error().Err(err).Msg("decode mutation event")
-		_ = msg.Ack()
+		ack(logger, msg)
 		return
 	}
 
 	if event.Service != topic.ManagementService || !strings.EqualFold(event.Schema, topic.TenantSchema) {
-		_ = msg.Ack()
+		ack(logger, msg)
 		return
 	}
 	if event.ID == uuid.Nil {
-		_ = msg.Ack()
+		ack(logger, msg)
 		return
 	}
 
@@ -116,14 +117,14 @@ func handleRevocationMessage(ctx context.Context, msg jetstream.Msg, onDisabled 
 	if !ok && event.DataAfter != nil {
 		logger.Error().Interface("data_after", event.DataAfter).
 			Msg("DataAfter is not a map; cannot evaluate revocation transition")
-		_ = msg.Ack()
+		ack(logger, msg)
 		return
 	}
 	dataBefore, ok := event.DataBefore.(map[string]any)
 	if !ok && event.DataBefore != nil {
 		logger.Error().Interface("data_before", event.DataBefore).
 			Msg("DataBefore is not a map; cannot evaluate revocation transition")
-		_ = msg.Ack()
+		ack(logger, msg)
 		return
 	}
 
@@ -138,6 +139,14 @@ func handleRevocationMessage(ctx context.Context, msg jetstream.Msg, onDisabled 
 			Msg("tenant disabled; introspection cache evicted")
 	}
 
-	_ = msg.Ack()
+	ack(logger, msg)
 }
 
+// ack acknowledges msg and logs a failed ack. The consumer is ephemeral with
+// DeliverNewPolicy, so an unacked message is redelivered to this replica
+// only until the inactive threshold reaps the consumer; nothing to retry.
+func ack(logger zerolog.Logger, msg jetstream.Msg) {
+	if err := msg.Ack(); err != nil {
+		logger.Err(err).Msg("ack revocation event")
+	}
+}

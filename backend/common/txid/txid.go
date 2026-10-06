@@ -8,10 +8,15 @@
 // hook persists it in the outbox row; the outbox handler embeds it in the
 // NATS JetStream message ID for deterministic, transaction-scoped
 // deduplication.
+//
+// The same context value carries a counter of the outbox events written under
+// the ID (RecordEvent, EventCount), which mutation results report as
+// eventCount.
 package txid
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 
@@ -20,19 +25,44 @@ import (
 
 type ctxKey struct{}
 
-// With returns a derived context carrying txID.
+// txState is what With stores: the ID plus a counter of the outbox events
+// written under it. The counter is shared by every context derived from the
+// one With returned, which is how the event hook (deep in a resolver) and the
+// resolver's caller see the same tally.
+type txState struct {
+	id     uuid.UUID
+	events atomic.Int64
+}
+
+// With returns a derived context carrying txID and a fresh, zeroed event
+// counter (see RecordEvent).
 func With(ctx context.Context, txID uuid.UUID) context.Context {
-	return context.WithValue(ctx, ctxKey{}, txID)
+	return context.WithValue(ctx, ctxKey{}, &txState{id: txID})
+}
+
+// RecordEvent counts one outbox event written under the transaction on ctx.
+// A no-op when ctx carries no transaction ID.
+func RecordEvent(ctx context.Context) {
+	if st, ok := ctx.Value(ctxKey{}).(*txState); ok {
+		st.events.Add(1)
+	}
+}
+
+// EventCount returns the number of outbox events recorded so far under the
+// transaction on ctx, or 0 when ctx carries no transaction ID.
+func EventCount(ctx context.Context) int {
+	if st, ok := ctx.Value(ctxKey{}).(*txState); ok {
+		return int(st.events.Load())
+	}
+	return 0
 }
 
 // FromContext returns the transaction ID injected by the Tx middleware.
 // Returns uuid.Nil and false when no tx is active on ctx (read-only path,
 // background goroutine, etc).
 func FromContext(ctx context.Context) (uuid.UUID, bool) {
-	if v := ctx.Value(ctxKey{}); v != nil {
-		if id, ok := v.(uuid.UUID); ok && id != uuid.Nil {
-			return id, true
-		}
+	if st, ok := ctx.Value(ctxKey{}).(*txState); ok && st.id != uuid.Nil {
+		return st.id, true
 	}
 	return uuid.Nil, false
 }

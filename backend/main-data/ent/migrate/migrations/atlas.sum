@@ -1,4 +1,4 @@
-h1:ntOcUlR5CIQc/0A4weRvfOwJn2UwR7uKGoy2yQ+ATQw=
+h1:Q8picEL0Zoomr1waoqHeij6q84Ybecx30fOXFPV1Pp8=
 20241212075318_default_state.up.sql h1:vAUpn2Pl2MPk+hUaUauklfLSFb28fM+VNvbU9RvFM6g=
 20250619222425_consistent_nulls.up.sql h1:HskHV3auTUxGOaLsFeq6flw2EprjftDcoawFoXLr8B0=
 20260120120000_add_event_outbox.up.sql h1:pkljIfqNLDaRZwmZ+E/qY0J+3qGgzwHIlCX594ThRhM=
@@ -10,3 +10,6 @@ h1:ntOcUlR5CIQc/0A4weRvfOwJn2UwR7uKGoy2yQ+ATQw=
 20260608155455_outbox_dead_letter_index.up.sql h1:yB6QQYUjZCQA8Kjx/5DgwxtCoOYLyr3620tLcyoRLNc=
 20260616120000_add_idempotency_keys.up.sql h1:ph0FRumZ4XSmImD+uMp8O17rY8Qhvf2GvpOPIBWCE1E=
 20260622133951_reconcile_idempotency_schema_drift.up.sql h1:TCxmdTcs6dFZdhDw15y6C/M4Wv5iDzGS6tMUGRR4s1g=
+20260930100100_salvage_outbox_reply_topics.up.sql h1:8OIApBDpKYOuBL8oO+DMKPZuj/z1F6cOchAVYbdFcdA=
+20260930203832_prune_published_outbox.up.sql h1:ub6UT+Ox1Qk/gRzV8CKinRWo1blybtg8PxJOVVbvCAg=
+20261001190529_drop_outbox_with_reply.up.sql h1:MVNsASf7fSuUESnL0vwIB7ja5BQO5SHrh/nrDTElV1w=

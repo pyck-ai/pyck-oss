@@ -208,9 +208,23 @@ func (_u *WorkflowSignalUpdate) SetNillableExpiresAt(v *time.Time) *WorkflowSign
 	return _u
 }
 
-// ClearExpiresAt clears the value of the "expires_at" field.
-func (_u *WorkflowSignalUpdate) ClearExpiresAt() *WorkflowSignalUpdate {
-	_u.mutation.ClearExpiresAt()
+// SetStoppedAt sets the "stopped_at" field.
+func (_u *WorkflowSignalUpdate) SetStoppedAt(v time.Time) *WorkflowSignalUpdate {
+	_u.mutation.SetStoppedAt(v)
+	return _u
+}
+
+// SetNillableStoppedAt sets the "stopped_at" field if the given value is not nil.
+func (_u *WorkflowSignalUpdate) SetNillableStoppedAt(v *time.Time) *WorkflowSignalUpdate {
+	if v != nil {
+		_u.SetStoppedAt(*v)
+	}
+	return _u
+}
+
+// ClearStoppedAt clears the value of the "stopped_at" field.
+func (_u *WorkflowSignalUpdate) ClearStoppedAt() *WorkflowSignalUpdate {
+	_u.mutation.ClearStoppedAt()
 	return _u
 }
 
@@ -329,14 +343,14 @@ func (_u *WorkflowSignalUpdate) sqlSave(ctx context.Context) (_node int, err err
 	if _u.mutation.FilterRuleCleared() {
 		_spec.ClearField(workflowsignal.FieldFilterRule, field.TypeString)
 	}
-	if _u.mutation.WorkerIDCleared() {
-		_spec.ClearField(workflowsignal.FieldWorkerID, field.TypeString)
-	}
 	if value, ok := _u.mutation.ExpiresAt(); ok {
 		_spec.SetField(workflowsignal.FieldExpiresAt, field.TypeTime, value)
 	}
-	if _u.mutation.ExpiresAtCleared() {
-		_spec.ClearField(workflowsignal.FieldExpiresAt, field.TypeTime)
+	if value, ok := _u.mutation.StoppedAt(); ok {
+		_spec.SetField(workflowsignal.FieldStoppedAt, field.TypeTime, value)
+	}
+	if _u.mutation.StoppedAtCleared() {
+		_spec.ClearField(workflowsignal.FieldStoppedAt, field.TypeTime)
 	}
 	if _u.mutation.WorkflowCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -567,9 +581,23 @@ func (_u *WorkflowSignalUpdateOne) SetNillableExpiresAt(v *time.Time) *WorkflowS
 	return _u
 }
 
-// ClearExpiresAt clears the value of the "expires_at" field.
-func (_u *WorkflowSignalUpdateOne) ClearExpiresAt() *WorkflowSignalUpdateOne {
-	_u.mutation.ClearExpiresAt()
+// SetStoppedAt sets the "stopped_at" field.
+func (_u *WorkflowSignalUpdateOne) SetStoppedAt(v time.Time) *WorkflowSignalUpdateOne {
+	_u.mutation.SetStoppedAt(v)
+	return _u
+}
+
+// SetNillableStoppedAt sets the "stopped_at" field if the given value is not nil.
+func (_u *WorkflowSignalUpdateOne) SetNillableStoppedAt(v *time.Time) *WorkflowSignalUpdateOne {
+	if v != nil {
+		_u.SetStoppedAt(*v)
+	}
+	return _u
+}
+
+// ClearStoppedAt clears the value of the "stopped_at" field.
+func (_u *WorkflowSignalUpdateOne) ClearStoppedAt() *WorkflowSignalUpdateOne {
+	_u.mutation.ClearStoppedAt()
 	return _u
 }
 
@@ -718,14 +746,14 @@ func (_u *WorkflowSignalUpdateOne) sqlSave(ctx context.Context) (_node *Workflow
 	if _u.mutation.FilterRuleCleared() {
 		_spec.ClearField(workflowsignal.FieldFilterRule, field.TypeString)
 	}
-	if _u.mutation.WorkerIDCleared() {
-		_spec.ClearField(workflowsignal.FieldWorkerID, field.TypeString)
-	}
 	if value, ok := _u.mutation.ExpiresAt(); ok {
 		_spec.SetField(workflowsignal.FieldExpiresAt, field.TypeTime, value)
 	}
-	if _u.mutation.ExpiresAtCleared() {
-		_spec.ClearField(workflowsignal.FieldExpiresAt, field.TypeTime)
+	if value, ok := _u.mutation.StoppedAt(); ok {
+		_spec.SetField(workflowsignal.FieldStoppedAt, field.TypeTime, value)
+	}
+	if _u.mutation.StoppedAtCleared() {
+		_spec.ClearField(workflowsignal.FieldStoppedAt, field.TypeTime)
 	}
 	if _u.mutation.WorkflowCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -760,6 +788,9 @@ func (_u *WorkflowSignalUpdateOne) sqlSave(ctx context.Context) (_node *Workflow
 	}
 	_spec.Node.Schema = _u.schemaConfig.WorkflowSignal
 	ctx = internal.NewSchemaConfigContext(ctx, _u.schemaConfig)
+	if pred := _spec.Predicate; pred != nil {
+		_spec.Predicate = func(s *sql.Selector) { pred(s.WithContext(ctx)) }
+	}
 	_node = &WorkflowSignal{config: _u.config}
 	_spec.Assign = _node.assignValues
 	_spec.ScanValues = _node.scanValues

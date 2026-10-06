@@ -18,6 +18,7 @@ graphql:
 
       mutation PatchLocationData($id: ID!, $patches: [JSONPatchInput!]!) {
         patchLocationData(id: $id, patches: $patches) {
+          eventCount
           location {
             createdAt
             createdBy
@@ -32,11 +33,7 @@ graphql:
             updatedAt
             updatedBy
           }
-          workflows {
-            id
-            runID
-            type
-          }
+          transactionID
         }
       }
     variables: |-

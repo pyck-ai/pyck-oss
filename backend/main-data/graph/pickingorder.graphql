@@ -2,12 +2,16 @@
 # contributes the `customer` relation: a picking order stores a customerID,
 # and main-data owns the Customer entity, so it resolves the relation here.
 #
-# The relation is keyed on customerID — the field picking already exposes — so
-# the gateway hands main-data just the customerID and we resolve the Customer
-# from our own data. A soft-deleted customer is filtered out by the history
+# The relation is keyed on the order's customerID and tenantID. customerID is
+# not a foreign key, so an order can name another tenant's customer; the
+# order's tenantID lets the lookup accept only a customer of the order's own
+# tenant, for every reader: the system user skips the tenant filter and a
+# multi-tenant reader's filter spans several tenants, so neither narrows the
+# lookup on its own. A soft-deleted customer is filtered out by the history
 # mixin's query policy, so the relation resolves to null. This mirrors how the
 # inventory service contributes `item` to PickingOrderItem.
-type PickingOrder @key(fields: "customerID") {
+type PickingOrder @key(fields: "customerID tenantID") {
   customerID: UUID!
+  tenantID: UUID!
   customer: Customer
 }

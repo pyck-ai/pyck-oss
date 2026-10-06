@@ -1,6 +1,7 @@
 package gqltx_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -9,7 +10,10 @@ import (
 	"time"
 
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/lib/pq"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
+	"github.com/pyck-ai/pyck/backend/common/log"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -405,4 +409,55 @@ func TestConcurrentTransactionAccess(t *testing.T) {
 	assert.Equal(t, 1, maxConcurrent, "Maximum 1 resolver should access transaction at a time")
 	t.Logf("Total accesses: %d, Max concurrent: %d", accessCount, maxConcurrent)
 	t.Log("✓ Concurrent transaction access is properly serialized")
+}
+
+// TestCommitFailureHidesConstraintViolation pins that a failed commit, which
+// the middleware answers without gqlgen's error presenter, still hides a
+// constraint violation's table and constraint names from the client and
+// logs them instead. A deferred constraint is checked at commit, so this is
+// where it would surface. Any other commit error keeps its text.
+func TestCommitFailureHidesConstraintViolation(t *testing.T) {
+	t.Parallel()
+
+	uniqueViolation := &pq.Error{Code: "23505", Message: `duplicate key value violates unique constraint "item_tenant_id_sku"`}
+	for _, tc := range []struct {
+		name      string
+		topField  string
+		commitErr error
+		want      string
+		wantPath  ast.Path
+		wantLog   bool
+	}{
+		{"constraint violation at the top field", "createItem", uniqueViolation, "duplicate key: record already exists (SQLSTATE 23505)", ast.Path{ast.PathName("createItem")}, true},
+		{"constraint violation without a top field", "", uniqueViolation, "duplicate key: record already exists (SQLSTATE 23505)", nil, true},
+		{"other commit error", "createItem", errors.New("driver: bad connection"), "failed to commit transaction: driver: bad connection", ast.Path{ast.PathName("createItem")}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var buf bytes.Buffer
+			ctx := log.Context(t.Context(), zerolog.New(&buf))
+			op := &ast.OperationDefinition{Operation: ast.Mutation}
+			if tc.topField != "" {
+				op.SelectionSet = ast.SelectionSet{&ast.Field{Name: tc.topField}}
+			}
+			ctx = graphql.WithOperationContext(ctx, &graphql.OperationContext{Operation: op})
+
+			client := &mockTxClient{tx: &mockTx{commitErr: tc.commitErr}}
+			mw := gqltx.NewMiddleware(client, injectTx, "testns", 0)
+			resp := mw.(*gqltx.Middleware[*mockTx]).InterceptOperation(ctx, func(context.Context) graphql.ResponseHandler {
+				return graphql.OneShot(&graphql.Response{Data: []byte(`{"createItem":{}}`)})
+			})(ctx)
+
+			require.NotNil(t, resp)
+			require.Len(t, resp.Errors, 1)
+			assert.Equal(t, tc.want, resp.Errors[0].Message)
+			assert.Equal(t, tc.wantPath, resp.Errors[0].Path)
+			assert.NotContains(t, resp.Errors[0].Message, "item_tenant_id_sku")
+			if tc.wantLog {
+				assert.Contains(t, buf.String(), "item_tenant_id_sku", "the constraint name must stay visible to operators")
+				assert.Contains(t, buf.String(), `"sqlstate":"23505"`)
+			}
+		})
+	}
 }

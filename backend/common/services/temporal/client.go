@@ -6,13 +6,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pyck-ai/pyck/backend/common/log"
-	logadapter "github.com/pyck-ai/pyck/backend/common/log/adapter"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/contrib/opentelemetry"
 	"go.temporal.io/sdk/interceptor"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
+
+	"github.com/pyck-ai/pyck/backend/common/eventid"
+	"github.com/pyck-ai/pyck/backend/common/log"
+	logadapter "github.com/pyck-ai/pyck/backend/common/log/adapter"
 )
 
 // DefaultDialTimeout is the fallback dial timeout for callers that have no
@@ -49,6 +52,15 @@ func NewTemporalClient(ctx context.Context, url string, dialTimeout time.Duratio
 		HostPort:     url,
 		Logger:       logadapter.TemporalSDKLogAdapter(clientLogger),
 		Interceptors: []interceptor.ClientInterceptor{tracingInterceptor},
+		// Clients derived from this one (NewClientFromExisting) share the
+		// connection, so they get both interceptors as well: RequestIDInterceptor
+		// for deterministic request IDs, eventid.ClientInterceptor for the
+		// pyck-event-id header.
+		ConnectionOptions: client.ConnectionOptions{
+			DialOptions: []grpc.DialOption{
+				grpc.WithChainUnaryInterceptor(RequestIDInterceptor(), eventid.ClientInterceptor()),
+			},
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial Temporal at %q: %w", url, err)

@@ -1,0 +1,11 @@
+info:
+  name: User - Item Edges
+  type: folder
+  seq: 1
+
+docs: |-
+  Executes two item movements into one repository, which leaves two stock versions there, then verifies that itemstocks returns only the current row of each repository while the stock history keeps every version, and that itemmovementitems and itemtransactions are paginated and capped by the query limit. A reverse movement empties the destination so every entity can be deleted at the end.
+
+
+request:
+  auth: inherit

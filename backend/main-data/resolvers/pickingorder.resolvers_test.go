@@ -16,7 +16,7 @@ import (
 // relation resolver (issue #1202): a live customer resolves the relation, while
 // a soft-deleted or missing customer resolves to a nil relation with the
 // customerID pointer always retained.
-func TestFindPickingOrderByCustomerID(t *testing.T) {
+func TestFindPickingOrderByCustomerIDAndTenantID(t *testing.T) {
 	t.Parallel()
 
 	t.Run("live customer resolves the relation", func(t *testing.T) {
@@ -27,7 +27,7 @@ func TestFindPickingOrderByCustomerID(t *testing.T) {
 
 		customer := te.newCustomer(ctx, userA).Create()
 
-		order, err := entity.FindPickingOrderByCustomerID(ctx, customer.ID)
+		order, err := entity.FindPickingOrderByCustomerIDAndTenantID(ctx, customer.ID, tenantA)
 		require.NoError(t, err)
 		assert.Equal(t, customer.ID, order.CustomerID, "customerID pointer is retained")
 		require.NotNil(t, order.Customer, "relation should resolve for a live customer")
@@ -42,7 +42,7 @@ func TestFindPickingOrderByCustomerID(t *testing.T) {
 
 		customer := te.newCustomer(ctx, userA).Deleted().Create()
 
-		order, err := entity.FindPickingOrderByCustomerID(ctx, customer.ID)
+		order, err := entity.FindPickingOrderByCustomerIDAndTenantID(ctx, customer.ID, tenantA)
 		require.NoError(t, err)
 		assert.Equal(t, customer.ID, order.CustomerID, "customerID pointer is retained after soft-delete")
 		assert.Nil(t, order.Customer, "relation should be nil for a soft-deleted customer")
@@ -56,7 +56,7 @@ func TestFindPickingOrderByCustomerID(t *testing.T) {
 
 		missingID := uuid.New()
 
-		order, err := entity.FindPickingOrderByCustomerID(ctx, missingID)
+		order, err := entity.FindPickingOrderByCustomerIDAndTenantID(ctx, missingID, tenantA)
 		require.NoError(t, err)
 		assert.Equal(t, missingID, order.CustomerID)
 		assert.Nil(t, order.Customer, "relation should be nil for an unknown customerID")

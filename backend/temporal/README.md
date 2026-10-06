@@ -155,8 +155,82 @@ These APIs are always denied, regardless of role:
 
 ---
 
+## Choosing the server roles
+
+`temporal-server start` decides which Temporal services (frontend,
+internal-frontend, history, matching, worker) a process runs. First match wins:
+
+| Order | Source | Notes |
+|-------|--------|-------|
+| 1 | `--service` / `--svc` flag, or `TEMPORAL_SERVICES` env | Repeat the flag or comma separate: `TEMPORAL_SERVICES=history,matching` |
+| 2 | `--services` flag (deprecated, hidden) | Comma separated. Logs a deprecation warning |
+| 3 | Unset | Every service declared in the loaded config (embedded template: frontend, matching, history, worker, plus internal-frontend when `USE_INTERNAL_FRONTEND` is set) |
+
+Entries are trimmed, deduplicated and sorted. Startup fails when a name is not
+a Temporal service, or when it is not declared in the loaded config (the
+config carries the service's ports), for example `internal-frontend` without
+`USE_INTERNAL_FRONTEND`. The resolved list is logged at startup
+(`starting temporal services`).
+
+The local compose stack sets none of these, so its single `temporal` container
+keeps running every service. Per-role deployments set `--service=<role>` or
+`TEMPORAL_SERVICES=<role>`. Code: `cmd/server/services.go`.
+
+---
+
 ## Roles
 
 ```go
 ROLE_TEMPORAL_READER
 ROLE_TEMPORAL_WRITER
+```
+
+---
+
+## Workflow state-change events
+
+The server turns every workflow status change into a state-change event on
+the NATS stream (consumed by the workflow service's signal router). The
+`PYCK_EVENT_ADAPTER` setting picks the source: `default` / `postgres_listen`
+(PostgreSQL LISTEN/NOTIFY on the visibility store) or `grpc`.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PYCK_EVENT_ADAPTER_SERVICES` | empty | Comma-separated Temporal services (`frontend`, `internal-frontend`, `history`, `matching`, `worker`) whose process runs the LISTEN adapter. Empty runs it in every process. An unknown name, or a role whose local `TEMPORAL_ADDRESS` it does not serve, is a startup error. Ignored by the `grpc` adapter. |
+
+Every process that listens receives every notification and publishes the
+event. The publish carries a message ID, so JetStream keeps one copy within
+its 2 minute duplicate window (`events.StreamDuplicateWindow`), but each extra
+listener is still wasted work. In a deployment with separate pods per role
+set `PYCK_EVENT_ADAPTER_SERVICES=internal-frontend`. The setting is matched
+against the services the process starts, as resolved from `--service` /
+`TEMPORAL_SERVICES` (see "Choosing the server roles").
+
+The listener dials `TEMPORAL_ADDRESS` (image default `:7236`, the
+internal-frontend) on its own pod, so it must run in a role that serves that
+address; `history` does not. A local address (empty host, `localhost`,
+loopback, `0.0.0.0`) that no running frontend or internal-frontend serves
+fails startup when the variable names this role, and with the variable empty
+such a role skips the listener (Info log). A non-local address is not checked.
+
+Listening on fewer processes narrows the redundancy, and PostgreSQL NOTIFY is
+not stored: the listener is fire-and-forget. A change made while no process
+listens is lost. The subscribed workflow is never started or signalled and
+nothing retries it. Known gaps:
+
+- Startup: the Temporal server starts before LISTEN is established, and the
+  adapter retries until `PYCK_EVENT_ADAPTER_POSTGRES_CONNECT_TIMEOUT`
+  (default 120s). Changes in that window are lost, and if the timeout
+  expires the server logs the error and keeps running without a listener.
+- Reconnects: `pq.Listener` reconnects after a lost connection. Notifications
+  sent in between are lost. The adapter only logs the reconnect and does not
+  reconcile afterwards.
+- Shutdown: `Stop` stops the adapter before the Temporal server, so changes
+  during the server's own drain are not seen by that pod.
+- Database failover or restart: every listener drops at once, so extra
+  replicas do not help.
+- Readiness: the health check only probes the frontend gRPC service. A pod
+  whose listener never started or died stays Ready.
+
+Run at least 2 listening replicas and roll them with `maxUnavailable: 0` or a
+PodDisruptionBudget that keeps one up.

@@ -108,13 +108,42 @@ type RegisterWorkflowWithSignalsInput struct {
 	Data       map[string]any                 `json:"data,omitempty"`
 	Name       string                         `json:"name"`
 	TaskQueue  string                         `json:"taskQueue"`
-	WorkerID   *string                        `json:"workerID,omitempty"`
+	WorkerID   string                         `json:"workerID"`
 	Signals    []*RegisterWorkflowSignalInput `json:"signals,omitempty"`
 }
 
 type RemoteUIQueryInput struct {
 	WorkflowID          string `json:"workflowID"`
 	WorkflowExecutionID string `json:"workflowExecutionID"`
+}
+
+// The routing status of one event of a transaction.
+type RoutingEntry struct {
+	TenantID uuid.UUID `json:"tenantID"`
+	// The event's own ID (the outbox entry ID).
+	EventID uuid.UUID      `json:"eventID"`
+	Outcome RoutingOutcome `json:"outcome"`
+	// The event's sequence in the event stream.
+	Sequence uint64 `json:"sequence"`
+	// What the router did for the event. Empty when nothing was subscribed to it:
+	// the event is finished with nothing to do.
+	Targets    []*RoutingTarget `json:"targets"`
+	RecordedAt time.Time        `json:"recordedAt"`
+}
+
+// One workflow start or signal the router attempted for an event.
+type RoutingTarget struct {
+	Kind RoutingTargetKind `json:"kind"`
+	// Name of the workflow, when the target belongs to one.
+	Workflow   *string `json:"workflow,omitempty"`
+	WorkflowID *string `json:"workflowID,omitempty"`
+	RunID      *string `json:"runID,omitempty"`
+	// Signal name, for signal targets.
+	Signal *string `json:"signal,omitempty"`
+	// Why nothing was delivered (DROPPED).
+	Reason *string `json:"reason,omitempty"`
+	// The failure (FAILED).
+	Error *string `json:"error,omitempty"`
 }
 
 type ServiceInfo struct {
@@ -174,6 +203,22 @@ type TemporalWorkflow struct {
 	Type  string `json:"type"`
 	ID    string `json:"id"`
 	RunID string `json:"runID"`
+}
+
+// What the router has done so far for the events of one transaction.
+type TransactionRouting struct {
+	TransactionID uuid.UUID `json:"transactionID"`
+	// One entry per event the router has settled, oldest first. Routing is complete
+	// when the number of entries equals the mutation's `eventCount`: fewer means
+	// some events are not routed yet, so ask again. Status is best effort: an entry
+	// can be missing for good (a status write can fail, and events can be skipped),
+	// so poll with a deadline instead of waiting for `entries == eventCount`.
+	Entries []*RoutingEntry `json:"entries"`
+}
+
+type UnregisterWorkerPayload struct {
+	// Live subscriptions newly marked stopped; 0 for an unknown worker or a repeat call.
+	Stopped int `json:"stopped"`
 }
 
 type UserDataInputQueryInput struct {
@@ -278,6 +323,14 @@ type WorkflowExecutionInfo struct {
 	ExecutionDuration *string `json:"executionDuration,omitempty"`
 	// The root execution if this is part of a workflow chain.
 	RootExecution *WorkflowExecution `json:"rootExecution,omitempty"`
+	// Fully rendered web + mobile UI bundle URLs for this execution, rendered with
+	// the templates and flavour of the execution's own tenant.
+	//
+	// Null when there is no UI to load (no pinned deployment version, no stamped
+	// bundle and no configured default, or a tenant without URL templates). The
+	// field never raises an error: any resolution failure also yields null; use
+	// the top-level remoteUI query for the reason on a single execution.
+	RemoteUI *workflow.UIBundleURLs `json:"remoteUI,omitempty"`
 }
 
 // A connection to a list of WorkflowExecutionInfo items.
@@ -502,6 +555,14 @@ type WorkflowExecutionsWhereInput struct {
 	DataIDContainsFold *string  `json:"dataIdContainsFold,omitempty"`
 	DataIDIsNil        *bool    `json:"dataIdIsNil,omitempty"`
 	DataIDNotNil       *bool    `json:"dataIdNotNil,omitempty"`
+	// transactionID field predicates — the handle mutations return. Filtering by
+	// it lists the executions that mutation started. An empty result means the
+	// workflows are not started or not visible yet (poll again) or the mutation
+	// triggered none. Exact match only (the value is a UUID).
+	TransactionID      *uuid.UUID  `json:"transactionID,omitempty"`
+	TransactionIdneq   *uuid.UUID  `json:"transactionIDNEQ,omitempty"`
+	TransactionIDIn    []uuid.UUID `json:"transactionIDIn,omitempty"`
+	TransactionIDNotIn []uuid.UUID `json:"transactionIDNotIn,omitempty"`
 	// targets field predicates (KeywordList — matches if the workflow's targets
 	// list contains any element of the supplied set; targetsNotIn excludes them).
 	Targets      []WorkflowTarget `json:"targets,omitempty"`
@@ -527,6 +588,131 @@ type WorkflowType struct {
 type WorkflowUpdateType struct {
 	ID     string `json:"id"`
 	Schema any    `json:"schema,omitempty"`
+}
+
+// How the router settled one event: finished, or given up on.
+type RoutingOutcome string
+
+const (
+	// The router finished with the event: every target was delivered or refused for good.
+	RoutingOutcomeDone RoutingOutcome = "DONE"
+	// The router stopped retrying the event after its last delivery. The FAILED targets say what is left undone.
+	RoutingOutcomeGaveUp RoutingOutcome = "GAVE_UP"
+)
+
+var AllRoutingOutcome = []RoutingOutcome{
+	RoutingOutcomeDone,
+	RoutingOutcomeGaveUp,
+}
+
+func (e RoutingOutcome) IsValid() bool {
+	switch e {
+	case RoutingOutcomeDone, RoutingOutcomeGaveUp:
+		return true
+	}
+	return false
+}
+
+func (e RoutingOutcome) String() string {
+	return string(e)
+}
+
+func (e *RoutingOutcome) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = RoutingOutcome(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid RoutingOutcome", str)
+	}
+	return nil
+}
+
+func (e RoutingOutcome) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *RoutingOutcome) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e RoutingOutcome) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// What happened to one target of an event.
+type RoutingTargetKind string
+
+const (
+	// A workflow was started, or the start returned the run an earlier delivery of the event started.
+	RoutingTargetKindStarted RoutingTargetKind = "STARTED"
+	// The start was refused because the workflow ID is taken by another event's run.
+	RoutingTargetKindAlreadyRunning RoutingTargetKind = "ALREADY_RUNNING"
+	// A running execution was signalled.
+	RoutingTargetKindSignalled RoutingTargetKind = "SIGNALLED"
+	// Nothing was delivered, for the reason given.
+	RoutingTargetKindDropped RoutingTargetKind = "DROPPED"
+	// The delivery failed with the error given.
+	RoutingTargetKindFailed RoutingTargetKind = "FAILED"
+)
+
+var AllRoutingTargetKind = []RoutingTargetKind{
+	RoutingTargetKindStarted,
+	RoutingTargetKindAlreadyRunning,
+	RoutingTargetKindSignalled,
+	RoutingTargetKindDropped,
+	RoutingTargetKindFailed,
+}
+
+func (e RoutingTargetKind) IsValid() bool {
+	switch e {
+	case RoutingTargetKindStarted, RoutingTargetKindAlreadyRunning, RoutingTargetKindSignalled, RoutingTargetKindDropped, RoutingTargetKindFailed:
+		return true
+	}
+	return false
+}
+
+func (e RoutingTargetKind) String() string {
+	return string(e)
+}
+
+func (e *RoutingTargetKind) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = RoutingTargetKind(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid RoutingTargetKind", str)
+	}
+	return nil
+}
+
+func (e RoutingTargetKind) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *RoutingTargetKind) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e RoutingTargetKind) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }
 
 // Possible directions in which to order a list of items.

@@ -48,6 +48,7 @@ type Client interface {
 	GetWorkflowSignals(ctx context.Context, input GetWorkflowSignalsArgs) (*GetWorkflowSignals, error)
 	GetRemoteUI(ctx context.Context, input GetRemoteUIArgs) (*GetRemoteUI, error)
 	GetWorkerDeploymentUIBundles(ctx context.Context, input GetWorkerDeploymentUIBundlesArgs) (*GetWorkerDeploymentUIBundles, error)
+	GetTransactionRouting(ctx context.Context, input GetTransactionRoutingArgs) (*GetTransactionRouting, error)
 	GetWorkflowServiceInfo(ctx context.Context) (*GetWorkflowServiceInfo, error)
 	GetCurrentUserDataInput(ctx context.Context, input GetCurrentUserDataInputArgs) (*GetCurrentUserDataInput, error)
 	GetWorkflowExecutions(ctx context.Context, input GetWorkflowExecutionsArgs) (*GetWorkflowExecutions, error)
@@ -61,6 +62,7 @@ type Client interface {
 	SubmitUserDataInput(ctx context.Context, input SubmitUserDataInputArgs) (*SubmitUserDataInput, error)
 	RegisterWorkflow(ctx context.Context, input RegisterWorkflowArgs) (*RegisterWorkflow, error)
 	DeleteWorkflow(ctx context.Context, input DeleteWorkflowArgs) (*DeleteWorkflow, error)
+	UnregisterWorker(ctx context.Context, input UnregisterWorkerArgs) (*UnregisterWorker, error)
 	CancelWorkflow(ctx context.Context, input CancelWorkflowArgs) (*CancelWorkflow, error)
 	SetWorkflowAssignee(ctx context.Context, input SetWorkflowAssigneeArgs) (*SetWorkflowAssignee, error)
 	SetWorkflowIsAssignable(ctx context.Context, input SetWorkflowIsAssignableArgs) (*SetWorkflowIsAssignable, error)
@@ -125,6 +127,15 @@ type GetWorkerDeploymentUIBundlesArgs struct {
 
 func (c *client) GetWorkerDeploymentUIBundles(ctx context.Context, input GetWorkerDeploymentUIBundlesArgs) (*GetWorkerDeploymentUIBundles, error) {
 	return c.api.GetWorkerDeploymentUIBundles(ctx, input.First, input.After)
+}
+
+// GetTransactionRoutingArgs is a sparse struct for GetTransactionRouting parameters
+type GetTransactionRoutingArgs struct {
+	TransactionID string
+}
+
+func (c *client) GetTransactionRouting(ctx context.Context, input GetTransactionRoutingArgs) (*GetTransactionRouting, error) {
+	return c.api.GetTransactionRouting(ctx, input.TransactionID)
 }
 
 func (c *client) GetWorkflowServiceInfo(ctx context.Context) (*GetWorkflowServiceInfo, error) {
@@ -240,6 +251,15 @@ type DeleteWorkflowArgs struct {
 
 func (c *client) DeleteWorkflow(ctx context.Context, input DeleteWorkflowArgs) (*DeleteWorkflow, error) {
 	return c.api.DeleteWorkflow(ctx, input.Id)
+}
+
+// UnregisterWorkerArgs is a sparse struct for UnregisterWorker parameters
+type UnregisterWorkerArgs struct {
+	WorkerID string
+}
+
+func (c *client) UnregisterWorker(ctx context.Context, input UnregisterWorkerArgs) (*UnregisterWorker, error) {
+	return c.api.UnregisterWorker(ctx, input.WorkerID)
 }
 
 // CancelWorkflowArgs is a sparse struct for CancelWorkflow parameters

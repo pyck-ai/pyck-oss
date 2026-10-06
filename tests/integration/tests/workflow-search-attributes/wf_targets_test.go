@@ -57,8 +57,9 @@ type (
 	//     an inbound event to this workflow row
 	//   - worker registers the test workflow with Temporal and starts
 	//     polling
-	//   - publishing a MutationEventWithReplyTopic message lands a
-	//     RUNNING execution after travelling through the signalrouter
+	//   - publishing a fire-and-forget mutation event lands a RUNNING
+	//     execution after travelling through the signalrouter, resolved
+	//     via the pyck_transaction_id handle
 	//   - targets defaults to empty: SetupDefaults does NOT seed the
 	//     SA when the targets slice is empty, so the SA stays absent
 	//     from visibility (gateway returns empty list)

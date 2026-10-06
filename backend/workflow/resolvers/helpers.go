@@ -63,6 +63,10 @@ func FormatPredicate(temporalField string, value any, operator string) string {
 		if v.IsNil() {
 			return ""
 		}
+		// uuid.UUID (the ID scalar) is a byte array, not a string kind.
+		if str, ok := value.(fmt.Stringer); ok {
+			return fmt.Sprintf("%s %s %q", temporalField, operator, str.String())
+		}
 		switch v.Elem().Kind() {
 		case reflect.String:
 			if s := v.Elem().String(); s != "" {
@@ -85,6 +89,10 @@ func FormatPredicate(temporalField string, value any, operator string) string {
 			default:
 				strSlice := make([]string, v.Len())
 				for i := range v.Len() {
+					if str, ok := v.Index(i).Interface().(fmt.Stringer); ok {
+						strSlice[i] = str.String()
+						continue
+					}
 					strSlice[i] = v.Index(i).String()
 				}
 				return fmt.Sprintf("%s %s (%s)", temporalField, operator, QuotedValues(strSlice))
@@ -326,6 +334,7 @@ func buildFieldPredicates(where *model.WorkflowExecutionsWhereInput) string {
 		{field: "pyck_service", inputPrefix: "Service", predicates: stringPredicates, isNil: where.ServiceIsNil, notNil: where.ServiceNotNil, nullIncludesEmpty: true},
 		{field: "pyck_data_type", inputPrefix: "DataType", predicates: stringPredicates, isNil: where.DataTypeIsNil, notNil: where.DataTypeNotNil, nullIncludesEmpty: true},
 		{field: "pyck_data_id", inputPrefix: "DataID", predicates: stringPredicatesNoFold, isNil: where.DataIDIsNil, notNil: where.DataIDNotNil, nullIncludesEmpty: true},
+		{field: "pyck_transaction_id", inputPrefix: "TransactionID", predicates: stringPredicatesNoFold},
 		{field: "pyck_workflow_targets", inputPrefix: "Targets", predicates: keywordListPredicates},
 	}
 

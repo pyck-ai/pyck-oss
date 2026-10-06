@@ -616,14 +616,14 @@ func SupplierIDNotNil() predicate.ReplenishmentOrder {
 // HasReplenishmentOrderItems applies the HasEdge predicate on the "replenishmentOrderItems" edge.
 func HasReplenishmentOrderItems() predicate.ReplenishmentOrder {
 	return predicate.ReplenishmentOrder(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, ReplenishmentOrderItemsTable, ReplenishmentOrderItemsColumn),
-		)
+		step := newReplenishmentOrderItemsStep()
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.ReplenishmentOrderItem
 		step.Edge.Schema = schemaConfig.ReplenishmentOrderItem
-		sqlgraph.HasNeighbors(s, step)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			predicate.ScopeNeighborToTenants(s)
+			predicate.ScopeNeighborToLive(s)
+		})
 	})
 }
 
@@ -634,6 +634,7 @@ func HasReplenishmentOrderItemsWith(preds ...predicate.ReplenishmentOrderItem) p
 		schemaConfig := internal.SchemaConfigFromContext(s.Context())
 		step.To.Schema = schemaConfig.ReplenishmentOrderItem
 		step.Edge.Schema = schemaConfig.ReplenishmentOrderItem
+		preds := append(preds[:len(preds):len(preds)], predicate.ScopeNeighborToTenants, predicate.ScopeNeighborToLive)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

@@ -17,7 +17,6 @@ var ErrNoTransactionID = errors.New("no transaction ID: gqltx middleware did not
 
 // Context keys for event middleware values.
 type (
-	expectReplyKey           struct{}
 	extraSearchAttributesKey struct{}
 )
 
@@ -50,22 +49,6 @@ func TraceIDFromContext(ctx context.Context) string {
 // baggage. Returns the empty string when absent. Observability only.
 func RequestIDFromContext(ctx context.Context) string {
 	return requestid.FromContext(ctx)
-}
-
-// WithExpectReply sets whether the mutation should wait for a reply containing workflow IDs.
-// When true, the resolver will block until the outbox handler delivers workflow details
-// or the timeout expires.
-func WithExpectReply(ctx context.Context, expect bool) context.Context {
-	return context.WithValue(ctx, expectReplyKey{}, expect)
-}
-
-// ExpectsReply returns whether the mutation should wait for a reply.
-// Defaults to false if not set.
-func ExpectsReply(ctx context.Context) bool {
-	if expect, ok := ctx.Value(expectReplyKey{}).(bool); ok {
-		return expect
-	}
-	return false
 }
 
 // WithExtraSearchAttribute adds a workflow search attribute to the context.

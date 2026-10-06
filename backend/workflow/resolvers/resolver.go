@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/99designs/gqlgen/graphql"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/pyck-ai/pyck/backend/common/memkv"
 	"github.com/pyck-ai/pyck/backend/common/validator"
@@ -18,7 +19,18 @@ import (
 // tenantTemplateCacheTTL bounds how stale a cached tenant UI template may be.
 // Templates change very rarely (system-role mutation only), so a short TTL keeps
 // the remoteUI hot path off the management service without risking staleness.
-const tenantTemplateCacheTTL = 5 * time.Minute
+const (
+	tenantTemplateCacheTTL = 5 * time.Minute
+
+	// tenantTemplateNegativeCacheTTL is how long a tenant without templates (the
+	// expected state mid-rollout) is remembered as such, so a listing of its
+	// executions does not hit management on every request.
+	tenantTemplateNegativeCacheTTL = 30 * time.Second
+
+	// tenantTemplateLookupTimeout bounds a management lookup, which runs
+	// detached from the requesting context (see tenantUITemplates).
+	tenantTemplateLookupTimeout = 10 * time.Second
+)
 
 // RemoteUIDefaults are the system-wide fallbacks for per-workflow UI bundle
 // resolution, sourced from service config. A zero value disables both fallbacks.
@@ -45,6 +57,8 @@ type Resolver struct {
 	mgmtClient       managementapi.Client
 	remoteUIDefaults RemoteUIDefaults
 	tenantTemplates  *memkv.InMemoryKVStore
+	// tenantFlight dedupes concurrent cold lookups of one tenant's UI templates.
+	tenantFlight singleflight.Group
 }
 
 func NewResolver(serviceName string, client *ent.Client, validator *validator.Validator, workflowRouter *services.SignalRouter, mgmtClient managementapi.Client, remoteUIDefaults RemoteUIDefaults) *Resolver {

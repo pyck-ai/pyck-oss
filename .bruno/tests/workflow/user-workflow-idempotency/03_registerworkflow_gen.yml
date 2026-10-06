@@ -45,13 +45,14 @@ graphql:
           "name": "MismatchWorkflow",
           "signals": [
             {
-              "filterRule": "*",
+              "filterRule": "true",
               "natsTopic": "request.reply.pyck.*.crud.inventory.items.*.create",
               "temporalSignal": "mismatchCreated",
               "temporalSignalType": "start"
             }
           ],
-          "taskQueue": "mismatch-task-queue"
+          "taskQueue": "mismatch-task-queue",
+          "workerID": "scenario-user-workflow-idempotency"
         }
       }
 

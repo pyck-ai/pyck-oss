@@ -1,0 +1,11 @@
+info:
+  name: Cross - Customer File Relation
+  type: folder
+  seq: 1
+
+docs: |-
+  Verifies the federated Customer.file relation (resolved by the file subgraph from the customer's id and tenantID). Creates a customer and a file whose refid names it, confirms `file` lists exactly that file with the customer's tenant, then deletes the file and confirms `file` is empty. Cleans up the customer.
+
+
+request:
+  auth: inherit

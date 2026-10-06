@@ -1,0 +1,11 @@
+info:
+  name: User - Receiving Inbound Remove Items
+  type: folder
+  seq: 1
+
+docs: |-
+  updateReceivingInbound(removeInboundItemIDs) soft-deletes only items of the inbound being updated. Naming an item of another inbound refuses the update and leaves that item in place; naming the inbound's own item removes it and keeps its other items.
+
+
+request:
+  auth: inherit

@@ -48,6 +48,27 @@ func NewIntermediateSignal(topic events.Topic, signalName string, options ...Sig
 	return s
 }
 
+// NewSignalWithStartSignal initialises a Signal-With-Start signal builder. On
+// each matching event the router signals the workflow `<workflow>_<entity ID>`
+// with signalName, starting it first if it is not running. The first event's
+// data is also the start input, so the workflow sees that event twice, as
+// input and as signal.
+func NewSignalWithStartSignal(topic events.Topic, signalName string, options ...SignalOption) *Signal {
+	s := NewSignal(entworkflowsignal.TemporalSignalTypeSignalWithStart, topic, options...)
+	s.SignalName = signalName
+	return s
+}
+
+// NewSignalByIDSignal initialises a signal-by-ID signal builder. On each
+// matching event the router signals the workflow `<workflow>_<entity ID>` with
+// signalName and never starts anything: with no running execution the event is
+// dropped and recorded as such.
+func NewSignalByIDSignal(topic events.Topic, signalName string, options ...SignalOption) *Signal {
+	s := NewSignal(entworkflowsignal.TemporalSignalTypeSignalByID, topic, options...)
+	s.SignalName = signalName
+	return s
+}
+
 type SignalOption func(*Signal)
 
 func WithFilterRule(rule string) SignalOption {
@@ -64,4 +85,14 @@ func (s Signal) IsStart() bool {
 // IsIntermediate reports whether the signal is used while the workflow is running.
 func (s Signal) IsIntermediate() bool {
 	return s.SignalType == entworkflowsignal.TemporalSignalTypeIntermediate
+}
+
+// IsSignalWithStart reports whether the signal starts the workflow if needed and signals it.
+func (s Signal) IsSignalWithStart() bool {
+	return s.SignalType == entworkflowsignal.TemporalSignalTypeSignalWithStart
+}
+
+// IsSignalByID reports whether the signal goes to the workflow of the event's ID and never starts it.
+func (s Signal) IsSignalByID() bool {
+	return s.SignalType == entworkflowsignal.TemporalSignalTypeSignalByID
 }

@@ -1,0 +1,214 @@
+---
+name: "User - Receiving Inbound Remove Items"
+description: >
+  updateReceivingInbound(removeInboundItemIDs) soft-deletes only items of the
+  inbound being updated. Naming an item of another inbound refuses the update
+  and leaves that item in place; naming the inbound's own item removes it and
+  keeps its other items.
+steps:
+  - id: inboundA
+    name: "Create inbound A"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        orderID: "PO-REMOVE-A"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - id: inboundB
+    name: "Create inbound B"
+    operation: receiving.createReceivingInbound
+    vars:
+      input:
+        supplierID: {$fake: uuid}
+        orderID: "PO-REMOVE-B"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - id: itemA1
+    name: "Add item A1 to inbound A"
+    operation: receiving.createReceivingInboundItem
+    vars:
+      input:
+        sku: "REMOVE-A1"
+        quantity: 5
+        inboundID: {$ref: "res[inboundA].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - id: itemA2
+    name: "Add item A2 to inbound A"
+    operation: receiving.createReceivingInboundItem
+    vars:
+      input:
+        sku: "REMOVE-A2"
+        quantity: 5
+        inboundID: {$ref: "res[inboundA].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - id: itemB1
+    name: "Add item B1 to inbound B"
+    operation: receiving.createReceivingInboundItem
+    vars:
+      input:
+        sku: "REMOVE-B1"
+        quantity: 5
+        inboundID: {$ref: "res[inboundB].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Removing B's item through inbound A is refused"
+    operation: receiving.updateReceivingInbound
+    vars:
+      id: {$ref: "res[inboundA].body.data.createReceivingInbound.receivingInbound.id"}
+      input:
+        removeInboundItemIDs:
+          - {$ref: "res[itemB1].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "GraphQL error: the item is not part of inbound A"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+
+  - name: "Item B1 is still in inbound B"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        id: {$ref: "res[itemB1].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "B1 not deleted"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            equal: 1
+
+  - name: "Remove A's own item A1"
+    operation: receiving.updateReceivingInbound
+    vars:
+      id: {$ref: "res[inboundA].body.data.createReceivingInbound.receivingInbound.id"}
+      input:
+        removeInboundItemIDs:
+          - {$ref: "res[itemA1].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Item A1 is gone"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        id: {$ref: "res[itemA1].body.data.createReceivingInboundItem.receivingInboundItem.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "A1 deleted"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            equal: 0
+
+  - name: "Inbound A keeps item A2"
+    operation: receiving.getReceivingInboundItems
+    vars:
+      where:
+        inboundID: {$ref: "res[inboundA].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Only A2 left"
+        assertions:
+          - ref: res.body.data.receivingInboundItems.totalCount
+            equal: 1
+
+  - name: "Cleanup - delete inbound A"
+    operation: receiving.deleteReceivingInbound
+    vars:
+      id: {$ref: "res[inboundA].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+
+  - name: "Cleanup - delete inbound B"
+    operation: receiving.deleteReceivingInbound
+    vars:
+      id: {$ref: "res[inboundB].body.data.createReceivingInbound.receivingInbound.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

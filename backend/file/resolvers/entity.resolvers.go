@@ -9,22 +9,22 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/file/ent/gen"
 	entfile "github.com/pyck-ai/pyck/backend/file/ent/gen/file"
 	"github.com/pyck-ai/pyck/backend/file/exec"
 	"github.com/pyck-ai/pyck/backend/file/model"
 )
 
-// FindCustomerByID is the resolver for the findCustomerByID field.
-func (r *entityResolver) FindCustomerByID(ctx context.Context, id uuid.UUID) (*model.Customer, error) {
-	files, err := r.client.File.Query().Where(entfile.Refid(id)).AllPages(ctx, mixin.Limit)
+// FindCustomerByIDAndTenantID is the resolver for the findCustomerByIDAndTenantID field.
+func (r *entityResolver) FindCustomerByIDAndTenantID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*model.Customer, error) {
+	files, err := r.ownerFiles(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
 	return &model.Customer{
-		ID:   id,
-		File: files,
+		ID:       id,
+		TenantID: tenantID,
+		File:     files,
 	}, nil
 }
 
@@ -38,51 +38,55 @@ func (r *entityResolver) FindFileByID(ctx context.Context, id uuid.UUID) (*gen.F
 	return file, nil
 }
 
-// FindInventoryItemByID is the resolver for the findInventoryItemByID field.
-func (r *entityResolver) FindInventoryItemByID(ctx context.Context, id uuid.UUID) (*model.InventoryItem, error) {
-	files, err := r.client.File.Query().Where(entfile.Refid(id)).AllPages(ctx, mixin.Limit)
+// FindInventoryItemByIDAndTenantID is the resolver for the findInventoryItemByIDAndTenantID field.
+func (r *entityResolver) FindInventoryItemByIDAndTenantID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*model.InventoryItem, error) {
+	files, err := r.ownerFiles(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
 	return &model.InventoryItem{
-		ID:   id,
-		File: files,
+		ID:       id,
+		TenantID: tenantID,
+		File:     files,
 	}, nil
 }
 
-// FindPickingOrderByID is the resolver for the findPickingOrderByID field.
-func (r *entityResolver) FindPickingOrderByID(ctx context.Context, id uuid.UUID) (*model.PickingOrder, error) {
-	files, err := r.client.File.Query().Where(entfile.Refid(id)).AllPages(ctx, mixin.Limit)
+// FindPickingOrderByIDAndTenantID is the resolver for the findPickingOrderByIDAndTenantID field.
+func (r *entityResolver) FindPickingOrderByIDAndTenantID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*model.PickingOrder, error) {
+	files, err := r.ownerFiles(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
 	return &model.PickingOrder{
-		ID:   id,
-		File: files,
+		ID:       id,
+		TenantID: tenantID,
+		File:     files,
 	}, nil
 }
 
-// FindRepositoryByID is the resolver for the findRepositoryByID field.
-func (r *entityResolver) FindRepositoryByID(ctx context.Context, id uuid.UUID) (*model.Repository, error) {
-	files, err := r.client.File.Query().Where(entfile.Refid(id)).AllPages(ctx, mixin.Limit)
+// FindRepositoryByIDAndTenantID is the resolver for the findRepositoryByIDAndTenantID field.
+func (r *entityResolver) FindRepositoryByIDAndTenantID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*model.Repository, error) {
+	files, err := r.ownerFiles(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
 	return &model.Repository{
-		ID:   id,
-		File: files,
+		ID:       id,
+		TenantID: tenantID,
+		File:     files,
 	}, nil
 }
 
-// FindSupplierByID is the resolver for the findSupplierByID field.
-func (r *entityResolver) FindSupplierByID(ctx context.Context, id uuid.UUID) (*model.Supplier, error) {
-	files, err := r.client.File.Query().Where(entfile.Refid(id)).AllPages(ctx, mixin.Limit)
+// FindSupplierByIDAndTenantID is the resolver for the findSupplierByIDAndTenantID field.
+func (r *entityResolver) FindSupplierByIDAndTenantID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*model.Supplier, error) {
+	files, err := r.ownerFiles(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
 	return &model.Supplier{
-		ID:   id,
-		File: files,
+		ID:       id,
+		TenantID: tenantID,
+		File:     files,
 	}, nil
 }
 

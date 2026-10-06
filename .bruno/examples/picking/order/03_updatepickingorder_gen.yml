@@ -29,6 +29,7 @@ graphql:
 
       mutation UpdatePickingOrder($id: ID!, $input: UpdatePickingOrderInput!) {
         updatePickingOrder(id: $id, input: $input) {
+          eventCount
           pickingOrder {
             createdAt
             createdBy
@@ -43,11 +44,7 @@ graphql:
             updatedAt
             updatedBy
           }
-          workflows {
-            id
-            runID
-            type
-          }
+          transactionID
         }
       }
     variables: |-

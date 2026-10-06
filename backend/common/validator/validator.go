@@ -393,7 +393,9 @@ func (v *Validator) createQueryForCountingUniqueRecords(
 	// TenantID they operate on.
 	req := request.ForContext(ctx)
 
-	if !db.IsSafeIdentifier(table) {
+	// Quoted: some tables are named with a hyphen ("inbound-items").
+	quotedTable, ok := db.QuoteIdentifier(table)
+	if !ok {
 		return "", nil, fmt.Errorf("%w: %q", ErrInvalidTable, table)
 	}
 
@@ -453,15 +455,17 @@ func (v *Validator) createQueryForCountingUniqueRecords(
 		return "", nil, fmt.Errorf("%w: %q", ErrUnsupportedDialect, dbDriver)
 	}
 
-	// build query with placeholders
-	whereClause := fmt.Sprintf("%s AND data_type_id = %s AND tenant_id = %s", cond, nextPlaceholder(), nextPlaceholder())
+	// build query with placeholders. A soft-deleted row does not hold its
+	// value, like the partial unique indexes on business keys; counting it
+	// would refuse re-creating a record after deleting it.
+	whereClause := fmt.Sprintf("%s AND data_type_id = %s AND tenant_id = %s AND deleted_at IS NULL", cond, nextPlaceholder(), nextPlaceholder())
 	args = append(args, dataTypeID, req.MutationTenantID())
 	if excludeID != nil {
 		whereClause += fmt.Sprintf(" AND id != %s", nextPlaceholder())
 		args = append(args, *excludeID)
 	}
 
-	query := fmt.Sprintf("SELECT count(*) FROM %s WHERE %s", table, whereClause)
+	query := fmt.Sprintf("SELECT count(*) FROM %s WHERE %s", quotedTable, whereClause)
 
 	return query, args, nil
 }

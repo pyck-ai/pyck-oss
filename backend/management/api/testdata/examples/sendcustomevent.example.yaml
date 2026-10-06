@@ -2,11 +2,17 @@
 operation: SendCustomEvent
 name: "Send Custom Event"
 description: >
-  Sends a custom event to a registered event topic.
+  Publishes a custom event for an entity id in the mutation's tenant. The
+  workflow signal router starts or signals every workflow registered for the
+  event's type and operation. Requires the WRITER role on the tenant.
 vars:
   input:
-    topic: { $placeholder: "event topic name" }
-    data: '{"key":"value"}'
+    type: brunoExample
+    operation: create
+    payload:
+      id: { $fake: uuid }
+      data:
+        key: value
 expect:
   - msg: "Status is 200"
     assertions:

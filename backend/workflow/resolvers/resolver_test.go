@@ -83,6 +83,7 @@ type testEnv struct {
 	*resolver.TestEnvironment[*ent.Client]
 	t                  *testing.T
 	MockTemporalClient *mocks.SimpleMockTemporalClient
+	SignalRouter       *services.SignalRouter
 }
 
 func setup(t *testing.T) *testEnv {
@@ -107,6 +108,7 @@ func setup(t *testing.T) *testEnv {
 	workflowRouter := services.NewSignalRouter(client, services.SignalRouterConfig{
 		ClientFactory: newMockClientFactory(),
 	})
+	te.SignalRouter = workflowRouter
 
 	v := validator.NewValidator(te.DataTypeProvider)
 	r := resolvers.NewResolver("workflow", client, v, workflowRouter, nil, resolvers.RemoteUIDefaults{})
@@ -153,6 +155,7 @@ func setupWithMockWorkflow(t *testing.T) *testEnv {
 	workflowRouter := services.NewSignalRouter(client, services.SignalRouterConfig{
 		ClientFactory: mockFactory,
 	})
+	te.SignalRouter = workflowRouter
 
 	v := validator.NewValidator(te.DataTypeProvider)
 	r := resolvers.NewResolver("workflow", client, v, workflowRouter, nil, resolvers.RemoteUIDefaults{})

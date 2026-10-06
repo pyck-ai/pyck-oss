@@ -99,8 +99,8 @@ func TestMapCreateItemMovementProcError(t *testing.T) {
 // createItemMovementViaProc can invoke it after the proc returns. The
 // in-package access lets the test observe the field directly without
 // exporting it just to be testable. Regressions here would silently drop
-// outbox emission on the Postgres fast path (no NATS event, resolver
-// waits OutboxReplyTimeout for a workflow reply that never arrives).
+// outbox emission on the Postgres fast path (no NATS event, no workflow
+// started for the mutation's transaction-ID handle).
 func TestNew_StoresOutboxEmitter(t *testing.T) {
 	t.Parallel()
 

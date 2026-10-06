@@ -15,6 +15,7 @@ type CustomerDeletePayload struct {
 
 type PickingOrder struct {
 	CustomerID uuid.UUID     `json:"customerID"`
+	TenantID   uuid.UUID     `json:"tenantID"`
 	Customer   *gen.Customer `json:"customer,omitempty"`
 }
 

@@ -30,11 +30,8 @@ graphql:
       mutation DeleteReceivingInboundShipmentNotification($id: ID!) {
         deleteReceivingInboundShipmentNotification(id: $id) {
           deletedID
-          workflows {
-            id
-            runID
-            type
-          }
+          eventCount
+          transactionID
         }
       }
     variables: |-

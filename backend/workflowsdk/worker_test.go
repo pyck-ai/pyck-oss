@@ -79,6 +79,9 @@ func TestRetryOnConflict(t *testing.T) {
 			// A replica losing the race to create a brand-new workflow.
 			`pq: duplicate key value violates unique constraint "workflow_tenant_id_name"`,
 			"ERROR: 23505",
+			// The same race as the API reports it: constraint names are
+			// hidden, the SQLSTATE is kept.
+			"input: registerWorkflow duplicate key: record already exists (SQLSTATE 23505)",
 		} {
 			calls := 0
 			err := workflowsdk.RetryOnConflict(context.Background(), 2, time.Millisecond, func() error {

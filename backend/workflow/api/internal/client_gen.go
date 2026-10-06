@@ -17,6 +17,7 @@ type APIClient interface {
 	GetWorkflowSignals(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *WorkflowSignalOrder, where *WorkflowSignalWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetWorkflowSignals, error)
 	GetRemoteUI(ctx context.Context, input model.RemoteUIQueryInput, interceptors ...clientv2.RequestInterceptor) (*GetRemoteUI, error)
 	GetWorkerDeploymentUIBundles(ctx context.Context, first *int, after *string, interceptors ...clientv2.RequestInterceptor) (*GetWorkerDeploymentUIBundles, error)
+	GetTransactionRouting(ctx context.Context, transactionID string, interceptors ...clientv2.RequestInterceptor) (*GetTransactionRouting, error)
 	GetWorkflowServiceInfo(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetWorkflowServiceInfo, error)
 	GetCurrentUserDataInput(ctx context.Context, input model.UserDataInputQueryInput, interceptors ...clientv2.RequestInterceptor) (*GetCurrentUserDataInput, error)
 	GetWorkflowExecutions(ctx context.Context, where *model.WorkflowExecutionsWhereInput, first *int, after *string, orderBy *model.WorkflowExecutionOrder, interceptors ...clientv2.RequestInterceptor) (*GetWorkflowExecutions, error)
@@ -30,6 +31,7 @@ type APIClient interface {
 	SubmitUserDataInput(ctx context.Context, input model.SubmitUserDataInputInput, interceptors ...clientv2.RequestInterceptor) (*SubmitUserDataInput, error)
 	RegisterWorkflow(ctx context.Context, input model.RegisterWorkflowWithSignalsInput, interceptors ...clientv2.RequestInterceptor) (*RegisterWorkflow, error)
 	DeleteWorkflow(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeleteWorkflow, error)
+	UnregisterWorker(ctx context.Context, workerID string, interceptors ...clientv2.RequestInterceptor) (*UnregisterWorker, error)
 	CancelWorkflow(ctx context.Context, input model.CancelWorkflowInput, interceptors ...clientv2.RequestInterceptor) (*CancelWorkflow, error)
 	SetWorkflowAssignee(ctx context.Context, input model.SetWorkflowAssigneeInput, interceptors ...clientv2.RequestInterceptor) (*SetWorkflowAssignee, error)
 	SetWorkflowIsAssignable(ctx context.Context, input model.SetWorkflowIsAssignableInput, interceptors ...clientv2.RequestInterceptor) (*SetWorkflowIsAssignable, error)
@@ -385,21 +387,21 @@ func (t *GetWorkflowSignals_WorkflowSignals) GetTotalCount() int {
 }
 
 type GetRemoteUI_RemoteUI struct {
-	Mobile string "json:\"mobile\" graphql:\"mobile\""
-	Web    string "json:\"web\" graphql:\"web\""
+	MobileURL string "json:\"mobileURL\" graphql:\"mobileURL\""
+	WebURL    string "json:\"webURL\" graphql:\"webURL\""
 }
 
-func (t *GetRemoteUI_RemoteUI) GetMobile() string {
+func (t *GetRemoteUI_RemoteUI) GetMobileURL() string {
 	if t == nil {
 		t = &GetRemoteUI_RemoteUI{}
 	}
-	return t.Mobile
+	return t.MobileURL
 }
-func (t *GetRemoteUI_RemoteUI) GetWeb() string {
+func (t *GetRemoteUI_RemoteUI) GetWebURL() string {
 	if t == nil {
 		t = &GetRemoteUI_RemoteUI{}
 	}
-	return t.Web
+	return t.WebURL
 }
 
 type GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles_PageInfo struct {
@@ -534,6 +536,123 @@ func (t *GetWorkerDeploymentUIBundles_WorkerDeploymentUIBundles) GetTotalCount()
 	return t.TotalCount
 }
 
+type GetTransactionRouting_TransactionRouting_Entries_Targets struct {
+	Error      *string                 "json:\"error,omitempty\" graphql:\"error\""
+	Kind       model.RoutingTargetKind "json:\"kind\" graphql:\"kind\""
+	Reason     *string                 "json:\"reason,omitempty\" graphql:\"reason\""
+	RunID      *string                 "json:\"runID,omitempty\" graphql:\"runID\""
+	Signal     *string                 "json:\"signal,omitempty\" graphql:\"signal\""
+	Workflow   *string                 "json:\"workflow,omitempty\" graphql:\"workflow\""
+	WorkflowID *string                 "json:\"workflowID,omitempty\" graphql:\"workflowID\""
+}
+
+func (t *GetTransactionRouting_TransactionRouting_Entries_Targets) GetError() *string {
+	if t == nil {
+		t = &GetTransactionRouting_TransactionRouting_Entries_Targets{}
+	}
+	return t.Error
+}
+func (t *GetTransactionRouting_TransactionRouting_Entries_Targets) GetKind() *model.RoutingTargetKind {
+	if t == nil {
+		t = &GetTransactionRouting_TransactionRouting_Entries_Targets{}
+	}
+	return &t.Kind
+}
+func (t *GetTransactionRouting_TransactionRouting_Entries_Targets) GetReason() *string {
+	if t == nil {
+		t = &GetTransactionRouting_TransactionRouting_Entries_Targets{}
+	}
+	return t.Reason
+}
+func (t *GetTransactionRouting_TransactionRouting_Entries_Targets) GetRunID() *string {
+	if t == nil {
+		t = &GetTransactionRouting_TransactionRouting_Entries_Targets{}
+	}
+	return t.RunID
+}
+func (t *GetTransactionRouting_TransactionRouting_Entries_Targets) GetSignal() *string {
+	if t == nil {
+		t = &GetTransactionRouting_TransactionRouting_Entries_Targets{}
+	}
+	return t.Signal
+}
+func (t *GetTransactionRouting_TransactionRouting_Entries_Targets) GetWorkflow() *string {
+	if t == nil {
+		t = &GetTransactionRouting_TransactionRouting_Entries_Targets{}
+	}
+	return t.Workflow
+}
+func (t *GetTransactionRouting_TransactionRouting_Entries_Targets) GetWorkflowID() *string {
+	if t == nil {
+		t = &GetTransactionRouting_TransactionRouting_Entries_Targets{}
+	}
+	return t.WorkflowID
+}
+
+type GetTransactionRouting_TransactionRouting_Entries struct {
+	EventID    string                                                      "json:\"eventID\" graphql:\"eventID\""
+	Outcome    model.RoutingOutcome                                        "json:\"outcome\" graphql:\"outcome\""
+	RecordedAt time.Time                                                   "json:\"recordedAt\" graphql:\"recordedAt\""
+	Sequence   uint64                                                      "json:\"sequence\" graphql:\"sequence\""
+	Targets    []*GetTransactionRouting_TransactionRouting_Entries_Targets "json:\"targets\" graphql:\"targets\""
+	TenantID   string                                                      "json:\"tenantID\" graphql:\"tenantID\""
+}
+
+func (t *GetTransactionRouting_TransactionRouting_Entries) GetEventID() string {
+	if t == nil {
+		t = &GetTransactionRouting_TransactionRouting_Entries{}
+	}
+	return t.EventID
+}
+func (t *GetTransactionRouting_TransactionRouting_Entries) GetOutcome() *model.RoutingOutcome {
+	if t == nil {
+		t = &GetTransactionRouting_TransactionRouting_Entries{}
+	}
+	return &t.Outcome
+}
+func (t *GetTransactionRouting_TransactionRouting_Entries) GetRecordedAt() *time.Time {
+	if t == nil {
+		t = &GetTransactionRouting_TransactionRouting_Entries{}
+	}
+	return &t.RecordedAt
+}
+func (t *GetTransactionRouting_TransactionRouting_Entries) GetSequence() uint64 {
+	if t == nil {
+		t = &GetTransactionRouting_TransactionRouting_Entries{}
+	}
+	return t.Sequence
+}
+func (t *GetTransactionRouting_TransactionRouting_Entries) GetTargets() []*GetTransactionRouting_TransactionRouting_Entries_Targets {
+	if t == nil {
+		t = &GetTransactionRouting_TransactionRouting_Entries{}
+	}
+	return t.Targets
+}
+func (t *GetTransactionRouting_TransactionRouting_Entries) GetTenantID() string {
+	if t == nil {
+		t = &GetTransactionRouting_TransactionRouting_Entries{}
+	}
+	return t.TenantID
+}
+
+type GetTransactionRouting_TransactionRouting struct {
+	Entries       []*GetTransactionRouting_TransactionRouting_Entries "json:\"entries\" graphql:\"entries\""
+	TransactionID string                                              "json:\"transactionID\" graphql:\"transactionID\""
+}
+
+func (t *GetTransactionRouting_TransactionRouting) GetEntries() []*GetTransactionRouting_TransactionRouting_Entries {
+	if t == nil {
+		t = &GetTransactionRouting_TransactionRouting{}
+	}
+	return t.Entries
+}
+func (t *GetTransactionRouting_TransactionRouting) GetTransactionID() string {
+	if t == nil {
+		t = &GetTransactionRouting_TransactionRouting{}
+	}
+	return t.TransactionID
+}
+
 type GetWorkflowServiceInfo_WorkflowServiceInfo struct {
 	Date    *time.Time "json:\"date,omitempty\" graphql:\"date\""
 	Version string     "json:\"version\" graphql:\"version\""
@@ -571,20 +690,20 @@ func (t *GetCurrentUserDataInput_CurrentUserDataInput_Type) GetSchema() any {
 }
 
 type GetCurrentUserDataInput_CurrentUserDataInput struct {
-	ActivityCount *string                                            "json:\"activityCount,omitempty\" graphql:\"activityCount\""
-	ActivityIndex string                                             "json:\"activityIndex\" graphql:\"activityIndex\""
+	ActivityCount *uint64                                            "json:\"activityCount,omitempty\" graphql:\"activityCount\""
+	ActivityIndex uint64                                             "json:\"activityIndex\" graphql:\"activityIndex\""
 	Data          any                                                "json:\"data,omitempty\" graphql:\"data\""
 	Errors        []string                                           "json:\"errors,omitempty\" graphql:\"errors\""
 	Type          *GetCurrentUserDataInput_CurrentUserDataInput_Type "json:\"type,omitempty\" graphql:\"type\""
 }
 
-func (t *GetCurrentUserDataInput_CurrentUserDataInput) GetActivityCount() *string {
+func (t *GetCurrentUserDataInput_CurrentUserDataInput) GetActivityCount() *uint64 {
 	if t == nil {
 		t = &GetCurrentUserDataInput_CurrentUserDataInput{}
 	}
 	return t.ActivityCount
 }
-func (t *GetCurrentUserDataInput_CurrentUserDataInput) GetActivityIndex() string {
+func (t *GetCurrentUserDataInput_CurrentUserDataInput) GetActivityIndex() uint64 {
 	if t == nil {
 		t = &GetCurrentUserDataInput_CurrentUserDataInput{}
 	}
@@ -677,6 +796,24 @@ func (t *GetWorkflowExecutions_WorkflowExecutions_Edges_Node_ParentExecution) Ge
 	return t.WorkflowID
 }
 
+type GetWorkflowExecutions_WorkflowExecutions_Edges_Node_RemoteUI struct {
+	MobileURL string "json:\"mobileURL\" graphql:\"mobileURL\""
+	WebURL    string "json:\"webURL\" graphql:\"webURL\""
+}
+
+func (t *GetWorkflowExecutions_WorkflowExecutions_Edges_Node_RemoteUI) GetMobileURL() string {
+	if t == nil {
+		t = &GetWorkflowExecutions_WorkflowExecutions_Edges_Node_RemoteUI{}
+	}
+	return t.MobileURL
+}
+func (t *GetWorkflowExecutions_WorkflowExecutions_Edges_Node_RemoteUI) GetWebURL() string {
+	if t == nil {
+		t = &GetWorkflowExecutions_WorkflowExecutions_Edges_Node_RemoteUI{}
+	}
+	return t.WebURL
+}
+
 type GetWorkflowExecutions_WorkflowExecutions_Edges_Node_RootExecution struct {
 	ID         string "json:\"id\" graphql:\"id\""
 	WorkflowID string "json:\"workflowId\" graphql:\"workflowId\""
@@ -735,6 +872,7 @@ type GetWorkflowExecutions_WorkflowExecutions_Edges_Node struct {
 	MostRecentWorkerVersionStamp map[string]any                                                          "json:\"mostRecentWorkerVersionStamp,omitempty\" graphql:\"mostRecentWorkerVersionStamp\""
 	ParentExecution              *GetWorkflowExecutions_WorkflowExecutions_Edges_Node_ParentExecution    "json:\"parentExecution,omitempty\" graphql:\"parentExecution\""
 	ParentNamespaceID            *string                                                                 "json:\"parentNamespaceId,omitempty\" graphql:\"parentNamespaceId\""
+	RemoteUI                     *GetWorkflowExecutions_WorkflowExecutions_Edges_Node_RemoteUI           "json:\"remoteUI,omitempty\" graphql:\"remoteUI\""
 	RootExecution                *GetWorkflowExecutions_WorkflowExecutions_Edges_Node_RootExecution      "json:\"rootExecution,omitempty\" graphql:\"rootExecution\""
 	SearchAttributes             []*GetWorkflowExecutions_WorkflowExecutions_Edges_Node_SearchAttributes "json:\"searchAttributes\" graphql:\"searchAttributes\""
 	StartTime                    string                                                                  "json:\"startTime\" graphql:\"startTime\""
@@ -803,6 +941,12 @@ func (t *GetWorkflowExecutions_WorkflowExecutions_Edges_Node) GetParentNamespace
 		t = &GetWorkflowExecutions_WorkflowExecutions_Edges_Node{}
 	}
 	return t.ParentNamespaceID
+}
+func (t *GetWorkflowExecutions_WorkflowExecutions_Edges_Node) GetRemoteUI() *GetWorkflowExecutions_WorkflowExecutions_Edges_Node_RemoteUI {
+	if t == nil {
+		t = &GetWorkflowExecutions_WorkflowExecutions_Edges_Node{}
+	}
+	return t.RemoteUI
 }
 func (t *GetWorkflowExecutions_WorkflowExecutions_Edges_Node) GetRootExecution() *GetWorkflowExecutions_WorkflowExecutions_Edges_Node_RootExecution {
 	if t == nil {
@@ -958,6 +1102,24 @@ func (t *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node
 	return t.WorkflowID
 }
 
+type GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_RemoteUI struct {
+	MobileURL string "json:\"mobileURL\" graphql:\"mobileURL\""
+	WebURL    string "json:\"webURL\" graphql:\"webURL\""
+}
+
+func (t *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_RemoteUI) GetMobileURL() string {
+	if t == nil {
+		t = &GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_RemoteUI{}
+	}
+	return t.MobileURL
+}
+func (t *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_RemoteUI) GetWebURL() string {
+	if t == nil {
+		t = &GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_RemoteUI{}
+	}
+	return t.WebURL
+}
+
 type GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_RootExecution struct {
 	ID         string "json:\"id\" graphql:\"id\""
 	WorkflowID string "json:\"workflowId\" graphql:\"workflowId\""
@@ -1016,6 +1178,7 @@ type GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node str
 	MostRecentWorkerVersionStamp map[string]any                                                                              "json:\"mostRecentWorkerVersionStamp,omitempty\" graphql:\"mostRecentWorkerVersionStamp\""
 	ParentExecution              *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_ParentExecution    "json:\"parentExecution,omitempty\" graphql:\"parentExecution\""
 	ParentNamespaceID            *string                                                                                     "json:\"parentNamespaceId,omitempty\" graphql:\"parentNamespaceId\""
+	RemoteUI                     *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_RemoteUI           "json:\"remoteUI,omitempty\" graphql:\"remoteUI\""
 	RootExecution                *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_RootExecution      "json:\"rootExecution,omitempty\" graphql:\"rootExecution\""
 	SearchAttributes             []*GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_SearchAttributes "json:\"searchAttributes\" graphql:\"searchAttributes\""
 	StartTime                    string                                                                                      "json:\"startTime\" graphql:\"startTime\""
@@ -1084,6 +1247,12 @@ func (t *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node
 		t = &GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node{}
 	}
 	return t.ParentNamespaceID
+}
+func (t *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node) GetRemoteUI() *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_RemoteUI {
+	if t == nil {
+		t = &GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node{}
+	}
+	return t.RemoteUI
 }
 func (t *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node) GetRootExecution() *GetAssignableWorkflowExecutions_AssignableWorkflowExecutions_Edges_Node_RootExecution {
 	if t == nil {
@@ -1571,6 +1740,17 @@ func (t *DeleteWorkflow_DeleteWorkflow) GetDeletedID() *string {
 	return t.DeletedID
 }
 
+type UnregisterWorker_UnregisterWorker struct {
+	Stopped int "json:\"stopped\" graphql:\"stopped\""
+}
+
+func (t *UnregisterWorker_UnregisterWorker) GetStopped() int {
+	if t == nil {
+		t = &UnregisterWorker_UnregisterWorker{}
+	}
+	return t.Stopped
+}
+
 type CancelWorkflow_CancelWorkflow struct {
 	WorkflowID    string "json:\"workflowID\" graphql:\"workflowID\""
 	WorkflowRunID string "json:\"workflowRunID\" graphql:\"workflowRunID\""
@@ -1664,6 +1844,17 @@ func (t *GetWorkerDeploymentUIBundles) GetWorkerDeploymentUIBundles() *GetWorker
 		t = &GetWorkerDeploymentUIBundles{}
 	}
 	return &t.WorkerDeploymentUIBundles
+}
+
+type GetTransactionRouting struct {
+	TransactionRouting GetTransactionRouting_TransactionRouting "json:\"transactionRouting\" graphql:\"transactionRouting\""
+}
+
+func (t *GetTransactionRouting) GetTransactionRouting() *GetTransactionRouting_TransactionRouting {
+	if t == nil {
+		t = &GetTransactionRouting{}
+	}
+	return &t.TransactionRouting
 }
 
 type GetWorkflowServiceInfo struct {
@@ -1807,6 +1998,17 @@ func (t *DeleteWorkflow) GetDeleteWorkflow() *DeleteWorkflow_DeleteWorkflow {
 		t = &DeleteWorkflow{}
 	}
 	return &t.DeleteWorkflow
+}
+
+type UnregisterWorker struct {
+	UnregisterWorker UnregisterWorker_UnregisterWorker "json:\"unregisterWorker\" graphql:\"unregisterWorker\""
+}
+
+func (t *UnregisterWorker) GetUnregisterWorker() *UnregisterWorker_UnregisterWorker {
+	if t == nil {
+		t = &UnregisterWorker{}
+	}
+	return &t.UnregisterWorker
 }
 
 type CancelWorkflow struct {
@@ -1961,8 +2163,8 @@ func (c *Client) GetWorkflowSignals(ctx context.Context, after *string, first *i
 
 const GetRemoteUIDocument = `query GetRemoteUI ($input: RemoteUIQueryInput!) {
 	remoteUI(input: $input) {
-		mobile
-		web
+		mobileURL
+		webURL
 	}
 }
 `
@@ -2018,6 +2220,46 @@ func (c *Client) GetWorkerDeploymentUIBundles(ctx context.Context, first *int, a
 
 	var res GetWorkerDeploymentUIBundles
 	if err := c.Client.Post(ctx, "GetWorkerDeploymentUIBundles", GetWorkerDeploymentUIBundlesDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+const GetTransactionRoutingDocument = `query GetTransactionRouting ($transactionID: ID!) {
+	transactionRouting(transactionID: $transactionID) {
+		entries {
+			eventID
+			outcome
+			recordedAt
+			sequence
+			targets {
+				error
+				kind
+				reason
+				runID
+				signal
+				workflow
+				workflowID
+			}
+			tenantID
+		}
+		transactionID
+	}
+}
+`
+
+func (c *Client) GetTransactionRouting(ctx context.Context, transactionID string, interceptors ...clientv2.RequestInterceptor) (*GetTransactionRouting, error) {
+	vars := map[string]any{
+		"transactionID": transactionID,
+	}
+
+	var res GetTransactionRouting
+	if err := c.Client.Post(ctx, "GetTransactionRouting", GetTransactionRoutingDocument, &res, vars, interceptors...); err != nil {
 		if c.Client.ParseDataWhenErrors {
 			return &res, err
 		}
@@ -2110,6 +2352,10 @@ const GetWorkflowExecutionsDocument = `query GetWorkflowExecutions ($where: Work
 					workflowId
 				}
 				parentNamespaceId
+				remoteUI {
+					mobileURL
+					webURL
+				}
 				rootExecution {
 					id
 					workflowId
@@ -2179,6 +2425,10 @@ const GetAssignableWorkflowExecutionsDocument = `query GetAssignableWorkflowExec
 					workflowId
 				}
 				parentNamespaceId
+				remoteUI {
+					mobileURL
+					webURL
+				}
 				rootExecution {
 					id
 					workflowId
@@ -2482,6 +2732,30 @@ func (c *Client) DeleteWorkflow(ctx context.Context, id string, interceptors ...
 	return &res, nil
 }
 
+const UnregisterWorkerDocument = `mutation UnregisterWorker ($workerID: String!) {
+	unregisterWorker(workerID: $workerID) {
+		stopped
+	}
+}
+`
+
+func (c *Client) UnregisterWorker(ctx context.Context, workerID string, interceptors ...clientv2.RequestInterceptor) (*UnregisterWorker, error) {
+	vars := map[string]any{
+		"workerID": workerID,
+	}
+
+	var res UnregisterWorker
+	if err := c.Client.Post(ctx, "UnregisterWorker", UnregisterWorkerDocument, &res, vars, interceptors...); err != nil {
+		if c.Client.ParseDataWhenErrors {
+			return &res, err
+		}
+
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 const CancelWorkflowDocument = `mutation CancelWorkflow ($input: CancelWorkflowInput!) {
 	cancelWorkflow(input: $input) {
 		workflowID
@@ -2584,6 +2858,7 @@ var DocumentOperationNames = map[string]string{
 	GetWorkflowSignalsDocument:              "GetWorkflowSignals",
 	GetRemoteUIDocument:                     "GetRemoteUI",
 	GetWorkerDeploymentUIBundlesDocument:    "GetWorkerDeploymentUIBundles",
+	GetTransactionRoutingDocument:           "GetTransactionRouting",
 	GetWorkflowServiceInfoDocument:          "GetWorkflowServiceInfo",
 	GetCurrentUserDataInputDocument:         "GetCurrentUserDataInput",
 	GetWorkflowExecutionsDocument:           "GetWorkflowExecutions",
@@ -2597,6 +2872,7 @@ var DocumentOperationNames = map[string]string{
 	SubmitUserDataInputDocument:             "SubmitUserDataInput",
 	RegisterWorkflowDocument:                "RegisterWorkflow",
 	DeleteWorkflowDocument:                  "DeleteWorkflow",
+	UnregisterWorkerDocument:                "UnregisterWorker",
 	CancelWorkflowDocument:                  "CancelWorkflow",
 	SetWorkflowAssigneeDocument:             "SetWorkflowAssignee",
 	SetWorkflowIsAssignableDocument:         "SetWorkflowIsAssignable",

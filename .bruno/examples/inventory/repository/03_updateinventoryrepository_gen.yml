@@ -29,6 +29,7 @@ graphql:
 
       mutation UpdateInventoryRepository($id: ID!, $input: UpdateRepositoryInput!) {
         updateInventoryRepository(id: $id, input: $input) {
+          eventCount
           inventoryRepository {
             createdAt
             createdBy
@@ -48,11 +49,7 @@ graphql:
             updatedBy
             virtualRepo
           }
-          workflows {
-            id
-            runID
-            type
-          }
+          transactionID
         }
       }
     variables: |-

@@ -44,8 +44,8 @@ func newExpiryTestClient(t *testing.T) *ent.Client {
 }
 
 // TestActiveWorkflowsWithSignals_ExpiryGate covers the read path the janitor
-// test does not: a lapsed subscription stops routing before it is reaped, while
-// a legacy (nil-expiry) one keeps routing.
+// test does not: a lapsed or soft-deleted subscription stops routing before it
+// is reaped, while an unexpired one keeps routing.
 func TestActiveWorkflowsWithSignals_ExpiryGate(t *testing.T) {
 	t.Parallel()
 
@@ -59,14 +59,15 @@ func TestActiveWorkflowsWithSignals_ExpiryGate(t *testing.T) {
 		SetTaskQueue("test-queue").
 		SaveX(ctx)
 
-	newSignal := func(topic string, expiresAt *time.Time) uuid.UUID {
+	newSignal := func(topic string, expiresAt time.Time) uuid.UUID {
 		return client.WorkflowSignal.Create().
 			SetTenantID(tenantID).
 			SetWorkflowID(wf.ID).
 			SetNatsTopic(topic).
 			SetTemporalSignalType(entworkflowsignal.TemporalSignalTypeIntermediate).
 			SetTemporalSignal("OrderCreated").
-			SetNillableExpiresAt(expiresAt).
+			SetWorkerID("worker-a").
+			SetExpiresAt(expiresAt).
 			SaveX(ctx).ID
 	}
 
@@ -75,9 +76,13 @@ func TestActiveWorkflowsWithSignals_ExpiryGate(t *testing.T) {
 		future = time.Now().UTC().Add(time.Hour)
 	)
 
-	legacyID := newSignal("pyck.legacy", nil)
-	liveID := newSignal("pyck.live", &future)
-	expiredID := newSignal("pyck.expired", &past)
+	liveID := newSignal("pyck.live", future)
+	expiredID := newSignal("pyck.expired", past)
+	deletedID := newSignal("pyck.deleted", future)
+	client.WorkflowSignal.UpdateOneID(deletedID).
+		SetDeletedAt(time.Now().UTC()).
+		SetDeletedBy(authn.SystemUser().ID).
+		ExecX(ctx)
 
 	router := services.NewSignalRouter(client, services.SignalRouterConfig{})
 
@@ -90,9 +95,9 @@ func TestActiveWorkflowsWithSignals_ExpiryGate(t *testing.T) {
 		got[s.ID] = true
 	}
 
-	assert.True(t, got[legacyID], "a legacy (nil-expiry) subscription must keep routing")
 	assert.True(t, got[liveID], "an unexpired subscription must keep routing")
 	assert.False(t, got[expiredID], "a lapsed subscription must stop routing before the janitor reaps it")
+	assert.False(t, got[deletedID], "a soft-deleted subscription must not route")
 }
 
 // TestActiveWorkflowsWithSignals_AllExpired asserts a workflow drops out of the
@@ -116,6 +121,7 @@ func TestActiveWorkflowsWithSignals_AllExpired(t *testing.T) {
 		SetNatsTopic("pyck.expired").
 		SetTemporalSignalType(entworkflowsignal.TemporalSignalTypeIntermediate).
 		SetTemporalSignal("OrderCreated").
+		SetWorkerID("worker-a").
 		SetExpiresAt(time.Now().UTC().Add(-time.Hour)).
 		SaveX(ctx)
 

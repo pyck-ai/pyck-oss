@@ -1,0 +1,12 @@
+info:
+  name: User - WorkflowExecutions RemoteUI Field
+  type: folder
+  seq: 1
+
+docs: |-
+  Surface smoke test for the remoteUI field on workflowExecutions nodes (#1455). The generated GetWorkflowExecutions operation selects remoteUI { web mobile } on every node, so a listing must come back as a valid connection envelope with no GraphQL errors regardless of how many executions the tenant has, whether they are pinned to a Worker Deployment Version, or whether UI URL templates are configured: an execution with no UI to load yields null for the field, not an error.
+    Rendering of actual URLs for a pinned execution is covered by the resolver unit tests (remoteui_field_test.go), which drive the deployment metadata.
+
+
+request:
+  auth: inherit

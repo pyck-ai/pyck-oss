@@ -65,8 +65,8 @@ query GetWorkflowSignals($after: Cursor, $first: Int, $before: Cursor, $last: In
 
 query GetRemoteUI($input: RemoteUIQueryInput!) {
   remoteUI(input: $input) {
-    mobile
-    web
+    mobileURL
+    webURL
   }
 }
 
@@ -93,6 +93,29 @@ query GetWorkerDeploymentUIBundles($first: Int, $after: String) {
         drainageStatus
       }
     }
+  }
+}
+
+
+query GetTransactionRouting($transactionID: ID!) {
+  transactionRouting(transactionID: $transactionID) {
+    entries {
+      eventID
+      outcome
+      recordedAt
+      sequence
+      targets {
+        error
+        kind
+        reason
+        runID
+        signal
+        workflow
+        workflowID
+      }
+      tenantID
+    }
+    transactionID
   }
 }
 
@@ -147,6 +170,10 @@ query GetWorkflowExecutions($where: WorkflowExecutionsWhereInput, $first: Int, $
           workflowId
         }
         parentNamespaceId
+        remoteUI {
+          mobileURL
+          webURL
+        }
         rootExecution {
           id
           workflowId
@@ -196,6 +223,10 @@ query GetAssignableWorkflowExecutions($where: WorkflowExecutionsWhereInput, $fir
           workflowId
         }
         parentNamespaceId
+        remoteUI {
+          mobileURL
+          webURL
+        }
         rootExecution {
           id
           workflowId
@@ -323,6 +354,13 @@ mutation RegisterWorkflow($input: RegisterWorkflowWithSignalsInput!) {
 mutation DeleteWorkflow($id: ID!) {
   deleteWorkflow(id: $id) {
     deletedID
+  }
+}
+
+
+mutation UnregisterWorker($workerID: String!) {
+  unregisterWorker(workerID: $workerID) {
+    stopped
   }
 }
 

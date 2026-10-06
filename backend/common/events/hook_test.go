@@ -2,8 +2,10 @@ package events_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,6 +21,9 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/pyck-ai/pyck/backend/common/feature"
+	"github.com/pyck-ai/pyck/backend/common/gqltx"
+	"github.com/pyck-ai/pyck/backend/common/tenant"
+	"github.com/pyck-ai/pyck/backend/common/test/pgtest"
 	"github.com/pyck-ai/pyck/backend/common/txid"
 )
 
@@ -61,8 +66,15 @@ func TestMain(m *testing.M) {
 		propagation.Baggage{},
 	))
 
-	os.Exit(m.Run())
+	var terminate func()
+	pgHandle, terminate = pgtest.Start("events")
+	code := m.Run()
+	terminate()
+	os.Exit(code)
 }
+
+// pgHandle is the shared Postgres test container (nil when SKIP_PG_TESTS=1).
+var pgHandle *pgtest.Handle
 
 // expectedUpdateEvent holds expected values for an update event.
 type expectedUpdateEvent struct {
@@ -107,16 +119,8 @@ func (m *mockPublisher) PublishRaw(_ context.Context, _ string, _ []byte, _ stri
 	return nil
 }
 
-func (m *mockPublisher) RequestRaw(_ context.Context, _ string, _ []byte, _ time.Duration) (*events.EventReply, error) {
-	return nil, nil //nolint:nilnil // Mock method intentionally returns nil,nil (no data, no error)
-}
-
 func (m *mockPublisher) SendCustomEvent(_ context.Context, _ *events.CustomEventMessage) error {
 	return nil
-}
-
-func (m *mockPublisher) SendMutationEventWithReply(_ context.Context, _ *events.MutationEventMessage) ([]byte, error) {
-	return nil, nil
 }
 
 func (m *mockPublisher) SendTemporalWorkflowEvent(_ context.Context, _ *events.TemporalWorkflowStateChangeMessage) error {
@@ -190,6 +194,112 @@ func TestMutationEventHook_OutboxEntryTimestampIsUTC(t *testing.T) {
 		"outbox entry CreatedAt should be in UTC")
 }
 
+// TestMutationEventHook_StampsTransactionIDSearchAttribute verifies that the
+// per-tx UUID is stamped into the event's wf_search_attributes so workflows
+// started from this event carry the pyck_transaction_id search attribute —
+// the key clients use to look up the executions a mutation triggered. The
+// stamp must win over any context-provided attribute of the same name.
+func TestMutationEventHook_StampsTransactionIDSearchAttribute(t *testing.T) {
+	t.Parallel()
+
+	entityID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	tenantID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+
+	var captured *events.OutboxEntry
+
+	hook := events.MutationEventHook(events.HookConfig{
+		Service:    "test",
+		StreamName: "test-stream",
+		OutboxInserter: func(_ context.Context, entry *events.OutboxEntry) error {
+			captured = entry
+			return nil
+		},
+	})
+
+	next := ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+		return &testEntity{ID: entityID, TenantID: tenantID, Name: "test"}, nil
+	})
+
+	mutator := hook(next)
+	m := &mockMutation{op: ent.OpCreate, typ: "TestEntity", ids: []uuid.UUID{entityID}}
+
+	ctx := authn.Context(context.Background(), &authn.User{
+		ID:       uuid.New(),
+		TenantID: tenantID,
+		Roles:    map[uuid.UUID]authn.Role{tenantID: authn.ROLE_WRITER},
+	})
+	// A context-provided attribute must not be able to spoof the txid.
+	ctx = events.WithExtraSearchAttribute(ctx, "pyck_transaction_id", "spoofed")
+	transactionID := txid.New()
+	ctx = txid.With(ctx, transactionID)
+
+	_, err := mutator.Mutate(ctx, m)
+	require.NoError(t, err)
+	require.NotNil(t, captured, "outbox entry should have been captured")
+
+	var msg events.MutationEventMessage
+	require.NoError(t, json.Unmarshal(captured.Payload, &msg))
+	assert.Equal(t, transactionID.String(), msg.WfSearchAttributes["pyck_transaction_id"],
+		"the per-tx UUID must be stamped last so nothing can clobber it")
+}
+
+// TestMutationEventHook_PayloadCarriesOutboxEntryID pins that the published
+// payload's event_id is the outbox row's own ID (not the entity ID, which two
+// updates of one entity share), so a consumer can tell events apart and
+// recognise a redelivery of the same one.
+func TestMutationEventHook_PayloadCarriesOutboxEntryID(t *testing.T) {
+	t.Parallel()
+
+	entityID := uuid.MustParse("00000000-0000-0000-0000-000000000021")
+	tenantID := uuid.MustParse("00000000-0000-0000-0000-000000000022")
+
+	var captured []*events.OutboxEntry
+
+	hook := events.MutationEventHook(events.HookConfig{
+		Service:    "test",
+		StreamName: "test-stream",
+		OutboxInserter: func(_ context.Context, entry *events.OutboxEntry) error {
+			captured = append(captured, entry)
+			return nil
+		},
+	})
+
+	next := ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+		return &testEntity{ID: entityID, TenantID: tenantID, Name: "test"}, nil
+	})
+
+	ctx := authn.Context(context.Background(), &authn.User{
+		ID:       uuid.New(),
+		TenantID: tenantID,
+		Roles:    map[uuid.UUID]authn.Role{tenantID: authn.ROLE_WRITER},
+	})
+	ctx = txid.With(ctx, txid.New())
+
+	// Two updates of the same entity.
+	for range 2 {
+		m := &mockMutation{op: ent.OpUpdateOne, typ: "TestEntity", ids: []uuid.UUID{entityID}}
+		_, err := hook(next).Mutate(ctx, m)
+		require.NoError(t, err)
+	}
+
+	require.Len(t, captured, 2)
+
+	seen := map[uuid.UUID]bool{}
+
+	for _, entry := range captured {
+		var msg events.MutationEventMessage
+		require.NoError(t, json.Unmarshal(entry.Payload, &msg))
+
+		assert.Equal(t, entry.ID, msg.EventID, "event_id must equal the outbox row ID")
+		assert.Equal(t, entityID, msg.ID, "id stays the entity ID")
+		assert.Equal(t, uuid.Version(7), msg.EventID.Version(), "event_id is a UUIDv7")
+
+		seen[msg.EventID] = true
+	}
+
+	assert.Len(t, seen, 2, "two events of one entity get two event IDs")
+}
+
 func TestMutationEventHook_SuppressEvents_SkipsOutbox(t *testing.T) {
 	t.Parallel()
 
@@ -232,6 +342,95 @@ func TestMutationEventHook_SuppressEvents_SkipsOutbox(t *testing.T) {
 	assert.False(t, outboxInserted, "outbox must not be written when update events are suppressed")
 	assert.False(t, fetcherCalled, "before-state fetch must be skipped when update events are suppressed")
 	_ = value
+}
+
+// TestMutationEventHook_CountsEventsPerTransaction verifies the tally behind
+// the eventCount field of a mutation result: every outbox row the hook writes
+// under a transaction is counted on that transaction's context, and none are
+// when FEATURE_SUPPRESS_EVENTS bypasses the hook.
+//
+//nolint:tparallel,paralleltest // subtests share the hook's `inserted` counter and run sequentially
+func TestMutationEventHook_CountsEventsPerTransaction(t *testing.T) {
+	t.Parallel()
+
+	entityID := uuid.MustParse("00000000-0000-0000-0000-000000000021")
+	tenantID := uuid.MustParse("00000000-0000-0000-0000-000000000022")
+
+	inserted := 0
+	hook := events.MutationEventHook(events.HookConfig{
+		Service:    "test",
+		StreamName: "test-stream",
+		OutboxInserter: func(_ context.Context, _ *events.OutboxEntry) error {
+			inserted++
+			return nil
+		},
+	})
+	mutator := hook(ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+		return &testEntity{ID: entityID, TenantID: tenantID, Name: "test"}, nil
+	}))
+	m := &mockMutation{op: ent.OpCreate, typ: "TestEntity", ids: []uuid.UUID{entityID}}
+
+	txCtx := func() context.Context {
+		ctx := authn.Context(context.Background(), &authn.User{
+			ID:       uuid.New(),
+			TenantID: tenantID,
+			Roles:    map[uuid.UUID]authn.Role{tenantID: authn.ROLE_WRITER},
+		})
+		return txid.With(ctx, txid.New())
+	}
+
+	t.Run("N events are reported as N", func(t *testing.T) {
+		inserted = 0
+		ctx := txCtx()
+		require.Zero(t, gqltx.EventCount(ctx))
+
+		for range 3 {
+			_, err := mutator.Mutate(ctx, m)
+			require.NoError(t, err)
+		}
+
+		assert.Equal(t, 3, inserted)
+		assert.Equal(t, 3, gqltx.EventCount(ctx))
+	})
+
+	t.Run("a failed insert is not counted", func(t *testing.T) {
+		failing := events.MutationEventHook(events.HookConfig{
+			Service:    "test",
+			StreamName: "test-stream",
+			OutboxInserter: func(_ context.Context, _ *events.OutboxEntry) error {
+				return errors.New("insert failed")
+			},
+		})(ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+			return &testEntity{ID: entityID, TenantID: tenantID, Name: "test"}, nil
+		}))
+		ctx := txCtx()
+
+		_, err := failing.Mutate(ctx, m)
+		require.Error(t, err)
+		assert.Zero(t, gqltx.EventCount(ctx))
+	})
+
+	t.Run("suppressed events are reported as 0", func(t *testing.T) {
+		inserted = 0
+		ctx := feature.Context(txCtx(), feature.FEATURE_SUPPRESS_EVENTS)
+
+		for range 3 {
+			_, err := mutator.Mutate(ctx, m)
+			require.NoError(t, err)
+		}
+
+		assert.Zero(t, inserted)
+		assert.Zero(t, gqltx.EventCount(ctx))
+	})
+
+	t.Run("transactions count separately", func(t *testing.T) {
+		a, b := txCtx(), txCtx()
+		_, err := mutator.Mutate(a, m)
+		require.NoError(t, err)
+
+		assert.Equal(t, 1, gqltx.EventCount(a))
+		assert.Zero(t, gqltx.EventCount(b))
+	})
 }
 
 func TestMutationEventHook_BulkUpdateZeroMatches_SkipsEventEmission(t *testing.T) {
@@ -872,12 +1071,141 @@ func TestGetChangedMapValues(t *testing.T) {
 	}
 }
 
-func TestMutationEventHook_SystemUserNoTenant_SkipsOutbox(t *testing.T) {
+// systemUserCtx returns a system-user context with a tx ID and no tenant ID,
+// the shape of a background activity that forgot request.Context.
+func systemUserCtx(t *testing.T) context.Context {
+	t.Helper()
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithSpanProcessor(tracetest.NewSpanRecorder()),
+	)
+	t.Cleanup(func() { assert.NoError(t, tp.Shutdown(context.Background())) })
+	ctx, span := tp.Tracer("test").Start(context.Background(), "test-span")
+	t.Cleanup(func() { span.End() })
+	ctx = authn.Context(ctx, authn.SystemUser())
+	return txid.With(ctx, txid.New())
+}
+
+// A mutation whose tenant ID cannot be resolved must fail loudly with
+// ErrNoTenantForEvent instead of committing with no event.
+func TestMutationEventHook_NoResolvableTenant_FailsLoudly(t *testing.T) {
 	t.Parallel()
 
-	outboxInserted := false
 	entityID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 
+	for _, tc := range []struct {
+		name string
+		op   ent.Op
+		ids  []uuid.UUID
+	}{
+		{"UpdateOne", ent.OpUpdateOne, []uuid.UUID{entityID}},
+		{"Create", ent.OpCreate, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			outboxInserted := false
+			hook := events.MutationEventHook(events.HookConfig{
+				Service:    "test",
+				StreamName: "test-stream",
+				OutboxInserter: func(_ context.Context, _ *events.OutboxEntry) error {
+					outboxInserted = true
+					return nil
+				},
+			})
+
+			// differentEntity has no TenantID field: not a tenant-scoped entity.
+			next := ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+				return &differentEntity{ID: entityID, Code: "test"}, nil
+			})
+
+			m := &mockMutation{op: tc.op, typ: "Widget", ids: tc.ids}
+			value, err := hook(next).Mutate(systemUserCtx(t), m)
+
+			require.ErrorIs(t, err, events.ErrNoTenantForEvent,
+				"the returned error makes ent roll the surrounding tx back")
+			assert.Nil(t, value)
+			assert.False(t, outboxInserted, "no outbox row may be written")
+		})
+	}
+}
+
+// The tenant ID from the context (request.Context / tenant.Context) is enough
+// for an entity without a tenant_id column.
+func TestMutationEventHook_TenantFromContext_Emits(t *testing.T) {
+	t.Parallel()
+
+	entityID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	tenantID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+
+	var captured *events.OutboxEntry
+	hook := events.MutationEventHook(events.HookConfig{
+		Service:    "test",
+		StreamName: "test-stream",
+		OutboxInserter: func(_ context.Context, e *events.OutboxEntry) error {
+			captured = e
+			return nil
+		},
+	})
+	next := ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+		return &differentEntity{ID: entityID, Code: "test"}, nil
+	})
+
+	ctx := tenant.Context(systemUserCtx(t), tenantID)
+	m := &mockMutation{op: ent.OpUpdateOne, typ: "Widget", ids: []uuid.UUID{entityID}}
+	_, err := hook(next).Mutate(ctx, m)
+
+	require.NoError(t, err)
+	require.NotNil(t, captured)
+	assert.Equal(t, tenantID, captured.TenantID)
+}
+
+// A schema listed in SelfTenantSchemas is its own tenant: with no tenant in
+// the context, the entity ID is the tenant ID.
+func TestMutationEventHook_SelfTenantSchema_UsesEntityIDAsTenant(t *testing.T) {
+	t.Parallel()
+
+	entityID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
+	var captured *events.OutboxEntry
+	hook := events.MutationEventHook(events.HookConfig{
+		Service:           "test",
+		StreamName:        "test-stream",
+		SelfTenantSchemas: []string{"Tenant"},
+		OutboxInserter: func(_ context.Context, e *events.OutboxEntry) error {
+			captured = e
+			return nil
+		},
+	})
+	next := ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+		return &differentEntity{ID: entityID, Code: "test"}, nil
+	})
+
+	m := &mockMutation{op: ent.OpUpdateOne, typ: "Tenant", ids: []uuid.UUID{entityID}}
+	_, err := hook(next).Mutate(systemUserCtx(t), m)
+
+	require.NoError(t, err)
+	require.NotNil(t, captured)
+	assert.Equal(t, entityID, captured.TenantID, "tenantID == entityID for a self-tenant schema")
+	assert.Equal(t, &entityID, captured.EntityID)
+	assert.Contains(t, captured.Topic.String(), "."+entityID.String()+".", "topic carries the entity ID")
+	assert.True(t, strings.HasSuffix(captured.Topic.String(), ".update"), captured.Topic.String())
+
+	// Self-tenant applies only to listed schemas: another schema still fails.
+	other := &mockMutation{op: ent.OpUpdateOne, typ: "Widget", ids: []uuid.UUID{entityID}}
+	_, err = hook(next).Mutate(systemUserCtx(t), other)
+	require.ErrorIs(t, err, events.ErrNoTenantForEvent)
+}
+
+// FEATURE_SUPPRESS_EVENTS bypasses the hook entirely, so a mutation that would
+// otherwise fail with ErrNoTenantForEvent still runs and writes nothing.
+func TestMutationEventHook_SuppressEvents_SkipsTenantResolution(t *testing.T) {
+	t.Parallel()
+
+	entityID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
+	outboxInserted := false
+	mutated := false
 	hook := events.MutationEventHook(events.HookConfig{
 		Service:    "test",
 		StreamName: "test-stream",
@@ -886,33 +1214,238 @@ func TestMutationEventHook_SystemUserNoTenant_SkipsOutbox(t *testing.T) {
 			return nil
 		},
 	})
-
-	// next returns a differentEntity (no TenantID field) — simulates an entity
-	// without TenantMixin (like the Tenant schema itself).
 	next := ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+		mutated = true
 		return &differentEntity{ID: entityID, Code: "test"}, nil
 	})
 
-	mutator := hook(next)
-	m := &mockMutation{op: ent.OpUpdateOne, typ: "Tenant", ids: []uuid.UUID{entityID}}
-
-	// System user context without tenant — exactly the scenario that caused the panic.
-	// buildOutboxEntry requires a transaction ID on ctx (gqltx middleware installs
-	// this at BeginTx in production). The OTel trace context is optional and only
-	// feeds the trace_id observability column.
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithSpanProcessor(tracetest.NewSpanRecorder()),
-	)
-	defer func() { _ = tp.Shutdown(context.Background()) }()
-	ctx, span := tp.Tracer("test").Start(context.Background(), "test-span")
-	defer span.End()
-	ctx = authn.Context(ctx, authn.SystemUser())
-	ctx = txid.With(ctx, txid.New())
-
-	value, err := mutator.Mutate(ctx, m)
+	ctx := feature.Context(systemUserCtx(t), feature.FEATURE_SUPPRESS_EVENTS)
+	m := &mockMutation{op: ent.OpUpdateOne, typ: "Widget", ids: []uuid.UUID{entityID}}
+	_, err := hook(next).Mutate(ctx, m)
 
 	require.NoError(t, err)
-	assert.NotNil(t, value)
-	assert.False(t, outboxInserted, "outbox should not be inserted when no tenant is determinable")
+	assert.True(t, mutated, "the mutation itself still runs")
+	assert.False(t, outboxInserted)
+}
+
+// Ent returns the affected row count (an int) from bulk Update()/Delete() and
+// from DeleteOne, never the entity. A DeleteOne therefore has no tenant_id in
+// its result and takes the tenant from the before-state.
+func TestMutationEventHook_DeleteOne_ReturnsInt_TenantFromBeforeState(t *testing.T) {
+	t.Parallel()
+
+	entityID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	tenantID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+	ctxTenantID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
+
+	for _, tc := range []struct {
+		name string
+		ctx  func(t *testing.T) context.Context
+	}{
+		{"no context tenant", systemUserCtx},
+		{"context tenant differs", func(t *testing.T) context.Context {
+			t.Helper()
+			return tenant.Context(systemUserCtx(t), ctxTenantID)
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var captured *events.OutboxEntry
+			hook := events.MutationEventHook(events.HookConfig{
+				Service:    "test",
+				StreamName: "test-stream",
+				EntityFetcher: func(_ context.Context, _ string, _ uuid.UUID) (any, error) {
+					return &testEntity{ID: entityID, TenantID: tenantID, Name: "test"}, nil
+				},
+				OutboxInserter: func(_ context.Context, e *events.OutboxEntry) error {
+					captured = e
+					return nil
+				},
+			})
+			next := ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+				return 1, nil
+			})
+
+			m := &mockMutation{op: ent.OpDeleteOne, typ: "Widget", ids: []uuid.UUID{entityID}}
+			value, err := hook(next).Mutate(tc.ctx(t), m)
+
+			require.NoError(t, err)
+			assert.Equal(t, 1, value)
+			require.NotNil(t, captured)
+			assert.Equal(t, tenantID, captured.TenantID, "the before-state tenant wins over the context tenant")
+			assert.True(t, strings.HasSuffix(captured.Topic.String(), ".delete"), captured.Topic.String())
+		})
+	}
+}
+
+// Rule P3: a bulk Update()/Delete() that matches rows fails before it runs.
+func TestMutationEventHook_BulkMatchingRows_FailsBeforeExecuting(t *testing.T) {
+	t.Parallel()
+
+	entityID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	tenantID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+
+	for _, tc := range []struct {
+		name string
+		op   ent.Op
+		ids  []uuid.UUID
+	}{
+		{"bulk Update, one row", ent.OpUpdate, []uuid.UUID{entityID}},
+		{"bulk Delete, one row", ent.OpDelete, []uuid.UUID{entityID}},
+		{"bulk Update, two rows", ent.OpUpdate, []uuid.UUID{entityID, uuid.New()}},
+		{"bulk Delete, two rows", ent.OpDelete, []uuid.UUID{entityID, uuid.New()}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			outboxInserted := false
+			hook := events.MutationEventHook(events.HookConfig{
+				Service:    "test",
+				StreamName: "test-stream",
+				OutboxInserter: func(_ context.Context, _ *events.OutboxEntry) error {
+					outboxInserted = true
+					return nil
+				},
+			})
+			next := ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+				t.Fatal("a bulk mutation matching rows must not run")
+				panic("unreachable")
+			})
+
+			// Even with a resolvable tenant: the rule does not depend on it.
+			ctx := tenant.Context(systemUserCtx(t), tenantID)
+			m := &mockMutation{op: tc.op, typ: "Widget", ids: tc.ids}
+			_, err := hook(next).Mutate(ctx, m)
+
+			require.ErrorIs(t, err, events.ErrBulkMutationEmitsNoEvent)
+			assert.False(t, outboxInserted)
+		})
+	}
+}
+
+// A bulk write that matches nothing changes nothing: it runs, returns its
+// count, and emits no event and no error.
+func TestMutationEventHook_BulkNoMatches_RunsWithoutEvent(t *testing.T) {
+	t.Parallel()
+
+	for _, op := range []ent.Op{ent.OpUpdate, ent.OpDelete} {
+		t.Run(op.String(), func(t *testing.T) {
+			t.Parallel()
+
+			outboxInserted := false
+			hook := events.MutationEventHook(events.HookConfig{
+				Service:    "test",
+				StreamName: "test-stream",
+				OutboxInserter: func(_ context.Context, _ *events.OutboxEntry) error {
+					outboxInserted = true
+					return nil
+				},
+			})
+			ran := false
+			next := ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+				ran = true
+				return 0, nil
+			})
+
+			m := &mockMutation{op: op, typ: "Widget", ids: nil}
+			value, err := hook(next).Mutate(systemUserCtx(t), m)
+
+			require.NoError(t, err)
+			assert.Equal(t, 0, value)
+			assert.True(t, ran)
+			assert.False(t, outboxInserted)
+		})
+	}
+}
+
+// Suppressed events lift the bulk rule: the write runs even when rows match.
+func TestMutationEventHook_BulkMatchingRows_SuppressedRuns(t *testing.T) {
+	t.Parallel()
+
+	hook := events.MutationEventHook(events.HookConfig{Service: "test", StreamName: "test-stream"})
+	ran := false
+	next := ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+		ran = true
+		return 2, nil
+	})
+
+	ctx := feature.Context(context.Background(), feature.FEATURE_SUPPRESS_EVENTS)
+	m := &mockMutation{op: ent.OpDelete, typ: "Widget", ids: []uuid.UUID{uuid.New(), uuid.New()}}
+	value, err := hook(next).Mutate(ctx, m)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, value)
+	assert.True(t, ran)
+}
+
+// A context whose single tenant is uuid.Nil resolves nothing: the mutation
+// still fails with ErrNoTenantForEvent.
+func TestMutationEventHook_NilContextTenant_FailsLoudly(t *testing.T) {
+	t.Parallel()
+
+	entityID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
+	outboxInserted := false
+	hook := events.MutationEventHook(events.HookConfig{
+		Service:    "test",
+		StreamName: "test-stream",
+		OutboxInserter: func(_ context.Context, _ *events.OutboxEntry) error {
+			outboxInserted = true
+			return nil
+		},
+	})
+	next := ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+		return 1, nil
+	})
+
+	ctx := tenant.Context(systemUserCtx(t), uuid.Nil)
+	m := &mockMutation{op: ent.OpDeleteOne, typ: "Widget", ids: []uuid.UUID{entityID}}
+	_, err := hook(next).Mutate(ctx, m)
+
+	require.ErrorIs(t, err, events.ErrNoTenantForEvent)
+	assert.False(t, outboxInserted)
+}
+
+// IdempotencyKey rows are infrastructure: create, update and delete run
+// through the hook without a transaction ID, a tenant or an outbox row.
+func TestMutationEventHook_IdempotencyKey_NeverEmits(t *testing.T) {
+	t.Parallel()
+
+	keyID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
+	for _, op := range []ent.Op{ent.OpCreate, ent.OpUpdate, ent.OpUpdateOne, ent.OpDelete, ent.OpDeleteOne} {
+		t.Run(op.String(), func(t *testing.T) {
+			t.Parallel()
+
+			outboxInserted := false
+			fetcherCalled := false
+			hook := events.MutationEventHook(events.HookConfig{
+				Service:    "test",
+				StreamName: "test-stream",
+				EntityFetcher: func(_ context.Context, _ string, _ uuid.UUID) (any, error) {
+					fetcherCalled = true
+					return nil, nil //nolint:nilnil // test stub
+				},
+				OutboxInserter: func(_ context.Context, _ *events.OutboxEntry) error {
+					outboxInserted = true
+					return nil
+				},
+			})
+			ran := false
+			next := ent.MutateFunc(func(_ context.Context, _ ent.Mutation) (ent.Value, error) {
+				ran = true
+				return 1, nil
+			})
+
+			// Matching ids on a bulk op: the bulk rule must not apply either.
+			m := &mockMutation{op: op, typ: "IdempotencyKey", ids: []uuid.UUID{keyID}}
+			_, err := hook(next).Mutate(context.Background(), m)
+
+			require.NoError(t, err)
+			assert.True(t, ran)
+			assert.False(t, outboxInserted, "no outbox row for an IdempotencyKey write")
+			assert.False(t, fetcherCalled)
+		})
+	}
 }

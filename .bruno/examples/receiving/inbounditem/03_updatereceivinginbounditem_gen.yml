@@ -29,6 +29,7 @@ graphql:
 
       mutation UpdateReceivingInboundItem($id: ID!, $input: UpdateReceivingInboundItemInput!) {
         updateReceivingInboundItem(id: $id, input: $input) {
+          eventCount
           receivingInboundItem {
             createdAt
             createdBy
@@ -45,11 +46,7 @@ graphql:
             updatedAt
             updatedBy
           }
-          workflows {
-            id
-            runID
-            type
-          }
+          transactionID
         }
       }
     variables: |-

@@ -1,0 +1,11 @@
+info:
+  name: Cross - Picking Order Item Stock
+  type: folder
+  seq: 1
+
+docs: |-
+  Verifies the federated inventory fields on PickingOrderItem (item, availableStock, reservedStock), resolved by the inventory subgraph from the order item's sku and tenantID. Creates a warehouse (the resolver reads stock from a non-virtual root repository), an inventory item and a picking order with one item of that SKU, then confirms the order item resolves to that inventory item, in the order item's own tenant, with stock figures. Cleans up the order, the item and the warehouse.
+
+
+request:
+  auth: inherit

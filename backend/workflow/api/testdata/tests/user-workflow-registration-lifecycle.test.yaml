@@ -32,11 +32,12 @@ steps:
       input:
         name: "TestPickingWorkflow"
         taskQueue: "test-task-queue"
+        workerID: "scenario-user-workflow-registration-lifecycle"
         signals:
           - natsTopic: "request.reply.pyck.*.crud.inventory.items.*.create"
             temporalSignal: "testCreated"
             temporalSignalType: "start"
-            filterRule: "*"
+            filterRule: "true"
     tests:
       - msg: "Status is 200"
         assertions:

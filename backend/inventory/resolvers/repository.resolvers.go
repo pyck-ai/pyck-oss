@@ -7,6 +7,7 @@ package resolvers
 
 import (
 	"context"
+	"fmt"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
@@ -42,15 +43,13 @@ func (r *repositoryWhereInputResolver) Data(ctx context.Context, obj *gen.Reposi
 		return nil
 	}
 
-	if len(data) == 2 {
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueEQ(repository.FieldData, data[1], jsonPath))
-		})
+	jsonPath, value, err := sqljsonpath.PathValue(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueEQ(repository.FieldData, value, jsonPath))
+	})
 	return nil
 }
 
@@ -60,15 +59,13 @@ func (r *repositoryWhereInputResolver) DataHasKey(ctx context.Context, obj *gen.
 		return nil
 	}
 
-	if *data != "" {
-		jsonPath, err := sqljsonpath.DotPath(*data)
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.HasKey(repository.FieldData, jsonPath))
-		})
+	jsonPath, err := sqljsonpath.KeyPath(*data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.HasKey(repository.FieldData, jsonPath))
+	})
 	return nil
 }
 
@@ -78,19 +75,13 @@ func (r *repositoryWhereInputResolver) DataIn(ctx context.Context, obj *gen.Repo
 		return nil
 	}
 
-	if len(data) >= 2 {
-		var args []any
-		for _, v := range data[1:] {
-			args = append(args, v)
-		}
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueIn(repository.FieldData, args, jsonPath))
-		})
+	jsonPath, values, err := sqljsonpath.PathValues(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueIn(repository.FieldData, values, jsonPath))
+	})
 	return nil
 }
 
@@ -100,15 +91,13 @@ func (r *repositoryWhereInputResolver) DataContains(ctx context.Context, obj *ge
 		return nil
 	}
 
-	if len(data) == 2 {
-		jsonPath, err := sqljsonpath.DotPath(data[0])
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(repository.FieldData, data[1], jsonPath))
-		})
+	jsonPath, value, err := sqljsonpath.PathValue(data)
+	if err != nil {
+		return err
 	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueContains(repository.FieldData, value, jsonPath))
+	})
 	return nil
 }
 
@@ -118,14 +107,15 @@ func (r *repositoryWhereInputResolver) DataContainsBool(ctx context.Context, obj
 		return nil
 	}
 
-	if data.Key != nil && data.Value != nil {
-		jsonPath, err := sqljsonpath.DotPath(*data.Key)
-		if err != nil {
-			return err
-		}
-		obj.AddPredicates(func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(repository.FieldData, *data.Value, jsonPath))
-		})
+	if data.Key == nil || data.Value == nil {
+		return fmt.Errorf("%w: want {key, value}", sqljsonpath.ErrInvalidDataFilter)
 	}
+	jsonPath, err := sqljsonpath.KeyPath(*data.Key)
+	if err != nil {
+		return err
+	}
+	obj.AddPredicates(func(s *sql.Selector) {
+		s.Where(sqljson.ValueContains(repository.FieldData, *data.Value, jsonPath))
+	})
 	return nil
 }
