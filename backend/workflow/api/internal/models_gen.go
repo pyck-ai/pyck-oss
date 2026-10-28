@@ -334,7 +334,7 @@ func (e *JSONType) UnmarshalGQL(v any) error {
 }
 
 func (e JSONType) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *JSONType) UnmarshalJSON(b []byte) error {
@@ -392,7 +392,7 @@ func (e *OrderDirection) UnmarshalGQL(v any) error {
 }
 
 func (e OrderDirection) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *OrderDirection) UnmarshalJSON(b []byte) error {
@@ -462,7 +462,7 @@ func (e *WorkflowOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e WorkflowOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *WorkflowOrderField) UnmarshalJSON(b []byte) error {
@@ -538,7 +538,7 @@ func (e *WorkflowSignalOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e WorkflowSignalOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *WorkflowSignalOrderField) UnmarshalJSON(b []byte) error {

@@ -281,6 +281,10 @@ type queryWorkflowsData struct {
 	}
 }
 
+type workflowAssigneeData struct {
+	WorkflowAssignee struct{ Assignee string }
+}
+
 type setAssigneeData struct {
 	SetWorkflowAssignee struct{ Assignee *string }
 }
@@ -895,6 +899,8 @@ func TestWorkflowRegister_Signals(t *testing.T) {
 			"Signals": []SignalInput{
 				{NATSTopic: "request.reply.pyck.*.crud.inventory.*.*.created", TemporalSignal: "A", TemporalSignalType: "intermediate", FilterRule: "true"},
 				{NATSTopic: "pyck.*.temporal.*.childworkflow.*.*.completed", TemporalSignal: "B", TemporalSignalType: "intermediate", FilterRule: "true"},
+				// The nil UUID is the wildcard tenant too.
+				{NATSTopic: "pyck." + uuid.Nil.String() + ".temporal.*.childworkflow.*.*.failed", TemporalSignal: "C", TemporalSignalType: "intermediate", FilterRule: "true"},
 			},
 		})
 
@@ -904,6 +910,7 @@ func TestWorkflowRegister_Signals(t *testing.T) {
 			// its wildcard tokens intact.
 			"pyck." + tenantA.String() + ".crud.inventory.*.*.created",
 			"pyck." + tenantA.String() + ".temporal.*.childworkflow.*.*.completed",
+			"pyck." + tenantA.String() + ".temporal.*.childworkflow.*.*.failed",
 		}, got)
 	})
 
@@ -1768,6 +1775,36 @@ func TestWorkflowAssignee(t *testing.T) {
 			"WorkflowRunID": "",
 		}, "invalid WorkflowRunID")
 	})
+
+	// The search attribute is a JSON payload; the answer must be the decoded
+	// keyword, not the raw JSON text with its quotes.
+	t.Run("returns the assignee as set", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+		ctx := te.ctx(userA)
+
+		vars := map[string]any{"WorkflowID": "test-workflow", "WorkflowRunID": "test-run"}
+
+		data := execOK[workflowAssigneeData](te, ctx, workflowAssignee, vars)
+		assert.Empty(t, data.WorkflowAssignee.Assignee, "never assigned")
+
+		assigneeID := uuid.New()
+		te.Users.Add(tenantA, assigneeID)
+		execOK[setAssigneeData](te, ctx, setAssignee, map[string]any{
+			"WorkflowID":    "test-workflow",
+			"WorkflowRunID": "test-run",
+			"AssigneeID":    assigneeID,
+		})
+
+		data = execOK[workflowAssigneeData](te, ctx, workflowAssignee, vars)
+		assert.Equal(t, assigneeID.String(), data.WorkflowAssignee.Assignee)
+
+		execOK[setAssigneeData](te, ctx, unsetAssignee, vars)
+
+		data = execOK[workflowAssigneeData](te, ctx, workflowAssignee, vars)
+		assert.Empty(t, data.WorkflowAssignee.Assignee, "unassigned")
+	})
 }
 
 func TestSetAssignee(t *testing.T) {
@@ -1778,11 +1815,13 @@ func TestSetAssignee(t *testing.T) {
 		te := setupWithMockWorkflow(t)
 		defer te.Close(t)
 		ctx := te.ctx(userA)
+		assigneeID := uuid.New()
+		te.Users.Add(tenantA, assigneeID)
 
 		execErr(te, ctx, setAssignee, map[string]any{
 			"WorkflowID":    "",
 			"WorkflowRunID": "test-run-id",
-			"AssigneeID":    uuid.New(),
+			"AssigneeID":    assigneeID,
 		}, "invalid WorkflowID")
 	})
 
@@ -1791,11 +1830,13 @@ func TestSetAssignee(t *testing.T) {
 		te := setupWithMockWorkflow(t)
 		defer te.Close(t)
 		ctx := te.ctx(userA)
+		assigneeID := uuid.New()
+		te.Users.Add(tenantA, assigneeID)
 
 		execErr(te, ctx, setAssignee, map[string]any{
 			"WorkflowID":    "test-workflow-id",
 			"WorkflowRunID": "",
-			"AssigneeID":    uuid.New(),
+			"AssigneeID":    assigneeID,
 		}, "invalid WorkflowRunID")
 	})
 
@@ -1808,6 +1849,7 @@ func TestSetAssignee(t *testing.T) {
 		workflowID := "test-workflow"
 		workflowRunID := "test-run"
 		assigneeID := uuid.New()
+		te.Users.Add(tenantA, assigneeID)
 
 		data := execOK[setAssigneeData](te, ctx, setAssignee, map[string]any{
 			"WorkflowID":    workflowID,
@@ -1832,6 +1874,7 @@ func TestSetAssignee(t *testing.T) {
 
 		// Set first assignee
 		firstAssigneeID := uuid.New()
+		te.Users.Add(tenantA, firstAssigneeID)
 		data1 := execOK[setAssigneeData](te, ctx, setAssignee, map[string]any{
 			"WorkflowID":    workflowID,
 			"WorkflowRunID": workflowRunID,
@@ -1843,6 +1886,7 @@ func TestSetAssignee(t *testing.T) {
 
 		// Update to second assignee
 		secondAssigneeID := uuid.New()
+		te.Users.Add(tenantA, secondAssigneeID)
 		data2 := execOK[setAssigneeData](te, ctx, setAssignee, map[string]any{
 			"WorkflowID":    workflowID,
 			"WorkflowRunID": workflowRunID,
@@ -1872,6 +1916,120 @@ func TestSetAssignee(t *testing.T) {
 			"Response assignee should be nil when unassigning")
 	})
 
+	t.Run("assigns the caller without a lookup", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+
+		// userA has no users row, like a user acting here through a grant.
+		data := execOK[setAssigneeData](te, te.ctx(userA), setAssignee, map[string]any{
+			"WorkflowID":    "test-workflow-self",
+			"WorkflowRunID": "test-run-self",
+			"AssigneeID":    userA.ID,
+		})
+
+		require.NotNil(t, data.SetWorkflowAssignee.Assignee)
+		assert.Equal(t, userA.ID.String(), *data.SetWorkflowAssignee.Assignee)
+		assert.Empty(t, te.Users.Lookups(), "self-assignment must not query management")
+	})
+
+	t.Run("unassigns without a lookup", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+
+		execOK[setAssigneeData](te, te.ctx(userA), unsetAssignee, map[string]any{
+			"WorkflowID":    "test-workflow-unassign-lookup",
+			"WorkflowRunID": "test-run-unassign-lookup",
+		})
+
+		assert.Empty(t, te.Users.Lookups(), "unassigning must not query management")
+	})
+
+	t.Run("looks the assignee up in the acting tenant", func(t *testing.T) {
+		t.Parallel()
+		te := setupWithMockWorkflow(t)
+		defer te.Close(t)
+
+		assigneeID := uuid.New()
+		te.Users.Add(tenantA, assigneeID)
+
+		execOK[setAssigneeData](te, te.ctx(userA), setAssignee, map[string]any{
+			"WorkflowID":    "test-workflow-lookup",
+			"WorkflowRunID": "test-run-lookup",
+			"AssigneeID":    assigneeID,
+		})
+
+		lookups := te.Users.Lookups()
+		require.Len(t, lookups, 1)
+		require.NotNil(t, lookups[0].ID)
+		require.NotNil(t, lookups[0].TenantID, "the service token skips the tenant filter; the lookup must restate it")
+		assert.Equal(t, assigneeID.String(), *lookups[0].ID)
+		assert.Equal(t, tenantA.String(), *lookups[0].TenantID)
+	})
+
+	refused := []struct {
+		name    string
+		prepare func(te *testEnv, assigneeID uuid.UUID)
+		wantErr string
+	}{
+		{
+			name:    "a user of another tenant",
+			prepare: func(te *testEnv, id uuid.UUID) { te.Users.Add(tenantB, id) },
+			wantErr: "assignee is not a user of this tenant",
+		},
+		{
+			name:    "an unknown user",
+			prepare: func(*testEnv, uuid.UUID) {},
+			wantErr: "assignee is not a user of this tenant",
+		},
+		{
+			name: "a deleted user",
+			prepare: func(te *testEnv, id uuid.UUID) {
+				te.Users.Add(tenantA, id)
+				te.Users.Delete(id)
+			},
+			wantErr: "assignee is not a user of this tenant",
+		},
+		{
+			name:    "any assignee while management is unreachable",
+			prepare: func(te *testEnv, _ uuid.UUID) { te.Users.FailWith(errManagementDown) },
+			wantErr: "look up assignee",
+		},
+	}
+	for _, tc := range refused {
+		t.Run("refuses "+tc.name, func(t *testing.T) {
+			t.Parallel()
+			te := setupWithMockWorkflow(t)
+			defer te.Close(t)
+			ctx := te.ctx(userA)
+
+			const workflowID, workflowRunID = "test-workflow-refused", "test-run-refused"
+
+			current := uuid.New()
+			te.Users.Add(tenantA, current)
+			execOK[setAssigneeData](te, ctx, setAssignee, map[string]any{
+				"WorkflowID":    workflowID,
+				"WorkflowRunID": workflowRunID,
+				"AssigneeID":    current,
+			})
+
+			assigneeID := uuid.New()
+			tc.prepare(te, assigneeID)
+			execErr(te, ctx, setAssignee, map[string]any{
+				"WorkflowID":    workflowID,
+				"WorkflowRunID": workflowRunID,
+				"AssigneeID":    assigneeID,
+			}, tc.wantErr)
+
+			desc, err := te.MockTemporalClient.DescribeWorkflowExecution(t.Context(), workflowID, workflowRunID)
+			require.NoError(t, err)
+			stored := desc.GetWorkflowExecutionInfo().GetSearchAttributes().GetIndexedFields()["pyck_workflow_assignee"]
+			assert.JSONEq(t, `"`+current.String()+`"`, string(stored.GetData()),
+				"a refused assignment must leave the stored assignee unchanged")
+		})
+	}
+
 	t.Run("concurrency", func(t *testing.T) {
 		t.Parallel()
 		te := setupWithMockWorkflow(t)
@@ -1894,6 +2052,7 @@ func TestSetAssignee(t *testing.T) {
 		// Launch concurrent SetAssignee requests
 		for i := range numConcurrent {
 			expectedIDs[i] = uuid.New()
+			te.Users.Add(tenantA, expectedIDs[i])
 			go func(assigneeID uuid.UUID) {
 				closeResp, resp, err := te.SendQuery(t, ctx, setAssignee, map[string]any{
 					"WorkflowID":    workflowID,

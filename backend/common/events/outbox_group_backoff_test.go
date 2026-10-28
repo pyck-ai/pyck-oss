@@ -1,7 +1,6 @@
 package events_test
 
 import (
-	"context"
 	"database/sql"
 	"testing"
 	"testing/fstest"
@@ -55,7 +54,7 @@ func openGroupBackoffDB(t *testing.T) *sql.DB {
 func insertGroupRow(t *testing.T, db *sql.DB, txID uuid.UUID, createdAt time.Time, retryCount int, nextRetryAt *time.Time) uuid.UUID {
 	t.Helper()
 	id := uuid.New()
-	_, err := db.ExecContext(context.Background(),
+	_, err := db.ExecContext(t.Context(),
 		`INSERT INTO groupbackoff.event_outbox
 		   (id, transaction_id, topic, payload, created_at, retry_count, next_retry_at)
 		 VALUES ($1, $2, 'topic', '{}', $3, $4, $5)`,
@@ -66,11 +65,11 @@ func insertGroupRow(t *testing.T, db *sql.DB, txID uuid.UUID, createdAt time.Tim
 
 func selectGroupRows(t *testing.T, db *sql.DB, maxRetries int) []uuid.UUID {
 	t.Helper()
-	tx, err := db.BeginTx(context.Background(), nil)
+	tx, err := db.BeginTx(t.Context(), nil)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, tx.Rollback()) }()
 
-	rows, err := events.NewOutboxSelector(groupBackoffTable)(context.Background(), tx, 100, maxRetries)
+	rows, err := events.NewOutboxSelector(groupBackoffTable)(t.Context(), tx, 100, maxRetries)
 	require.NoError(t, err)
 	ids := make([]uuid.UUID, 0, len(rows))
 	for _, r := range rows {
@@ -81,7 +80,7 @@ func selectGroupRows(t *testing.T, db *sql.DB, maxRetries int) []uuid.UUID {
 
 func inTx(t *testing.T, db *sql.DB, fn func(tx *sql.Tx)) {
 	t.Helper()
-	tx, err := db.BeginTx(context.Background(), nil)
+	tx, err := db.BeginTx(t.Context(), nil)
 	require.NoError(t, err)
 	fn(tx)
 	require.NoError(t, tx.Commit())
@@ -104,7 +103,7 @@ func TestOutboxSelector_GroupStaysHeldWhileAnyRowInBackoff(t *testing.T) {
 	assert.Equal(t, []uuid.UUID{e1, e2}, selectGroupRows(t, db, maxRetries))
 	inTx(t, db, func(tx *sql.Tx) {
 		require.NoError(t, events.NewOutboxClaim(groupBackoffTable)(
-			context.Background(), tx, []uuid.UUID{e1, e2}, time.Now().UTC().Add(30*time.Second)))
+			t.Context(), tx, []uuid.UUID{e1, e2}, time.Now().UTC().Add(30*time.Second)))
 	})
 
 	// While the lease stands, another poller must not pick the group up.
@@ -113,13 +112,13 @@ func TestOutboxSelector_GroupStaysHeldWhileAnyRowInBackoff(t *testing.T) {
 	// E1's publish fails: backoff on E1 (2^0 s = 1s from now); E2 is skipped and
 	// keeps only its lease.
 	inTx(t, db, func(tx *sql.Tx) {
-		require.NoError(t, events.NewOutboxMarkFailed(groupBackoffTable)(context.Background(), tx, e1, "boom"))
+		require.NoError(t, events.NewOutboxMarkFailed(groupBackoffTable)(t.Context(), tx, e1, "boom"))
 	})
 	// Push E1's backoff well into the future and expire E2's lease.
-	_, err := db.ExecContext(context.Background(),
+	_, err := db.ExecContext(t.Context(),
 		`UPDATE groupbackoff.event_outbox SET next_retry_at = now() + interval '1 hour' WHERE id = $1`, e1)
 	require.NoError(t, err)
-	_, err = db.ExecContext(context.Background(),
+	_, err = db.ExecContext(t.Context(),
 		`UPDATE groupbackoff.event_outbox SET next_retry_at = now() - interval '1 second' WHERE id = $1`, e2)
 	require.NoError(t, err)
 
@@ -127,7 +126,7 @@ func TestOutboxSelector_GroupStaysHeldWhileAnyRowInBackoff(t *testing.T) {
 		"group must not be re-selected while E1 is still in backoff, even though E2's lease expired")
 
 	// E1's backoff elapses: the group is selected again, both rows in order.
-	_, err = db.ExecContext(context.Background(),
+	_, err = db.ExecContext(t.Context(),
 		`UPDATE groupbackoff.event_outbox SET next_retry_at = now() - interval '1 second' WHERE id = $1`, e1)
 	require.NoError(t, err)
 	assert.Equal(t, []uuid.UUID{e1, e2}, selectGroupRows(t, db, maxRetries))

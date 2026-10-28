@@ -21,6 +21,10 @@ func (r *mutationResolver) SubmitUserDataInput(ctx context.Context, input model.
 		return nil, err
 	}
 
+	if err := validateUpdateName(input.Name); err != nil {
+		return nil, err
+	}
+
 	workflowClient, err := r.workflowRouter.GetClient(ctx, tenantID.String())
 	if err != nil || workflowClient == nil {
 		return nil, ErrInvalidWorkflowClient
@@ -54,9 +58,12 @@ func (r *mutationResolver) SubmitUserDataInput(ctx context.Context, input model.
 
 // CurrentUserDataInput is the resolver for the currentUserDataInput field.
 func (r *queryResolver) CurrentUserDataInput(ctx context.Context, input model.UserDataInputQueryInput) (*model.CurrentUserDataInput, error) {
-	req := request.ForContext(ctx)
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 
-	workflowClient, err := r.workflowRouter.GetClient(ctx, req.MutationTenantID().String())
+	workflowClient, err := r.workflowRouter.GetClient(ctx, tenantID.String())
 	if err != nil || workflowClient == nil {
 		return nil, fmt.Errorf("failed to get workflow client: %w", err)
 	}

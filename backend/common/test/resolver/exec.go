@@ -72,7 +72,9 @@ func ExecErr[E EntTestClient](te Executor[E], ctx context.Context, tpl TemplateR
 	defer closeResp()
 	require.NoError(t, err)
 	require.NoError(t, te.ReadResponse(t, resp, &result))
-	require.NotEmpty(t, result.Errors, "expected error containing %q", wantErrContains)
+	// A non-GraphQL body, e.g. a 403 from the tenant middleware, decodes
+	// as empty, so the status code is the clue.
+	require.NotEmpty(t, result.Errors, "expected error containing %q, got none (HTTP %d)", wantErrContains, resp.StatusCode)
 	if wantErrContains != "" {
 		assert.Contains(t, result.Errors[0].Message, wantErrContains)
 	}

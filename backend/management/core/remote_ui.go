@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strings"
 	"text/template"
+	"unicode"
+	"unicode/utf8"
 
 	commonworkflow "github.com/pyck-ai/pyck/backend/common/workflow"
 )
@@ -17,11 +19,11 @@ import (
 var ErrInvalidUITemplate = errors.New("invalid UI bundle URL template")
 
 // ValidateRemoteUITemplate checks that a UI bundle URL template is a parseable
-// text/template, a well-formed absolute http(s) URL, and carries the
-// {{.Version}} placeholder. Only {{.Version}} is required; {{.Slug}} is optional —
-// per-tenant bundles bake the tenant into a literal path prefix and omit it, and
-// workers stamp version-only for those (#1132/#1317). The setTenantUITemplate
-// mutation is system-only, but a malformed override is far cheaper to reject here
+// text/template, a well-formed absolute http(s) URL whose host holds no
+// invisible character or "%", and carries the {{.Version}} placeholder. Only
+// {{.Version}} is required; {{.Slug}} is optional — per-tenant bundles bake the
+// tenant into a literal path prefix and omit it, and workers stamp version-only
+// for those (#1132/#1317). A malformed override is far cheaper to reject here
 // than to discover when the frontend fails to load a manifest.
 func ValidateRemoteUITemplate(tmpl string) error {
 	if !strings.Contains(tmpl, "{{.Version}}") {
@@ -37,12 +39,48 @@ func ValidateRemoteUITemplate(tmpl string) error {
 	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return fmt.Errorf("%w: must be an absolute http(s) URL", ErrInvalidUITemplate)
 	}
+	// url.Parse admits, and percent-decodes into, any rune in the host.
+	if !utf8.ValidString(u.Host) || strings.ContainsFunc(u.Host, isInvisibleRune) {
+		return fmt.Errorf("%w: host %+q contains an invisible or control character", ErrInvalidUITemplate, u.Host)
+	}
+	// A decoded "%" comes from "%25": a literal percent or an IPv6 zone,
+	// which may carry an escaped space.
+	if strings.Contains(u.Host, "%") {
+		return fmt.Errorf("%w: host %+q must not contain \"%%\" or an IPv6 zone", ErrInvalidUITemplate, u.Host)
+	}
 	// Render values are single segments, so a ".." is literal text that would
 	// fail every render; refuse it where the caller sees the error.
 	if slices.Contains(strings.Split(u.Path, "/"), "..") {
 		return fmt.Errorf("%w: path must not contain \"..\"", ErrInvalidUITemplate)
 	}
 	return nil
+}
+
+// ValidateRemoteUITemplates applies ValidateRemoteUITemplate to the UI template
+// keys present in raw tenant data, as written by registerTenant.
+func ValidateRemoteUITemplates(data map[string]any) error {
+	for _, key := range RemoteUITemplateKeys {
+		v, ok := data[key]
+		if !ok {
+			continue
+		}
+		tmpl, ok := v.(string)
+		if !ok {
+			return fmt.Errorf("%s: %w: must be a string", key, ErrInvalidUITemplate)
+		}
+		if err := ValidateRemoteUITemplate(tmpl); err != nil {
+			return fmt.Errorf("%s: %w", key, err)
+		}
+	}
+	return nil
+}
+
+// isInvisibleRune reports whether r is non-printable (control, format, space
+// separator, private use, unassigned) or default-ignorable (variation
+// selectors, Hangul fillers). IDN letters pass.
+func isInvisibleRune(r rune) bool {
+	return !unicode.IsPrint(r) ||
+		unicode.In(r, unicode.Variation_Selector, unicode.Other_Default_Ignorable_Code_Point)
 }
 
 // Tenant-data keys holding the per-workflow UI bundle URL *templates*. Each is a
@@ -59,55 +97,14 @@ const (
 	RemoteMobileUITemplateKey = commonworkflow.RemoteMobileUITemplateKey
 )
 
-// zitadelSyncedKeys are the only tenant-data keys taken from Zitadel metadata
-// during sync. Everything else in tenant.Data is written directly (tenant
-// registration, the system-role UI-template mutation) and is the source of
-// truth. Keep this set in sync with tenant-settings.json.
-var zitadelSyncedKeys = map[string]bool{
-	"isPyckGo":       true,
-	"isSetupPending": true,
-	"flavour":        true,
-}
-
-// booleanFields lists tenant data keys whose canonical type is bool
-// (per tenant-settings.json schema). Zitadel metadata stores everything as
-// strings, so callers should convert at the ingestion boundary using
-// IsBooleanField + strconv.ParseBool.
-var booleanFields = map[string]bool{
-	"isPyckGo":       true,
-	"isSetupPending": true,
-}
-
-// IsBooleanField reports whether key is a tenant data field with bool as its
-// canonical type.
-func IsBooleanField(key string) bool {
-	return booleanFields[key]
-}
+// RemoteUITemplateKeys lists both UI template keys.
+var RemoteUITemplateKeys = []string{RemoteWebUITemplateKey, RemoteMobileUITemplateKey}
 
 // DetectFlavour returns the flavour name from tenant data, or "" for a normal
 // tenant. Aliased from common/workflow (the canonical home) so management and
 // the workflow service share one definition.
 func DetectFlavour(data map[string]any) string {
 	return commonworkflow.DetectFlavour(data)
-}
-
-// MergeData overlays the Zitadel-synced flag keys on top of stored data.
-// Stored data (existing) is the source of truth; from incoming (Zitadel) only
-// zitadelSyncedKeys are taken. Returns nil only when both inputs are nil.
-func MergeData(existing, incoming map[string]any) map[string]any {
-	if existing == nil && incoming == nil {
-		return nil
-	}
-	result := make(map[string]any)
-	for k, v := range existing {
-		result[k] = v
-	}
-	for k, v := range incoming {
-		if zitadelSyncedKeys[k] {
-			result[k] = v
-		}
-	}
-	return result
 }
 
 // MapsEqual compares two data maps for equality at the top level.

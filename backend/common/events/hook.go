@@ -227,11 +227,19 @@ var typeInfoCache sync.Map
 
 // buildTypeInfo builds and caches field information for a struct type.
 // This should be called once per type, either at startup or lazily on first use.
+//
+// Fields tagged `json:"-"` are left out: Ent tags Sensitive fields that
+// way to keep them out of the entity's JSON, and the per-field change
+// list is published alongside that JSON, so a secret must not reappear
+// there as an old/new value pair.
 func buildTypeInfo(t reflect.Type, dataField string) *typeInfo {
 	fields := make([]structFieldInfo, 0, t.NumField())
 	for i := range t.NumField() {
 		sf := t.Field(i)
 		if sf.PkgPath != "" { // unexported
+			continue
+		}
+		if sf.Tag.Get("json") == "-" {
 			continue
 		}
 		fields = append(fields, structFieldInfo{
@@ -698,8 +706,8 @@ func resolveEventTenantID(ctx context.Context, config HookConfig, schema string,
 	if config.isSelfTenantSchema(schema) && entityID != uuid.Nil {
 		return entityID
 	}
-	if req := request.ForContext(ctx); req.HasMutationTenantID() {
-		return req.MutationTenantID()
+	if tenantID, err := request.ForContext(ctx).MutationTenantID(); err == nil {
+		return tenantID
 	}
 	return uuid.Nil
 }
@@ -846,4 +854,25 @@ func insertOutboxEntry(ctx context.Context, config HookConfig, entry *OutboxEntr
 		return fmt.Errorf("%w: OutboxInserter not configured", ErrInsertOutbox)
 	}
 	return config.OutboxInserter(ctx, entry)
+}
+
+// inferDataType computes a default "pyck_data_type" from schema, e.g. "Item" -> "itemID".
+func inferDataType(schema string) string {
+	if schema == "" {
+		return ""
+	}
+
+	runes := []rune(schema)
+	runes[0] = toLowerRune(runes[0])
+
+	return string(runes) + "ID"
+}
+
+// toLowerRune lowercases a single ASCII letter rune without allocations.
+func toLowerRune(r rune) rune {
+	if r >= 'A' && r <= 'Z' {
+		return r + ('a' - 'A')
+	}
+
+	return r
 }

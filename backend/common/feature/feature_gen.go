@@ -40,13 +40,16 @@ func _FeatureNoOp() {
 var _FeatureValues = []Feature{FEATURE_SHOW_DELETED, FEATURE_SYNC_UPDATES, FEATURE_ASYNC_SIGNALS, FEATURE_SUPPRESS_EVENTS}
 
 var _FeatureNameToValueMap = map[string]Feature{
-	_FeatureName[0:11]:       FEATURE_SHOW_DELETED,
+	_FeatureName[0:11]:  FEATURE_SHOW_DELETED,
+	_FeatureName[11:22]: FEATURE_SYNC_UPDATES,
+	_FeatureName[22:34]: FEATURE_ASYNC_SIGNALS,
+	_FeatureName[34:48]: FEATURE_SUPPRESS_EVENTS,
+}
+
+var _FeatureLowerNameToValueMap = map[string]Feature{
 	_FeatureLowerName[0:11]:  FEATURE_SHOW_DELETED,
-	_FeatureName[11:22]:      FEATURE_SYNC_UPDATES,
 	_FeatureLowerName[11:22]: FEATURE_SYNC_UPDATES,
-	_FeatureName[22:34]:      FEATURE_ASYNC_SIGNALS,
 	_FeatureLowerName[22:34]: FEATURE_ASYNC_SIGNALS,
-	_FeatureName[34:48]:      FEATURE_SUPPRESS_EVENTS,
 	_FeatureLowerName[34:48]: FEATURE_SUPPRESS_EVENTS,
 }
 
@@ -64,7 +67,7 @@ func FeatureString(s string) (Feature, error) {
 		return val, nil
 	}
 
-	if val, ok := _FeatureNameToValueMap[strings.ToLower(s)]; ok {
+	if val, ok := _FeatureLowerNameToValueMap[strings.ToLower(s)]; ok {
 		return val, nil
 	}
 	return 0, errors.Join(enumerrs.ErrValueInvalid, fmt.Errorf("%s does not belong to Feature values", s))

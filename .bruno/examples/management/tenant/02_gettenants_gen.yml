@@ -43,6 +43,7 @@ graphql:
               id
               idpOrgRef
               name
+              status
               updatedAt
               updatedBy
             }

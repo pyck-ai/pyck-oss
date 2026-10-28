@@ -38,12 +38,8 @@ type Item struct {
 func (Item) Mixin() []ent.Mixin { return []ent.Mixin{mixin.DataMixin{}} }
 `)
 
-	dataTypeEntities, serviceEntities, err := extractEntities(filepath.Join(root, "*", "ent", "schema", "*.go"))
+	dataTypeEntities, err := extractEntities(filepath.Join(root, "*", "ent", "schema", "*.go"))
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"device", "item"}, dataTypeEntities)
-	assert.Equal(t, map[string][]string{
-		"management": {"DataType", "Device"},
-		"inventory":  {"Item"},
-	}, serviceEntities)
 }

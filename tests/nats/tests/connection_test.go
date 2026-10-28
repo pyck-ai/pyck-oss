@@ -5,6 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/pyck-ai/pyck/tests/nats/config"
 	"github.com/pyck-ai/pyck/tests/nats/util"
 )
 
@@ -13,10 +14,10 @@ var _ = Describe("NATS Connection", func() {
 
 	BeforeEach(func() {
 		// Get the token from environment variable
-		token := os.Getenv("PYCK_TEST_AUTH_TOKEN")
+		token := os.Getenv(config.EnvAuthJWTToken)
 		Expect(token).NotTo(BeEmpty(), "PYCK_TEST_AUTH_TOKEN environment variable must be set")
 
-		tenantID := os.Getenv("PYCK_TENANT_ID")
+		tenantID := os.Getenv(config.EnvTenantID)
 
 		var err error
 		testCtx, err = util.NewTestContext(token, tenantID)

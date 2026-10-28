@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"runtime"
 	"testing"
 	"time"
@@ -11,9 +10,11 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/authn/mocks"
 	"github.com/pyck-ai/pyck/backend/common/env/config"
+	"github.com/pyck-ai/pyck/backend/common/liveness"
+	livenessmocks "github.com/pyck-ai/pyck/backend/common/liveness/mocks"
 )
 
-// Stop() must Close() the auth provider so its memkv cleanup goroutine
+// Stop() must Close() the auth provider and the liveness cache so their memkv cleanup goroutines
 // and ticker are released. Pre-fix Stop() only stopped revocationCC /
 // pgAdapter / server, and the provider's goroutine leaked for the
 // process lifetime — the exact leak ZitadelAuthProvider.Close() was
@@ -28,16 +29,19 @@ import (
 func TestTemporalServer_StopClosesAuthProvider(t *testing.T) {
 	baseline := runtime.NumGoroutine()
 
-	provider := authn.NewZitadelAuthProvider(
+	livenessCache := liveness.NewCache(10 * time.Millisecond)
+	provider, err := authn.NewZitadelAuthProvider(
 		mocks.NewMockZitadelClient(),
 		config.ZitadelConfig{ZitadelPATCacheTTL: 10 * time.Millisecond},
-		func(context.Context, string) (bool, error) { return true, nil },
+		livenessmocks.NoDisabledTenants,
+		livenessCache,
 	)
-	if delta := runtime.NumGoroutine() - baseline; delta < 1 {
-		t.Fatalf("expected the provider cache cleanup goroutine to start; delta=%d", delta)
+	require.NoError(t, err)
+	if delta := runtime.NumGoroutine() - baseline; delta < 2 {
+		t.Fatalf("expected the provider and liveness cache cleanup goroutines to start; delta=%d", delta)
 	}
 
-	s := &temporalServer{authProvider: provider}
+	s := &temporalServer{authProvider: provider, livenessCache: livenessCache}
 	require.NoError(t, s.Stop())
 
 	// The goroutine exits asynchronously after Close() stops the ticker;

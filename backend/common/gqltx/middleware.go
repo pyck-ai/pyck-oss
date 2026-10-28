@@ -3,6 +3,7 @@ package gqltx
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -134,6 +135,49 @@ type options struct {
 	// WithIdempotencyMaxResponseBytes so a service with larger responses can
 	// raise its own ceiling.
 	IdempotencyMaxResponseBytes int
+	// NoTxOperations names the top-level mutation fields that run without
+	// the outer writer transaction; see WithoutTransaction. Nil (the
+	// default) means every mutation gets one.
+	NoTxOperations map[string]struct{}
+}
+
+// ErrMixedTransactionExemption refuses a mutation document that selects a
+// transaction-exempt field alongside another field. The two halves cannot
+// share one answer: the exempt resolver must not be wrapped in a writer
+// transaction, and the others must not run without one.
+var ErrMixedTransactionExemption = errors.New(
+	"a mutation that runs without a transaction must be the only field of its operation")
+
+// WithoutTransaction exempts the named top-level mutation fields from the
+// outer writer transaction: they run with a fresh post-commit container and
+// a transaction ID, but no connection is checked out of the writer pool for
+// the duration of the request, and neither the OCC retry loop nor the
+// Idempotency-Key lease applies.
+//
+// This is for the rare mutation that must commit its own work before it can
+// observe the effect of that commit: a resolver that waits for a consumer
+// of its outbox event cannot hold the transaction that has to commit first,
+// and would otherwise pin a writer connection for the whole wait. Such a
+// resolver owns its transactions (see the management registerTenant
+// resolver) and is therefore not replay-safe: listing an operation here
+// means its side effects are not rolled back by an error later in the
+// response, and an Idempotency-Key on it is ignored rather than honoured.
+//
+// Names are top-level GraphQL field names, not operation names. The
+// exemption is for the only field of its operation: a document that selects
+// an exempt field together with any other field (a repeat of the same
+// field under an alias included, which is n executions of it in one request)
+// is refused with ErrMixedTransactionExemption rather than served either
+// way.
+func WithoutTransaction(ops ...string) Option {
+	return func(o *options) {
+		if o.NoTxOperations == nil {
+			o.NoTxOperations = make(map[string]struct{}, len(ops))
+		}
+		for _, op := range ops {
+			o.NoTxOperations[op] = struct{}{}
+		}
+	}
 }
 
 // Metrics (vectorized by namespace to support multi-service reuse).
@@ -287,6 +331,17 @@ func (m *Middleware[T]) InterceptOperation(ctx context.Context, next graphql.Ope
 
 	switch oc.Operation.Operation {
 	case ast.Mutation:
+		// The exemption is checked before the idempotency PreCheck: an
+		// exempt mutation commits outside this middleware's control, so a
+		// lease taken here could neither roll back with it nor cache a
+		// response that matches what was committed.
+		exempt, mixed := m.exemptFromTx(TopLevelFieldNames(ctx))
+		if mixed {
+			return graphql.OneShot(ErrorResponseAtTopField(ctx, ErrMixedTransactionExemption))
+		}
+		if exempt {
+			return m.handleMutationWithoutTx(ctx, next)
+		}
 		// Idempotency PreCheck runs before opening a transaction so cache
 		// hits and short-circuit failures (400 / 409 / 422) never touch
 		// the writer pool. When idempotency is not configured PreCheck is
@@ -313,6 +368,48 @@ func (m *Middleware[T]) InterceptOperation(ctx context.Context, next graphql.Ope
 		return m.handleQueryWithReadOnlyTx(ctx, next)
 	default:
 		return next(ctx)
+	}
+}
+
+// exemptFromTx decides whether a mutation runs without the outer writer
+// transaction, from the full set of top-level fields it selects.
+//
+// The exemption is for a single field: a document that names an exempt
+// field alongside any other field, or that names the same exempt field
+// more than once, is refused (mixed), because the alternatives are
+// both wrong. Opening a transaction around the exempt resolver hands the
+// caller the connection hold the exemption exists to prevent: the field
+// list is caller-controlled, so that would be an opt-out. Skipping the
+// transaction for the other fields runs resolvers that expect one without
+// it. Refusing is the only answer that keeps the property under a document
+// nobody on this side wrote.
+//
+// A repeat of the exempt field is the same problem wearing the caller's
+// aliases: `mutation { a: f(...) b: f(...) }` selects one field name twice,
+// and serving it would run the exempt resolver once per alias within one
+// operation: N times the wait the exemption exists for, behind a single
+// pass of whatever bounds that operation per request.
+func (m *Middleware[T]) exemptFromTx(fields []string) (exempt, mixed bool) {
+	if len(m.Options.NoTxOperations) == 0 || len(fields) == 0 {
+		return false, false
+	}
+
+	matched := 0
+	for _, field := range fields {
+		if _, ok := m.Options.NoTxOperations[field]; ok {
+			matched++
+		}
+	}
+
+	switch matched {
+	case 0:
+		return false, false
+	case len(fields):
+		// All the fields are exempt: one of them is the exemption, more
+		// than one is the same field repeated under aliases.
+		return len(fields) == 1, len(fields) > 1
+	default:
+		return false, true
 	}
 }
 
@@ -392,6 +489,48 @@ func (m *Middleware[T]) wrapQueryResponseHandler(ns string, ctx context.Context,
 		}
 
 		txSuccessCounter.WithLabelValues(ns).Inc()
+		return r
+	}
+}
+
+// handleMutationWithoutTx executes a WithoutTransaction mutation with no
+// writer transaction of its own, so no pooled connection is held for the
+// life of the request. The resolver is responsible for its own
+// transactions; the post-commit hooks still run, keyed by a fresh container
+// and a fresh transaction ID, because resolvers and the outbox hook read
+// both from the context unconditionally.
+//
+// Errors in the response are returned as they are: there is nothing to roll
+// back and nothing to retry, and re-running a resolver that already
+// committed would repeat its side effects. The transaction metrics stay
+// untouched for the same reason: no transaction was opened.
+//
+// The hooks run whether or not the response carries errors, which is the
+// opposite of the transactional path: there the rollback undid the write a
+// hook would have announced, here the resolver's own commits stand, so
+// skipping the hook would drop a notification about work that is durable.
+func (m *Middleware[T]) handleMutationWithoutTx(ctx context.Context, next graphql.OperationHandler) graphql.ResponseHandler {
+	ns := m.Options.MetricsNamespace
+
+	opCtx := WithFreshPostCommitContainer(ctx)
+	opCtx = txid.With(opCtx, txid.New())
+
+	resp := next(opCtx)
+
+	return func(callCtx context.Context) *graphql.Response {
+		r := resp(opCtx)
+		if r == nil {
+			return r
+		}
+
+		if err := RunPostCommit(opCtx); err != nil {
+			log.ForContext(opCtx).Error().
+				Err(err).
+				Str("ns", ns).
+				Str("op", TopLevelFieldName(opCtx)).
+				Msg("post-commit hook failed")
+		}
+
 		return r
 	}
 }
@@ -515,14 +654,14 @@ func (m *Middleware[T]) handleSuccess(ns string, ctx context.Context, tx Tx, r *
 	if err := tx.Commit(); err != nil {
 		txFailureCounter.WithLabelValues(ns).Inc()
 
-		return errorResponseAtTopField(ctx, fmt.Errorf("failed to commit transaction: %w", err))
+		return ErrorResponseAtTopField(ctx, fmt.Errorf("failed to commit transaction: %w", err))
 	}
 
 	if err := RunPostCommit(ctx); err != nil {
 		log.ForContext(ctx).Error().
 			Err(err).
 			Str("ns", ns).
-			Str("op", topLevelFieldName(ctx)).
+			Str("op", TopLevelFieldName(ctx)).
 			Msg("post-commit hook failed")
 	}
 
@@ -556,34 +695,56 @@ func (m *Middleware[T]) handleFailure(ns string, ctx context.Context, tx Tx, att
 	return r
 }
 
-// topLevelFieldName extracts the top-level field name of the current operation.
-func topLevelFieldName(ctx context.Context) string {
-	oc := graphql.GetOperationContext(ctx)
-	if oc == nil || oc.Operation == nil {
+// TopLevelFieldName extracts the first top-level field name of the current
+// operation, or "" when ctx carries no operation or no field. Exported
+// because every extension that refuses an operation before the resolvers
+// run has to address the error to a field the client asked for (see
+// ErrorResponseAtTopField).
+//
+// Naming a field is all this answer is good for. It is NOT a key to gate
+// an operation on: the client decides which field comes first, so a gate
+// keyed on it is bypassed by naming another field before the gated one.
+// Use TopLevelFieldNames and decide over the whole set.
+func TopLevelFieldName(ctx context.Context) string {
+	names := TopLevelFieldNames(ctx)
+	if len(names) == 0 {
 		return ""
 	}
 
-	for _, sel := range oc.Operation.SelectionSet {
-		if f, ok := sel.(*ast.Field); ok && f != nil {
-			return f.Name
-		}
-	}
-
-	return ""
+	return names[0]
 }
 
-// errorResponseAtTopField attaches the error to the top-level field if available.
-// Falls back to a generic error response otherwise. The response is built
-// here, not by gqlgen, so the error presenter never sees it; a constraint
-// violation is hidden explicitly, or a deferred constraint failing at commit
-// would leak its table and constraint names.
-func errorResponseAtTopField(ctx context.Context, err error) *graphql.Response {
+// TopLevelFieldNames returns every top-level field the current operation
+// selects, in document order, flattening inline fragments and fragment
+// spreads; nil when ctx carries no operation.
+//
+// This is the set a gate decides over. The walk is
+// idempotency.TopLevelFieldNames, shared so that the single-mutation rule,
+// the transaction exemption and the admission cap cannot disagree about
+// what a document asks for.
+func TopLevelFieldNames(ctx context.Context) []string {
+	oc := graphql.GetOperationContext(ctx)
+	if oc == nil || oc.Operation == nil {
+		return nil
+	}
+
+	return idempotency.TopLevelFieldNames(oc.Operation.SelectionSet)
+}
+
+// ErrorResponseAtTopField attaches the error to the top-level field if
+// available and falls back to a generic error response otherwise. The path
+// matters: the federated gateway only surfaces a subgraph error to the
+// client when it names the field the client asked for. The response is
+// built here, not by gqlgen, so the error presenter never sees it; a
+// constraint violation is hidden explicitly, or a deferred constraint
+// failing at commit would leak its table and constraint names.
+func ErrorResponseAtTopField(ctx context.Context, err error) *graphql.Response {
 	message, hidden := db.HideConstraintViolation(ctx, err)
 	if !hidden {
 		message = err.Error()
 	}
 
-	field := topLevelFieldName(ctx)
+	field := TopLevelFieldName(ctx)
 	if field == "" {
 		return graphql.ErrorResponse(ctx, "%s", message)
 	}

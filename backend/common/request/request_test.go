@@ -47,5 +47,69 @@ func TestRequestContextCarriesUserAndTenants(t *testing.T) {
 	assert.Equal(t, id, rc.RequestID())
 	assert.Equal(t, []uuid.UUID{tenantID}, rc.TenantIDs())
 	assert.True(t, rc.HasMutationTenantID())
-	assert.Equal(t, tenantID, rc.MutationTenantID())
+	mutationTenantID, err := rc.MutationTenantID()
+	require.NoError(t, err)
+	assert.Equal(t, tenantID, mutationTenantID)
+}
+
+func TestMutationTenantIDRequiresSingleTenant(t *testing.T) {
+	t.Parallel()
+
+	for name, tenantIDs := range map[string][]uuid.UUID{
+		"zero tenants":     {},
+		"multiple tenants": {uuid.New(), uuid.New()},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := request.Context(t.Context(), authn.SystemUser(), tenantIDs...)
+			rc := request.ForContext(ctx)
+
+			assert.False(t, rc.HasMutationTenantID())
+			mutationTenantID, err := rc.MutationTenantID()
+			require.ErrorIs(t, err, request.ErrSingleTenantRequired)
+			assert.Equal(t, uuid.Nil, mutationTenantID)
+		})
+	}
+}
+
+func TestRequireRole(t *testing.T) {
+	t.Parallel()
+
+	tenantA, tenantB := uuid.New(), uuid.New()
+	writer := &authn.User{
+		ID:       uuid.New(),
+		TenantID: tenantA,
+		Roles:    map[uuid.UUID]authn.Role{tenantA: authn.ROLE_WRITER, tenantB: authn.ROLE_WRITER},
+	}
+
+	for name, tc := range map[string]struct {
+		user      *authn.User
+		tenantIDs []uuid.UUID
+		wantErr   error
+	}{
+		"unauthenticated":  {&authn.User{}, []uuid.UUID{tenantA}, authn.ErrUnauthorized},
+		"zero tenants":     {writer, nil, request.ErrSingleTenantRequired},
+		"multiple tenants": {writer, []uuid.UUID{tenantA, tenantB}, request.ErrSingleTenantRequired},
+		"missing role":     {writer, []uuid.UUID{uuid.New()}, authn.ErrUnauthorized},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			rc := request.ForContext(request.Context(t.Context(), tc.user, tc.tenantIDs...))
+			tenantID, err := rc.RequireRole(authn.ROLE_WRITER, "op")
+			require.ErrorIs(t, err, tc.wantErr)
+			assert.Contains(t, err.Error(), "op")
+			assert.Equal(t, uuid.Nil, tenantID)
+		})
+	}
+
+	t.Run("role held", func(t *testing.T) {
+		t.Parallel()
+
+		rc := request.ForContext(request.Context(t.Context(), writer, tenantA))
+		tenantID, err := rc.RequireRole(authn.ROLE_WRITER, "op")
+		require.NoError(t, err)
+		assert.Equal(t, tenantA, tenantID)
+	})
 }

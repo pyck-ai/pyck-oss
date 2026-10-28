@@ -5,45 +5,62 @@ import (
 	"net"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	managementclient "github.com/zitadel/zitadel-go/v3/pkg/client/management"
-	pb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/management"
-	metadata_pb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/metadata"
+	"github.com/zitadel/zitadel-go/v3/pkg/client/zitadel"
+	orgv2_pb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/org/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	grpcmd "google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/pyck-ai/pyck/backend/common/services/zitadel/sdk"
 )
 
-type mockManagementServer struct {
-	pb.UnimplementedManagementServiceServer
+// =============================================================================
+// GetOrganizationByID (org v2)
+// =============================================================================
 
-	capturedOrgID string
-	response      []*metadata_pb.Metadata
+// mockOrgServer stands in for Zitadel's org v2 service: listResult answers
+// the lookup by ID, listErr fails it.
+type mockOrgServer struct {
+	orgv2_pb.UnimplementedOrganizationServiceServer
+
+	listErr    error
+	listResult []*orgv2_pb.Organization
+
+	capturedList *orgv2_pb.ListOrganizationsRequest
 }
 
-func (s *mockManagementServer) ListOrgMetadata(ctx context.Context, _ *pb.ListOrgMetadataRequest) (*pb.ListOrgMetadataResponse, error) {
-	if md, ok := grpcmd.FromIncomingContext(ctx); ok {
-		vals := md.Get("x-zitadel-orgid")
-		if len(vals) > 0 {
-			s.capturedOrgID = vals[0]
-		}
+func (s *mockOrgServer) ListOrganizations(_ context.Context, req *orgv2_pb.ListOrganizationsRequest) (*orgv2_pb.ListOrganizationsResponse, error) {
+	s.capturedList = req
+	if s.listErr != nil {
+		return nil, s.listErr
 	}
-	return &pb.ListOrgMetadataResponse{Result: s.response}, nil
+	return &orgv2_pb.ListOrganizationsResponse{Result: s.listResult}, nil
 }
 
-func newTestClient(t *testing.T, mock *mockManagementServer) *sdk.ZitadelSdkClient {
+// newOrgTestClient wires the org v2 mock behind the management client's
+// Connection, which is what GetOrganizationByID dials the v2 service on.
+func newOrgTestClient(t *testing.T, mock *mockOrgServer) *sdk.ZitadelSdkClient {
 	t.Helper()
 
 	lis := bufconn.Listen(1024 * 1024)
 	srv := grpc.NewServer()
-	pb.RegisterManagementServiceServer(srv, mock)
+	orgv2_pb.RegisterOrganizationServiceServer(srv, mock)
 
+	serveErr := make(chan error, 1)
 	go func() {
-		_ = srv.Serve(lis)
+		serveErr <- srv.Serve(lis)
 	}()
-	t.Cleanup(srv.GracefulStop)
+	t.Cleanup(func() {
+		srv.GracefulStop()
+		if err := <-serveErr; err != nil {
+			t.Errorf("bufconn server: %v", err)
+		}
+	})
 
 	conn, err := grpc.NewClient("passthrough:///bufconn",
 		grpc.WithContextDialer(func(_ context.Context, _ string) (net.Conn, error) {
@@ -51,83 +68,86 @@ func newTestClient(t *testing.T, mock *mockManagementServer) *sdk.ZitadelSdkClie
 		}),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
-	if err != nil {
-		t.Fatalf("failed to dial bufconn: %v", err)
-	}
-	t.Cleanup(func() { conn.Close() })
+	require.NoError(t, err, "dial bufconn")
+	t.Cleanup(func() {
+		if err := conn.Close(); err != nil {
+			t.Logf("close bufconn client: %v", err)
+		}
+	})
 
 	return sdk.NewTestSdkClient(&managementclient.Client{
-		ManagementServiceClient: pb.NewManagementServiceClient(conn),
+		Connection: &zitadel.Connection{ClientConn: conn},
 	})
 }
 
-func TestListOrgMetadataForOrg_SetsOrgHeader(t *testing.T) {
+// The lookup is by ID, and a live org (ACTIVE or INACTIVE) is found.
+func TestGetOrganizationByID_FindsLiveOrg(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockManagementServer{
-		response: []*metadata_pb.Metadata{
-			{Key: "flavour", Value: []byte("pyck-go")},
-			{Key: "isPyckGo", Value: []byte("true")},
-		},
+	mock := &mockOrgServer{
+		listResult: []*orgv2_pb.Organization{{Id: "org-1", Name: "Acme", State: orgv2_pb.OrganizationState_ORGANIZATION_STATE_INACTIVE}},
 	}
+	client := newOrgTestClient(t, mock)
 
-	client := newTestClient(t, mock)
+	org, err := client.GetOrganizationByID(t.Context(), "org-1")
+	require.NoError(t, err)
+	assert.Equal(t, "org-1", org.ID)
 
-	result, err := client.ListOrgMetadataForOrg(context.Background(), "org-42")
-	if err != nil {
-		t.Fatalf("ListOrgMetadataForOrg failed: %v", err)
+	require.NotNil(t, mock.capturedList)
+	require.Len(t, mock.capturedList.GetQueries(), 1)
+	assert.Equal(t, "org-1", mock.capturedList.GetQueries()[0].GetIdQuery().GetId())
+}
+
+// An org Zitadel has removed is gone for pyck whether the projection has
+// already dropped it or still lists it as REMOVED; both must be the
+// sentinel so the caller can skip instead of treating "no users" as truth.
+func TestGetOrganizationByID_AbsentAndRemovedAreNotFound(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string][]*orgv2_pb.Organization{
+		"absent":  nil,
+		"removed": {{Id: "org-1", State: orgv2_pb.OrganizationState_ORGANIZATION_STATE_REMOVED}},
 	}
+	for name, listResult := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	if mock.capturedOrgID != "org-42" {
-		t.Errorf("expected x-zitadel-orgid=org-42, got %q", mock.capturedOrgID)
-	}
+			client := newOrgTestClient(t, &mockOrgServer{listResult: listResult})
 
-	if result["flavour"] != "pyck-go" {
-		t.Errorf("expected flavour=pyck-go, got %q", result["flavour"])
-	}
-	if result["isPyckGo"] != "true" {
-		t.Errorf("expected isPyckGo=true, got %q", result["isPyckGo"])
+			org, err := client.GetOrganizationByID(t.Context(), "org-1")
+			require.ErrorIs(t, err, sdk.ErrOrganizationNotFound)
+			require.ErrorContains(t, err, "org-1")
+			assert.Nil(t, org)
+		})
 	}
 }
 
-func TestListOrgMetadataForOrg_DifferentOrgsGetDifferentHeaders(t *testing.T) {
+// A transport failure is not "not found": it keeps its gRPC code so the
+// activity retry policy sees a retryable error.
+func TestGetOrganizationByID_PassesThroughOtherErrors(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockManagementServer{}
-	client := newTestClient(t, mock)
+	client := newOrgTestClient(t, &mockOrgServer{listErr: status.Error(codes.Unavailable, "zitadel restarting")})
 
-	orgs := []string{"org-1", "org-2", "org-3"}
-	for _, orgID := range orgs {
-		_, err := client.ListOrgMetadataForOrg(context.Background(), orgID)
-		if err != nil {
-			t.Fatalf("ListOrgMetadataForOrg(%s) failed: %v", orgID, err)
-		}
-		if mock.capturedOrgID != orgID {
-			t.Errorf("call with orgID=%s: expected header %s, got %s", orgID, orgID, mock.capturedOrgID)
-		}
-	}
+	org, err := client.GetOrganizationByID(t.Context(), "org-1")
+	require.Error(t, err)
+	require.NotErrorIs(t, err, sdk.ErrOrganizationNotFound)
+	assert.Equal(t, codes.Unavailable, status.Code(err))
+	assert.Nil(t, org)
 }
 
-func TestListOrgMetadata_WithoutOrgHeader(t *testing.T) {
+// The ID filter is re-checked client-side: a server answering the org-1
+// query with some other live org must not be taken as "org-1 exists", or a
+// deleted org would be treated as live whenever the listing is unfiltered.
+func TestGetOrganizationByID_IgnoresOrgWithOtherID(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockManagementServer{
-		response: []*metadata_pb.Metadata{
-			{Key: "key1", Value: []byte("val1")},
-		},
-	}
-	client := newTestClient(t, mock)
+	client := newOrgTestClient(t, &mockOrgServer{
+		listResult: []*orgv2_pb.Organization{{Id: "org-2", Name: "Other", State: orgv2_pb.OrganizationState_ORGANIZATION_STATE_ACTIVE}},
+	})
 
-	result, err := client.ListOrgMetadata(context.Background())
-	if err != nil {
-		t.Fatalf("ListOrgMetadata failed: %v", err)
-	}
-
-	if mock.capturedOrgID != "" {
-		t.Errorf("expected no org header, got %q", mock.capturedOrgID)
-	}
-
-	if result["key1"] != "val1" {
-		t.Errorf("expected key1=val1, got %q", result["key1"])
-	}
+	org, err := client.GetOrganizationByID(t.Context(), "org-1")
+	require.ErrorIs(t, err, sdk.ErrOrganizationNotFound)
+	require.ErrorContains(t, err, "org-1")
+	assert.Nil(t, org)
 }

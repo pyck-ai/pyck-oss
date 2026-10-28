@@ -8,6 +8,8 @@ import (
 	"github.com/zitadel/zitadel-go/v3/pkg/client/zitadel"
 	authz_pb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/authorization/v2"
 	filter_pb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/filter/v2"
+
+	"github.com/pyck-ai/pyck/backend/common/services/zitadel/sdk"
 )
 
 // grantProjectionTimeout bounds how long EnsureProjectGrant waits for
@@ -74,6 +76,21 @@ func EnsureProjectGrant(ctx context.Context, conn *zitadel.Connection, orgID, pr
 	return nil
 }
 
+// GrantedRoleKeys returns the role keys of the authorization the user with
+// the given username holds on the project within the org. Unlike
+// EnsureProjectGrant, it looks the grant up by username, for inspecting a
+// grant some other flow (tenant registration, say) created, whose Zitadel
+// user id the caller never learns. Zitadel's authorization read side is
+// eventually consistent, so callers poll: "no authorization" is an error,
+// not an empty slice.
+func GrantedRoleKeys(ctx context.Context, conn *zitadel.Connection, orgID, projectID, username string) ([]string, error) {
+	_, authz, err := grantedAuthorization(ctx, conn, orgID, projectID, username)
+	if err != nil {
+		return nil, err
+	}
+	return authz.Roles, nil
+}
+
 // grantFilters builds the authorization search filter set that identifies a
 // single user's grant on a project within one organization. Scoping by org
 // (not just user+project) is what lets EnsureProjectGrant and
@@ -118,4 +135,41 @@ func waitForGrantProjected(ctx context.Context, c authz_pb.AuthorizationServiceC
 		case <-time.After(50 * time.Millisecond):
 		}
 	}
+}
+
+// GrantedUserID returns the Zitadel user id behind the authorization the
+// username holds on the project within the org. It is the counterpart of
+// GrantedRoleKeys for callers that must address the user itself: the grant
+// APIs take a user id, and a registration-created admin's id is never
+// reported to the harness. Like GrantedRoleKeys it fails until the
+// authorization is readable, which is the barrier callers poll on before
+// replacing that authorization.
+func GrantedUserID(ctx context.Context, conn *zitadel.Connection, orgID, projectID, username string) (string, error) {
+	userID, _, err := grantedAuthorization(ctx, conn, orgID, projectID, username)
+	if err != nil {
+		return "", err
+	}
+	return userID, nil
+}
+
+// grantedAuthorization resolves the org's user by username and reads the
+// authorization it holds on the project, reporting both: GrantedUserID
+// keeps the id, GrantedRoleKeys the roles.
+//
+// The user id is resolved first so the authorization read can filter on it.
+// Listing an org's authorizations unfiltered answers one page, and a tenant
+// org gains an authorization per machine user on every provisioning run, so
+// scanning that page for a login name stops finding the human admin as soon
+// as the org outgrows it, reported as "no authorization", which reads like
+// a missing grant.
+func grantedAuthorization(ctx context.Context, conn *zitadel.Connection, orgID, projectID, username string) (string, *sdk.Grant, error) {
+	userID, err := UserIDByUsername(ctx, conn, orgID, username)
+	if err != nil {
+		return "", nil, err
+	}
+	authz, err := sdk.NewGrantClient(conn).GetUserAuthorization(ctx, projectID, orgID, userID)
+	if err != nil {
+		return "", nil, err
+	}
+	return userID, authz, nil
 }

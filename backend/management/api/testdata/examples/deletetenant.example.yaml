@@ -5,13 +5,14 @@ description: >
   Manually triggers the soft-delete half of the tenant lifecycle by
   setting deleted_at. The tenant-lifecycle NATS subscriber observes
   the resulting CRUD event and starts DisableTenantWorkflow to
-  deactivate the Zitadel org. Returns an error when the tenant does
-  not exist; idempotent on already-deleted tenants. The tenant row
-  stays in the database and can be reactivated via restoreTenant
-  during the grace period.
+  deactivate the Zitadel org. A registration that is still running
+  notices the delete itself. Returns an error when the tenant does
+  not exist; idempotent on already-deleted tenants. The tenant row stays in the database
+  and can be reactivated via restoreTenant during the grace period.
+  The caller must hold ROLE_ADMIN on input.tenantId.
 vars:
   input:
-    id: { $placeholder: "tenant ID" }
+    tenantId: { $placeholder: "tenant ID" }
 expect:
   - msg: "Status is 200"
     assertions:

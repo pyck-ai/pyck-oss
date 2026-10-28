@@ -337,8 +337,11 @@ var (
 		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
 		{Name: "deleted_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "name", Type: field.TypeString},
+		{Name: "name_key", Type: field.TypeString},
 		{Name: "idp_org_ref", Type: field.TypeString},
 		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"pending", "done", "error"}, Default: "done"},
+		{Name: "registration", Type: field.TypeJSON, Nullable: true},
 	}
 	// TenantsTable holds the schema information for the "tenants" table.
 	TenantsTable = &schema.Table{
@@ -349,15 +352,20 @@ var (
 			{
 				Name:    "tenant_idp_org_ref",
 				Unique:  true,
-				Columns: []*schema.Column{TenantsColumns[11]},
+				Columns: []*schema.Column{TenantsColumns[12]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "deleted_at IS NULL",
 				},
 			},
 			{
+				Name:    "tenant_name_key",
+				Unique:  true,
+				Columns: []*schema.Column{TenantsColumns[11]},
+			},
+			{
 				Name:    "tenant_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{TenantsColumns[12]},
+				Columns: []*schema.Column{TenantsColumns[13]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "expires_at IS NOT NULL AND deleted_at IS NULL",
 				},

@@ -54,7 +54,7 @@ type Client interface {
 	GetUsers(ctx context.Context, input GetUsersArgs) (*GetUsers, error)
 	GetDataTypeEntities(ctx context.Context) (*GetDataTypeEntities, error)
 	GetDataTypeBySlug(ctx context.Context, input GetDataTypeBySlugArgs) (*GetDataTypeBySlug, error)
-	GetOrganization(ctx context.Context, input GetOrganizationArgs) (*GetOrganization, error)
+	GetDisabledTenants(ctx context.Context, input GetDisabledTenantsArgs) (*GetDisabledTenants, error)
 	GetServiceRoles(ctx context.Context) (*GetServiceRoles, error)
 	GetUserServiceRoles(ctx context.Context, input GetUserServiceRolesArgs) (*GetUserServiceRoles, error)
 	GetManagementServiceInfo(ctx context.Context) (*GetManagementServiceInfo, error)
@@ -64,7 +64,7 @@ type Client interface {
 	DeleteDataType(ctx context.Context, input DeleteDataTypeArgs) (*DeleteDataType, error)
 	SendCustomEvent(ctx context.Context, input SendCustomEventArgs) (*SendCustomEvent, error)
 	RegisterTenant(ctx context.Context, input RegisterTenantArgs) (*RegisterTenant, error)
-	DeleteTenant(ctx context.Context) (*DeleteTenant, error)
+	DeleteTenant(ctx context.Context, input DeleteTenantArgs) (*DeleteTenant, error)
 	RestoreTenant(ctx context.Context, input RestoreTenantArgs) (*RestoreTenant, error)
 	SetTenantExpiry(ctx context.Context, input SetTenantExpiryArgs) (*SetTenantExpiry, error)
 	SetTenantUITemplate(ctx context.Context, input SetTenantUITemplateArgs) (*SetTenantUITemplate, error)
@@ -229,13 +229,13 @@ func (c *client) GetDataTypeBySlug(ctx context.Context, input GetDataTypeBySlugA
 	return c.api.GetDataTypeBySlug(ctx, input.Slug)
 }
 
-// GetOrganizationArgs is a sparse struct for GetOrganization parameters
-type GetOrganizationArgs struct {
-	Sub string
+// GetDisabledTenantsArgs is a sparse struct for GetDisabledTenants parameters
+type GetDisabledTenantsArgs struct {
+	Ids []string
 }
 
-func (c *client) GetOrganization(ctx context.Context, input GetOrganizationArgs) (*GetOrganization, error) {
-	return c.api.GetOrganization(ctx, input.Sub)
+func (c *client) GetDisabledTenants(ctx context.Context, input GetDisabledTenantsArgs) (*GetDisabledTenants, error) {
+	return c.api.GetDisabledTenants(ctx, input.Ids)
 }
 
 func (c *client) GetServiceRoles(ctx context.Context) (*GetServiceRoles, error) {
@@ -305,8 +305,13 @@ func (c *client) RegisterTenant(ctx context.Context, input RegisterTenantArgs) (
 	return c.api.RegisterTenant(ctx, input.Input)
 }
 
-func (c *client) DeleteTenant(ctx context.Context) (*DeleteTenant, error) {
-	return c.api.DeleteTenant(ctx)
+// DeleteTenantArgs is a sparse struct for DeleteTenant parameters
+type DeleteTenantArgs struct {
+	Input model.DeleteTenantInput
+}
+
+func (c *client) DeleteTenant(ctx context.Context, input DeleteTenantArgs) (*DeleteTenant, error) {
+	return c.api.DeleteTenant(ctx, input.Input)
 }
 
 // RestoreTenantArgs is a sparse struct for RestoreTenant parameters

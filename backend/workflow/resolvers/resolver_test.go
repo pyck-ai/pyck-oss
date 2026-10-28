@@ -2,8 +2,13 @@ package resolvers_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
+	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	otelapi "go.opentelemetry.io/otel"
+	"go.uber.org/goleak"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/events"
@@ -25,6 +31,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/txid"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 	"github.com/pyck-ai/pyck/backend/common/workflow"
+	managementapi "github.com/pyck-ai/pyck/backend/management/api"
 
 	"github.com/pyck-ai/pyck/backend/workflow/core"
 	ent "github.com/pyck-ai/pyck/backend/workflow/ent/gen"
@@ -38,12 +45,23 @@ import (
 // TEST SETUP
 // =============================================================================
 
+// TestMain also fails the binary when a goroutine a test started is still
+// running once every test returned: a test that builds a resolver without
+// Close leaves its tenant-template cache's janitor behind. The tracer is
+// shut down first so its exporter goroutines do not count.
 func TestMain(m *testing.M) {
 	cleanup := resolver.MustSetupTestTracer("workflow")
-	defer cleanup()
 	// Worker-scoped subscriptions need a positive TTL to stamp expires_at.
 	core.Config.SubscriptionTTL = 15 * time.Minute
-	os.Exit(m.Run())
+	code := m.Run()
+	cleanup()
+	if code == 0 {
+		if err := goleak.Find(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			code = 1
+		}
+	}
+	os.Exit(code)
 }
 
 // =============================================================================
@@ -67,6 +85,8 @@ var (
 
 	itemDataTypeID   = uuid.MustParse("94a80c62-3f81-4808-8961-768824d2c325")
 	itemDataTypeSlug = "item"
+
+	errManagementDown = errors.New("management unreachable")
 )
 
 // Convenience aliases for tenant IDs
@@ -84,6 +104,9 @@ type testEnv struct {
 	t                  *testing.T
 	MockTemporalClient *mocks.SimpleMockTemporalClient
 	SignalRouter       *services.SignalRouter
+	clientFactory      *mockClientFactory
+	// Users backs management's users query (setupWithMockWorkflow only).
+	Users *fakeUserDirectory
 }
 
 func setup(t *testing.T) *testEnv {
@@ -97,6 +120,7 @@ func setup(t *testing.T) *testEnv {
 	client := enttest.Open(t, dialect.SQLite, resolver.DatabaseURI(t),
 		enttest.WithOptions(ent.Log(t.Log)),
 	).Debug()
+	t.Cleanup(func() { require.NoError(t, client.Close()) })
 
 	client.Use(events.MutationEventHook(events.HookConfig{
 		Service:        "workflow",
@@ -105,13 +129,15 @@ func setup(t *testing.T) *testEnv {
 		OutboxInserter: events.NewEntOutboxInserter(ent.TxFromContext),
 	}))
 
+	te.clientFactory = newMockClientFactory()
 	workflowRouter := services.NewSignalRouter(client, services.SignalRouterConfig{
-		ClientFactory: newMockClientFactory(),
+		ClientFactory: te.clientFactory,
 	})
 	te.SignalRouter = workflowRouter
 
 	v := validator.NewValidator(te.DataTypeProvider)
 	r := resolvers.NewResolver("workflow", client, v, workflowRouter, nil, resolvers.RemoteUIDefaults{})
+	t.Cleanup(r.Close)
 	schema := resolvers.NewSchema(r)
 
 	te.Init(client, schema, func(s *handler.Server) {
@@ -141,6 +167,7 @@ func setupWithMockWorkflow(t *testing.T) *testEnv {
 	client := enttest.Open(t, dialect.SQLite, resolver.DatabaseURI(t),
 		enttest.WithOptions(ent.Log(t.Log)),
 	).Debug()
+	t.Cleanup(func() { require.NoError(t, client.Close()) })
 
 	client.Use(events.MutationEventHook(events.HookConfig{
 		Service:        "workflow",
@@ -157,8 +184,12 @@ func setupWithMockWorkflow(t *testing.T) *testEnv {
 	})
 	te.SignalRouter = workflowRouter
 
+	te.Users = newFakeUserDirectory()
+	mgmt := &fakeMgmtClient{getUsers: te.Users.GetUsers}
+
 	v := validator.NewValidator(te.DataTypeProvider)
-	r := resolvers.NewResolver("workflow", client, v, workflowRouter, nil, resolvers.RemoteUIDefaults{})
+	r := resolvers.NewResolver("workflow", client, v, workflowRouter, mgmt, resolvers.RemoteUIDefaults{})
+	t.Cleanup(r.Close)
 	schema := resolvers.NewSchema(r)
 
 	te.Init(client, schema, func(s *handler.Server) {
@@ -176,8 +207,87 @@ func setupWithMockWorkflow(t *testing.T) *testEnv {
 
 	// Expose mock client for test assertions
 	te.MockTemporalClient = mockFactory.mockClient
+	te.clientFactory = mockFactory
 
 	return te
+}
+
+// fakeUserDirectory serves management's users query from memory. Like the real
+// query under the service token, it filters only on the where fields it is
+// given, so a lookup without a tenant matches users of every tenant.
+type fakeUserDirectory struct {
+	mu      sync.Mutex
+	users   map[uuid.UUID]fakeUser
+	lookups []managementapi.UserWhereInput
+	err     error
+}
+
+type fakeUser struct {
+	tenantID uuid.UUID
+	deleted  bool
+}
+
+func newFakeUserDirectory() *fakeUserDirectory {
+	return &fakeUserDirectory{users: map[uuid.UUID]fakeUser{}}
+}
+
+func (d *fakeUserDirectory) Add(tenantID, userID uuid.UUID) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.users[userID] = fakeUser{tenantID: tenantID}
+}
+
+// Delete soft-deletes a user; like management, the row is still returned.
+func (d *fakeUserDirectory) Delete(userID uuid.UUID) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	u := d.users[userID]
+	u.deleted = true
+	d.users[userID] = u
+}
+
+func (d *fakeUserDirectory) FailWith(err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.err = err
+}
+
+func (d *fakeUserDirectory) Lookups() []managementapi.UserWhereInput {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return slices.Clone(d.lookups)
+}
+
+func (d *fakeUserDirectory) GetUsers(_ context.Context, input managementapi.GetUsersArgs) (*managementapi.GetUsers, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	where := managementapi.UserWhereInput{}
+	if input.Where != nil {
+		where = *input.Where
+	}
+	d.lookups = append(d.lookups, where)
+	if d.err != nil {
+		return nil, d.err
+	}
+
+	resp := &managementapi.GetUsers{}
+	for id, u := range d.users {
+		if where.ID != nil && *where.ID != id.String() {
+			continue
+		}
+		if where.TenantID != nil && *where.TenantID != u.tenantID.String() {
+			continue
+		}
+		node := &managementapi.GetUsers_Users_Edges_Node{ID: id.String(), TenantID: u.tenantID.String()}
+		if u.deleted {
+			deletedAt := time.Now()
+			node.DeletedAt = &deletedAt
+		}
+		resp.Users.Edges = append(resp.Users.Edges, &managementapi.GetUsers_Users_Edges{Node: node})
+	}
+	resp.Users.TotalCount = len(resp.Users.Edges)
+	return resp, nil
 }
 
 // ctx creates a request context for the given user.
@@ -295,6 +405,7 @@ func (te *testEnv) assertEventCounts(ctx context.Context, expectedCounts map[str
 // mockClientFactory creates mock workflow clients for testing
 type mockClientFactory struct {
 	mockClient *mocks.SimpleMockTemporalClient
+	opened     atomic.Int64 // Temporal clients handed out
 }
 
 func newMockClientFactory() *mockClientFactory {
@@ -304,6 +415,7 @@ func newMockClientFactory() *mockClientFactory {
 }
 
 func (f *mockClientFactory) GetClient(ctx context.Context, namespace string) (*workflow.Client, error) {
+	f.opened.Add(1)
 	return workflow.NewClient("test", f.mockClient)
 }
 

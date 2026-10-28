@@ -35,7 +35,8 @@ func AccessTokenHandler(clientID, clientSecret string) http.HandlerFunc {
 			httputil.JSONError(w, "missing code", http.StatusBadRequest)
 			return
 		}
-		log.Info().Msgf("processing code: %s", input.Code)
+		// The code is a live OAuth credential; never log its value.
+		log.Info().Msg("processing GitHub OAuth code exchange")
 
 		ghTokenInput := githubTokenInput{
 			ClientID:     clientID,

@@ -255,11 +255,12 @@ Module: `github.com/pyck-ai/pyck/hack/stockfix` (standalone; not in go.work).
 
 ## CI
 
-`run-tests` gives this module its own job with a Postgres service, so the
-database-backed tests run instead of skipping. Separate rather than folded into
-the backend matrix: that matrix has no use for the service, and testcontainers
-would cost the module its pgx-and-testify dependency set — the property that
-makes it easy to build and copy to a jump host.
+In `ci.yml`, the `test (hack/stockfix)` job gives this module its own Postgres
+service, so the database-backed tests run instead of skipping. Separate
+rather than folded into the backend matrix: that matrix has no use for the
+service, and testcontainers would cost the module its pgx-and-testify
+dependency set, the property that makes it easy to build and copy to a jump
+host.
 
 The repo's golangci-lint set does not run here: it targets services and flags a
 print-heavy CLI on nearly every line (unchecked `fmt.Fprintln` returns,

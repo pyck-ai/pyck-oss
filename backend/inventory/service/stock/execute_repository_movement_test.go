@@ -259,17 +259,9 @@ func TestExecuteRepositoryMovement_RollupCorrectWithFatSharedAncestor(t *testing
 			"unrelated ancestor item %s must keep its rolled-up quantity", noiseItemID)
 	}
 
-	movementItemIDStrs, err := tx.Stock.Query().
-		Where(
-			entstock.TenantID(e.tenantID),
-			entstock.MovementID(movement.ID),
-		).
-		GroupBy(entstock.FieldItemID).
-		Strings(e.ctx)
-	require.NoError(t, err)
 	require.ElementsMatch(t,
 		[]string{fx.trolleyItemID.String()},
-		movementItemIDStrs,
+		movementItemIDs(t, e.ctx, tx, e.tenantID, movement.ID),
 		"only the moving repository's item may be written across the Create+Execute fan-out; "+
 			"unrelated ancestor items must not be re-stamped",
 	)

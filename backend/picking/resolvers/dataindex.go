@@ -61,9 +61,8 @@ func (r *pickingOrderWhereInputResolver) dataIndexPredicates(ctx context.Context
 // an identifier containing a quote character verbatim. The backfill re-checks for
 // the same reason (quoteIdent).
 func (r *pickingOrderWhereInputResolver) resolveBinding(ctx context.Context, dataTypeSlug, field string) (dataindex.Binding, error) {
-	// ReadBySlug keys the datatype cache by a single tenant and panics otherwise.
-	// Queries may carry several tenant IDs or "all", which every other filter
-	// serves, so refuse explicitly instead of taking the process down.
+	// ReadBySlug needs a single tenant, but queries may carry several (or
+	// "all"); refuse with a filter-specific error.
 	if !request.ForContext(ctx).HasMutationTenantID() {
 		return dataindex.Binding{}, errDataIndexMultiTenant
 	}

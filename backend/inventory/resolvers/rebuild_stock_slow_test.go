@@ -6,7 +6,7 @@ import "testing"
 // fuzz seeds (tens of seconds to minutes each). The "_Slow" suffix is
 // load-bearing: `task test:slow` selects this test (and any other slow test)
 // with -run '_Slow$', and that is the only job that runs it (main + nightly,
-// .github/workflows/run-tests-slow.yml). The testing.Short() guard additionally
+// .github/workflows/nightly.yml). The testing.Short() guard additionally
 // skips it in the fast PR gate (`task test` / `task test:fast`, which pass
 // -short), so it never runs there. The shared fuzzSeedCase type, runFuzzSeeds
 // helper, fuzzConfig, and runFuzzRebuildTestViaMovementFlow live in

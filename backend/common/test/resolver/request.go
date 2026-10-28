@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"entgo.io/contrib/entgql"
 	"github.com/99designs/gqlgen/graphql"
@@ -18,13 +19,20 @@ import (
 	"github.com/riandyrn/otelchi"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/feature"
 	"github.com/pyck-ai/pyck/backend/common/gqlserver"
+	"github.com/pyck-ai/pyck/backend/common/liveness"
+	livenessmocks "github.com/pyck-ai/pyck/backend/common/liveness/mocks"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/tenant"
 	"github.com/pyck-ai/pyck/backend/common/test/mocks"
 	"github.com/pyck-ai/pyck/backend/common/workflow"
 )
+
+// warmUpTimeout bounds SendQuery's liveness warm-up. The caller's context
+// cannot: it may be cancelled on purpose, to test the request.
+const warmUpTimeout = 30 * time.Second
 
 type TestRequest struct {
 	OperationName string `json:"operationName"`
@@ -67,6 +75,17 @@ type TestEnvironment[E EntTestClient] struct {
 
 type ServerConfigurator func(s *handler.Server)
 
+type contextKeyNoForcedFeatures struct{}
+
+// WithoutForcedFeatures marks ctx so SendQuery sends only the features ctx
+// already carries instead of forcing FEATURE_SYNC_UPDATES onto the
+// request. For operations that refuse any X-Pyck-Feature header
+// (registerTenant): with the forced feature every such request would be
+// refused before it reaches the code under test.
+func WithoutForcedFeatures(ctx context.Context) context.Context {
+	return context.WithValue(ctx, contextKeyNoForcedFeatures{}, true)
+}
+
 func (te *TestEnvironment[E]) Init(ent E, gqlSchema graphql.ExecutableSchema, cfgs ...ServerConfigurator) {
 	te.T.Helper()
 
@@ -101,8 +120,11 @@ func (te *TestEnvironment[E]) SendQuery(t *testing.T, ctx context.Context, tpl T
 		panic("TestEnvironment not initialized, call Init() first")
 	}
 
-	// Force-enable sync update events, so we can actually test them
-	ctx = feature.Context(ctx, feature.FEATURE_SYNC_UPDATES)
+	// Force-enable sync update events, so we can actually test them,
+	// unless the test sends a mutation that refuses every feature header.
+	if noForced, ok := ctx.Value(contextKeyNoForcedFeatures{}).(bool); !ok || !noForced {
+		ctx = feature.Context(ctx, feature.FEATURE_SYNC_UPDATES)
+	}
 
 	requestGQL := TestRequest{
 		Query: tpl.RenderTemplate(args),
@@ -110,6 +132,17 @@ func (te *TestEnvironment[E]) SendQuery(t *testing.T, ctx context.Context, tpl T
 
 	req := request.ForContext(ctx)
 	user := req.User()
+
+	// The warm-up keeps ctx's values but not its cancellation: that belongs
+	// to the HTTP request, so a cancelled ctx comes back as SendQuery's error.
+	// A failed warm-up does too, rather than failing the test here, possibly
+	// off the test goroutine.
+	warmCtx, cancelWarm := context.WithTimeout(context.WithoutCancel(ctx), warmUpTimeout)
+	defer cancelWarm()
+	cache, err := livenessmocks.NewWarmTestCache(warmCtx, t, requestTenants(user, req)...)
+	if err != nil {
+		return func() {}, nil, err
+	}
 
 	httpAuth := new(mocks.MockAuthProvider)
 	httpAuthMock := httpAuth.On("HTTPMiddleware").Return(mocks.HTTPMiddleware(&user)).Once()
@@ -119,7 +152,7 @@ func (te *TestEnvironment[E]) SendQuery(t *testing.T, ctx context.Context, tpl T
 	httpRouter.Use(
 		otelchi.Middleware("test-resolver"),
 		httpAuth.HTTPMiddleware(),
-		tenant.HTTPMiddleware(),
+		tenantMiddleware(t, cache),
 		feature.HTTPMiddleware(),
 	)
 	httpRouter.Handle("/query", te.GQLServer)
@@ -161,6 +194,30 @@ func (te *TestEnvironment[E]) SendQuery(t *testing.T, ctx context.Context, tpl T
 	}, resp, err
 }
 
+// requestTenants is every tenant the tenant middleware may check for a
+// request sent as user with req's selection: the home tenant, the tenants
+// named in the request and every tenant the user holds a role in, which
+// covers an "all" selection. Nil is skipped, as the header loop skips it.
+func requestTenants(user authn.User, req request.RequestContext) []uuid.UUID {
+	seen := make(map[uuid.UUID]struct{})
+	var ids []uuid.UUID
+	add := func(id uuid.UUID) {
+		if _, dup := seen[id]; dup || id == uuid.Nil {
+			return
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	add(user.TenantID)
+	for _, id := range req.TenantIDs() {
+		add(id)
+	}
+	for _, id := range user.TenantIDs() {
+		add(id)
+	}
+	return ids
+}
+
 func (te *TestEnvironment[E]) ReadResponse(t *testing.T, resp *http.Response, result any) error {
 	t.Helper()
 
@@ -177,4 +234,33 @@ func (te *TestEnvironment[E]) ReadResponse(t *testing.T, resp *http.Response, re
 	t.Log("\n\tHTTP Response:\t", reindent(string(resultJSON), "\t\t\t"))
 
 	return err
+}
+
+// TenantMiddleware returns the tenant middleware a test router mounts: a
+// test liveness cache over a source that reports every tenant live. The
+// cache starts cold; a router serving one fixed user mounts
+// TenantMiddlewareFor instead. A construction error fails the test.
+func TenantMiddleware(tb testing.TB) func(http.Handler) http.Handler {
+	tb.Helper()
+	return tenantMiddleware(tb, livenessmocks.NewTestCache(tb))
+}
+
+// TenantMiddlewareFor is TenantMiddleware warmed for every tenant a request
+// of user may check (see requestTenants and
+// livenessmocks.NewWarmTestCache), so a router serving that fixed user never
+// waits on a lookup. A construction error fails the test.
+func TenantMiddlewareFor(tb testing.TB, user authn.User) func(http.Handler) http.Handler {
+	tb.Helper()
+	ids := requestTenants(user, request.RequestContext{})
+	cache, err := livenessmocks.NewWarmTestCache(tb.Context(), tb, ids...)
+	require.NoError(tb, err)
+	return tenantMiddleware(tb, cache)
+}
+
+// tenantMiddleware is TenantMiddleware over the given liveness cache.
+func tenantMiddleware(tb testing.TB, cache *liveness.Cache) func(http.Handler) http.Handler {
+	tb.Helper()
+	mw, err := tenant.HTTPMiddleware(cache, livenessmocks.NoDisabledTenants)
+	require.NoError(tb, err, "tenant middleware")
+	return mw
 }

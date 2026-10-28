@@ -100,15 +100,20 @@ type workerDeploymentUIBundlesData struct {
 // FAKES
 // =============================================================================
 
-// fakeMgmtClient serves only GetTenants; the embedded nil Client panics on any
-// other call (the remote-UI resolvers make none).
+// fakeMgmtClient serves only GetTenants and GetUsers; the embedded nil Client
+// panics on any other call (the resolvers make none).
 type fakeMgmtClient struct {
 	managementapi.Client
 	getTenants func(ctx context.Context, input managementapi.GetTenantsArgs) (*managementapi.GetTenants, error)
+	getUsers   func(ctx context.Context, input managementapi.GetUsersArgs) (*managementapi.GetUsers, error)
 }
 
 func (f *fakeMgmtClient) GetTenants(ctx context.Context, input managementapi.GetTenantsArgs) (*managementapi.GetTenants, error) {
 	return f.getTenants(ctx, input)
+}
+
+func (f *fakeMgmtClient) GetUsers(ctx context.Context, input managementapi.GetUsersArgs) (*managementapi.GetUsers, error) {
+	return f.getUsers(ctx, input)
 }
 
 // tenantsWithData returns a single-tenant response carrying the given tenant
@@ -285,6 +290,7 @@ func setupRemoteUIWithDefaults(t *testing.T, mgmt *fakeMgmtClient, factory commo
 	client := enttest.Open(t, dialect.SQLite, resolver.DatabaseURI(t),
 		enttest.WithOptions(ent.Log(t.Log)),
 	).Debug()
+	t.Cleanup(func() { require.NoError(t, client.Close()) })
 
 	workflowRouter := services.NewSignalRouter(client, services.SignalRouterConfig{
 		ClientFactory: factory,
@@ -292,6 +298,7 @@ func setupRemoteUIWithDefaults(t *testing.T, mgmt *fakeMgmtClient, factory commo
 
 	v := validator.NewValidator(te.DataTypeProvider)
 	r := resolvers.NewResolver("workflow", client, v, workflowRouter, mgmt, defaults)
+	t.Cleanup(r.Close)
 	schema := resolvers.NewSchema(r)
 
 	te.Init(client, schema, func(s *handler.Server) {

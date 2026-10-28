@@ -27,6 +27,7 @@ import (
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/events"
+	"github.com/pyck-ai/pyck/backend/common/liveness"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	logadapter "github.com/pyck-ai/pyck/backend/common/log/adapter"
 	"github.com/pyck-ai/pyck/backend/common/services/zitadel"
@@ -67,7 +68,8 @@ func runServer(ctx context.Context, c *cli.Command) error {
 	defer natsClient.Close()
 
 	// Set up JetStream
-	jetstreamClient, err := events.CreateOrUpdateJetstream(ctx, natsClient, config.Config.NatsStreamName, config.Config.NatsReplicasNumber)
+	jetstreamClient, err := events.SetupJetStream(ctx, natsClient, config.Config.NatsStreamName, config.Config.NatsReplicasNumber,
+		events.StreamLimitsOf(config.Config.NatsConfig))
 	if err != nil {
 		return fmt.Errorf("failed setting up jetstream: %w", err)
 	}
@@ -172,8 +174,9 @@ type temporalServer struct {
 	jetstreamClient jetstream.JetStream
 	streamName      string
 	serviceName     string
-	revocationCC    jetstream.ConsumeContext
+	tenantEventsCC  jetstream.ConsumeContext
 	authProvider    *authn.ZitadelAuthProvider
+	livenessCache   *liveness.Cache
 }
 
 func NewTemporalServer(
@@ -283,10 +286,10 @@ func (s *temporalServer) Start(ctx context.Context) error {
 	}
 
 	// Set up claim mapper, authorizer and audience mapper. Introspection
-	// talks to Zitadel directly; the org-active check goes through the
-	// federation gateway to management's organization query (via the
-	// generated management API client) so only management ever talks to
-	// Zitadel's org-management surface.
+	// talks to Zitadel directly; the tenant liveness check goes through
+	// the federation gateway to management's disabledTenants query (via
+	// the generated management API client) so only management ever reads
+	// the tenant table.
 	zitadelClient := zitadel.NewClient(config.Config.ZitadelConfig)
 	mgmtClient := managementapi.NewClient(
 		nethttp.DefaultClient,
@@ -297,23 +300,33 @@ func (s *temporalServer) Start(ctx context.Context) error {
 			return next(ctx, r, gqlInfo, res)
 		},
 	)
-	authProvider := authn.NewZitadelAuthProvider(zitadelClient, config.Config.ZitadelConfig, managementapi.NewOrganizationValidator(mgmtClient))
+	livenessCache := liveness.NewCacheFromConfig(config.Config.LivenessConfig)
+	s.livenessCache = livenessCache
+	tenantSource := managementapi.NewDisabledTenantsSource(mgmtClient)
+	authProvider, err := authn.NewZitadelAuthProvider(zitadelClient, config.Config.ZitadelConfig,
+		tenantSource, livenessCache)
+	if err != nil {
+		return fmt.Errorf("create auth provider: %w", err)
+	}
 	// Stored so Stop() can Close() it — the provider owns a memkv
 	// cleanup goroutine + ticker that leak otherwise. Any error path
 	// below this point relies on runServer calling Stop() to release it.
 	s.authProvider = authProvider
 
-	// Evict cached PATs on tenant-disable. Without the subscriber,
-	// the validator slow path still rejects but every cache-hit
-	// request between the disable and the natural TTL falls onto it,
-	// amplifying load on management.
-	revocationCC, err := authn.SubscribeRevocations(ctx, s.jetstreamClient, s.streamName, s.serviceName, authProvider.OnTenantDisabled)
+	// Follow tenant lifecycle events: liveness verdicts and cached PATs.
+	// Without the subscriber, the validator slow path still rejects but
+	// every cache-hit request between the disable and the natural TTL
+	// falls onto it, amplifying load on management.
+	tenantEventsCC, err := authn.SubscribeTenantEvents(ctx, s.jetstreamClient, s.streamName, s.serviceName, authn.NewTenantEventHandler(livenessCache, authProvider))
 	if err != nil {
 		return fmt.Errorf("subscribe revocations: %w", err)
 	}
-	s.revocationCC = revocationCC
+	s.tenantEventsCC = tenantEventsCC
 
-	claimMapper := authz.NewClaimMapper(ctx, authProvider)
+	claimMapper, err := authz.NewClaimMapper(ctx, authProvider, livenessCache, tenantSource, config.Config.ClaimsTimeout)
+	if err != nil {
+		return fmt.Errorf("create claim mapper: %w", err)
+	}
 
 	audienceMapper, err := authorization.GetAudienceMapperFromConfig(&cfg.Global.Authorization)
 	if err != nil {
@@ -435,15 +448,19 @@ func (s *temporalServer) Stop() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.revocationCC != nil {
-		s.revocationCC.Stop()
-		s.revocationCC = nil
+	if s.tenantEventsCC != nil {
+		s.tenantEventsCC.Stop()
+		s.tenantEventsCC = nil
 	}
 
 	if s.authProvider != nil {
 		// Stops the provider's memkv cleanup goroutine + ticker.
 		s.authProvider.Close()
 		s.authProvider = nil
+	}
+	if s.livenessCache != nil {
+		s.livenessCache.Close()
+		s.livenessCache = nil
 	}
 
 	if s.pgAdapter != nil {

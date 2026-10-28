@@ -21,7 +21,6 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/gqlserver"
 	"github.com/pyck-ai/pyck/backend/common/request"
-	"github.com/pyck-ai/pyck/backend/common/tenant"
 	"github.com/pyck-ai/pyck/backend/common/test/mocks"
 	testresolver "github.com/pyck-ai/pyck/backend/common/test/resolver"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
@@ -125,7 +124,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, *ent.Client, context.Conte
 	httpRouter := chi.NewRouter()
 	httpRouter.Use(
 		httpAuth.HTTPMiddleware(),
-		tenant.HTTPMiddleware(),
+		testresolver.TenantMiddlewareFor(t, *testUser),
 	)
 	// Mount GraphQL handler at root for gqlgenc client
 	httpRouter.Handle("/", gqlServer)

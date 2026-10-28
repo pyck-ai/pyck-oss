@@ -2,7 +2,7 @@
 # Source: backend/management/api/testdata/tests/cross-management-custom-event-forgery.test.yaml
 
 info:
-  #name: Delete Inventory Item - Delete the first item
+  #name: Delete Inventory Item - Delete the second item
   name: Delete Inventory Item
   type: graphql
   seq: 6
@@ -28,7 +28,7 @@ graphql:
       // Source: backend/management/api/testdata/tests/cross-management-custom-event-forgery.test.yaml
 
       {
-        "id": "{{bru-test_cross-management-custom-event-forgery_b1c91cce}}"
+        "id": "{{bru-test_cross-management-custom-event-forgery_d58f4837}}"
       }
 
 runtime:

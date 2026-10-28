@@ -44,7 +44,7 @@ func openJanitorDB(t *testing.T) *sql.DB {
 func insertOutboxRow(t *testing.T, db *sql.DB, publishedAt, deadAt *time.Time) uuid.UUID {
 	t.Helper()
 	id := uuid.New()
-	_, err := db.ExecContext(context.Background(),
+	_, err := db.ExecContext(t.Context(),
 		`INSERT INTO janitor.event_outbox (id, published_at, dead_at) VALUES ($1, $2, $3)`,
 		id, publishedAt, deadAt)
 	require.NoError(t, err)
@@ -54,7 +54,7 @@ func insertOutboxRow(t *testing.T, db *sql.DB, publishedAt, deadAt *time.Time) u
 func outboxRowExists(t *testing.T, db *sql.DB, id uuid.UUID) bool {
 	t.Helper()
 	var n int
-	require.NoError(t, db.QueryRowContext(context.Background(),
+	require.NoError(t, db.QueryRowContext(t.Context(),
 		`SELECT count(*) FROM janitor.event_outbox WHERE id = $1`, id).Scan(&n))
 	return n == 1
 }
@@ -72,7 +72,7 @@ func TestOutboxJanitor_SweepDeletesOnlyOldPublishedRows(t *testing.T) {
 	deadOld := insertOutboxRow(t, db, nil, &old)
 
 	j := events.NewOutboxJanitor(db, "janitor.event_outbox", time.Minute, 72*time.Hour, 1000)
-	n, err := j.Sweep(context.Background())
+	n, err := j.Sweep(t.Context())
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, n)
@@ -97,12 +97,12 @@ func TestOutboxJanitor_SweepLoopsUntilShortBatch(t *testing.T) {
 
 	// Batch size 3 < 7 rows: needs 3 statements (3+3+1) to finish.
 	j := events.NewOutboxJanitor(db, "janitor.event_outbox", time.Minute, 72*time.Hour, 3)
-	n, err := j.Sweep(context.Background())
+	n, err := j.Sweep(t.Context())
 	require.NoError(t, err)
 
 	assert.Equal(t, oldRows, n)
 	var left int
-	require.NoError(t, db.QueryRowContext(context.Background(),
+	require.NoError(t, db.QueryRowContext(t.Context(),
 		`SELECT count(*) FROM janitor.event_outbox`).Scan(&left))
 	assert.Equal(t, 1, left)
 	assert.True(t, outboxRowExists(t, db, keep))
@@ -121,7 +121,7 @@ func TestOutboxJanitor_SweepPausesBetweenBatchesAndStopsOnCancel(t *testing.T) {
 	// deleted, then the pause is cut short by the context deadline.
 	j := events.NewOutboxJanitor(db, "janitor.event_outbox", time.Minute, 72*time.Hour, 3).
 		WithBatchPause(time.Hour)
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
 	defer cancel()
 
 	start := time.Now()
@@ -140,7 +140,7 @@ func TestOutboxJanitor_RunSweepsOnIntervalAndStopsOnCancel(t *testing.T) {
 	id := insertOutboxRow(t, db, &old, nil)
 
 	j := events.NewOutboxJanitor(db, "janitor.event_outbox", 10*time.Millisecond, 72*time.Hour, 1000)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan struct{})
 	go func() { j.Run(ctx); close(done) }()
 

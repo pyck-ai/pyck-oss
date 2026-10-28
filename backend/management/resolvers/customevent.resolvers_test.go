@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/pyck-ai/pyck/backend/common/events"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 )
@@ -100,34 +101,28 @@ func TestSendCustomEvent(t *testing.T) {
 	})
 }
 
-// TestSendCustomEventRefusesEntityTypes pins that a custom event cannot use
-// the type of a real management entity. The event is re-published on
-// pyck.<tenant>.crud.management.<type>.<id>.<op>, the subject the entity's
-// own CRUD events use; every service's datatype cache consumes those for all
-// tenants and keys its slots by id, so a forged "datatype" event with another
-// tenant's id removed that datatype from every service's cache.
-func TestSendCustomEventRefusesEntityTypes(t *testing.T) {
+// TestSendCustomEventUsesItsOwnNamespace pins that a custom event, even one
+// named after a management entity, is published outside the CRUD namespace.
+func TestSendCustomEventUsesItsOwnNamespace(t *testing.T) {
 	t.Parallel()
 
 	te := setup(t)
 	t.Cleanup(func() { te.Close(t) })
 	ctx := te.ctx(userA)
 
-	// Every spelling that normalises to an entity's subject segment.
-	for _, typ := range []string{"datatype", "DataType", " DATATYPE ", "tenant", "user", "DeviceUser", "devicelocation", "keyvalue", "location", "device"} {
-		for _, op := range []string{"create", "update", "delete"} {
-			te.clearEvents(ctx)
-			execErr(te, ctx, sendTypedCustomEvent, map[string]any{"Type": typ, "Operation": op, "ID": uuid.New()}, "reserved")
-			te.assertNoEvents(ctx)
-		}
-	}
-
-	// Positive control: custom types of their own still work, including one
-	// that only differs from an entity by a separator.
-	for _, typ := range []string{"replenishment", "tour-creation", "data-type"} {
+	for _, typ := range []string{"datatype", "tenant", "tour-creation"} {
 		te.clearEvents(ctx)
-		data := execOK[sendCustomEventData](te, ctx, sendTypedCustomEvent, map[string]any{"Type": typ, "Operation": "create", "ID": uuid.New()})
+
+		id := uuid.New()
+		data := execOK[sendCustomEventData](te, ctx, sendTypedCustomEvent, map[string]any{"Type": typ, "Operation": "delete", "ID": id})
 		assert.True(t, data.SendCustomEvent.Success, typ)
+
+		entries, err := te.Ent.EntityEventsOutbox.Query().All(ctx)
+		require.NoError(t, err)
+		require.Len(t, entries, 1)
+
+		want := events.TenantCustomEventTopic{TenantID: resolver.TenantA, EventType: typ, EntityID: id, OperationName: "delete"}
+		assert.Equal(t, want.String(), entries[0].Topic, typ)
 	}
 }
 
@@ -324,7 +319,7 @@ func assertOnlyEventIn(te *testEnv, tenantID, userID uuid.UUID) {
 	require.NoError(te.t, err)
 	require.Len(te.t, entries, 1, "exactly one outbox row")
 	assert.Equal(te.t, tenantID, entries[0].TenantID, "outbox row tenant")
-	assert.Contains(te.t, entries[0].Topic, "."+tenantID.String()+".crud.", "NATS subject tenant")
+	assert.Contains(te.t, entries[0].Topic, "."+tenantID.String()+".custom.", "NATS subject tenant")
 	assert.Equal(te.t, tenantID.String(), fmt.Sprint(entries[0].Payload["tenant_id"]),
 		"payload tenant_id (the tenant the signal router starts workflows in)")
 	attrs, ok := entries[0].Payload["wf_search_attributes"].(map[string]any)

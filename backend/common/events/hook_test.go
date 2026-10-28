@@ -50,6 +50,15 @@ type differentEntity struct {
 	Code string
 }
 
+// testEntityWithSecret mirrors an Ent entity with a Sensitive field: Ent
+// tags those `json:"-"` so they never reach the entity JSON, and the
+// per-field change list must leave them out for the same reason.
+type testEntityWithSecret struct {
+	ID     uuid.UUID
+	Name   string
+	Secret string `json:"-"`
+}
+
 func TestMain(m *testing.M) {
 	// Pre-register test types in the typeInfoCache.
 	// testEntity: no special data field handling
@@ -58,6 +67,8 @@ func TestMain(m *testing.M) {
 	events.RegisterTestType(testEntityWithData{}, "Data")
 	// differentEntity: for type mismatch tests
 	events.RegisterTestType(differentEntity{}, "")
+	// testEntityWithSecret: the json:"-" field must be skipped
+	events.RegisterTestType(testEntityWithSecret{}, "")
 
 	// Mirror the production OTel global propagator wiring (see
 	// backend/common/otel/provider.go) so carrier round-trip tests work.
@@ -223,7 +234,7 @@ func TestMutationEventHook_StampsTransactionIDSearchAttribute(t *testing.T) {
 	mutator := hook(next)
 	m := &mockMutation{op: ent.OpCreate, typ: "TestEntity", ids: []uuid.UUID{entityID}}
 
-	ctx := authn.Context(context.Background(), &authn.User{
+	ctx := authn.Context(t.Context(), &authn.User{
 		ID:       uuid.New(),
 		TenantID: tenantID,
 		Roles:    map[uuid.UUID]authn.Role{tenantID: authn.ROLE_WRITER},
@@ -268,7 +279,7 @@ func TestMutationEventHook_PayloadCarriesOutboxEntryID(t *testing.T) {
 		return &testEntity{ID: entityID, TenantID: tenantID, Name: "test"}, nil
 	})
 
-	ctx := authn.Context(context.Background(), &authn.User{
+	ctx := authn.Context(t.Context(), &authn.User{
 		ID:       uuid.New(),
 		TenantID: tenantID,
 		Roles:    map[uuid.UUID]authn.Role{tenantID: authn.ROLE_WRITER},
@@ -371,7 +382,7 @@ func TestMutationEventHook_CountsEventsPerTransaction(t *testing.T) {
 	m := &mockMutation{op: ent.OpCreate, typ: "TestEntity", ids: []uuid.UUID{entityID}}
 
 	txCtx := func() context.Context {
-		ctx := authn.Context(context.Background(), &authn.User{
+		ctx := authn.Context(t.Context(), &authn.User{
 			ID:       uuid.New(),
 			TenantID: tenantID,
 			Roles:    map[uuid.UUID]authn.Role{tenantID: authn.ROLE_WRITER},
@@ -973,6 +984,20 @@ func TestGetUpdatedFields(t *testing.T) {
 			wantLen: 1,
 		},
 		{
+			// A Sensitive (json:"-") field changing must not produce a
+			// change entry: the entry would publish the old and new secret.
+			name:    "json:\"-\" field change is invisible",
+			before:  &testEntityWithSecret{Name: "same", Secret: "$2a$12$old"},
+			after:   &testEntityWithSecret{Name: "same", Secret: ""},
+			wantLen: 0,
+		},
+		{
+			name:    "json:\"-\" field does not hide sibling changes",
+			before:  &testEntityWithSecret{Name: "old", Secret: "$2a$12$old"},
+			after:   &testEntityWithSecret{Name: "new", Secret: ""},
+			wantLen: 1,
+		},
+		{
 			name:    "nil before",
 			before:  (*testEntity)(nil),
 			after:   &testEntity{Name: "new"},
@@ -1079,8 +1104,8 @@ func systemUserCtx(t *testing.T) context.Context {
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithSpanProcessor(tracetest.NewSpanRecorder()),
 	)
-	t.Cleanup(func() { assert.NoError(t, tp.Shutdown(context.Background())) })
-	ctx, span := tp.Tracer("test").Start(context.Background(), "test-span")
+	t.Cleanup(func() { assert.NoError(t, tp.Shutdown(context.WithoutCancel(t.Context()))) })
+	ctx, span := tp.Tracer("test").Start(t.Context(), "test-span")
 	t.Cleanup(func() { span.End() })
 	ctx = authn.Context(ctx, authn.SystemUser())
 	return txid.With(ctx, txid.New())
@@ -1370,7 +1395,7 @@ func TestMutationEventHook_BulkMatchingRows_SuppressedRuns(t *testing.T) {
 		return 2, nil
 	})
 
-	ctx := feature.Context(context.Background(), feature.FEATURE_SUPPRESS_EVENTS)
+	ctx := feature.Context(t.Context(), feature.FEATURE_SUPPRESS_EVENTS)
 	m := &mockMutation{op: ent.OpDelete, typ: "Widget", ids: []uuid.UUID{uuid.New(), uuid.New()}}
 	value, err := hook(next).Mutate(ctx, m)
 
@@ -1440,7 +1465,7 @@ func TestMutationEventHook_IdempotencyKey_NeverEmits(t *testing.T) {
 
 			// Matching ids on a bulk op: the bulk rule must not apply either.
 			m := &mockMutation{op: op, typ: "IdempotencyKey", ids: []uuid.UUID{keyID}}
-			_, err := hook(next).Mutate(context.Background(), m)
+			_, err := hook(next).Mutate(t.Context(), m)
 
 			require.NoError(t, err)
 			assert.True(t, ran)

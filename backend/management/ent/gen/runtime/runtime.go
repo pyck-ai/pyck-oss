@@ -283,8 +283,11 @@ func init() {
 		})
 	}
 	tenantMixinHooks1 := tenantMixin[1].Hooks()
+	tenantHooks := schema.Tenant{}.Hooks()
 
 	tenant.Hooks[1] = tenantMixinHooks1[0]
+
+	tenant.Hooks[2] = tenantHooks[0]
 	tenantMixinInters2 := tenantMixin[2].Interceptors()
 	tenant.Interceptors[0] = tenantMixinInters2[0]
 	tenantFields := schema.Tenant{}.Fields()
@@ -293,6 +296,10 @@ func init() {
 	tenantDescName := tenantFields[1].Descriptor()
 	// tenant.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	tenant.NameValidator = tenantDescName.Validators[0].(func(string) error)
+	// tenantDescNameKey is the schema descriptor for name_key field.
+	tenantDescNameKey := tenantFields[2].Descriptor()
+	// tenant.NameKeyValidator is a validator for the "name_key" field. It is called by the builders before save.
+	tenant.NameKeyValidator = tenantDescNameKey.Validators[0].(func(string) error)
 	// tenantDescID is the schema descriptor for id field.
 	tenantDescID := tenantFields[0].Descriptor()
 	// tenant.DefaultID holds the default value on creation for the id field.

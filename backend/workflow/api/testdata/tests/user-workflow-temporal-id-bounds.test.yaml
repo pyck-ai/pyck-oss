@@ -1,0 +1,172 @@
+---
+name: "User - Workflow Temporal Id Bounds"
+description: >
+  registerWorkflow and submitUserDataInput refuse names that cannot work in
+  Temporal (#1502), before anything is stored and before Temporal is called. The name
+  is capped at 218 bytes so name + "_" + uuid fits the 255 characters
+  Temporal's store holds; the task queue at 255 bytes for the same reason;
+  signal names at Temporal's 1000-byte limit, and update names at the same
+  1000 bytes. The SDK's
+  built-in SetAssignee and SetIsAssignable updates are refused too, as each
+  has its own mutation.
+steps:
+  - name: "A 219-byte workflow name is refused"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn"
+        taskQueue: "test-task-queue"
+        workerID: "scenario-user-workflow-temporal-id-bounds"
+        signals:
+          - natsTopic: "request.reply.pyck.{{env_pyck_tenant_id}}.crud.inventory.item.*.created"
+            temporalSignal: "itemCreated"
+            temporalSignalType: "intermediate"
+            filterRule: "true"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Refused with a validation error"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "invalid name: exceeds the maximum length"
+
+  - name: "A 256-byte task queue is refused"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "TestTemporalIdBounds"
+        taskQueue: "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"
+        workerID: "scenario-user-workflow-temporal-id-bounds"
+        signals:
+          - natsTopic: "request.reply.pyck.{{env_pyck_tenant_id}}.crud.inventory.item.*.created"
+            temporalSignal: "itemCreated"
+            temporalSignalType: "intermediate"
+            filterRule: "true"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Refused with a validation error"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "invalid task queue: exceeds the maximum length"
+
+  - name: "A 1001-byte signal name is refused"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "TestTemporalIdBounds"
+        taskQueue: "test-task-queue"
+        workerID: "scenario-user-workflow-temporal-id-bounds"
+        signals:
+          - natsTopic: "request.reply.pyck.{{env_pyck_tenant_id}}.crud.inventory.item.*.created"
+            temporalSignal: "sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss"
+            temporalSignalType: "intermediate"
+            filterRule: "true"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Refused with a validation error"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "signal name exceeds the maximum length"
+
+  - name: "No refused registration was stored"
+    operation: workflow.getWorkflows
+    vars:
+      where:
+        tenantID: "{{env_pyck_tenant_id}}"
+        or:
+          - name: "TestTemporalIdBounds"
+          - nameHasPrefix: "nnnnnnnnnnnnnnnnnnnn"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No workflow stored"
+        assertions:
+          - ref: res.body.data.workflows.totalCount
+            equal: 0
+
+  - name: "An empty update name is refused"
+    operation: workflow.submitUserDataInput
+    vars:
+      input:
+        name: ""
+        data: {}
+        workflowID: "scenario-temporal-id-bounds-workflow"
+        workflowRunID: "00000000-0000-0000-0000-000000000000"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Refused with a validation error"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "invalid update name"
+
+  - name: "A blank update name is refused"
+    operation: workflow.submitUserDataInput
+    vars:
+      input:
+        name: "   "
+        data: {}
+        workflowID: "scenario-temporal-id-bounds-workflow"
+        workflowRunID: "00000000-0000-0000-0000-000000000000"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Refused with a validation error"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "invalid update name"
+
+  - name: "A 1001-byte update name is refused"
+    operation: workflow.submitUserDataInput
+    vars:
+      input:
+        name: "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu"
+        data: {}
+        workflowID: "scenario-temporal-id-bounds-workflow"
+        workflowRunID: "00000000-0000-0000-0000-000000000000"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Refused with a validation error"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "invalid update name"
+
+  - name: "The built-in SetAssignee update is refused"
+    operation: workflow.submitUserDataInput
+    vars:
+      input:
+        name: "SetAssignee"
+        data:
+          assignee: "not-a-user-of-this-tenant"
+        workflowID: "scenario-temporal-id-bounds-workflow"
+        workflowRunID: "00000000-0000-0000-0000-000000000000"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Refused with a validation error"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "reserved for a dedicated mutation"

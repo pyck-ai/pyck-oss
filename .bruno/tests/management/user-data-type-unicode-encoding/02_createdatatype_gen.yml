@@ -69,7 +69,7 @@ runtime:
         });
 
         test("DataType was created with NFC name", function() {
-          expect(body?.data?.createDataType?.id)/* UNSUPPORTED:  */;
+          expect(body?.data?.createDataType?.id).to.exist;
           expect(body?.data?.createDataType?.name).to.equal('Café Münchner');
         });
     - type: after-response

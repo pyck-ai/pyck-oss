@@ -1,11 +1,11 @@
 //go:build integration
 
 // Package deletedorg covers the "Zitadel org no longer exists" paths the
-// tenant disable/restore/reconcile and zitadel-sync workflows must tolerate.
-// It reproduces the production bug where an org-cleanup job removed orgs out
-// of band while pyck still held tenant rows, causing
-// DeactivateZitadelOrgActivity to fail NotFound and the reconcile sweeper to
-// re-dispatch the disable workflow forever.
+// tenant disable/reconcile and zitadel-sync workflows must tolerate. The
+// tenant row is the liveness truth: an org removed out of band (an
+// org-cleanup job, a manual delete) never soft-deletes the tenant, the
+// per-tenant user sync skips it, the reconcile sweeper does not treat it
+// as drift, and deleteTenant still completes so an operator can retire it.
 //
 // Run with:
 //

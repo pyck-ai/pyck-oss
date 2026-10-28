@@ -1,4 +1,4 @@
-version: "3.45"
+version: "3.47"
 
 tasks:
   clean:
@@ -33,6 +33,9 @@ tasks:
 
   lint:
     desc: Lint module
+    # LINT_BASE overrides the revision that `issues.new-from-rev` in
+    # .golangci.toml diffs against (origin/main). CI passes a fixed commit
+    # SHA so the baseline cannot move while the run is in flight.
     cmds:
       - go mod verify
       - golangci-lint config verify
@@ -40,6 +43,7 @@ tasks:
         golangci-lint run
         --allow-serial-runners
         --timeout=10m
+        {{if .LINT_BASE}}--new-from-rev={{.LINT_BASE}}{{end}}
         ./...
       - task: limitlint
 

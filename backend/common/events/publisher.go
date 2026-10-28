@@ -7,6 +7,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+
+	"github.com/pyck-ai/pyck/backend/common/events/topic"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	"github.com/pyck-ai/pyck/backend/common/std"
 )
@@ -60,12 +62,13 @@ type EventPublisher struct {
 
 var _ Publisher = (*EventPublisher)(nil)
 
+// SendCustomEvent publishes msg to the system stream.
 func (e *EventPublisher) SendCustomEvent(ctx context.Context, msg *CustomEventMessage) error {
-	topic := &CustomEventTopic{
-		StreamName: e.streamName,
+	customTopic := &CustomEventTopic{
+		StreamName: topic.SystemStreamName(e.streamName),
 	}
 
-	return e.publish(ctx, topic.String(), msg)
+	return e.publish(ctx, customTopic.String(), msg)
 }
 
 func (e *EventPublisher) SendMutationEvent(ctx context.Context, msg *MutationEventMessage) error {
@@ -81,9 +84,17 @@ func (e *EventPublisher) SendMutationEvent(ctx context.Context, msg *MutationEve
 	return e.publish(ctx, topic.String(), msg)
 }
 
+// SendTemporalWorkflowEvent publishes msg to its namespace's tenant stream, or
+// to the system stream for a namespace of no tenant. When no stream captures
+// the subject it returns jetstream.ErrNoStreamResponse at once.
 func (e *EventPublisher) SendTemporalWorkflowEvent(ctx context.Context, msg *TemporalWorkflowStateChangeMessage) error {
-	topic := &TemporalWorkflowStateChangeTopic{
-		StreamName:       e.streamName,
+	streamName := e.streamName
+	if _, ok := topic.ParseTenantNamespace(msg.Namespace); !ok {
+		streamName = topic.SystemStreamName(e.streamName)
+	}
+
+	stateTopic := &TemporalWorkflowStateChangeTopic{
+		StreamName:       streamName,
 		Namespace:        msg.Namespace,
 		TaskQueue:        msg.TaskQueue,
 		WorkflowTypeName: msg.WorkflowTypeName,
@@ -92,13 +103,13 @@ func (e *EventPublisher) SendTemporalWorkflowEvent(ctx context.Context, msg *Tem
 		Status:           msg.Status,
 	}
 
-	// Every Temporal pod that receives the database notification publishes the
-	// change, so the message ID lets JetStream keep one copy per duplicate
-	// window. The ID is predictable, so a client that can publish to the stream
-	// could suppress the change by guessing it; that is accepted until each
-	// tenant has its own stream (#1656). The signal router deduplicates by
-	// Temporal request ID beyond the window.
-	return e.publish(ctx, topic.String(), msg, jetstream.WithMsgID(StateChangeMsgIDPrefix+msg.EventID().String()))
+	// The ID collapses the copies every Temporal pod publishes; see
+	// TemporalWorkflowStateChangeMessage. No client retries: the caller retries
+	// itself and must see a missing stream within its attempt timeout.
+	return e.publish(ctx, stateTopic.String(), msg,
+		jetstream.WithMsgID(StateChangeMsgIDPrefix+msg.EventID().String()),
+		jetstream.WithRetryAttempts(0),
+	)
 }
 
 func (e *EventPublisher) SendUpdateEvent(ctx context.Context, msg *UpdateEventMessage) error {

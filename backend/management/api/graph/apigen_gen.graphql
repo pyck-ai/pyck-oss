@@ -211,6 +211,7 @@ query GetTenants($after: Cursor, $first: Int, $before: Cursor, $last: Int, $orde
         id
         idpOrgRef
         name
+        status
         updatedAt
         updatedBy
       }
@@ -278,11 +279,8 @@ query GetDataTypeBySlug($slug: String!) {
 }
 
 
-query GetOrganization($sub: String!) {
-  organization(sub: $sub) {
-    active
-    id
-  }
+query GetDisabledTenants($ids: [ID!]!) {
+  disabledTenants(ids: $ids)
 }
 
 
@@ -404,6 +402,7 @@ mutation RegisterTenant($input: RegisterTenantInput!) {
       id
       idpOrgRef
       name
+      status
       updatedAt
       updatedBy
     }
@@ -411,8 +410,8 @@ mutation RegisterTenant($input: RegisterTenantInput!) {
 }
 
 
-mutation DeleteTenant {
-  deleteTenant {
+mutation DeleteTenant($input: DeleteTenantInput!) {
+  deleteTenant(input: $input) {
     success
   }
 }

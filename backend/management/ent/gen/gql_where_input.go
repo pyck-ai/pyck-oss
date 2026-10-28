@@ -4126,6 +4126,12 @@ type TenantWhereInput struct {
 	ExpiresAtIsNil  bool        `json:"expiresAtIsNil,omitempty"`
 	ExpiresAtNotNil bool        `json:"expiresAtNotNil,omitempty"`
 
+	// "status" field predicates.
+	Status      *tenant.Status  `json:"status,omitempty"`
+	StatusNEQ   *tenant.Status  `json:"statusNEQ,omitempty"`
+	StatusIn    []tenant.Status `json:"statusIn,omitempty"`
+	StatusNotIn []tenant.Status `json:"statusNotIn,omitempty"`
+
 	// "tenantUsers" edge predicates.
 	HasTenantUsers     *bool             `json:"hasTenantUsers,omitempty"`
 	HasTenantUsersWith []*UserWhereInput `json:"hasTenantUsersWith,omitempty"`
@@ -4516,6 +4522,18 @@ func (i *TenantWhereInput) P() (predicate.Tenant, error) {
 	}
 	if i.ExpiresAtNotNil {
 		predicates = append(predicates, tenant.ExpiresAtNotNil())
+	}
+	if i.Status != nil {
+		predicates = append(predicates, tenant.StatusEQ(*i.Status))
+	}
+	if i.StatusNEQ != nil {
+		predicates = append(predicates, tenant.StatusNEQ(*i.StatusNEQ))
+	}
+	if len(i.StatusIn) > 0 {
+		predicates = append(predicates, tenant.StatusIn(i.StatusIn...))
+	}
+	if len(i.StatusNotIn) > 0 {
+		predicates = append(predicates, tenant.StatusNotIn(i.StatusNotIn...))
 	}
 
 	if i.HasTenantUsers != nil {

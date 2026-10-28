@@ -1,5 +1,14 @@
 name: user-isolation
-description: Verify users are isolated between tenants
+description: >
+  Verify the user projection is isolated between tenants on reads, and that
+  its writes admit no tenant caller at all. The read checks are the tenant
+  isolation of the projection; the write checks are the system-caller guard.
+  Cross-tenant isolation of createUser/updateUser/deleteUser is no longer
+  reachable from a non-system caller (the guard refuses before any row is
+  loaded) so no check here covers it, and none can: a TenantMixin predicate
+  removed from the user mutations would leave every check below passing.
+  The system caller's own tenant scoping is covered by the resolver unit
+  tests in mutations.resolvers_test.go.
 
 seed:
   tenants:
@@ -25,28 +34,45 @@ checks:
     description: "beta sees only own users"
     expectCount: 1
 
+# The user CRUD resolvers refuse every non-system caller before any row is
+# touched (the User table is a zitadel-sync-owned projection), so both the
+# cross-tenant and the own-tenant writes below fail on the same guard.
   - type: cross-update
     entity: user
     tenant: alpha
     target: beta/user-beta
-    description: "alpha cannot update beta's user"
-    expectError: "not found"
+    description: "updateUser refuses a non-system caller, cross-tenant included"
+    expectError: "system caller required"
+
+  - type: cross-update
+    entity: user
+    tenant: alpha
+    target: alpha/user-alpha
+    description: "updateUser refuses a non-system caller on its own tenant too"
+    expectError: "system caller required"
 
   - type: query
     entity: user
     tenant: beta
-    description: "beta still has 1 user after failed cross-update"
+    description: "beta still has 1 user after the refused updates"
     expectCount: 1
 
   - type: cross-delete
     entity: user
     tenant: alpha
     target: beta/user-beta
-    description: "alpha cannot delete beta's user"
-    expectError: "not found"
+    description: "deleteUser refuses a non-system caller, cross-tenant included"
+    expectError: "system caller required"
+
+  - type: cross-delete
+    entity: user
+    tenant: alpha
+    target: alpha/user-alpha
+    description: "deleteUser refuses a non-system caller on its own tenant too"
+    expectError: "system caller required"
 
   - type: query
     entity: user
     tenant: beta
-    description: "beta still has 1 user after failed cross-delete"
+    description: "beta still has 1 user after the refused deletes"
     expectCount: 1

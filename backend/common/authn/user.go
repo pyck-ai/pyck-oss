@@ -18,10 +18,11 @@ type User struct {
 	ID uuid.UUID
 	// TenantID is the unique identifier of the tenant the user belongs to.
 	TenantID uuid.UUID
-	// Sub is the raw Zitadel user ID — the `sub` claim from the
-	// token's introspection. Kept verbatim (not hashed) because v2
-	// Zitadel APIs (user/v2.GetUserByID, etc.) take the raw ID, and
-	// hashing it would break those lookups.
+	// Sub is the raw Zitadel user ID — the `sub` claim from the token's
+	// introspection, and the value ID above is derived from. Kept verbatim
+	// as the diagnostic identifier of the auth path: a log line naming it
+	// can be matched against Zitadel's own user records, which ID (hashed)
+	// cannot.
 	Sub string
 	// Username is the unique name of the user.
 	Username string
@@ -32,8 +33,14 @@ type User struct {
 	// tenant. Tracked separately from the privilege ladder; the gate enforces
 	// them per service.
 	ServiceRoles map[uuid.UUID]map[string]struct{}
-	// Token is the authentication token of the user.
-	Token string
+	// Token is the authentication token of the user, the caller's live
+	// bearer credential. It MUST never reach a log line or an event
+	// payload: log sites name explicit identifier fields (ID, Sub,
+	// Username) instead of handing the whole struct to the logger. The
+	// json:"-" tag makes that structural: the struct is marshalled into
+	// event payloads and diagnostic dumps, and a tag is the only thing
+	// that keeps a future call site from carrying the credential there.
+	Token string `json:"-"`
 }
 
 func (u User) IsAuthenticated() bool {

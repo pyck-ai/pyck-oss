@@ -37,9 +37,7 @@ func (s *CustomEventSuite) TestForgedDatatypeDeleteDoesNotBreakOtherTenant() {
 	res := s.gql(a.PAT, a.RT.ID, mSendEvent, map[string]any{"i": map[string]any{
 		"type": "datatype", "operation": "delete", "payload": map[string]any{"id": dt},
 	}})
-	s.T().Logf("A's forged datatype delete → failed=%v err=%q", res.failed(), res.errText())
-	s.True(res.failed(), "sendCustomEvent accepted a custom event named after the datatype entity")
-	s.Contains(res.errText(), "reserved", "forged event failed for an unrelated reason")
+	s.Require().False(res.failed(), "sendCustomEvent refused a custom event named after the datatype entity: %s", res.errText())
 
 	s.Run("B's typed writes keep working after A's forged delete", func() {
 		s.NoError(s.firstFailure(b, dt), "A's forged event removed B's datatype from the inventory cache")
@@ -61,9 +59,7 @@ func (s *CustomEventSuite) TestForgedDatatypeCreateDoesNotHijackOtherTenant() {
 	res := s.gql(a.PAT, a.RT.ID, mSendEvent, map[string]any{"i": map[string]any{
 		"type": "datatype", "operation": "create", "payload": map[string]any{"id": dt},
 	}})
-	s.T().Logf("A's forged datatype create → failed=%v err=%q", res.failed(), res.errText())
-	s.True(res.failed(), "sendCustomEvent accepted a custom event named after the datatype entity")
-	s.Contains(res.errText(), "reserved", "forged event failed for an unrelated reason")
+	s.Require().False(res.failed(), "sendCustomEvent refused a custom event named after the datatype entity: %s", res.errText())
 
 	s.Run("A still cannot write records typed with B's datatype", func() {
 		s.NoError(tests.PollStable(s.Ctx, effectWindow, 500*time.Millisecond, func() error {
@@ -112,9 +108,8 @@ func (s *CustomEventSuite) firstFailure(t *tenantCtx, dt string) error {
 	})
 }
 
-// TestCustomEventWithItsOwnTypeStillWorks is the positive control for the
-// refusal: a custom event whose type names no entity is accepted, as the
-// workflows that trigger on custom events rely on.
+// TestCustomEventWithItsOwnTypeStillWorks: a custom event whose type names no
+// entity is accepted, as the workflows that trigger on custom events rely on.
 func (s *CustomEventSuite) TestCustomEventWithItsOwnTypeStillWorks() {
 	a := s.provision("A")
 	d := s.ok(a.PAT, a.RT.ID, mSendEvent, map[string]any{"i": map[string]any{

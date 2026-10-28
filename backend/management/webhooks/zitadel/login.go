@@ -10,6 +10,7 @@ import (
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/events"
+	eventtopic "github.com/pyck-ai/pyck/backend/common/events/topic"
 	httputil "github.com/pyck-ai/pyck/backend/common/http"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	"github.com/pyck-ai/pyck/backend/common/std"
@@ -36,7 +37,7 @@ type loginEvent struct {
 // verifies the ZITADEL-Signature HMAC, derives the pyck user/tenant UUIDs from
 // the event's aggregate and resource owner (the same ComputeUUID derivation
 // backend/common/authn uses server-side), and publishes a "user/login" event
-// to NATS.
+// to the system stream.
 //
 // audience must match common/authn (the Zitadel issuer). signingKey must be
 // non-empty — the caller only mounts this route when a key is set, and every
@@ -95,7 +96,8 @@ func LoginHandler(audience, signingKey, streamName string, publisher events.Publ
 		// Stable per-login msg ID lets JetStream collapse duplicates if Zitadel
 		// re-delivers the same event (at-least-once / retries).
 		msgID := fmt.Sprintf("zitadel-login:%s:%s", ev.AggregateID, ev.CreatedAt)
-		topic := events.CustomEventTopic{StreamName: streamName}.String()
+		// The system stream: no tenant can pre-empt this predictable ID there.
+		topic := events.CustomEventTopic{StreamName: eventtopic.SystemStreamName(streamName)}.String()
 
 		if err := publisher.PublishRaw(ctx, topic, payload, msgID); err != nil {
 			logger.Error().Err(err).

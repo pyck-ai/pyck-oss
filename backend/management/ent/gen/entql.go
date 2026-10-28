@@ -246,8 +246,11 @@ var schemaGraph = func() *sqlgraph.Schema {
 			tenant.FieldDeletedAt:    {Type: field.TypeTime, Column: tenant.FieldDeletedAt},
 			tenant.FieldDeletedBy:    {Type: field.TypeUUID, Column: tenant.FieldDeletedBy},
 			tenant.FieldName:         {Type: field.TypeString, Column: tenant.FieldName},
+			tenant.FieldNameKey:      {Type: field.TypeString, Column: tenant.FieldNameKey},
 			tenant.FieldIdpOrgRef:    {Type: field.TypeString, Column: tenant.FieldIdpOrgRef},
 			tenant.FieldExpiresAt:    {Type: field.TypeTime, Column: tenant.FieldExpiresAt},
+			tenant.FieldStatus:       {Type: field.TypeEnum, Column: tenant.FieldStatus},
+			tenant.FieldRegistration: {Type: field.TypeJSON, Column: tenant.FieldRegistration},
 		},
 	}
 	graph.Nodes[9] = &sqlgraph.Node{
@@ -1398,6 +1401,11 @@ func (f *TenantFilter) WhereName(p entql.StringP) {
 	f.Where(p.Field(tenant.FieldName))
 }
 
+// WhereNameKey applies the entql string predicate on the name_key field.
+func (f *TenantFilter) WhereNameKey(p entql.StringP) {
+	f.Where(p.Field(tenant.FieldNameKey))
+}
+
 // WhereIdpOrgRef applies the entql string predicate on the idp_org_ref field.
 func (f *TenantFilter) WhereIdpOrgRef(p entql.StringP) {
 	f.Where(p.Field(tenant.FieldIdpOrgRef))
@@ -1406,6 +1414,16 @@ func (f *TenantFilter) WhereIdpOrgRef(p entql.StringP) {
 // WhereExpiresAt applies the entql time.Time predicate on the expires_at field.
 func (f *TenantFilter) WhereExpiresAt(p entql.TimeP) {
 	f.Where(p.Field(tenant.FieldExpiresAt))
+}
+
+// WhereStatus applies the entql string predicate on the status field.
+func (f *TenantFilter) WhereStatus(p entql.StringP) {
+	f.Where(p.Field(tenant.FieldStatus))
+}
+
+// WhereRegistration applies the entql json.RawMessage predicate on the registration field.
+func (f *TenantFilter) WhereRegistration(p entql.BytesP) {
+	f.Where(p.Field(tenant.FieldRegistration))
 }
 
 // WhereHasTenantUsers applies a predicate to check if query has an edge tenantUsers.

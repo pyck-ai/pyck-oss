@@ -3,13 +3,13 @@
 // Package customeventforgery_test checks that a tenant cannot use
 // sendCustomEvent to forge system events for another tenant's data.
 //
-// sendCustomEvent writes an outbox row whose schema, entity id and operation
-// come from the caller. After the signal router replies, the outbox handler
-// re-publishes it on the ordinary pyck.<tenant>.crud.management.<type>.<id>.<op>
-// subject. Every service's datatype cache consumes
+// sendCustomEvent writes an outbox row whose type, entity id and operation come
+// from the caller. Every service's datatype cache consumes
 // pyck.*.crud.management.datatype.* for all tenants and keys its slots by the
-// event's id alone, so a forged "datatype" event with another tenant's id
-// rewrites that tenant's cache slot in every service.
+// event's id alone, so a custom "datatype" event published there with another
+// tenant's id would rewrite that tenant's cache slot in every service. Custom
+// events are published on pyck.<tenant>.custom.<type>.<id>.<op> instead, so
+// such an event is accepted and reaches no cache.
 //
 // Run with:
 //

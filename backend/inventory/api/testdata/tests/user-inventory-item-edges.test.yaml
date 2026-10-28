@@ -3,9 +3,11 @@ description: 'Executes two item movements into one repository, which leaves two
   stock versions there, then verifies that itemstocks returns only the non-empty
   current rows while the stock history keeps every version, and that
   itemmovementitems and itemtransactions list the item''s rows. The item filters
-  hasCurrentStock and hasCurrentStockWith follow the current rows, not the history. A reverse movement
-  empties the destination, which leaves itemstocks, and clearing the source
-  empties it, so every entity can be deleted at the end.
+  hasCurrentStock and hasCurrentStockWith follow the current rows, not the history. Moving the
+  stock on to a third repository empties the destination, which leaves
+  itemstocks while the third repository enters it. Moving that stock back
+  into the virtual source, which never holds stock itself, empties
+  itemstocks, so every entity can be deleted at the end.
 
   '
 steps:
@@ -28,6 +30,22 @@ steps:
       nil: true
 - id: createDestRepo
   name: Create destination repository
+  operation: inventory.createInventoryRepository
+  vars:
+    input:
+      name: {$fake: "{{productname}}-{{nonce}}"}
+      type: static
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+- id: createParkRepo
+  name: Create parking repository
   operation: inventory.createInventoryRepository
   vars:
     input:
@@ -255,7 +273,7 @@ steps:
     - ref: res.body.data.inventoryItems.edges[].node.itemtransactions
       len: 4
 - id: reverseMovement
-  name: Create reverse item movement
+  name: Move the stock on to the parking repository
   operation: inventory.createInventoryItemMovement
   vars:
     input:
@@ -264,7 +282,7 @@ steps:
       fromID:
         $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
       toID:
-        $ref: res[createSourceRepo].body.data.createInventoryRepository.inventoryRepository.id
+        $ref: res[createParkRepo].body.data.createInventoryRepository.inventoryRepository.id
       itemID:
         $ref: res[createItem].body.data.createInventoryItem.inventoryItem.id
   tests:
@@ -276,7 +294,7 @@ steps:
     assertions:
     - ref: res.body.errors
       nil: true
-- name: Execute reverse item movement
+- name: Execute the move to the parking repository
   operation: inventory.executeInventoryItemMovement
   vars:
     id:
@@ -305,19 +323,40 @@ steps:
     assertions:
     - ref: res.body.errors
       nil: true
-  - msg: Only the source holds stock
+  - msg: Only the parking repository holds stock
     assertions:
     - ref: res.body.data.inventoryItems.edges[].node.itemstocks
       len: 1
     - ref: res.body.data.inventoryItems.edges[].node.itemstocks[0].repositoryID
       equal:
-        $ref: res[createSourceRepo].body.data.createInventoryRepository.inventoryRepository.id
-- name: Clear source repository stock
-  operation: inventory.deleteInventoryStock
+        $ref: res[createParkRepo].body.data.createInventoryRepository.inventoryRepository.id
+- id: drainMovement
+  name: Move the parked stock back to the virtual source
+  operation: inventory.createInventoryItemMovement
   vars:
     input:
-      repositoryID:
+      quantity: 2
+      handler: "operator-01"
+      fromID:
+        $ref: res[createParkRepo].body.data.createInventoryRepository.inventoryRepository.id
+      toID:
         $ref: res[createSourceRepo].body.data.createInventoryRepository.inventoryRepository.id
+      itemID:
+        $ref: res[createItem].body.data.createInventoryItem.inventoryItem.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+- name: Execute the move back to the virtual source
+  operation: inventory.executeInventoryItemMovement
+  vars:
+    id:
+      $ref: res[drainMovement].body.data.createInventoryItemMovement.inventoryItemMovement.id
   tests:
   - msg: Status is 200
     assertions:
@@ -420,6 +459,20 @@ steps:
   vars:
     id:
       $ref: res[createDestRepo].body.data.createInventoryRepository.inventoryRepository.id
+  tests:
+  - msg: Status is 200
+    assertions:
+    - ref: res.status
+      equal: 200
+  - msg: No GraphQL errors
+    assertions:
+    - ref: res.body.errors
+      nil: true
+- name: Delete parking repository
+  operation: inventory.deleteInventoryRepository
+  vars:
+    id:
+      $ref: res[createParkRepo].body.data.createInventoryRepository.inventoryRepository.id
   tests:
   - msg: Status is 200
     assertions:

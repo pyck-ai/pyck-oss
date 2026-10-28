@@ -1525,6 +1525,11 @@ func (_q *TenantQuery) collectField(ctx context.Context, oneNode bool, opCtx *gr
 				selectedFields = append(selectedFields, tenant.FieldExpiresAt)
 				fieldSeen[tenant.FieldExpiresAt] = struct{}{}
 			}
+		case "status":
+			if _, ok := fieldSeen[tenant.FieldStatus]; !ok {
+				selectedFields = append(selectedFields, tenant.FieldStatus)
+				fieldSeen[tenant.FieldStatus] = struct{}{}
+			}
 		case "id":
 		case "__typename":
 		default:

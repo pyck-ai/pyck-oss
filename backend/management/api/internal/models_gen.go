@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
 )
 
 // CreateDataTypeInput is used for create DataType object.
@@ -1045,6 +1046,11 @@ type TenantWhereInput struct {
 	ExpiresAtLte    *time.Time   `json:"expiresAtLTE,omitempty"`
 	ExpiresAtIsNil  *bool        `json:"expiresAtIsNil,omitempty"`
 	ExpiresAtNotNil *bool        `json:"expiresAtNotNil,omitempty"`
+	// status field predicates
+	Status      *tenant.Status  `json:"status,omitempty"`
+	StatusNeq   *tenant.Status  `json:"statusNEQ,omitempty"`
+	StatusIn    []tenant.Status `json:"statusIn,omitempty"`
+	StatusNotIn []tenant.Status `json:"statusNotIn,omitempty"`
 	// tenantUsers edge predicates
 	HasTenantUsers     *bool             `json:"hasTenantUsers,omitempty"`
 	HasTenantUsersWith []*UserWhereInput `json:"hasTenantUsersWith,omitempty"`
@@ -1314,7 +1320,7 @@ func (e *DataTypeOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e DataTypeOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *DataTypeOrderField) UnmarshalJSON(b []byte) error {
@@ -1380,7 +1386,7 @@ func (e *DeviceLocationOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e DeviceLocationOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *DeviceLocationOrderField) UnmarshalJSON(b []byte) error {
@@ -1448,7 +1454,7 @@ func (e *DeviceOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e DeviceOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *DeviceOrderField) UnmarshalJSON(b []byte) error {
@@ -1514,7 +1520,7 @@ func (e *DeviceUserOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e DeviceUserOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *DeviceUserOrderField) UnmarshalJSON(b []byte) error {
@@ -1585,7 +1591,7 @@ func (e *JSONPatchOp) UnmarshalGQL(v any) error {
 }
 
 func (e JSONPatchOp) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *JSONPatchOp) UnmarshalJSON(b []byte) error {
@@ -1646,7 +1652,7 @@ func (e *JSONType) UnmarshalGQL(v any) error {
 }
 
 func (e JSONType) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *JSONType) UnmarshalJSON(b []byte) error {
@@ -1716,7 +1722,7 @@ func (e *KeyValueOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e KeyValueOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *KeyValueOrderField) UnmarshalJSON(b []byte) error {
@@ -1784,7 +1790,7 @@ func (e *LocationOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e LocationOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *LocationOrderField) UnmarshalJSON(b []byte) error {
@@ -1842,7 +1848,7 @@ func (e *OrderDirection) UnmarshalGQL(v any) error {
 }
 
 func (e OrderDirection) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *OrderDirection) UnmarshalJSON(b []byte) error {
@@ -1872,6 +1878,7 @@ const (
 	TenantOrderFieldName      TenantOrderField = "NAME"
 	TenantOrderFieldIDPOrgRef TenantOrderField = "IDP_ORG_REF"
 	TenantOrderFieldExpiresAt TenantOrderField = "EXPIRES_AT"
+	TenantOrderFieldStatus    TenantOrderField = "STATUS"
 )
 
 var AllTenantOrderField = []TenantOrderField{
@@ -1884,11 +1891,12 @@ var AllTenantOrderField = []TenantOrderField{
 	TenantOrderFieldName,
 	TenantOrderFieldIDPOrgRef,
 	TenantOrderFieldExpiresAt,
+	TenantOrderFieldStatus,
 }
 
 func (e TenantOrderField) IsValid() bool {
 	switch e {
-	case TenantOrderFieldCreatedAt, TenantOrderFieldCreatedBy, TenantOrderFieldUpdatedAt, TenantOrderFieldUpdatedBy, TenantOrderFieldDeletedAt, TenantOrderFieldDeletedBy, TenantOrderFieldName, TenantOrderFieldIDPOrgRef, TenantOrderFieldExpiresAt:
+	case TenantOrderFieldCreatedAt, TenantOrderFieldCreatedBy, TenantOrderFieldUpdatedAt, TenantOrderFieldUpdatedBy, TenantOrderFieldDeletedAt, TenantOrderFieldDeletedBy, TenantOrderFieldName, TenantOrderFieldIDPOrgRef, TenantOrderFieldExpiresAt, TenantOrderFieldStatus:
 		return true
 	}
 	return false
@@ -1912,7 +1920,7 @@ func (e *TenantOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e TenantOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *TenantOrderField) UnmarshalJSON(b []byte) error {
@@ -1990,7 +1998,7 @@ func (e *UserOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e UserOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *UserOrderField) UnmarshalJSON(b []byte) error {

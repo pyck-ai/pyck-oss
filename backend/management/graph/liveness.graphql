@@ -1,0 +1,19 @@
+# disabledTenants is the system-only auth-path query every other backend
+# service calls to ask "which of these tenants must not be served?": the
+# caller's own tenant from the auth path, the tenants a request acts on
+# (X-Pyck-Tenant-Id) from the tenant middleware. It returns the subset of
+# `ids` that a live tenant row does not back: soft-deleted (the operator's
+# off switch), a registration that did not finish (pending, error), or no
+# row at all. The contract is "allow only what a live row backs": an ID
+# this deployment has never registered is denied, and management logs it,
+# because the ways to get there are a registration that never completed and
+# a token issued for an organization that is not a tenant. Callers cache the
+# answer per tenant (see backend/common/liveness), so this is hit on cache
+# misses, not per request.
+#
+# Caller MUST be the system service-user (PYCK_SERVICE_TOKEN); the
+# resolver rejects non-system callers. Management itself checks its own
+# tenant table in-process through the same handler.
+extend type Query {
+    disabledTenants(ids: [ID!]!): [ID!]!
+}

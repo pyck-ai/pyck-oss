@@ -27,7 +27,17 @@ import (
 const (
 	TemporalManagementTaskQueue = "pyck-management-task-queue"
 
-	RegisterTenantWorkflow     = "RegisterTenantWorkflow"
+	// RegisterTenantWorkflow is the type name of the DB-first registration
+	// contract: the resolver commits the tenant row and the workflow
+	// provisions the org under the identity it is handed. The type name is
+	// versioned with the contract (Temporal's new-workflow-type guidance),
+	// so a worker that does not register this contract never polls its
+	// tasks: a start stays queued until a worker that speaks it is up,
+	// instead of being executed by one that would derive its own identity.
+	// Without worker versioning, executions of a retired type name have no
+	// worker after a rollout and stay Running until an operator terminates
+	// them.
+	RegisterTenantWorkflow     = "RegisterTenantDbFirstWorkflow"
 	GenerateJsonSchemaWorkflow = "GenerateJsonSchemaWorkflow"
 	ZitadelSyncWorkflow        = "ZitadelSyncWorkflow"
 	TenantSyncWorkflow         = "TenantSyncWorkflow"
@@ -156,9 +166,11 @@ func (tw *TemporalWorker) RegisterGenerateJsonSchemaWorkflow() {
 	tw.temporalWorker.RegisterActivity(generatejsonschema.GenerateJSONSchemaActivity)
 }
 
-// RegisterZitadelSyncWorkflow registers the Zitadel sync orchestrator, per-tenant sync workflow,
-// and all related activities using the Activities object (no closures).
-func (tw *TemporalWorker) RegisterZitadelSyncWorkflow(entClient *gen.Client, apiURL, grpcAddr, audience, keyFilePath, zitadelProjectID string, tlsInsecure bool) {
+// RegisterZitadelSyncWorkflow registers the orchestrator that fans out over
+// the DB's live tenants, the per-tenant workflow that projects Zitadel users
+// into the DB, and their activities. Activity names are registered
+// explicitly because the workflows schedule them by string.
+func (tw *TemporalWorker) RegisterZitadelSyncWorkflow(entClient *gen.Client, apiURL, grpcAddr, audience, keyFilePath string, tlsInsecure bool) {
 	// Orchestrator workflow (runs on management worker)
 	tw.temporalWorker.RegisterWorkflowWithOptions(
 		zitadelsync.ZitadelSyncWorkflow,
@@ -166,20 +178,12 @@ func (tw *TemporalWorker) RegisterZitadelSyncWorkflow(entClient *gen.Client, api
 	)
 
 	// Activities object with DI for both workers
-	acts := zitadelsync.NewActivities(entClient, tw.cli, apiURL, grpcAddr, audience, keyFilePath, zitadelProjectID, tlsInsecure)
+	acts := zitadelsync.NewActivities(entClient, tw.cli, apiURL, grpcAddr, audience, keyFilePath, tlsInsecure)
 
-	// Orchestrator activities (tenants + schedules) — keep names stable for determinism
-	tw.temporalWorker.RegisterActivityWithOptions(
-		acts.FetchZitadelTenantsActivity,
-		activity.RegisterOptions{Name: "FetchZitadelTenantsActivity"},
-	)
+	// Orchestrator activities (tenant listing + per-tenant starts)
 	tw.temporalWorker.RegisterActivityWithOptions(
 		acts.FetchDbTenantsActivity,
 		activity.RegisterOptions{Name: "FetchDbTenantsActivity"},
-	)
-	tw.temporalWorker.RegisterActivityWithOptions(
-		acts.ReconcileTenantsActivity,
-		activity.RegisterOptions{Name: "ReconcileTenantsActivity"},
 	)
 	tw.temporalWorker.RegisterActivityWithOptions(
 		acts.StartTenantSyncActivity,
@@ -213,30 +217,25 @@ func (tw *TemporalWorker) EnsureZitadelSyncOrchestratorSchedule(ctx context.Cont
 }
 
 // RegisterDisableTenantWorkflow registers the DisableTenantWorkflow and
-// the shared disable-tenant activities on the management task queue.
-// The workflow is triggered externally by the tenant-lifecycle NATS
-// subscriber after the resolver has already updated deleted_at + state.
-//
-// Must be called before RegisterRestoreTenantWorkflow because the shared
-// Activities struct is registered here — calling RegisterActivity twice
-// with the same struct would cause Temporal to panic on duplicate
-// registration.
-func (tw *TemporalWorker) RegisterDisableTenantWorkflow(zitadelConn *zitadelsdk.Connection) {
+// its activities on the management task queue. The workflow is triggered
+// by the tenant-lifecycle NATS subscriber after the resolver has already
+// updated deleted_at.
+func (tw *TemporalWorker) RegisterDisableTenantWorkflow(entClient *gen.Client, zitadelConn *zitadelsdk.Connection, workerAPI *workerapi.Client, nsGetter commonworkflow.NamespaceGetter, workerLifecycle bool) {
 	tw.temporalWorker.RegisterWorkflowWithOptions(
 		disabletenant.DisableTenantWorkflow,
 		workflow.RegisterOptions{Name: DisableTenantWorkflow},
 	)
-	tw.temporalWorker.RegisterActivity(disabletenant.NewActivities(zitadelConn))
+	tw.temporalWorker.RegisterActivity(disabletenant.NewActivities(entClient, zitadelConn, workerAPI, nsGetter, workerLifecycle))
 }
 
 // RegisterRestoreTenantWorkflow registers the RestoreTenantWorkflow and
 // its activities on the management task queue.
-func (tw *TemporalWorker) RegisterRestoreTenantWorkflow(zitadelConn *zitadelsdk.Connection) {
+func (tw *TemporalWorker) RegisterRestoreTenantWorkflow(entClient *gen.Client, zitadelConn *zitadelsdk.Connection, workerAPI *workerapi.Client, nsGetter commonworkflow.NamespaceGetter, workerLifecycle bool) {
 	tw.temporalWorker.RegisterWorkflowWithOptions(
 		restoretenant.RestoreTenantWorkflow,
 		workflow.RegisterOptions{Name: RestoreTenantWorkflow},
 	)
-	tw.temporalWorker.RegisterActivity(restoretenant.NewActivities(zitadelConn))
+	tw.temporalWorker.RegisterActivity(restoretenant.NewActivities(entClient, zitadelConn, workerAPI, nsGetter, workerLifecycle))
 }
 
 // RegisterTenantReconcileWorkflow registers the tenant reconcile
@@ -244,8 +243,9 @@ func (tw *TemporalWorker) RegisterRestoreTenantWorkflow(zitadelConn *zitadelsdk.
 // queue. The reconciler sweeps tenants and dispatches corrective
 // disable/restore workflows when the DB's deleted_at disagrees with
 // Zitadel's org state — it is the eventual-consistency safety net for
-// the NATS-driven trigger (see events/tenants/trigger.go).
-func (tw *TemporalWorker) RegisterTenantReconcileWorkflow(entClient *gen.Client, zitadelConn *zitadelsdk.Connection) {
+// the NATS-driven trigger (see events/tenants/trigger.go). Each sweep also
+// runs repairEventStreams.
+func (tw *TemporalWorker) RegisterTenantReconcileWorkflow(entClient *gen.Client, zitadelConn *zitadelsdk.Connection, repairEventStreams func(context.Context) error) {
 	tw.temporalWorker.RegisterWorkflowWithOptions(
 		tenantreconcile.TenantReconcileWorkflow,
 		workflow.RegisterOptions{Name: TenantReconcileWorkflow},
@@ -256,6 +256,7 @@ func (tw *TemporalWorker) RegisterTenantReconcileWorkflow(entClient *gen.Client,
 		DisableWorkflowName: DisableTenantWorkflow,
 		RestoreWorkflowName: RestoreTenantWorkflow,
 		LifecycleWorkflowID: TenantLifecycleWorkflowID,
+		RepairEventStreams:  repairEventStreams,
 	})
 
 	// Register the whole struct so each method's default reflected name

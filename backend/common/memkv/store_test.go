@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/pyck-ai/pyck/backend/common/memkv"
@@ -53,19 +54,25 @@ func TestSetOverwrite(t *testing.T) {
 	}
 }
 
+// Runs in a synctest bubble so the TTL is measured on a fake clock that
+// only advances while every goroutine is blocked: a runner stall between
+// Set and the first Get cannot expire the entry early. cleanupInterval is
+// 0, so the store starts no cleanup goroutine that would need closing.
 func TestTTLExpiry(t *testing.T) {
 	t.Parallel()
-	kv := memkv.NewInMemoryKVStore(0)
+	synctest.Test(t, func(t *testing.T) {
+		kv := memkv.NewInMemoryKVStore(0)
 
-	kv.Set("k", "v", 30*time.Millisecond)
-	if _, ok := kv.Get("k"); !ok {
-		t.Fatal("Get within TTL returned ok=false")
-	}
+		kv.Set("k", "v", 30*time.Millisecond)
+		if _, ok := kv.Get("k"); !ok {
+			t.Fatal("Get within TTL returned ok=false")
+		}
 
-	time.Sleep(50 * time.Millisecond)
-	if v, ok := kv.Get("k"); ok || v != nil {
-		t.Fatalf("Get past TTL returned (%v, %v); want (nil, false)", v, ok)
-	}
+		time.Sleep(50 * time.Millisecond)
+		if v, ok := kv.Get("k"); ok || v != nil {
+			t.Fatalf("Get past TTL returned (%v, %v); want (nil, false)", v, ok)
+		}
+	})
 }
 
 func TestTTLZeroIsForever(t *testing.T) {

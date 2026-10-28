@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/pyck-ai/pyck/backend/common/request"
+	"github.com/pyck-ai/pyck/backend/common/tenant"
 	"github.com/pyck-ai/pyck/backend/common/test/ent/gen"
 	"github.com/pyck-ai/pyck/backend/common/test/ent/gen/entitywithtenantmixin"
 	"github.com/stretchr/testify/assert"
@@ -496,4 +498,35 @@ func TestTenantIDMutationHook(t *testing.T) {
 
 		assert.ElementsMatch(t, []uuid.UUID{tenantID1, tenantID2}, tenantIDs, "Both tenant IDs should be present in created entities")
 	})
+}
+
+func TestTenantMixinRequiresSingleTenant(t *testing.T) {
+	t.Parallel()
+
+	writer := &authn.User{
+		ID:       userID1,
+		TenantID: tenantID1,
+		Roles:    map[uuid.UUID]authn.Role{tenantID1: authn.ROLE_WRITER, tenantID2: authn.ROLE_WRITER},
+	}
+
+	for name, tenantIDs := range map[string][]uuid.UUID{
+		"zero tenants":     nil,
+		"multiple tenants": {tenantID1, tenantID2},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			client := newDBClient(t)
+			t.Cleanup(func() { require.NoError(t, client.Close()) })
+			entity := createEntityWithTenant(t, client, tenantID1, "entity")
+
+			ctx := tenant.Context(authn.Context(t.Context(), writer), tenantIDs...)
+
+			_, err := client.EntityWithTenantMixin.Create().Save(ctx)
+			require.ErrorIs(t, err, request.ErrSingleTenantRequired)
+
+			_, err = client.EntityWithTenantMixin.UpdateOneID(entity.ID).SetStringField("updated").Save(ctx)
+			require.ErrorIs(t, err, request.ErrSingleTenantRequired)
+		})
+	}
 }

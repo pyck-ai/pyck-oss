@@ -82,8 +82,13 @@ deploy); workflows tolerate signals they do not handle.
   ID, run ID and status), so the copies that several Temporal pods publish
   collapse into one within the stream's duplicate window. The ID is
   predictable: a client that can publish to the stream could suppress a real
-  state change within that window by guessing it. That risk is accepted until
-  each tenant has its own stream (#1656); no HMAC or secret key is used. A
+  state change within that window by guessing it. Since each tenant has its own
+  stream (#1656), a tenant client may publish only to its own stream's subjects,
+  and a change of no tenant goes to the system stream, which no client can
+  publish to, so the predictable ID stays; no HMAC or secret key is used. One
+  gap remains: the server does not check a push consumer's `deliver_subject`
+  against the client's permissions, so a tenant client can still have its own
+  messages republished into another tenant's stream. A
   change stored twice beyond the window, or by a retry, is absorbed by the
   Temporal request IDs above.
 

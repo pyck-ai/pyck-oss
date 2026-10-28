@@ -19,6 +19,7 @@ import (
 	"go.temporal.io/api/serviceerror"
 
 	"github.com/pyck-ai/pyck/backend/common/events"
+	"github.com/pyck-ai/pyck/backend/common/test/natstest"
 
 	"github.com/pyck-ai/pyck/backend/workflow/services"
 )
@@ -32,7 +33,7 @@ var errTransient = errors.New("temporal unavailable")
 // keeps those subjects out.
 type natsEnv struct {
 	t   *testing.T
-	url string
+	srv *server.Server
 	js  jetstream.JetStream
 	nc  *nats.Conn
 }
@@ -40,27 +41,14 @@ type natsEnv struct {
 func newNatsEnv(t *testing.T) *natsEnv {
 	t.Helper()
 
-	srv, err := server.NewServer(&server.Options{
-		Host:      "127.0.0.1",
-		Port:      -1,
-		JetStream: true,
-		StoreDir:  t.TempDir(),
-		NoLog:     true,
-		NoSigs:    true,
-	})
-	require.NoError(t, err)
-
-	go srv.Start()
-
-	require.True(t, srv.ReadyForConnections(10*time.Second), "embedded NATS did not start")
-	t.Cleanup(func() { srv.Shutdown(); srv.WaitForShutdown() })
-
-	e := &natsEnv{t: t, url: srv.ClientURL()}
+	e := &natsEnv{t: t, srv: natstest.Start(t, nil)}
 	e.nc = e.connect()
+
+	var err error
 	e.js, err = jetstream.New(e.nc)
 	require.NoError(t, err)
 
-	_, err = e.js.CreateStream(context.Background(), jetstream.StreamConfig{
+	_, err = e.js.CreateStream(t.Context(), jetstream.StreamConfig{
 		Name:     consumerStream,
 		Subjects: []string{consumerStream + ".>", "request.>"},
 	})
@@ -72,11 +60,7 @@ func newNatsEnv(t *testing.T) *natsEnv {
 func (e *natsEnv) connect() *nats.Conn {
 	e.t.Helper()
 
-	nc, err := nats.Connect(e.url)
-	require.NoError(e.t, err)
-	e.t.Cleanup(nc.Close)
-
-	return nc
+	return natstest.Connect(e.t, e.srv, natstest.ServiceUser, nil)
 }
 
 // router builds a started router whose handler is fn.
@@ -239,19 +223,19 @@ func TestConsumer_MalformedEventIsAckedByRealHandler(t *testing.T) {
 	e := newNatsEnv(t)
 	e.router(fastCfg(), nil)
 
-	_, err := e.js.Publish(context.Background(), mutationSubject(), []byte("not-json"))
+	_, err := e.js.Publish(t.Context(), mutationSubject(), []byte("not-json"))
 	require.NoError(t, err)
-	_, err = e.js.Publish(context.Background(), stateChangeSubject(), []byte("not-json"))
+	_, err = e.js.Publish(t.Context(), stateChangeSubject(), []byte("not-json"))
 	require.NoError(t, err)
 
 	e.settled()
 
-	c, err := e.js.Consumer(context.Background(), consumerStream, services.DefaultConsumerDurable)
+	c, err := e.js.Consumer(t.Context(), consumerStream, services.DefaultConsumerDurable)
 	require.NoError(t, err)
 
 	time.Sleep(1500 * time.Millisecond)
 
-	info, err := c.Info(context.Background())
+	info, err := c.Info(t.Context())
 	require.NoError(t, err)
 	assert.EqualValues(t, 2, info.Delivered.Stream, "both malformed events delivered once")
 	assert.Zero(t, info.NumRedelivered, "a malformed event is never redelivered")
@@ -306,16 +290,19 @@ func TestConsumer_FilterExcludesOtherSubjects(t *testing.T) {
 	})
 	_ = r
 
-	c, err := e.js.Consumer(context.Background(), consumerStream, services.DefaultConsumerDurable)
+	c, err := e.js.Consumer(t.Context(), consumerStream, services.DefaultConsumerDurable)
 	require.NoError(t, err)
 
-	info, err := c.Info(context.Background())
+	info, err := c.Info(t.Context())
 	require.NoError(t, err)
-	assert.Equal(t, []string{"pyck.*.crud.*.*.*.*", "pyck.*.temporal.*.*.*.*.*"}, info.Config.FilterSubjects)
+	assert.Equal(t, []string{"pyck.*.crud.*.*.*.*", "pyck.*.custom.*.*.*", "pyck.*.temporal.*.*.*.*.*"}, info.Config.FilterSubjects)
 	assert.Equal(t, jetstream.DeliverNewPolicy, info.Config.DeliverPolicy)
 	assert.Equal(t, jetstream.AckExplicitPolicy, info.Config.AckPolicy)
 
 	mutation, stateChange := mutationSubject(), stateChangeSubject()
+	custom := events.TenantCustomEventTopic{
+		StreamName: consumerStream, TenantID: tenant, EventType: "tour-creation", EntityID: uuid.New(), OperationName: "create",
+	}.String()
 	excluded := []string{
 		events.CustomEventTopic{StreamName: consumerStream}.String(),
 		events.WorkflowEventTopic{StreamName: consumerStream, TenantID: tenant, WorkflowID: uuid.New(), WorkflowName: "wf"}.String(),
@@ -338,14 +325,15 @@ func TestConsumer_FilterExcludesOtherSubjects(t *testing.T) {
 	}
 
 	e.publish(mutation)
+	e.publish(custom)
 	e.publish(stateChange)
 
-	require.Eventually(t, func() bool { mu.Lock(); defer mu.Unlock(); return len(got) >= 2 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { mu.Lock(); defer mu.Unlock(); return len(got) >= 3 }, 5*time.Second, 10*time.Millisecond)
 	time.Sleep(500 * time.Millisecond)
 
 	mu.Lock()
 	defer mu.Unlock()
-	assert.ElementsMatch(t, []string{mutation, stateChange}, got, "excluded: %v", excluded)
+	assert.ElementsMatch(t, []string{mutation, custom, stateChange}, got, "excluded: %v", excluded)
 }
 
 func TestConsumer_TwoRoutersShareTheDurable(t *testing.T) {
@@ -594,7 +582,7 @@ func TestConsumer_StartBindsAnExistingIncompatibleDurable(t *testing.T) {
 
 	e := newNatsEnv(t)
 
-	_, err := e.js.CreateOrUpdateConsumer(context.Background(), consumerStream, jetstream.ConsumerConfig{
+	_, err := e.js.CreateOrUpdateConsumer(t.Context(), consumerStream, jetstream.ConsumerConfig{
 		Durable:        services.DefaultConsumerDurable,
 		FilterSubjects: []string{consumerStream + ".*.crud.*.*.*.*"},
 		DeliverPolicy:  jetstream.DeliverAllPolicy,

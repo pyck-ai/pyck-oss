@@ -123,3 +123,76 @@ func allowMarkerBlankLineGap(ctx context.Context, c *gen.Client) {
 
 	_, _ = c.Item.Query().All(ctx) // want `unsafe \.All\(ctx\) on Item`
 }
+
+// --- Select / GroupBy projections: the receiver is *ItemSelect or
+// *ItemGroupBy, not *ItemQuery, but the query runs through the same
+// interceptors and the cap applies all the same ---
+
+func unsafeSelectAll(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().Where().Select("id").All(ctx) // want `unsafe \.All\(ctx\) on Item`
+}
+
+func safeSelectAllWithLimitBefore(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().Limit(50).Select("id").All(ctx)
+}
+
+func safeSelectAllWithLimitAfter(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().Select("id").Limit(50).All(ctx)
+}
+
+// The remedy the diagnostic suggests must not itself be flagged.
+func safeSelectAllPages(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().Select("id").AllPages(ctx, 50)
+}
+
+func unsafeSelectStrings(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().Select("name").Strings(ctx) // want `unsafe \.Strings\(ctx\) on Item`
+}
+
+func unsafeSelectInts(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().Select("n").Ints(ctx) // want `unsafe \.Ints\(ctx\) on Item`
+}
+
+func unsafeSelectFloat64s(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().Select("f").Float64s(ctx) // want `unsafe \.Float64s\(ctx\) on Item`
+}
+
+func unsafeSelectBools(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().Select("b").Bools(ctx) // want `unsafe \.Bools\(ctx\) on Item`
+}
+
+// .Scan takes the destination as a second argument; the context is still
+// the first, which is what qualifies it.
+func unsafeSelectScan(ctx context.Context, c *gen.Client) {
+	var v []struct{ ID int }
+	_ = c.Item.Query().Select("id").Scan(ctx, &v) // want `unsafe \.Scan\(ctx\) on Item`
+}
+
+func safeSelectStringsWithLimit(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().Limit(50).Select("name").Strings(ctx)
+}
+
+func unsafeGroupByStrings(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().GroupBy("name").Strings(ctx) // want `unsafe \.Strings\(ctx\) on Item`
+}
+
+func unsafeGroupByScan(ctx context.Context, c *gen.Client) {
+	var v []struct{ Name string }
+	_ = c.Item.Query().GroupBy("name").Scan(ctx, &v) // want `unsafe \.Scan\(ctx\) on Item`
+}
+
+// GroupBy does not promote .Limit, so the bound has to sit before it.
+func safeGroupByWithLimitBefore(ctx context.Context, c *gen.Client) {
+	var v []struct{ Name string }
+	_ = c.Item.Query().Limit(50).GroupBy("name").Scan(ctx, &v)
+}
+
+// Event has no LimitMixin; its projections must NOT be flagged either.
+func safeEventSelectNoLimitMixin(ctx context.Context, c *gen.Client) {
+	_, _ = c.Event.Query().Select("name").All(ctx)
+	_, _ = c.Event.Query().Select("name").Strings(ctx)
+}
+
+func allowMarkerSelectStrings(ctx context.Context, c *gen.Client) {
+	_, _ = c.Item.Query().Select("name").Strings(ctx) //limitlint:allow exercising the cap deliberately
+}

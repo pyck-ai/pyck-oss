@@ -43,6 +43,13 @@ const (
 	// MaxWorkflowIDLength is Temporal's default limit.maxIDLength, in bytes.
 	// Temporal enforces it when a workflow starts, so no longer ID can exist.
 	MaxWorkflowIDLength = 1000
+
+	// MaxStoredIDLength is the longest workflow ID, workflow type or task
+	// queue name Temporal's SQL store holds: it keeps them in VARCHAR(255),
+	// which counts characters, so 255 bytes always fit. The frontend checks
+	// only MaxWorkflowIDLength, so a longer one passes it and the store
+	// refuses it.
+	MaxStoredIDLength = 255
 )
 
 // ValidateWorkflowID rejects an empty, too long or NUL-containing workflow ID.
@@ -50,6 +57,15 @@ const (
 func ValidateWorkflowID(workflowID string) error {
 	if workflowID == "" || len(workflowID) > MaxWorkflowIDLength || strings.ContainsRune(workflowID, '\x00') {
 		return ErrInvalidWorkflowID
+	}
+	return nil
+}
+
+// ValidateUpdateName rejects a blank or too long update name. Temporal only
+// checks that the name is not empty; the cap reuses MaxWorkflowIDLength.
+func ValidateUpdateName(updateName string) error {
+	if strings.TrimSpace(updateName) == "" || len(updateName) > MaxWorkflowIDLength {
+		return ErrInvalidUpdateName
 	}
 	return nil
 }
@@ -273,6 +289,24 @@ func (c *Client) GetWorkflowResult(ctx context.Context, workflowID string, runID
 	return c.temporal.GetWorkflow(ctx, workflowID, runID).Get(ctx, valuePtr)
 }
 
+// AwaitWorkflowResult blocks until the latest run of workflowID closes and
+// unmarshals its result into valuePtr (nil to discard it). Unlike
+// GetWorkflowResult it takes no run ID: the Temporal SDK resolves the
+// current run lazily, so a caller that knows only the deterministic
+// workflow ID can wait for an execution somebody else starts. An
+// execution that does not exist yet fails with *serviceerror.NotFound;
+// the caller decides whether to retry. Returns ctx's error once the
+// context ends.
+//
+// This method is safe for concurrent use.
+func (c *Client) AwaitWorkflowResult(ctx context.Context, workflowID string, valuePtr any) error {
+	if err := ValidateWorkflowID(workflowID); err != nil {
+		return err
+	}
+
+	return c.temporal.GetWorkflow(ctx, workflowID, "").Get(ctx, valuePtr)
+}
+
 // GetWorkflowExecutionInfo retrieves information about a workflow execution.
 //
 // This method is safe for concurrent use.
@@ -457,8 +491,8 @@ func (c *Client) UpdateWorkflow(ctx context.Context, workflowID, runID, updateNa
 		return ErrInvalidWorkflowRunID
 	}
 
-	if updateName == "" {
-		return ErrInvalidUpdateName
+	if err := ValidateUpdateName(updateName); err != nil {
+		return err
 	}
 
 	updateHandle, err := c.temporal.UpdateWorkflow(ctx, temporalclient.UpdateWorkflowOptions{

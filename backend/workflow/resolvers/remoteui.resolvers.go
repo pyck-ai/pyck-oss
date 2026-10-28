@@ -21,8 +21,7 @@ import (
 // Version, and forwards the rendered URLs as-is. The composition happens in the
 // workflow client (RenderRemoteUI), not here.
 func (r *queryResolver) RemoteUI(ctx context.Context, input model.RemoteUIQueryInput) (*commonworkflow.UIBundleURLs, error) {
-	req := request.ForContext(ctx)
-	tenantID, err := singleTenantID(req)
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
 	if err != nil {
 		return nil, err
 	}
@@ -52,13 +51,9 @@ func (r *queryResolver) RemoteUI(ctx context.Context, input model.RemoteUIQueryI
 // operator view (build IDs + drainage status), so it is gated behind the admin
 // role. The full (cached) listing is paginated in memory.
 func (r *queryResolver) WorkerDeploymentUIBundles(ctx context.Context, first *int, after *string) (*model.DeploymentVersionUIConnection, error) {
-	req := request.ForContext(ctx)
-	tenantID, err := singleTenantID(req)
+	tenantID, err := request.ForContext(ctx).RequireRole(authn.ROLE_ADMIN, "workerDeploymentUIBundles")
 	if err != nil {
 		return nil, err
-	}
-	if !req.User().HasRole(authn.ROLE_ADMIN, tenantID) {
-		return nil, ErrAdminRoleRequired
 	}
 
 	workflowClient, err := r.workflowRouter.GetClient(ctx, tenantID.String())

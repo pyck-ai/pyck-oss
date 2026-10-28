@@ -1,23 +1,21 @@
 //go:build integration
 
-// Package orgverdictcache verifies the org-active verdict cache on the
-// service auth path (backend/common/authn: checkOrgActive + OrgValidator).
+// Package orgverdictcache verifies the tenant liveness verdict on the
+// service auth path (backend/common/authn: checkTenantLive, cached in
+// backend/common/liveness).
 //
-// The cache is invisible to a functional request — its observable contract
-// is a bounded stale-positive window: after a tenant's Zitadel org is
-// deactivated OUT OF BAND (no pyck mutation, so no NATS eviction event),
-// tokens of that tenant keep being accepted for up to the verdict TTL.
-// Without the cache the validator runs on every request against the same
-// Zitadel projection and rejects immediately, so "org provably INACTIVE in
-// the projection, yet the request is accepted" can only be produced by a
-// cached verdict. The complementary property — pyck-side disable revokes
-// promptly via NATS eviction + the validator — is asserted afterwards.
+// Two properties, in one run. First, that the verdict answers from the
+// tenant row and from nothing else: a tenant's Zitadel organization is
+// deactivated OUT OF BAND and its tokens keep working, because pyck is the
+// only writer of tenant state and no row changed. Second, that a pyck-side
+// disable revokes promptly: the mutation soft-deletes the row, the CRUD
+// event evicts the cached token and verdict on every service, and the next
+// introspection reads the new verdict off the row.
 //
-// Both properties are checked from two vantage points, because the two
-// validator implementations differ: management runs an in-process closure
-// against its Zitadel gRPC connection, while every other service (probed
-// here via inventory) round-trips through the gateway to management's
-// `organization` query.
+// Both are checked from two vantage points, because the two source
+// implementations differ: management queries its own tenant table in
+// process, while every other service (probed here via inventory)
+// round-trips through the gateway to management's `disabledTenants` query.
 //
 // Timing caveat: the tenant-reconcile sweeper treats "DB row live, org
 // INACTIVE" as drift and restores the org (locally every ~5s). The

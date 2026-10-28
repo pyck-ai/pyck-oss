@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/pyck-ai/pyck/backend/common/liveness"
+	livenessmocks "github.com/pyck-ai/pyck/backend/common/liveness/mocks"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/test/mocks"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
@@ -43,7 +46,31 @@ func setupHandler(t *testing.T) (*chi.Mux, *ent.Client) {
 	}
 
 	r := chi.NewRouter()
-	r.Get("/api/v1/files/{tenantId}/{alias}", handlers.FileAliasHandler(client, s3Storage))
+	r.Get("/api/v1/files/{tenantId}/{alias}", handlers.FileAliasHandler(
+		client, s3Storage, livenessmocks.NewTestCache(t), livenessmocks.NoDisabledTenants))
+
+	return r, client
+}
+
+// setupHandlerWithSource is setupHandler with a caller-chosen tenant
+// liveness source, for the tests that retire the tenant under its files.
+func setupHandlerWithSource(t *testing.T, source liveness.TenantSource) (*chi.Mux, *ent.Client) {
+	t.Helper()
+
+	client := enttest.Open(t, dialect.SQLite, resolver.DatabaseURI(t),
+		enttest.WithOptions(ent.Log(t.Log)),
+	).Debug()
+
+	s3Storage := &services.S3StorageService{
+		Bucket:       "test-bucket",
+		HTTPScheme:   "http",
+		HTTPEndpoint: "localhost:9000",
+		MinioClient:  mocks.NewMockMinioClient(),
+	}
+
+	r := chi.NewRouter()
+	r.Get("/api/v1/files/{tenantId}/{alias}", handlers.FileAliasHandler(
+		client, s3Storage, livenessmocks.NewTestCache(t), source))
 
 	return r, client
 }
@@ -169,4 +196,85 @@ func TestFileAliasHandler(t *testing.T) {
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
 	})
+}
+
+// The tenant itself must be served, not only the file: retiring a tenant
+// must take its public links down with it, or a soft-deleted tenant's
+// files stay reachable forever through old URLs. A dead tenant answers
+// exactly like a missing file: the public route must not become a
+// tenant-state oracle.
+func TestFileAliasHandler_DeadTenantAnswersNotFound(t *testing.T) {
+	t.Parallel()
+
+	tenantID := resolver.TenantA
+	denyAll := func(_ context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
+		return ids, nil
+	}
+	router, client := setupHandlerWithSource(t, denyAll)
+
+	createTestFile(t, client, tenantID, "logo.png", "company-logo")
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, fmt.Sprintf("/api/v1/files/%s/company-logo", tenantID), nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNotFound, w.Code,
+		"a retired tenant's public alias must 404, indistinguishable from a missing file")
+	assert.Contains(t, w.Body.String(), "file not found")
+}
+
+// A liveness source fault denies a tenant with no cached verdict: a public
+// link that cannot be verified is not served: failing open would keep a
+// deleted tenant's files reachable for the length of a source outage. The
+// denial is the same 404 a dead tenant gets, so the route stays free of
+// tenant-state oracles.
+func TestFileAliasHandler_SourceErrorDeniesUncached(t *testing.T) {
+	t.Parallel()
+
+	tenantID := resolver.TenantA
+	failing := func(_ context.Context, _ []uuid.UUID) ([]uuid.UUID, error) {
+		return nil, fmt.Errorf("management unreachable")
+	}
+	router, client := setupHandlerWithSource(t, failing)
+
+	createTestFile(t, client, tenantID, "logo.png", "company-logo")
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, fmt.Sprintf("/api/v1/files/%s/company-logo", tenantID), nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code,
+		"an unverifiable tenant's public alias must be denied like a missing file")
+}
+
+// A cached live verdict keeps a public link working through a source
+// fault for its TTL: the deny-on-unknown rule must not take down links of
+// tenants this replica has already verified.
+func TestFileAliasHandler_CachedLiveVerdictHoldsThroughFault(t *testing.T) {
+	t.Parallel()
+
+	tenantID := resolver.TenantA
+	var failing bool
+	source := func(_ context.Context, _ []uuid.UUID) ([]uuid.UUID, error) {
+		if failing {
+			return nil, fmt.Errorf("management unreachable")
+		}
+		return nil, nil
+	}
+	router, client := setupHandlerWithSource(t, source)
+
+	createTestFile(t, client, tenantID, "logo.png", "company-logo")
+
+	url := fmt.Sprintf("/api/v1/files/%s/company-logo", tenantID)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusTemporaryRedirect, w.Code, "verdict is now cached")
+
+	failing = true
+	req = httptest.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusTemporaryRedirect, w.Code,
+		"a verified tenant's link keeps working through the fault")
 }

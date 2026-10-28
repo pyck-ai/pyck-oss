@@ -40,7 +40,7 @@ steps:
           - ref: res.body.data.registerWorkflow.id
             nil: false
 
-  - name: "Mutation topic keeps every wildcard but the tenant"
+  - name: "Mutation topic drops request.reply and keeps every wildcard but the tenant"
     operation: workflow.getWorkflowSignals
     vars:
       where:
@@ -59,10 +59,10 @@ steps:
         assertions:
           - ref: res.body.data.workflowSignals.totalCount
             equal: 1
-      - msg: "Tenant expanded, schema and entity wildcards kept"
+      - msg: "Prefix dropped, tenant expanded, schema and entity wildcards kept"
         assertions:
           - ref: res.body.data.workflowSignals.edges[].node.natsTopic
-            regexp: "^request[.]reply[.]pyck[.][0-9a-f-]{36}[.]crud[.]inventory[.][*][.][*][.]created$"
+            regexp: "^pyck[.][0-9a-f-]{36}[.]crud[.]inventory[.][*][.][*][.]created$"
 
   - name: "Temporal topic keeps every wildcard but the namespace"
     operation: workflow.getWorkflowSignals
@@ -88,7 +88,7 @@ steps:
           - ref: res.body.data.workflowSignals.edges[].node.natsTopic
             regexp: "^pyck[.][0-9a-f-]{36}[.]temporal[.][*][.]childworkflow[.][*][.][*][.]completed$"
 
-  - name: "Concrete-tenant topic is stored unchanged"
+  - name: "Concrete-tenant topic is stored without the request.reply prefix"
     operation: workflow.getWorkflowSignals
     vars:
       where:
@@ -107,10 +107,10 @@ steps:
         assertions:
           - ref: res.body.data.workflowSignals.totalCount
             equal: 1
-      - msg: "Tenant and wildcards kept"
+      - msg: "Prefix dropped, tenant and wildcards kept"
         assertions:
           - ref: res.body.data.workflowSignals.edges[].node.natsTopic
-            regexp: "^request[.]reply[.]pyck[.][0-9a-f-]{36}[.]crud[.]inventory[.][*][.][*][.]updated$"
+            regexp: "^pyck[.][0-9a-f-]{36}[.]crud[.]inventory[.][*][.][*][.]updated$"
 
   - name: "Delete workflow"
     operation: workflow.deleteWorkflow

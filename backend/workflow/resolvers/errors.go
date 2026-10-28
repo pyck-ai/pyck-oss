@@ -9,6 +9,10 @@ var (
 	ErrWorkflowNotRunning    = errors.New("selected workflow is not running")
 	ErrInvalidName           = errors.New("invalid name: leading/trailing spaces are not allowed")
 	ErrInvalidTaskQueue      = errors.New("invalid task queue: leading/trailing spaces are not allowed")
+	ErrNameTooLong           = errors.New("invalid name: exceeds the maximum length")
+	ErrTaskQueueTooLong      = errors.New("invalid task queue: exceeds the maximum length")
+	ErrSignalNameTooLong     = errors.New("invalid workflow signal: signal name exceeds the maximum length")
+	ErrInvalidUpdateName     = errors.New("invalid update name")
 	ErrWorkerIDRequired      = errors.New("invalid worker id: a worker id is required")
 	// ErrTaskQueueChanged is returned when a registration names a different
 	// task queue than the workflow already has; the queue is immutable. To move
@@ -27,8 +31,7 @@ var (
 	ErrInvalidWorkflowExecutionID  = errors.New("invalid workflow execution id")
 	ErrTenantNotFound              = errors.New("tenant not found")
 	ErrTenantUITemplatesNotSet     = errors.New("tenant has no UI bundle URL templates")
-	ErrSingleTenantRequired        = errors.New("a single tenant must be selected")
-	ErrAdminRoleRequired           = errors.New("admin role required")
 	ErrWriterRoleRequired          = errors.New("writer role required")
 	ErrExecutionTenantUnknown      = errors.New("cannot resolve workflow execution tenant")
+	ErrAssigneeNotTenantUser       = errors.New("assignee is not a user of this tenant")
 )

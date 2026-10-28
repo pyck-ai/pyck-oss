@@ -5,14 +5,14 @@
 #   CONFIGURATION                                                     #
 #######################################################################
 
-ARG TEMPORAL_VERSION=1.31.1
+ARG TEMPORAL_VERSION=1.32.1
 
 #######################################################################
 #   END OF CONFIGURATION                                              #
 #                                                                     #
 # Do not edit below this line unless you know what you are doing!     #
 #######################################################################
-FROM ghcr.io/pyck-ai/baseimages/golang:1.26.5-alpine AS builder
+FROM ghcr.io/pyck-ai/baseimages/golang:1.27.1-alpine AS builder
 
 WORKDIR /app
 

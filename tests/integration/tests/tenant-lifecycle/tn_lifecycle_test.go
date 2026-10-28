@@ -58,7 +58,29 @@ func (s *ProvisioningSuite) TestLifecycle() {
 		r.NotEmpty(rt.IdpOrgRef, "tenant.IdpOrgRef")
 		registered = rt
 		s.DeferTenantCleanup(rt.ID)
-		s.T().Logf("tenantID=%s idpOrgRef=%s", rt.ID, rt.IdpOrgRef)
+		s.T().Logf("tenantID=%s idpOrgRef=%s status=%s", rt.ID, rt.IdpOrgRef, rt.Status)
+
+		// registerTenant is synchronous: the row was inserted as pending
+		// before the workflow ran and must come back done, from both the
+		// mutation response and the tenants query.
+		r.Equal("done", rt.Status, "registerTenant must return a fully provisioned tenant")
+		status, err := tests.TenantStatus(s.Ctx, s.Cfg, s.Cfg.ServiceToken, rt.ID)
+		r.NoError(err)
+		r.Equal("done", status, "tenants query must agree with the registerTenant response")
+	}) {
+		return
+	}
+
+	// The registered tenant holds its name: a second registration under it
+	// must be refused by the resolver's pre-flight, before any workflow or
+	// Zitadel org is created. Verifies the refusal reaches the caller as
+	// an error rather than a second tenant.
+	if !s.Run("re-registering the same name is rejected", func() {
+		r := s.Require()
+		dup, err := gateway.RegisterTenant(s.Ctx, s.Cfg, tenant)
+		r.Error(err, "same-name registration must fail")
+		r.Nil(dup)
+		r.Contains(err.Error(), "already exists")
 	}) {
 		return
 	}
@@ -157,9 +179,10 @@ func (s *ProvisioningSuite) TestLifecycle() {
 		return
 	}
 
-	// With the org ACTIVE, acceptance follows quickly: negative
-	// org-active verdicts are not cached, so each service's next
-	// introspection sees the reactivated org. Mirror of the disable
+	// With the org ACTIVE, acceptance follows quickly: the restore
+	// mutation's row update fans out a tenant CRUD event that evicts the
+	// cached (negative) verdict on every service, so the next lookup
+	// reads the restored row, no TTL wait. Mirror of the disable
 	// phase — exercises the restore path through the same propagation
 	// channel, with per-service latency logged.
 	if !s.Run("restore propagates to all services", func() {

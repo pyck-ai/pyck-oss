@@ -42,17 +42,20 @@ func _JSONPatchOpNoOp() {
 var _JSONPatchOpValues = []JSONPatchOp{JSONPatchOpAdd, JSONPatchOpRemove, JSONPatchOpReplace, JSONPatchOpMove, JSONPatchOpCopy, JSONPatchOpTest}
 
 var _JSONPatchOpNameToValueMap = map[string]JSONPatchOp{
-	_JSONPatchOpName[0:3]:        JSONPatchOpAdd,
+	_JSONPatchOpName[0:3]:   JSONPatchOpAdd,
+	_JSONPatchOpName[3:9]:   JSONPatchOpRemove,
+	_JSONPatchOpName[9:16]:  JSONPatchOpReplace,
+	_JSONPatchOpName[16:20]: JSONPatchOpMove,
+	_JSONPatchOpName[20:24]: JSONPatchOpCopy,
+	_JSONPatchOpName[24:28]: JSONPatchOpTest,
+}
+
+var _JSONPatchOpLowerNameToValueMap = map[string]JSONPatchOp{
 	_JSONPatchOpLowerName[0:3]:   JSONPatchOpAdd,
-	_JSONPatchOpName[3:9]:        JSONPatchOpRemove,
 	_JSONPatchOpLowerName[3:9]:   JSONPatchOpRemove,
-	_JSONPatchOpName[9:16]:       JSONPatchOpReplace,
 	_JSONPatchOpLowerName[9:16]:  JSONPatchOpReplace,
-	_JSONPatchOpName[16:20]:      JSONPatchOpMove,
 	_JSONPatchOpLowerName[16:20]: JSONPatchOpMove,
-	_JSONPatchOpName[20:24]:      JSONPatchOpCopy,
 	_JSONPatchOpLowerName[20:24]: JSONPatchOpCopy,
-	_JSONPatchOpName[24:28]:      JSONPatchOpTest,
 	_JSONPatchOpLowerName[24:28]: JSONPatchOpTest,
 }
 
@@ -72,7 +75,7 @@ func JSONPatchOpString(s string) (JSONPatchOp, error) {
 		return val, nil
 	}
 
-	if val, ok := _JSONPatchOpNameToValueMap[strings.ToLower(s)]; ok {
+	if val, ok := _JSONPatchOpLowerNameToValueMap[strings.ToLower(s)]; ok {
 		return val, nil
 	}
 	return 0, errors.Join(enumerrs.ErrValueInvalid, fmt.Errorf("%s does not belong to JSONPatchOp values", s))

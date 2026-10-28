@@ -3,10 +3,9 @@
 package relationfilterisolation_test
 
 import (
-	"context"
-	"os/exec"
 	"strings"
-	"time"
+
+	"github.com/pyck-ai/pyck/tests/integration/tests"
 )
 
 const (
@@ -15,10 +14,6 @@ const (
 	mCreateMov  = `mutation($in:CreateItemMovementInput!){createInventoryItemMovement(input:$in){inventoryItemMovement{id itemID}}}`
 	qMovHasItem = `query($id:ID!,$sku:String!){itemMovements(where:{id:$id,hasItemWith:[{sku:$sku}]}){totalCount}}`
 	qMovHasPfx  = `query($id:ID!,$p:String!){itemMovements(where:{id:$id,hasItemWith:[{skuHasPrefix:$p}]}){totalCount}}`
-
-	// dbContainer is the compose service running Postgres.
-	dbContainer   = "db"
-	dockerTimeout = 30 * time.Second
 )
 
 // TestForeignItemReferenceStaysScopedToTheActingTenant covers an item
@@ -96,13 +91,11 @@ func (s *RelationFilterSuite) createMovement(t *tenantCtx, from, to, item string
 	return id
 }
 
-// psql runs one statement in the compose database and returns its output.
+// psql runs one statement in the compose database through tests.Psql and
+// returns its output; a failing statement fails the test.
 func (s *RelationFilterSuite) psql(query string) string {
 	s.T().Helper()
-	ctx, cancel := context.WithTimeout(s.Ctx, dockerTimeout)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, "docker", "exec", "-i", dbContainer,
-		"psql", "-U", "admin", "-d", "pyck_dev", "-tA", "-c", query).CombinedOutput()
-	s.Require().NoError(err, "psql: %s", out)
-	return string(out)
+	out, err := tests.Psql(s.Ctx, query)
+	s.Require().NoError(err)
+	return out
 }

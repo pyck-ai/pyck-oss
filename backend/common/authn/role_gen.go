@@ -40,15 +40,18 @@ func _RoleNoOp() {
 var _RoleValues = []Role{ROLE_NONE, ROLE_READER, ROLE_WRITER, ROLE_ADMIN, ROLE_SYSTEM}
 
 var _RoleNameToValueMap = map[string]Role{
-	_RoleName[0:4]:        ROLE_NONE,
+	_RoleName[0:4]:   ROLE_NONE,
+	_RoleName[4:10]:  ROLE_READER,
+	_RoleName[10:16]: ROLE_WRITER,
+	_RoleName[16:21]: ROLE_ADMIN,
+	_RoleName[21:27]: ROLE_SYSTEM,
+}
+
+var _RoleLowerNameToValueMap = map[string]Role{
 	_RoleLowerName[0:4]:   ROLE_NONE,
-	_RoleName[4:10]:       ROLE_READER,
 	_RoleLowerName[4:10]:  ROLE_READER,
-	_RoleName[10:16]:      ROLE_WRITER,
 	_RoleLowerName[10:16]: ROLE_WRITER,
-	_RoleName[16:21]:      ROLE_ADMIN,
 	_RoleLowerName[16:21]: ROLE_ADMIN,
-	_RoleName[21:27]:      ROLE_SYSTEM,
 	_RoleLowerName[21:27]: ROLE_SYSTEM,
 }
 
@@ -67,7 +70,7 @@ func RoleString(s string) (Role, error) {
 		return val, nil
 	}
 
-	if val, ok := _RoleNameToValueMap[strings.ToLower(s)]; ok {
+	if val, ok := _RoleLowerNameToValueMap[strings.ToLower(s)]; ok {
 		return val, nil
 	}
 	return 0, errors.Join(enumerrs.ErrValueInvalid, fmt.Errorf("%s does not belong to Role values", s))

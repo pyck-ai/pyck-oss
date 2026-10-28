@@ -2,7 +2,7 @@
 # Source: backend/workflow/api/testdata/tests/user-workflow-signal-topic-wildcards.test.yaml
 
 info:
-  #name: Get Workflow Signals - Mutation topic keeps every wildcard but the tenant
+  #name: Get Workflow Signals - Mutation topic drops request.reply and keeps every wildcard but the tenant
   name: Get Workflow Signals
   type: graphql
   seq: 2
@@ -77,9 +77,9 @@ runtime:
           expect(body?.data?.workflowSignals?.totalCount).to.equal(1);
         });
 
-        test("Tenant expanded, schema and entity wildcards kept", function() {
+        test("Prefix dropped, tenant expanded, schema and entity wildcards kept", function() {
           body?.data?.workflowSignals?.edges?.forEach(function(item) {
-            expect(item?.node?.natsTopic).to.match(new RegExp('^request[.]reply[.]pyck[.][0-9a-f-]{36}[.]crud[.]inventory[.][*][.][*][.]created$'));
+            expect(item?.node?.natsTopic).to.match(new RegExp('^pyck[.][0-9a-f-]{36}[.]crud[.]inventory[.][*][.][*][.]created$'));
           });
         });
 

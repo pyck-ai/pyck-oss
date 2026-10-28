@@ -22,7 +22,6 @@ import (
 const (
 	// workflowContainer runs the signal router for every tenant.
 	workflowContainer = "pyck-workflow"
-	dbContainer       = "db"
 	dockerTimeout     = 30 * time.Second
 
 	mutationRegisterWorkflow = `mutation($input: RegisterWorkflowWithSignalsInput!) {
@@ -220,13 +219,13 @@ func (s *FilterRuleSuite) post(token, tenant, query string, vars map[string]any)
 	return env.Data, msgs, nil
 }
 
+// psql runs one statement in the compose database through tests.Psql and
+// returns its output; a failing statement fails the test. It runs on a
+// fresh context because cleanups call it after the suite context ended.
 func (s *FilterRuleSuite) psql(query string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), dockerTimeout)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, "docker", "exec", "-i", dbContainer,
-		"psql", "-U", "admin", "-d", "pyck_dev", "-tA", "-c", query).CombinedOutput()
-	s.Require().NoError(err, "psql: %s", out)
-	return string(out)
+	out, err := tests.Psql(context.Background(), query)
+	s.Require().NoError(err)
+	return out
 }
 
 func (s *FilterRuleSuite) containerState(format string) string {

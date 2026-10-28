@@ -4,7 +4,8 @@ description: >
   Registers Temporal state-change signal topics whose namespace token is
   neither a wildcard nor a canonical tenant UUID, and verifies each is refused
   with a validation error instead of an internal error or a signal that never
-  fires, and that nothing is persisted.
+  fires, and that nothing is persisted. The nil UUID is the wildcard tenant,
+  as in a mutation topic: it is accepted and expanded to a tenant.
 steps:
   - name: "Register workflow with a non-UUID Temporal namespace"
     operation: workflow.registerWorkflow
@@ -76,3 +77,75 @@ steps:
         assertions:
           - ref: res.body.data.workflows.totalCount
             equal: 0
+
+  - id: registerNil
+    name: "Register workflow with the nil-UUID namespace"
+    operation: workflow.registerWorkflow
+    vars:
+      input:
+        name: "TestSignalTopicNilNamespace"
+        taskQueue: "test-task-queue"
+        workerID: "scenario-user-workflow-signal-topic-temporal-namespace"
+        signals:
+          - natsTopic: "pyck.00000000-0000-0000-0000-000000000000.temporal.q.t.w.r.s"
+            temporalSignal: "childCompleted"
+            temporalSignalType: "start"
+            filterRule: "true"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Workflow registered"
+        assertions:
+          - ref: res.body.data.registerWorkflow.id
+            nil: false
+
+  - name: "Nil-UUID namespace is expanded to a tenant"
+    operation: workflow.getWorkflowSignals
+    vars:
+      where:
+        workflowID: {$ref: "res[registerNil].body.data.registerWorkflow.id"}
+    tests:
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "Namespace is a tenant UUID"
+        assertions:
+          - ref: res.body.data.workflowSignals.edges[].node.natsTopic
+            regexp: "^pyck[.][0-9a-f-]{36}[.]temporal[.]q[.]t[.]w[.]r[.]s$"
+
+  - name: "No signal keeps the nil-UUID namespace"
+    operation: workflow.getWorkflowSignals
+    vars:
+      where:
+        workflowID: {$ref: "res[registerNil].body.data.registerWorkflow.id"}
+        natsTopicHasPrefix: "pyck.00000000-0000-0000-0000-000000000000."
+    tests:
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "No results"
+        assertions:
+          - ref: res.body.data.workflowSignals.totalCount
+            equal: 0
+
+  - name: "Delete workflow"
+    operation: workflow.deleteWorkflow
+    vars:
+      id: {$ref: "res[registerNil].body.data.registerWorkflow.id"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true

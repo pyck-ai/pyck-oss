@@ -7,6 +7,7 @@ package resolvers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
 	jsonschema "github.com/pyck-ai/pyck/backend/common/json-schema"
 	"github.com/pyck-ai/pyck/backend/common/jsonpatch"
+	"github.com/pyck-ai/pyck/backend/common/log"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/std"
 	"github.com/pyck-ai/pyck/backend/common/txid"
@@ -35,12 +37,11 @@ import (
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/location"
 	entprivacy "github.com/pyck-ai/pyck/backend/management/ent/gen/privacy"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
-	"github.com/pyck-ai/pyck/backend/management/ent/gen/user"
 	"github.com/pyck-ai/pyck/backend/management/exec"
 	"github.com/pyck-ai/pyck/backend/management/model"
 	"github.com/pyck-ai/pyck/backend/management/workflows"
 	generatejsonschemawf "github.com/pyck-ai/pyck/backend/management/workflows/generate-json-schema"
-	registertenantwf "github.com/pyck-ai/pyck/backend/management/workflows/register-tenant"
+	"go.temporal.io/sdk/temporal"
 )
 
 // CreateDataType is the resolver for the createDataType field.
@@ -69,7 +70,10 @@ func (r *mutationResolver) CreateDataType(ctx context.Context, input ent.CreateD
 	// client pinned one explicitly. Import/export sets version explicitly to
 	// preserve numbering across environments; interactive creates leave it
 	// nil and get MAX(version)+1.
-	tenantID := request.ForContext(ctx).MutationTenantID()
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 	if input.Version == nil {
 		nextVersion, err := nextDataTypeVersion(ctx, tx, tenantID, *input.Slug)
 		if err != nil {
@@ -133,7 +137,10 @@ func (r *mutationResolver) UpdateDataType(ctx context.Context, id uuid.UUID, inp
 	// alone would let a system-token caller read (leaking json_schema) and
 	// rename another tenant's row by id. DeletedAtIsNil enforces the live-row
 	// constraint; a missing, deleted or foreign row all read as not-found.
-	tenantID := request.ForContext(ctx).MutationTenantID()
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 	existing, err := tx.DataType.Query().
 		Where(datatype.ID(id), datatype.TenantID(tenantID), datatype.DeletedAtIsNil()).
 		First(ctx)
@@ -196,9 +203,13 @@ func (r *mutationResolver) DeleteDataType(ctx context.Context, id uuid.UUID) (*m
 	// The restated predicates keep the tenant scoping and the concurrent-
 	// delete guard; an unmatched predicate surfaces as NotFound.
 	req := request.ForContext(ctx)
+	tenantID, err := req.MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 	_, err = tx.DataType.UpdateOneID(id).
 		Where(
-			datatype.TenantID(req.MutationTenantID()),
+			datatype.TenantID(tenantID),
 			datatype.DeletedAtIsNil(),
 		).
 		SetDeletedAt(time.Now().UTC()).
@@ -246,13 +257,11 @@ func (r *mutationResolver) SendCustomEvent(ctx context.Context, input model.Send
 	traceID := events.TraceIDFromContext(ctx)
 	requestID := events.RequestIDFromContext(ctx)
 
-	// Build the fire-and-forget mutation-event topic:
-	// pyck.<tenant>.crud.management.<type>.<id>.<operation>
-	topic := &events.MutationEventTopic{
+	// Outside the CRUD namespace, so no entity consumer receives it.
+	topic := &events.TenantCustomEventTopic{
 		StreamName:    events.DefaultStreamName,
 		TenantID:      tenantID,
-		ServiceName:   r.serviceName,
-		SchemaName:    input.Type,
+		EventType:     input.Type,
 		EntityID:      input.Payload.ID,
 		OperationName: input.Operation,
 	}
@@ -304,144 +313,222 @@ func (r *mutationResolver) SendCustomEvent(ctx context.Context, input model.Send
 }
 
 // RegisterTenant is the resolver for the registerTenant field.
+//
+// Registers a tenant DB-first: the tenant identity is chosen here
+// (authn.NewTenantIdentity keeps tenant.id == ComputeUUID(audience,
+// idp_org_ref)), the admin password is hashed, and a status=pending row
+// carrying the admin account is committed in its own transaction, after
+// the tenant's event stream the row's create event goes to. That event
+// reaches the tenant-lifecycle trigger, which starts RegisterTenantWorkflow
+// under register-tenant-<tenantID>; this resolver waits for that run under
+// the same ID for at most registrationWait and answers from the row's final
+// status: done → the tenant, error → the failure, still pending → the
+// outcome is unknown and the run finishes on its own. Nothing is started or
+// signalled here, and only the stream of a row that was not inserted is
+// deleted. A failure of pyck's own database or hash outside the run is
+// answered with the fixed errRegistrationInternal, never the driver's text.
+//
+// registerTenant requires no authentication at all:
+// allowTenantCreationMutationPolicy allows an anonymous OpCreate on Tenant
+// so new customers can sign up, and this resolver adds no role gate of its
+// own. registerTenant has no mutation tenant (the tenant it creates does
+// not exist yet) so RequireRole's single-tenant check does not apply, and
+// no scope check replaced it. Everything a registration creates (row, org,
+// admin user, grants, namespace, worker) is therefore reachable by an
+// unauthenticated caller. The one exception is the UI template keys in
+// data: they name the host the frontend loads code from, so only the
+// system user may set them.
+//
+// Tenant names are compared by name_key, the name folded the way Zitadel
+// folds org names (types.TenantNameKey), and stay reserved by every row,
+// soft-deleted ones included: the pre-flight below and the unique index on
+// name_key behind it both count them.
+//
+// Nothing is compensated, so a failed registration is durable: the error
+// row keeps the name, and the org, namespace and worker the failing step
+// had already created stay behind with it. No sweep collects error rows; the expiry sweep skips
+// them so an operator can re-run the registration from the row.
+//
+// An unauthenticated caller can therefore take a name out of circulation
+// per request, for good: no sweep and no API removes a row, so the name
+// only comes back when an operator frees it (docs/tenant-registration.md,
+// "Retiring a registration"). The admission cap this mutation is
+// registered under (PYCK_REGISTER_TENANT_MAX_INFLIGHT) does not bound
+// that: it refuses the (cap+1)-th concurrent registerTenant of a replica
+// immediately, which is a concurrency bound, not a rate limit. No component in front of this
+// service limits the rate of anonymous calls, and a caller that waits for
+// its answer before sending the next one never meets the cap at all.
+//
+// The row is committed outside the request transaction on purpose: the
+// trigger can only start the workflow once it sees the row's outbox
+// event, so a row committed at the end of the request would deadlock the
+// wait below. registerTenant is therefore registered with
+// gqltx.WithoutTransaction, which keeps the resolver from holding a
+// writer connection across that wait; the row's own transaction is
+// opened and committed by insertPendingTenant.
+//
+// Consequently the mutation is not replay-safe: its side effects (row
+// commit, provisioning) are not covered by any transaction the middleware
+// could roll back, and an Idempotency-Key on it is ignored. A client that
+// sees "already exists" after a timeout should verify by name rather than
+// register again.
 func (r *mutationResolver) RegisterTenant(ctx context.Context, input model.RegisterTenantInput) (*model.RegisterTenantResponse, error) {
-	// MutationEventHook captures the mutation automatically.
+	if len(feature.ForContext(ctx)) > 0 {
+		return nil, errRegistrationFeaturesRefused
+	}
 	if !isValidPassword(input.AdminPassword) {
-		return nil, fmt.Errorf("admin password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one digit, and one special character or punctuation mark")
+		return nil, errPasswordInvalid
+	}
+	if err := validateRegistration(input); err != nil {
+		return nil, err
+	}
+	if err := validateTenantData(input.Data); err != nil {
+		return nil, err
+	}
+	if !request.ForContext(ctx).User().IsSystemUser() {
+		for _, k := range core.RemoteUITemplateKeys {
+			if _, ok := input.Data[k]; ok {
+				return nil, fmt.Errorf("registerTenant: %w to set %s", authn.ErrSystemCallerRequired, k)
+			}
+		}
+	}
+	if err := core.ValidateRemoteUITemplates(input.Data); err != nil {
+		return nil, err
 	}
 
 	systemCtx := authn.Context(ctx, authn.SystemUser())
 
-	tenantIDsStr, err := r.client.User.Query().
-		Where(user.Or(user.Email(input.AdminEmail), user.Username(input.AdminUsername))).
-		Select(user.FieldTenantID).
-		GroupBy(user.FieldTenantID).
-		Strings(systemCtx)
+	// Friendly-message pre-flight only; the unique index on name_key
+	// is what decides a concurrent registration of the same name in any
+	// case (the loser's pending insert fails below). It runs before the
+	// hash so a caller resending a taken name costs one indexed read,
+	// not a bcrypt hash.
+	nameTaken, err := r.tenantNameTaken(systemCtx, input.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query users: %w", err)
+		return nil, registrationInternalError(ctx, input.Name, "check tenant name", err)
+	}
+	if nameTaken {
+		return nil, errTenantExists
 	}
 
-	tenantIDs := make([]uuid.UUID, 0, len(tenantIDsStr))
-	for _, s := range tenantIDsStr {
-		id, err := uuid.Parse(s)
-		if err == nil {
-			tenantIDs = append(tenantIDs, id)
-		}
-	}
-
-	// Suppress unused variable warning - tenantIDs may be used for validation
-	_ = tenantIDs
-
-	if _, err = r.client.Tenant.Query().
-		Where(tenant.Name(input.Name)).
-		Only(systemCtx); err == nil {
-		return nil, fmt.Errorf("tenant with the provided name or admin profile already exists")
-	}
-
-	workflowInput := registertenantwf.RegisterTenantWorkflowInput{
-		Name:           input.Name,
-		AdminUsername:  input.AdminUsername,
-		AdminEmail:     input.AdminEmail,
-		AdminFirstName: input.AdminFirstName,
-		AdminLastName:  input.AdminLastName,
-		AdminPassword:  input.AdminPassword,
-		Data:           input.Data,
-		ExpiresAt:      input.ExpiresAt,
-	}
-
-	workflowID, runID, err := r.workflowClient.StartWorkflow(
-		systemCtx, workflows.RegisterTenantWorkflow, workflows.TemporalManagementTaskQueue, workflowInput, nil,
-	)
+	passwordHash, err := r.hashPassword([]byte(input.AdminPassword), registrationBcryptCost)
 	if err != nil {
-		return nil, err
+		return nil, registrationInternalError(ctx, input.Name, "hash admin password", err)
 	}
 
-	var workflowOutput registertenantwf.RegisterTenantWorkflowOutput
-	err = r.workflowClient.GetWorkflowResult(systemCtx, workflowID, runID, &workflowOutput)
+	orgID, tenantID := authn.NewTenantIdentity(core.Config.ZitadelAudience)
+
+	// A failed EnsureTenant removes the stream itself.
+	if err := r.eventStreams.EnsureTenant(systemCtx, tenantID); err != nil {
+		return nil, registrationInternalError(ctx, input.Name, "create tenant event stream", err)
+	}
+
+	if err := r.insertPendingTenant(ctx, tenantID, orgID, input, string(passwordHash)); err != nil {
+		r.deleteTenantStream(ctx, tenantID)
+
+		// A constraint violation is the lost side of a concurrent
+		// same-name registration: the client gets the pre-flight's
+		// message, not the driver's.
+		if ent.IsConstraintError(err) {
+			return nil, errTenantExists
+		}
+		return nil, registrationInternalError(ctx, input.Name, "insert pending tenant", err)
+	}
+
+	// One budget covers both the wait for the run and the re-reads of
+	// its row below.
+	waitCtx, cancel := context.WithTimeout(systemCtx, r.registrationWait)
+	defer cancel()
+
+	// Only a closed run that failed is a known outcome besides success;
+	// anything else (wait exhausted, Temporal unreachable, request
+	// cancelled) leaves the row pending for the run to finish.
+	waitErr := r.awaitRegistration(waitCtx, tenantID)
+	var wfErr *temporal.WorkflowExecutionError
+	if waitErr != nil && !errors.As(waitErr, &wfErr) {
+		log.ForContext(ctx).Warn().Err(waitErr).
+			Str("tenant_id", tenantID.String()).
+			Msg("tenant registration outcome unknown; the row stays pending")
+		// waitErr stays in the log: it is transport or Temporal text
+		// (stream resets, deadlines, addresses) an anonymous caller may
+		// not see.
+		return nil, fmt.Errorf("%w, tenant %q stays pending until its registration run finishes", errRegistrationOutcomeUnknown, input.Name)
+	}
+
+	registeredTenant, err := r.readSettledTenant(systemCtx, tenantID, waitCtx.Done())
 	if err != nil {
-		// Best-effort cleanup of a row this registration left ACTIVE.
-		// The RegisterTenantWorkflow owns compensation via its own saga
-		// rollback() — on any post-create failure it soft-deletes the
-		// tenant (by deterministic id) and deletes the Zitadel org. So
-		// by the time we get here the row is already either absent or
-		// soft-deleted, and this systemCtx lookup-by-name correctly
-		// misses it: we fall through to `return nil, err` and surface
-		// the real workflow error, leaving the workflow's tombstone
-		// intact.
-		//
-		// Do NOT widen this lookup with FEATURE_SHOW_DELETED: `name` is
-		// not unique (only idp_org_ref is), so seeing soft-deleted rows
-		// would let `.Only` match an unrelated same-named tenant and
-		// hard-delete it. The active-name pre-flight above guarantees
-		// the only ACTIVE row with this name is one we created.
-		registeredTenant, tenantErr := r.client.Tenant.Query().
-			Where(tenant.Name(input.Name)).
-			Only(systemCtx)
-		if tenantErr != nil {
-			return nil, err
-		}
-
-		// The cleanup must stay event-free: a tenant delete event would
-		// start DisableTenantWorkflow for a registration that failed.
-		cleanupCtx := feature.Context(systemCtx, feature.FEATURE_SUPPRESS_EVENTS)
-
-		if err := r.client.Tenant.DeleteOneID(registeredTenant.ID).Exec(cleanupCtx); err != nil {
-			return nil, err
-		}
-
-		userIDs, userQueryErr := r.client.User.Query().
-			Where(user.TenantID(registeredTenant.ID)).
-			Select(user.FieldID).
-			Strings(systemCtx)
-		if userQueryErr != nil {
-			return nil, userQueryErr
-		}
-
-		var userUUIDs []uuid.UUID
-		for _, idStr := range userIDs {
-			if id, parseErr := uuid.Parse(idStr); parseErr == nil {
-				userUUIDs = append(userUUIDs, id)
-			}
-		}
-
-		if len(userUUIDs) > 0 {
-			if _, err := r.client.User.Delete().
-				Where(user.IDIn(userUUIDs...)).
-				Exec(cleanupCtx); err != nil {
-				return nil, err
-			}
-		}
-
-		return nil, err
+		return nil, registrationInternalError(ctx, input.Name, "fetch registered tenant", err)
 	}
-
-	registeredTenant, err := r.client.Tenant.Get(systemCtx, workflowOutput.TenantID)
-	if err != nil {
-		return nil, fmt.Errorf("fetch registered tenant: %w", err)
+	switch {
+	case registeredTenant.Status == tenant.StatusDone:
+		return &model.RegisterTenantResponse{Success: true, Tenant: registeredTenant}, nil
+	case registeredTenant.Status == tenant.StatusError:
+		// waitErr names the failing step, unless the latest run under the
+		// ID is a later no-op that found the row already marked.
+		return nil, registrationFailure(ctx, tenantID,
+			fmt.Errorf("%w: tenant %q", errRegistrationFailed, input.Name), waitErr)
+	case waitErr == nil:
+		// The run succeeded, but the reader pool has not shown its status
+		// flip before the wait ran out. Calling that a failure would make
+		// the client register again and be refused its own name; the
+		// outcome is unknown, so the client checks by name.
+		log.ForContext(ctx).Warn().
+			Str("tenant_id", tenantID.String()).
+			Msg("tenant registration run succeeded but its row still reads pending")
+		return nil, fmt.Errorf("%w, tenant %q still reads as pending after its registration run finished", errRegistrationOutcomeUnknown, input.Name)
+	default:
+		// The run failed without the row reaching a terminal status: the
+		// status flip after the failed step did not land. waitErr names
+		// the step.
+		return nil, registrationFailure(ctx, tenantID,
+			fmt.Errorf("%w: tenant %q in status %q", errRegistrationUnsettled, input.Name, registeredTenant.Status), waitErr)
 	}
-
-	return &model.RegisterTenantResponse{Success: true, Tenant: registeredTenant}, nil
 }
 
 // DeleteTenant is the resolver for the deleteTenant field.
 //
 // Triggers the soft-delete half of the tenant lifecycle by setting
-// deleted_at. The tenant-lifecycle NATS subscriber (see
-// backend/management/events/tenants) observes the resulting CRUD
-// event and starts DisableTenantWorkflow asynchronously to deactivate
-// the Zitadel org. The hard-delete phase is automated by the periodic
-// expiry sweep, not exposed to the API.
+// deleted_at on the tenant input.TenantID names. The tenant-lifecycle
+// NATS subscriber (see backend/management/events/tenants) observes the
+// resulting CRUD event and starts DisableTenantWorkflow asynchronously to
+// deactivate the Zitadel org. Nothing hard-deletes a tenant: the row, and
+// with it the tenant's name, stays until an operator removes it.
+//
+// The caller must hold ROLE_ADMIN on the target tenant: a tenant may
+// disable itself, and a system caller passes every role check. Only
+// bringing a tenant back is reserved for an operator (restoreTenant).
+//
+// Every status can be deleted, and the delete never touches a pending
+// row's registration run: the run notices the deleted row itself (its
+// status flips refuse it, a pyck-go run re-checks it before the worker)
+// and deactivates the organization the row names, which covers an org it
+// created after the delete event's DisableTenantWorkflow ran. A worker a
+// pyck-go run deployed before noticing stays until an operator removes it
+// (docs/tenant-registration.md, "Retiring a registration"). The row loses
+// its registration data with the soft delete, so a retired registration
+// cannot be re-run and the admin's password hash does not outlive the
+// row's use.
+//
+// The write runs under the caller's own identity so HistoryMixin stamps
+// the real deleted_by and the outbox row carries the acting user; the
+// tenant id on that context is the target tenant, which is what the
+// outbox hook derives the event topic from (Tenant has no tenant_id
+// column of its own).
 //
 // Returns an error when the tenant does not exist — callers are
 // expected to verify the ID. Idempotent on already-deleted tenants.
-func (r *mutationResolver) DeleteTenant(ctx context.Context) (*model.DeleteTenantResponse, error) {
+func (r *mutationResolver) DeleteTenant(ctx context.Context, input model.DeleteTenantInput) (*model.DeleteTenantResponse, error) {
 	// MutationEventHook captures this mutation and writes an outbox row
 	// in the same transaction; the tenant-lifecycle NATS subscriber
 	// consumes the resulting event and starts the workflow.
 
-	tenantID, err := request.ForContext(ctx).RequireRole(authn.ROLE_ADMIN, "deleteTenant")
-	if err != nil {
-		return nil, err
+	req := request.ForContext(ctx)
+	if !req.User().IsAuthenticated() {
+		return nil, fmt.Errorf("%w: authentication required for deleteTenant", authn.ErrUnauthorized)
+	}
+
+	if !req.User().HasRole(authn.ROLE_ADMIN, input.TenantID) {
+		return nil, fmt.Errorf("%w: admin role required for deleteTenant", authn.ErrUnauthorized)
 	}
 
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
@@ -449,15 +536,12 @@ func (r *mutationResolver) DeleteTenant(ctx context.Context) (*model.DeleteTenan
 		return nil, err
 	}
 
-	// After the role check, fall back to the system user so the
-	// read+write bypass row-level filters (FEATURE_SHOW_DELETED) and
-	// the outbox hook can derive the tenant ID for the NATS topic.
-	// The tenant's own ID serves as the tenant ID since Tenant has no
-	// TenantMixin.
-	sysCtx := request.Context(ctx, authn.SystemUser(), tenantID)
+	// The read is system-scoped so a soft-deleted row is visible
+	// (FEATURE_SHOW_DELETED) and the idempotent path can answer for it.
+	sysCtx := request.Context(ctx, authn.SystemUser(), input.TenantID)
 	sysCtx = feature.Context(sysCtx, feature.FEATURE_SHOW_DELETED)
 
-	t, err := tx.Tenant.Query().Where(tenant.IDEQ(tenantID)).Only(sysCtx)
+	t, err := tx.Tenant.Query().Where(tenant.IDEQ(input.TenantID)).Only(sysCtx)
 	if err != nil {
 		return nil, fmt.Errorf("query tenant: %w", err)
 	}
@@ -466,14 +550,19 @@ func (r *mutationResolver) DeleteTenant(ctx context.Context) (*model.DeleteTenan
 		return &model.DeleteTenantResponse{Success: true}, nil
 	}
 
-	// Bypass HistoryMixinMutationFilter via entprivacy.Allow — same
-	// scope restoreTenant uses, so any future tightening of the
-	// filter that ignores FEATURE_SHOW_DELETED doesn't break only
-	// one of the two resolvers.
-	allowCtx := entprivacy.DecisionContext(sysCtx, entprivacy.Allow)
+	// The caller's identity carries into the write: HistoryMixin
+	// overwrites any explicit SetDeletedBy with the context user, so the
+	// audit trail is only real if the acting user is on the context.
+	// entprivacy.Allow bypasses HistoryMixinMutationFilter, the same
+	// scope restoreTenant uses, so any future tightening of the filter
+	// that ignores FEATURE_SHOW_DELETED doesn't break only one of the two
+	// resolvers.
+	callerCtx := feature.Context(callerContext(ctx, input.TenantID), feature.FEATURE_SHOW_DELETED)
+	allowCtx := entprivacy.DecisionContext(callerCtx, entprivacy.Allow)
 
-	if err := tx.Tenant.UpdateOneID(tenantID).
+	if err := tx.Tenant.UpdateOneID(input.TenantID).
 		SetDeletedAt(time.Now().UTC()).
+		ClearRegistration().
 		Exec(allowCtx); err != nil {
 		return nil, fmt.Errorf("mark tenant deleted: %w", err)
 	}
@@ -483,9 +572,17 @@ func (r *mutationResolver) DeleteTenant(ctx context.Context) (*model.DeleteTenan
 
 // RestoreTenant is the resolver for the restoreTenant field.
 //
-// Clears deleted_at on a previously disabled tenant. The tenant-lifecycle
-// NATS subscriber observes the resulting CRUD event and starts
-// RestoreTenantWorkflow asynchronously.
+// Clears deleted_at on the previously disabled tenant input.TenantID
+// names. The tenant-lifecycle NATS subscriber observes the resulting CRUD
+// event and starts RestoreTenantWorkflow asynchronously.
+//
+// System caller required: restore undoes an operator's disable and is not
+// something a tenant admin performs on its own tenant.
+//
+// Only a tenant whose registration finished (status done) can be
+// restored: a pending row has a run that still owns it, and an error row
+// lost its registration data at the delete, so bringing it back would
+// produce a tenant nothing ever provisioned.
 //
 // An optional input.ExpiresAt overrides the tenant's prior expiry —
 // useful when the prior value is already in the past, which would
@@ -494,16 +591,37 @@ func (r *mutationResolver) DeleteTenant(ctx context.Context) (*model.DeleteTenan
 //
 // Uses entprivacy.DecisionContext(Allow) to bypass the
 // HistoryMixinMutationFilter, which would otherwise refuse to update a
-// soft-deleted row.
+// soft-deleted row, and writes under the caller's identity so the outbox
+// row records who restored the tenant.
 //
 // Returns an error when the tenant does not exist — callers are
 // expected to verify the ID. Idempotent on already-active tenants;
 // input.ExpiresAt is ignored on that path — use setTenantExpiry to
 // change expiry on an active tenant.
 func (r *mutationResolver) RestoreTenant(ctx context.Context, input model.RestoreTenantInput) (*model.RestoreTenantResponse, error) {
-	tenantID, err := request.ForContext(ctx).RequireRole(authn.ROLE_ADMIN, "restoreTenant")
-	if err != nil {
-		return nil, err
+	req := request.ForContext(ctx)
+	if !req.User().IsAuthenticated() {
+		return nil, fmt.Errorf("%w: authentication required for restoreTenant", authn.ErrUnauthorized)
+	}
+
+	if !req.User().HasRole(authn.ROLE_ADMIN, input.TenantID) {
+		return nil, fmt.Errorf("%w: admin role required for restoreTenant", authn.ErrUnauthorized)
+	}
+
+	// Restore is an operator action. The tenant middleware also refuses a
+	// non-system caller that names a disabled tenant, but that is a property
+	// of the header axis, not of this mutation: were the header rule ever
+	// relaxed to filtering, any cross-tenant ROLE_ADMIN holder could undo an
+	// operator's disable.
+	if !req.User().IsSystemUser() {
+		return nil, fmt.Errorf("restoreTenant: %w", authn.ErrSystemCallerRequired)
+	}
+
+	// Past expiresAt would let the expiry sweep re-disable the tenant
+	// immediately after restore. Validated before the row is read so the
+	// refusal does not depend on the tenant's state.
+	if err := validateFutureExpiry(input.ExpiresAt); err != nil {
+		return nil, fmt.Errorf("restoreTenant: %w", err)
 	}
 
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
@@ -511,12 +629,10 @@ func (r *mutationResolver) RestoreTenant(ctx context.Context, input model.Restor
 		return nil, err
 	}
 
-	// After the role check, fall back to the system user so the outbox
-	// hook can derive the tenant ID for the NATS topic.
-	sysCtx := request.Context(ctx, authn.SystemUser(), tenantID)
+	sysCtx := request.Context(ctx, authn.SystemUser(), input.TenantID)
 	sysCtx = feature.Context(sysCtx, feature.FEATURE_SHOW_DELETED)
 
-	t, err := tx.Tenant.Query().Where(tenant.IDEQ(tenantID)).Only(sysCtx)
+	t, err := tx.Tenant.Query().Where(tenant.IDEQ(input.TenantID)).Only(sysCtx)
 	if err != nil {
 		return nil, fmt.Errorf("query tenant: %w", err)
 	}
@@ -525,18 +641,23 @@ func (r *mutationResolver) RestoreTenant(ctx context.Context, input model.Restor
 		return &model.RestoreTenantResponse{Success: true}, nil
 	}
 
-	// Past expiresAt would let the expiry sweep re-disable the
-	// tenant immediately after restore. Fail loud instead.
-	if input.ExpiresAt != nil && !input.ExpiresAt.After(time.Now().UTC()) {
-		return nil, fmt.Errorf("restoreTenant: expiresAt must be in the future")
+	if t.Status != tenant.StatusDone {
+		return nil, fmt.Errorf("%w: tenant %q is in status %q", errRegistrationUnfinished, input.TenantID, t.Status)
 	}
 
-	// Bypass HistoryMixinMutationFilter — the row is soft-deleted and the
-	// filter would otherwise reject the update. This resolver already
-	// runs as system user so the bypass is scoped appropriately.
-	allowCtx := entprivacy.DecisionContext(sysCtx, entprivacy.Allow)
+	// The restore event, which starts RestoreTenantWorkflow, needs the
+	// tenant's stream; one disabled before the per-tenant streams has none.
+	if err := r.eventStreams.EnsureTenant(sysCtx, input.TenantID); err != nil {
+		log.ForContext(ctx).Error().Err(err).
+			Str("tenant_id", input.TenantID.String()).
+			Msg("failed to create the event stream of a tenant to restore")
+		return nil, errTenantStreamUnavailable
+	}
 
-	op := tx.Tenant.UpdateOneID(tenantID).
+	callerCtx := feature.Context(callerContext(ctx, input.TenantID), feature.FEATURE_SHOW_DELETED)
+	allowCtx := entprivacy.DecisionContext(callerCtx, entprivacy.Allow)
+
+	op := tx.Tenant.UpdateOneID(input.TenantID).
 		ClearDeletedAt().
 		ClearDeletedBy()
 	if input.ExpiresAt != nil {
@@ -551,10 +672,14 @@ func (r *mutationResolver) RestoreTenant(ctx context.Context, input model.Restor
 
 // SetTenantExpiry is the resolver for the setTenantExpiry field.
 //
-// Writes (or clears, when input.ExpiresAt is nil) the tenant's expiry
-// timestamp directly to the management.tenants.expires_at column —
-// no Zitadel round-trip. The DB column is the source of truth that
-// tenant-expiry-check reads each sweep.
+// Writes (or clears, when input.ExpiresAt is nil) the expiry timestamp of
+// the tenant input.TenantID names, directly to the
+// management.tenants.expires_at column, no Zitadel round-trip. The DB
+// column is the source of truth that tenant-expiry-check reads each sweep.
+//
+// System caller required: the expiry is the deadline an operator imposes
+// on the tenant, and a tenant admin able to move it would outlive the
+// operator's decision on its own.
 //
 // Soft-deleted (disabled) tenants are invisible to this resolver —
 // the HistoryMixin privacy filter excludes them, so a request for a
@@ -567,9 +692,19 @@ func (r *mutationResolver) RestoreTenant(ctx context.Context, input model.Restor
 // cases: clears against an already-empty value, and sets that match
 // the current value.
 func (r *mutationResolver) SetTenantExpiry(ctx context.Context, input model.SetTenantExpiryInput) (*model.SetTenantExpiryResponse, error) {
-	tenantID, err := request.ForContext(ctx).RequireRole(authn.ROLE_ADMIN, "setTenantExpiry")
-	if err != nil {
-		return nil, err
+	req := request.ForContext(ctx)
+	if !req.User().IsAuthenticated() {
+		return nil, fmt.Errorf("%w: authentication required for setTenantExpiry", authn.ErrUnauthorized)
+	}
+
+	if !req.User().HasRole(authn.ROLE_ADMIN, input.TenantID) {
+		return nil, fmt.Errorf("%w: admin role required for setTenantExpiry", authn.ErrUnauthorized)
+	}
+
+	// The expiry schedules the operator's disable; a tenant admin moving it
+	// out would keep its own tenant alive past the operator's decision.
+	if !req.User().IsSystemUser() {
+		return nil, fmt.Errorf("setTenantExpiry: %w", authn.ErrSystemCallerRequired)
 	}
 
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
@@ -577,13 +712,14 @@ func (r *mutationResolver) SetTenantExpiry(ctx context.Context, input model.SetT
 		return nil, err
 	}
 
-	// After the role check, fall back to the system user so the
-	// outbox hook can derive the tenant id from context. We do NOT
-	// enable FEATURE_SHOW_DELETED here — soft-deleted tenants must
-	// not be visible to this resolver.
-	sysCtx := request.Context(ctx, authn.SystemUser(), tenantID)
+	// The caller's own identity, like the two sibling lifecycle resolvers:
+	// the system gate above admits nobody else, so this is the system user,
+	// and the tenant id on the context is what the outbox hook derives the
+	// event topic from. We do NOT enable FEATURE_SHOW_DELETED:
+	// soft-deleted tenants must not be visible to this resolver.
+	sysCtx := callerContext(ctx, input.TenantID)
 
-	t, err := tx.Tenant.Query().Where(tenant.IDEQ(tenantID)).Only(sysCtx)
+	t, err := tx.Tenant.Query().Where(tenant.IDEQ(input.TenantID)).Only(sysCtx)
 	if err != nil {
 		return nil, fmt.Errorf("query tenant: %w", err)
 	}
@@ -596,7 +732,7 @@ func (r *mutationResolver) SetTenantExpiry(ctx context.Context, input model.SetT
 		return &model.SetTenantExpiryResponse{Success: true}, nil
 	}
 
-	op := tx.Tenant.UpdateOneID(tenantID)
+	op := tx.Tenant.UpdateOneID(input.TenantID)
 	if input.ExpiresAt == nil {
 		op.ClearExpiresAt()
 	} else {
@@ -625,7 +761,7 @@ func (r *mutationResolver) SetTenantExpiry(ctx context.Context, input model.SetT
 func (r *mutationResolver) SetTenantUITemplate(ctx context.Context, input model.SetTenantUITemplateInput) (*model.SetTenantUITemplateResponse, error) {
 	req := request.ForContext(ctx)
 	if !req.User().IsSystemUser() {
-		return nil, fmt.Errorf("%w: system role required for setTenantUITemplate", authn.ErrUnauthorized)
+		return nil, fmt.Errorf("setTenantUITemplate: %w", authn.ErrSystemCallerRequired)
 	}
 
 	clearWeb := input.ClearWebTemplate != nil && *input.ClearWebTemplate
@@ -650,7 +786,10 @@ func (r *mutationResolver) SetTenantUITemplate(ctx context.Context, input model.
 		}
 	}
 
-	tenantID := req.MutationTenantID()
+	tenantID, err := req.MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
@@ -731,16 +870,23 @@ func (r *mutationResolver) GenerateJSONSchema(ctx context.Context, jsonData stri
 }
 
 // CreateUser is the resolver for the createUser field.
+//
+// The User table is a projection of Zitadel users, written by the
+// zitadel-sync workflow under the system user. assignRoles and its
+// siblings resolve their Zitadel target from a row's idp_id, so a tenant
+// principal writing rows could point a projection row at an arbitrary
+// Zitadel user and redirect role grants to it; hence only a system
+// caller may write the projection, even though a tenant's admin passes
+// the ent AllowIfAdmin mutation policy.
 func (r *mutationResolver) CreateUser(ctx context.Context, input ent.CreateUserInput) (*ent.User, error) {
 	// MutationEventHook captures the mutation automatically.
+	if !authn.ForContext(ctx).IsSystemUser() {
+		return nil, fmt.Errorf("createUser: %w", authn.ErrSystemCallerRequired)
+	}
+
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
-	}
-
-	req := request.ForContext(ctx)
-	if !req.User().IsSystemUser() && input.TenantID != req.MutationTenantID() {
-		return nil, fmt.Errorf("%w %q: does not match request tenant", mixin.ErrInvalidTenantID, input.TenantID)
 	}
 
 	user, err := tx.User.
@@ -755,8 +901,16 @@ func (r *mutationResolver) CreateUser(ctx context.Context, input ent.CreateUserI
 }
 
 // UpdateUser is the resolver for the updateUser field.
+//
+// System-only for the same reason as createUser: the User table is a
+// zitadel-sync-owned projection whose idp_id is the trust anchor of the
+// role-assignment resolvers.
 func (r *mutationResolver) UpdateUser(ctx context.Context, id uuid.UUID, input ent.UpdateUserInput) (*ent.User, error) {
 	// MutationEventHook captures the mutation automatically.
+	if !authn.ForContext(ctx).IsSystemUser() {
+		return nil, fmt.Errorf("updateUser: %w", authn.ErrSystemCallerRequired)
+	}
+
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return nil, err
@@ -771,8 +925,16 @@ func (r *mutationResolver) UpdateUser(ctx context.Context, id uuid.UUID, input e
 }
 
 // DeleteUser is the resolver for the deleteUser field.
+//
+// System-only for the same reason as createUser: retiring a projection
+// row is zitadel-sync's job, and a soft-deleted row would silently drop
+// the user from every projection consumer until the next sync.
 func (r *mutationResolver) DeleteUser(ctx context.Context, id uuid.UUID) (bool, error) {
 	// MutationEventHook captures the mutation automatically.
+	if !authn.ForContext(ctx).IsSystemUser() {
+		return false, fmt.Errorf("deleteUser: %w", authn.ErrSystemCallerRequired)
+	}
+
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
 	if err != nil {
 		return false, err
@@ -809,10 +971,14 @@ func (r *mutationResolver) SetKeyValue(ctx context.Context, input model.SetKeyVa
 	// from the uniqueness check below — otherwise the entry's own unchanged
 	// unique value would be counted as a collision against itself.
 	req := request.ForContext(ctx)
+	tenantID, err := req.MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 	var excludeID *uuid.UUID
 	existing, err := tx.KeyValue.Query().
 		Where(
-			keyvalue.TenantID(req.MutationTenantID()),
+			keyvalue.TenantID(tenantID),
 			keyvalue.UserID(req.User().ID),
 			keyvalue.Name(input.Name),
 			keyvalue.DeletedAtIsNil(),

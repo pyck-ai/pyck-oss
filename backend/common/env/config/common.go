@@ -102,9 +102,28 @@ type ZitadelConfig struct {
 	ZitadelPATCacheTTL        time.Duration `env:"PYCK_ZITADEL_PAT_CACHE_TTL,notEmpty" envDefault:"1h"`
 	ZitadelPATCacheTTLOverlap time.Duration `env:"PYCK_ZITADEL_PAT_CACHE_TTL_OVERLAP,notEmpty" envDefault:"1m"`
 
-	// ZitadelOrganizationCacheTTL bounds how long a positive org-active verdict
-	// is reused before the validator is consulted again.
-	ZitadelOrganizationCacheTTL time.Duration `env:"PYCK_ZITADEL_ORGANIZATION_CACHE_TTL,notEmpty" envDefault:"1m"`
+	LivenessConfig
+}
+
+// LivenessConfig configures the tenant-liveness cache every service builds
+// with liveness.NewCacheFromConfig.
+type LivenessConfig struct {
+	// LivenessCacheTTL bounds how long a tenant-liveness verdict (either
+	// sign, one per tenant, shared by the auth path's home-tenant check
+	// and the middleware's acting set) is reused before its source is
+	// consulted again. Lifecycle events evict earlier; this is the
+	// worst-case staleness when such an event is lost, in both directions.
+	LivenessCacheTTL time.Duration `env:"PYCK_LIVENESS_CACHE_TTL,notEmpty" envDefault:"1m"`
+
+	// LivenessLookupTimeout bounds how long ONE lookup waits on a request
+	// path for a verdict it does not have cached; it must stay below the
+	// patience of every caller, below NatsCalloutTimeout and below the
+	// Temporal server's PYCK_TEMPORAL_CLAIMS_TIMEOUT.
+	LivenessLookupTimeout time.Duration `env:"PYCK_LIVENESS_LOOKUP_TIMEOUT,notEmpty" envDefault:"1s"`
+
+	// LivenessSourceTimeout bounds the detached call to the liveness
+	// source that a cache miss starts; nothing else would ever cancel it.
+	LivenessSourceTimeout time.Duration `env:"PYCK_LIVENESS_SOURCE_TIMEOUT,notEmpty" envDefault:"10s"`
 }
 
 type NatsConfig struct {
@@ -112,6 +131,70 @@ type NatsConfig struct {
 	NatsStreamName     string `env:"PYCK_NATS_STREAM_NAME,notEmpty,required"`
 	NatsWsUrl          string `env:"PYCK_NATS_WS_URL,notEmpty,required"`
 	NatsReplicasNumber int    `env:"PYCK_NATS_REPLICAS_NO,notEmpty,required"`
+
+	// NatsTenantAccountName is the NATS account the auth callout places
+	// tenant clients in. It must not be the services' account, which holds
+	// the streams (config/nats/nats.conf).
+	NatsTenantAccountName string `env:"PYCK_NATS_TENANT_ACCOUNT_NAME,notEmpty" envDefault:"pyck-tenants"`
+
+	// The limits of the event streams (events.StreamLimits). Management's
+	// values apply; the other services use theirs only to create a missing
+	// system stream or aggregate. The caps count messages, oldest discarded.
+	// The max age is 0 (no limit) or at least the 2m duplicate window
+	// (events.StreamDuplicateWindow).
+	NatsStreamMaxAge           time.Duration `env:"PYCK_NATS_STREAM_MAX_AGE,notEmpty" envDefault:"72h"`
+	NatsTenantStreamMaxMsgs    int64         `env:"PYCK_NATS_TENANT_STREAM_MAX_MSGS,notEmpty" envDefault:"100000"`
+	NatsSystemStreamMaxMsgs    int64         `env:"PYCK_NATS_SYSTEM_STREAM_MAX_MSGS,notEmpty" envDefault:"200000"`
+	NatsAggregateStreamMaxMsgs int64         `env:"PYCK_NATS_AGGREGATE_STREAM_MAX_MSGS,notEmpty" envDefault:"2000000"`
+
+	// NatsCalloutTimeout bounds one whole auth callout. It must stay below
+	// the NATS server's own authorization timeout (config/nats/nats.conf)
+	// and above LivenessLookupTimeout, which runs inside it.
+	NatsCalloutTimeout time.Duration `env:"PYCK_NATS_CALLOUT_TIMEOUT,notEmpty" envDefault:"2s"`
+
+	// NatsUserJWTTTL is the life of a tenant user's minted NATS
+	// credential, and with it the worst-case delay before a disabled
+	// tenant's already-connected client is re-evaluated. Each credential's
+	// expiry is spread by up to ±1 min around it (±TTL/4 when the TTL is
+	// below 4 min), so a cohort admitted together does not expire together.
+	NatsUserJWTTTL time.Duration `env:"PYCK_NATS_USER_JWT_TTL,notEmpty" envDefault:"5m"`
+}
+
+// TenantRegistrationConfig bounds the registerTenant mutation: how many of
+// them one replica admits at a time, how long one waits for its
+// registration run, and how often it re-asks Temporal for a run that the
+// trigger has not started yet.
+type TenantRegistrationConfig struct {
+	// RegisterTenantMaxInFlight caps concurrent registerTenant executions
+	// per replica; the mutation is anonymous, so this is what bounds how
+	// much provisioning work one caller can start at once.
+	RegisterTenantMaxInFlight int `env:"PYCK_REGISTER_TENANT_MAX_INFLIGHT,notEmpty" envDefault:"8"`
+
+	// RegistrationWait bounds the resolver's whole wait for the
+	// registration run; it must stay under the gateway's per-subgraph
+	// request timeout or the outcome never reaches the client. Management
+	// refuses to start unless it is positive.
+	RegistrationWait time.Duration `env:"PYCK_TENANT_REGISTRATION_WAIT,notEmpty" envDefault:"25s"`
+
+	// RegistrationPoll is how often the resolver re-asks Temporal for a
+	// run that does not exist yet while the row's create event travels.
+	// Management refuses to start unless it is positive and below
+	// RegistrationWait.
+	RegistrationPoll time.Duration `env:"PYCK_TENANT_REGISTRATION_POLL,notEmpty" envDefault:"250ms"`
+}
+
+// TenantEventsConfig bounds the tenant-lifecycle trigger consumer that
+// turns tenant CRUD events into lifecycle workflow starts.
+type TenantEventsConfig struct {
+	// TenantEventMaxRedeliver caps the deliveries (the first included) of
+	// one tenant event before JetStream drops it.
+	TenantEventMaxRedeliver int `env:"PYCK_TENANT_EVENT_MAX_REDELIVER,notEmpty" envDefault:"5"`
+
+	// TenantEventTemporalCallTimeout bounds the one Temporal start the
+	// handler makes per delivery, so a hung frontend cannot pin the
+	// consumer's callback behind it. Management refuses to start unless it
+	// is positive.
+	TenantEventTemporalCallTimeout time.Duration `env:"PYCK_TENANT_EVENT_TEMPORAL_CALL_TIMEOUT,notEmpty" envDefault:"10s"`
 }
 
 type GraphQLConfig struct {

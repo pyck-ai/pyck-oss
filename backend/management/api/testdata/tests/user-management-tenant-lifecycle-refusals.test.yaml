@@ -1,0 +1,144 @@
+---
+name: "User - Tenant Lifecycle Refusals"
+description: >
+  The three tenant-lifecycle mutations (deleteTenant, restoreTenant,
+  setTenantExpiry) now name their target explicitly (input.tenantId)
+  instead of deriving it from the X-Pyck-Tenant-Id header. That is what
+  makes this scenario possible at all: every step aims at a tenant id
+  that is NOT the collection's own, so a working guard refuses it and a
+  regressed guard fails an assertion instead of retiring the tenant the
+  rest of the suite runs against.
+
+  The Bruno PAT holds ROLE_ADMIN on its own tenant and nothing on any
+  other, so the role gate (checked against input.tenantId, not against
+  the caller's header) is what answers. It must answer the same way for
+  a tenant id that exists elsewhere and for one that never existed: a
+  refusal that distinguished the two would be a tenant-existence oracle
+  for any authenticated caller.
+
+  restoreTenant and setTenantExpiry additionally require the system
+  caller, but the role gate runs first, so under this PAT "admin role
+  required" is the expected message for all three.
+
+  Run with the system token (BRUNO_TOKEN=<system token>) the role gate
+  cannot refuse (the system caller passes every role check) and the
+  mutations would reach the row lookup instead. A probe step detects the
+  token mode and the refusal steps skip themselves under a system
+  caller, exactly as in tests/user-management-tenant-register-refusals.
+
+  The admitted paths (a delete that succeeds, its restore, an expiry
+  write) need a disposable tenant and live in
+  tests/integration/tests/tenant-lifecycle.
+steps:
+  - id: probe
+    name: "Probe the token mode via the system-only disabledTenants query"
+    operation: management.getDisabledTenants
+    vars:
+      ids: []
+    tests:
+      - msg: "Status is 200 under either token"
+        assertions:
+          - ref: res.status
+            equal: 200
+
+  - name: "deleteTenant refuses a tenant the caller holds no admin role on"
+    operation: management.deleteTenant
+    skip:
+      - msg: "System-token run: the system caller passes every role check"
+        assertions:
+          - ref: res[probe].body.errors
+            nil: true
+    vars:
+      input:
+        tenantId: { $fake: uuid }
+    tests:
+      - msg: "Refused on the role, before the row is looked up"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.errors[].message
+            contains: "admin role required"
+      - msg: "The refusal must not reveal whether that tenant exists"
+        assertions:
+          # brunogen has no notContains; a negative lookahead is the
+          # supported way to assert a message does NOT name the lookup.
+          - ref: res.body.errors[].message
+            regexp: "^(?!.*query tenant).*$"
+      - msg: "Nothing retired"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "restoreTenant refuses a tenant the caller holds no admin role on"
+    operation: management.restoreTenant
+    skip:
+      - msg: "System-token run: the system caller passes every role check"
+        assertions:
+          - ref: res[probe].body.errors
+            nil: true
+    vars:
+      input:
+        tenantId: { $fake: uuid }
+    tests:
+      - msg: "Refused on the role, before the system-caller gate and the row lookup"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.errors[].message
+            contains: "admin role required"
+      - msg: "Nothing restored"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "setTenantExpiry refuses a tenant the caller holds no admin role on"
+    operation: management.setTenantExpiry
+    skip:
+      - msg: "System-token run: the system caller passes every role check"
+        assertions:
+          - ref: res[probe].body.errors
+            nil: true
+    vars:
+      input:
+        tenantId: { $fake: uuid }
+        expiresAt: "2099-01-01T00:00:00Z"
+    tests:
+      - msg: "Refused on the role, before the expiry column is touched"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.errors[].message
+            contains: "admin role required"
+      - msg: "No expiry written"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "restoreTenant refuses a past expiresAt whatever the target"
+    operation: management.restoreTenant
+    skip:
+      - msg: "Tenant-token run: the role gate answers first, so the expiry rule is not what is under test"
+        assertions:
+          - ref: res[probe].body.errors
+            nil: false
+    vars:
+      input:
+        tenantId: { $fake: uuid }
+        expiresAt: "2020-01-01T00:00:00Z"
+    tests:
+      - msg: "Refused on the expiry, before the row is read"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.errors[].message
+            contains: "expiresAt must be in the future"
+      - msg: "The refusal must not depend on whether that tenant exists"
+        assertions:
+          # brunogen has no notContains; a negative lookahead is the
+          # supported way to assert a message does NOT name the lookup.
+          - ref: res.body.errors[].message
+            regexp: "^(?!.*query tenant).*$"
+      - msg: "Nothing restored"
+        assertions:
+          - ref: res.body.data
+            nil: true

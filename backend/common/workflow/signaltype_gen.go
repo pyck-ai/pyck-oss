@@ -40,15 +40,18 @@ func _SignalTypeNoOp() {
 var _SignalTypeValues = []SignalType{SIGNAL_UNKNOWN, SIGNAL_START, SIGNAL_INTERMEDIATE, SIGNAL_WITH_START, SIGNAL_BY_ID}
 
 var _SignalTypeNameToValueMap = map[string]SignalType{
-	_SignalTypeName[0:7]:        SIGNAL_UNKNOWN,
+	_SignalTypeName[0:7]:   SIGNAL_UNKNOWN,
+	_SignalTypeName[7:12]:  SIGNAL_START,
+	_SignalTypeName[12:24]: SIGNAL_INTERMEDIATE,
+	_SignalTypeName[24:41]: SIGNAL_WITH_START,
+	_SignalTypeName[41:53]: SIGNAL_BY_ID,
+}
+
+var _SignalTypeLowerNameToValueMap = map[string]SignalType{
 	_SignalTypeLowerName[0:7]:   SIGNAL_UNKNOWN,
-	_SignalTypeName[7:12]:       SIGNAL_START,
 	_SignalTypeLowerName[7:12]:  SIGNAL_START,
-	_SignalTypeName[12:24]:      SIGNAL_INTERMEDIATE,
 	_SignalTypeLowerName[12:24]: SIGNAL_INTERMEDIATE,
-	_SignalTypeName[24:41]:      SIGNAL_WITH_START,
 	_SignalTypeLowerName[24:41]: SIGNAL_WITH_START,
-	_SignalTypeName[41:53]:      SIGNAL_BY_ID,
 	_SignalTypeLowerName[41:53]: SIGNAL_BY_ID,
 }
 
@@ -67,7 +70,7 @@ func SignalTypeString(s string) (SignalType, error) {
 		return val, nil
 	}
 
-	if val, ok := _SignalTypeNameToValueMap[strings.ToLower(s)]; ok {
+	if val, ok := _SignalTypeLowerNameToValueMap[strings.ToLower(s)]; ok {
 		return val, nil
 	}
 	return 0, errors.Join(enumerrs.ErrValueInvalid, fmt.Errorf("%s does not belong to SignalType values", s))

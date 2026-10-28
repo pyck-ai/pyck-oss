@@ -16,8 +16,6 @@ import (
 	"go.temporal.io/api/workflowservice/v1"
 	temporalclient "go.temporal.io/sdk/client"
 
-	"github.com/pyck-ai/pyck/backend/common/authn"
-	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/test/mocks"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 	commonworkflow "github.com/pyck-ai/pyck/backend/common/workflow"
@@ -617,22 +615,4 @@ func TestWorkflowExecutionsRemoteUIField(t *testing.T) {
 			assert.Equal(t, int64(1), calls.Load())
 		})
 	}
-}
-
-// Test helpers that main carries in single_tenant_test.go; that file is not
-// part of this backport, so the two definitions the remoteUI tests need live
-// here on the v0.25.x lineage.
-var userAB = &authn.User{
-	ID:       uuid.MustParse("5c2c6a2e-6f6d-4a5e-9b0e-3f1c1a4d7b01"),
-	TenantID: resolver.TenantA,
-	Roles: map[uuid.UUID]authn.Role{
-		resolver.TenantA: authn.ROLE_ADMIN,
-		resolver.TenantB: authn.ROLE_ADMIN,
-	},
-}
-
-// ctxWithTenants is te.ctx with an explicit, possibly empty, tenant selection.
-func (te *testEnv) ctxWithTenants(user *authn.User, tenantIDs ...uuid.UUID) context.Context {
-	te.t.Helper()
-	return request.Context(te.t.Context(), user, tenantIDs...)
 }

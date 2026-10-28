@@ -65,11 +65,12 @@ var (
 	}
 )
 
-// SignalTopic is the topic shape workflows register their start signals
-// with. Mutation events are published fire-and-forget; the workflow
-// service normalizes legacy request/reply registrations to this form.
+// SignalTopic is the topic of an entity's CRUD events, and CustomSignalTopic
+// the topic of a tenant's custom events (sendCustomEvent). The workflow
+// service normalizes legacy request/reply registrations to SignalTopic.
 type (
-	SignalTopic = events.MutationEventTopic
+	SignalTopic       = events.MutationEventTopic
+	CustomSignalTopic = events.TenantCustomEventTopic
 )
 
 type UserDataInputGetter interface {

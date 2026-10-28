@@ -69,10 +69,11 @@ var (
 func TestTemporalMutations_RequireWriter(t *testing.T) {
 	t.Parallel()
 
+	assignee := uuid.New()
 	vars := map[string]any{
 		"WorkflowID":    "test-workflow",
 		"WorkflowRunID": "test-run",
-		"AssigneeID":    uuid.New(),
+		"AssigneeID":    assignee,
 	}
 
 	mutations := map[string]resolver.Template{
@@ -119,6 +120,7 @@ func TestTemporalMutations_RequireWriter(t *testing.T) {
 				t.Parallel()
 				te := setupWithMockWorkflow(t)
 				defer te.Close(t)
+				te.Users.Add(tenantA, assignee)
 
 				execOK[map[string]any](te, te.ctx(tc.user), tpl, vars)
 			})
@@ -131,6 +133,7 @@ func TestTemporalMutations_RequireWriter(t *testing.T) {
 		defer te.Close(t)
 
 		assignee := uuid.New()
+		te.Users.Add(tenantA, assignee)
 		execOK[setAssigneeData](te, te.ctx(userWriter), setAssignee, map[string]any{
 			"WorkflowID":    "test-workflow",
 			"WorkflowRunID": "test-run",

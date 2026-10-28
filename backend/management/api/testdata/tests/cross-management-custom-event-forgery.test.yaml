@@ -1,14 +1,13 @@
 ---
 name: "Cross - Custom Event Cannot Forge Entity Events"
 description: >
-  sendCustomEvent re-publishes its event on the subject that a management
-  entity's own CRUD events use. Every service's datatype cache consumes those
-  subjects and trusts the payload's id, so a custom "datatype delete" event
-  used to remove the datatype from every service's cache. This scenario
-  creates a datatype and a typed item, sends that forged event, checks that
-  it is refused, and checks that typed writes keep working. A custom event
-  with a type of its own must still be accepted. Everything is deleted at the
-  end.
+  Every service's datatype cache consumes the management CRUD subjects and
+  trusts the payload's id, so a custom "datatype delete" event on those
+  subjects used to remove the datatype from every service's cache. Custom
+  events now have their own subjects. This scenario creates a datatype and a
+  typed item, sends a custom "datatype delete" event for it, checks that it
+  is accepted, and checks that typed writes keep working, so no cache saw it.
+  Everything is deleted at the end.
 steps:
 - id: createDT
   name: Create an inventory-item datatype
@@ -54,7 +53,7 @@ steps:
     assertions:
     - ref: res.body.data.createInventoryItem.inventoryItem.id
       nil: false
-- name: A custom event named after the datatype entity is refused
+- name: A custom event named after the datatype entity is accepted
   operation: management.sendCustomEvent
   wait_after_ms: 1500
   vars:
@@ -68,14 +67,16 @@ steps:
     assertions:
     - ref: res.status
       equal: 200
-  - msg: The forged entity event is refused
+  - msg: No GraphQL errors
     assertions:
     - ref: res.body.errors
-      nil: false
-    - ref: res.body.errors[0].message
-      contains: "reserved"
+      nil: true
+  - msg: Event accepted
+    assertions:
+    - ref: res.body.data.sendCustomEvent.success
+      equal: true
 - id: item2
-  name: Typed writes keep working after the refused event
+  name: Typed writes keep working after the custom event
   operation: inventory.createInventoryItem
   vars:
     input:
@@ -96,27 +97,6 @@ steps:
     assertions:
     - ref: res.body.data.createInventoryItem.inventoryItem.id
       nil: false
-- name: Positive control - a custom event with its own type is accepted
-  operation: management.sendCustomEvent
-  vars:
-    input:
-      type: "bruno-custom-event"
-      operation: "create"
-      payload:
-        id: {$fake: uuid}
-  tests:
-  - msg: Status is 200
-    assertions:
-    - ref: res.status
-      equal: 200
-  - msg: No GraphQL errors
-    assertions:
-    - ref: res.body.errors
-      nil: true
-  - msg: Event accepted
-    assertions:
-    - ref: res.body.data.sendCustomEvent.success
-      equal: true
 - name: Delete the first item
   operation: inventory.deleteInventoryItem
   vars:

@@ -7,15 +7,21 @@ package tests
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/pyck-ai/pyck/backend/common/serviceroles"
-	managementapi "github.com/pyck-ai/pyck/backend/management/api"
+	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/suite"
 	"github.com/zitadel/zitadel-go/v3/pkg/client/zitadel"
+
+	natsgo "github.com/pyck-ai/pyck/backend/common/nats"
+	"github.com/pyck-ai/pyck/backend/common/serviceroles"
+	managementapi "github.com/pyck-ai/pyck/backend/management/api"
 
 	"github.com/pyck-ai/pyck/tests/integration/internal/config"
 	"github.com/pyck-ai/pyck/tests/integration/internal/fixtures"
@@ -87,7 +93,7 @@ func PollStable(ctx context.Context, window, interval time.Duration, check func(
 // funnels through the subgraphs' shared auth middleware
 // (backend/common/authn HTTPMiddleware), which replies HTTP 401 with
 // http.StatusText — "Unauthorized" — whether the token is invalid, revoked,
-// or its org failed the OrgValidator; the per-service role gate replies 403
+// or its tenant failed the liveness check; the per-service role gate replies 403
 // "Forbidden". Apollo Router (include_subgraph_errors: all) folds those
 // non-200s into GraphQL errors embedding the subgraph status line, e.g.
 // "HTTP fetch failed from 'inventory': 401: Unauthorized". Anything else —
@@ -173,7 +179,15 @@ type ProvisionedTenant struct {
 // and MUST call DeferTenantCleanup right after registration, before this —
 // so a run that fails in here still tears its tenant down.
 func ProvisionUserInTenant(ctx context.Context, cfg *config.Config, conn *zitadel.Connection, rt *gateway.RegisteredTenant, roles []string) (*ProvisionedTenant, error) {
-	uid, err := zitadelclient.EnsureMachineUser(ctx, conn, rt.IdpOrgRef, fixtures.NewMachineUser())
+	return ProvisionUserInTenantAs(ctx, cfg, conn, rt, fixtures.NewMachineUser(), roles)
+}
+
+// ProvisionUserInTenantAs is ProvisionUserInTenant against a caller-chosen
+// machine user. Suites want a fresh random one per run; a durable fixture
+// wants a stable name, because EnsureMachineUser is idempotent on it and a
+// generated name would leave a new user behind on every re-run.
+func ProvisionUserInTenantAs(ctx context.Context, cfg *config.Config, conn *zitadel.Connection, rt *gateway.RegisteredTenant, machine *fixtures.MachineUser, roles []string) (*ProvisionedTenant, error) {
+	uid, err := zitadelclient.EnsureMachineUser(ctx, conn, rt.IdpOrgRef, machine)
 	if err != nil {
 		return nil, fmt.Errorf("ensure machine user: %w", err)
 	}
@@ -217,12 +231,42 @@ func (b *Base) TearDownTest() {
 	b.cleanupTenants = nil
 	b.cleanupMu.Unlock()
 	for _, id := range ids {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		if err := gateway.DeleteTenant(ctx, b.Cfg, id); err != nil {
-			b.T().Logf("cleanup: deleteTenant %s: %v (already disabled by the test itself is fine)", id, err)
-		}
-		cancel()
+		deleteTenant(b.T().Logf, b.Cfg, id)
 	}
+}
+
+// DeferSuiteTenantCleanup soft-deletes a tenant SetupSuite registered when the
+// suite ends, even if SetupSuite fails (testify defers TearDownSuite only
+// after SetupSuite returns). Call it from SetupSuite only.
+func (b *Base) DeferSuiteTenantCleanup(tenantID string) {
+	t, cfg := b.T(), b.Cfg
+	t.Cleanup(func() { deleteTenant(t.Logf, cfg, tenantID) })
+}
+
+func deleteTenant(logf func(string, ...any), cfg *config.Config, tenantID string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := gateway.DeleteTenant(ctx, cfg, tenantID); err != nil {
+		logf("cleanup: deleteTenant %s: %v (already disabled by the test itself is fine)", tenantID, err)
+	}
+}
+
+// DialTenantNATS connects through the auth callout as a client of tenantID, on
+// its inbox prefix. It does not reconnect, so a refusal stays visible.
+func DialTenantNATS(cfg *config.Config, token string, tenantID uuid.UUID, opts ...nats.Option) (*nats.Conn, error) {
+	opts = append([]nats.Option{
+		nats.Token(token),
+		nats.CustomInboxPrefix(natsgo.TenantInboxPrefix(tenantID)),
+		nats.NoReconnect(),
+	}, opts...)
+
+	nc, err := nats.Connect(cfg.NatsWSURL, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("connect tenant %s to %s through the auth callout: %w", tenantID, cfg.NatsWSURL, err)
+	}
+
+	return nc, nil
 }
 
 // TenantInList queries management.tenants with the given bearer token,
@@ -256,42 +300,169 @@ func TenantInList(ctx context.Context, cfg *config.Config, token, tenantID strin
 	return false, nil
 }
 
-// WaitUntilTokenRejected polls TenantInList with the given bearer token
-// until the request fails with a definitive auth denial (IsAuthDenial) —
-// meaning Zitadel introspection (or any downstream auth cache) has caught
-// up with a PAT or user deletion. Used after RemovePAT / DeleteMachineUser,
-// where rejection lags the Zitadel API call by however long the validation
-// cache TTL is. Non-auth errors — transport faults, gateway 5xx — keep
-// polling: counting them as rejection would certify a revocation no service
-// ever performed.
-func WaitUntilTokenRejected(ctx context.Context, cfg *config.Config, token, tenantID string, timeout time.Duration) (time.Duration, error) {
+// WaitForSyncedUser polls management (system token) until the user with the
+// given username is projected into the tenant by the zitadel-sync workflow,
+// returning its management user id. The lookup filters by username
+// server-side, so it stays O(1) however many users the tenant accumulates.
+//
+// The budget is cfg.UserSyncWaitTimeout, floored at one sync cadence plus
+// slack: registration triggers a sync for the tenant's admin, but a user
+// provisioned afterwards (ProvisionUserInTenant) reaches management.users
+// through the scheduled sweep alone (no mutation or admin endpoint can
+// force it) so on a stack running the 10-minute service default the wait
+// is that long, not the 30 s a test-cadence stack needs.
+func WaitForSyncedUser(ctx context.Context, cfg *config.Config, tenantID, username string) (string, error) {
+	c := gateway.NewClient(cfg, cfg.ServiceToken)
+	first := 1
+	var userID string
+	timeout := max(cfg.UserSyncWaitTimeout, cfg.ZitadelSyncInterval+30*time.Second)
+	err := PollUntil(ctx, timeout, 500*time.Millisecond, func() error {
+		resp, err := c.GetUsers(ctx, managementapi.GetUsersArgs{
+			First: &first,
+			Where: &managementapi.UserWhereInput{TenantID: &tenantID, Username: &username},
+		})
+		if err != nil {
+			return fmt.Errorf("getUsers: %w", err)
+		}
+		users := resp.GetUsers()
+		if users == nil || len(users.GetEdges()) == 0 || users.GetEdges()[0].GetNode() == nil {
+			return fmt.Errorf("user %q not yet synced into tenant %s", username, tenantID)
+		}
+		userID = users.GetEdges()[0].GetNode().GetID()
+		return nil
+	})
+	return userID, err
+}
+
+// ErrTenantNotVisible is returned by TenantStatus when the tenants query
+// does not surface the requested tenant for the given token.
+var ErrTenantNotVisible = errors.New("tenant not visible to token")
+
+// TenantStatus reads the registration status of the given tenant through
+// the tenants query with the given bearer token, the second vantage point
+// on what registerTenant reported. Returns ErrTenantNotVisible when the
+// tenant is not visible to the token.
+func TenantStatus(ctx context.Context, cfg *config.Config, token, tenantID string) (string, error) {
+	node, err := tenantNode(ctx, cfg, token, tenantID)
+	if err != nil {
+		return "", err
+	}
+	return node.GetStatus().String(), nil
+}
+
+// TenantExpiresAt reads the tenant's expires_at through the tenants query
+// with the given bearer token, the read side of setTenantExpiry and of
+// restoreTenant's expiry override. A nil time is a tenant with no expiry,
+// which is what a cleared one must read as.
+func TenantExpiresAt(ctx context.Context, cfg *config.Config, token, tenantID string) (*time.Time, error) {
+	node, err := tenantNode(ctx, cfg, token, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return node.GetExpiresAt(), nil
+}
+
+// tenantNode reads one tenant row through the tenants query. Returns
+// ErrTenantNotVisible when the tenant is not visible to the token, which
+// is also how a soft-deleted tenant reads without the show-deleted feature.
+func tenantNode(ctx context.Context, cfg *config.Config, token, tenantID string) (*managementapi.GetTenants_Tenants_Edges_Node, error) {
+	c := gateway.NewClient(cfg, token)
+	first := 1
+	resp, err := c.GetTenants(ctx, managementapi.GetTenantsArgs{
+		First: &first,
+		Where: &managementapi.TenantWhereInput{ID: &tenantID},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("getTenants: %w", err)
+	}
+	for _, edge := range resp.GetTenants().GetEdges() {
+		if edge == nil || edge.GetNode() == nil || edge.GetNode().GetID() != tenantID {
+			continue
+		}
+		return edge.GetNode(), nil
+	}
+	return nil, fmt.Errorf("%w: %s", ErrTenantNotVisible, tenantID)
+}
+
+// ErrStillAccepted is the poll error WaitUntilDenied reports while the probe
+// keeps being accepted; on timeout it is what the caller sees wrapped.
+var ErrStillAccepted = errors.New("still accepted")
+
+// WaitUntilDenied polls probe until it fails with a definitive auth denial
+// (IsAuthDenial), meaning introspection, the home-tenant liveness check or
+// the acting-tenant check has caught up with a revocation. Acceptance keeps
+// polling; so do non-auth errors (transport faults, gateway 5xx): counting
+// them as denial would certify a revocation no service ever performed.
+// `what` names the probe in the timeout error.
+func WaitUntilDenied(ctx context.Context, what string, timeout time.Duration, probe func() error) (time.Duration, error) {
 	return PollUntilElapsed(ctx, timeout, 200*time.Millisecond, func() error {
-		_, err := TenantInList(ctx, cfg, token, tenantID)
+		err := probe()
 		switch {
 		case err == nil:
-			return fmt.Errorf("token still accepted")
+			return fmt.Errorf("%s: %w", what, ErrStillAccepted)
 		case IsAuthDenial(err.Error()):
 			return nil
 		default:
-			return fmt.Errorf("probe infra error (not a rejection): %w", err)
+			return fmt.Errorf("%s probe infra error (not a denial): %w", what, err)
 		}
 	})
 }
 
-// WaitTokenReady polls TenantInList until the given bearer token is
-// accepted AND surfaces its own tenant — i.e. the freshly-minted PAT and
-// its project grant have both projected through Zitadel's eventually
-// consistent introspection path. Used right after provisioning a
-// tenant-scoped PAT, before driving real writes with it.
-func WaitTokenReady(ctx context.Context, cfg *config.Config, token, tenantID string, timeout time.Duration) (time.Duration, error) {
+// WaitUntilAccepted polls probe until it returns nil — the barrier for
+// "the grant / PAT / restore has propagated". Every probe error, auth or
+// infra, keeps polling; the last one is reported on timeout.
+func WaitUntilAccepted(ctx context.Context, what string, timeout time.Duration, probe func() error) (time.Duration, error) {
 	return PollUntilElapsed(ctx, timeout, 200*time.Millisecond, func() error {
+		if err := probe(); err != nil {
+			return fmt.Errorf("%s not accepted yet: %w", what, err)
+		}
+		return nil
+	})
+}
+
+// WaitUntilTokenDenied is WaitUntilDenied over TenantInList with the given
+// bearer token: used after RemovePAT / DeleteMachineUser, where rejection
+// lags the Zitadel API call by however long the validation cache TTL is.
+func WaitUntilTokenDenied(ctx context.Context, cfg *config.Config, token, tenantID string, timeout time.Duration) (time.Duration, error) {
+	return WaitUntilDenied(ctx, "token", timeout, func() error {
+		_, err := TenantInList(ctx, cfg, token, tenantID)
+		return err
+	})
+}
+
+// WaitTokenReady is WaitUntilAccepted over TenantInList, additionally
+// requiring the token's own tenant to be visible — i.e. the freshly-minted
+// PAT and its project grant have both projected through Zitadel's
+// eventually consistent introspection path. Used right after provisioning
+// a tenant-scoped PAT, before driving real writes with it.
+func WaitTokenReady(ctx context.Context, cfg *config.Config, token, tenantID string, timeout time.Duration) (time.Duration, error) {
+	return WaitUntilAccepted(ctx, "token", timeout, func() error {
 		ok, err := TenantInList(ctx, cfg, token, tenantID)
 		if err != nil {
-			return fmt.Errorf("token not ready: %w", err)
+			return err
 		}
 		if !ok {
 			return fmt.Errorf("tenant %s not visible to token yet", tenantID)
 		}
 		return nil
 	})
+}
+
+// composeDBContainer is the compose service name of the stack's Postgres.
+const composeDBContainer = "db"
+
+// Psql runs one SQL statement in the stack's database through docker exec
+// and returns its unaligned, tuples-only output with surrounding
+// whitespace trimmed. For setting up or reading state no API exposes: a
+// tenant row in a status only a crashed registration leaves behind, or a
+// soft-deleted row the API hides. Never for anything an API can do.
+func Psql(ctx context.Context, query string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "docker", "exec", "-i", composeDBContainer,
+		"psql", "-U", "admin", "-d", "pyck_dev", "-v", "ON_ERROR_STOP=1", "-tA", "-c", query).CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("psql: %w: %s", err, out)
+	}
+	return strings.TrimSpace(string(out)), nil
 }

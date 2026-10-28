@@ -70,7 +70,7 @@ services:
 services:
   temporal-admintools:
     container_name: temporal-admin
-    image: temporalio/admin-tools:1.31.1
+    image: temporalio/admin-tools:1.32.1
     environment:
       - TEMPORAL_ADDRESS=temporal:7236
       - TEMPORAL_CLI_ADDRESS=temporal:7236
@@ -90,7 +90,7 @@ services:
 services:
   temporal-ui:
     container_name: temporal-ui
-    image: temporalio/ui:2.51.0
+    image: temporalio/ui:2.55.0
     environment:
       - TEMPORAL_ADDRESS=temporal:7236
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000

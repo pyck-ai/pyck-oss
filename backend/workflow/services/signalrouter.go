@@ -67,7 +67,9 @@ var (
 		WorkflowExecutionErrorWhenAlreadyStarted: true,
 	}
 
-	// DefaultUpdatePolicy is the default workflow start policy for "update" operations.
+	// DefaultUpdatePolicy is the default workflow start policy for "update"
+	// operations, and for a custom event's other operations, which repeat as
+	// updates do.
 	//
 	// One run per entity per workflow: the workflow ID is <workflow>_<entity ID>,
 	// so an update event that finds the entity's workflow still running starts
@@ -265,21 +267,15 @@ func (wr *SignalRouter) HandleMutationEvent(ctx context.Context, msg *nats.Msg) 
 	// settles the event (see recordOutcome).
 	ctx = wr.trackRouting(ctx, &event)
 
-	var wfStartOpts workflow.StartWorkflowOptions
-
-	switch event.Operation {
-	case "create":
-		wfStartOpts = *DefaultCreatePolicy
-	case "update":
-		wfStartOpts = *DefaultUpdatePolicy
-	case "delete":
-		wfStartOpts = *DefaultDeletePolicy
-	default:
+	policy, ok := startPolicy(event.Operation, isCustomEvent(msg.Subject))
+	if !ok {
 		err := permanent(fmt.Errorf("%w: operation %q for event %q", ErrUnknownOperation, event.Operation, event.Type))
 		routingFrom(ctx).recordErrors("", []error{err})
 
 		return nil, err
 	}
+
+	wfStartOpts := *policy
 
 	ctx = request.Context(ctx, authn.SystemUser(), event.TenantID)
 
@@ -310,6 +306,28 @@ func (wr *SignalRouter) HandleMutationEvent(ctx context.Context, msg *nats.Msg) 
 	}
 
 	return workflows, nil
+}
+
+// startPolicy returns the start policy of operation. A CRUD event carries only
+// create, update or delete; a custom event any operation its sender chose.
+func startPolicy(operation string, custom bool) (*workflow.StartWorkflowOptions, bool) {
+	switch {
+	case operation == "create":
+		return DefaultCreatePolicy, true
+	case operation == "update":
+		return DefaultUpdatePolicy, true
+	case operation == "delete":
+		return DefaultDeletePolicy, true
+	case custom && operation != "":
+		return DefaultUpdatePolicy, true
+	default:
+		return nil, false
+	}
+}
+
+func isCustomEvent(subject string) bool {
+	topic, err := events.Parse(subject)
+	return err == nil && topic.Type() == events.TopicTypeTenantCustomEvent
 }
 
 func (wr *SignalRouter) triggerWorkflowsBySignal(ctx context.Context, event events.MutationEventMessage, opts *workflow.StartWorkflowOptions, topic string) ([]*model.TemporalWorkflow, error) {
@@ -369,7 +387,7 @@ func (wr *SignalRouter) handleWorkflowSignalTriggers(ctx context.Context, event 
 	var started *model.TemporalWorkflow
 
 	wfStartOpts := *opts
-	wfStartOpts.ID = wf.Name + "_" + event.ID.String()
+	wfStartOpts.ID = startWorkflowID(wf.Name, event.ID)
 	wfStartOpts.TaskQueue = wf.TaskQueue
 	wfStartOpts.TypedSearchAttributes = eventSearchAttributes(ctx, wf, event.WfSearchAttributes)
 
@@ -629,9 +647,18 @@ func (wr *SignalRouter) handleTemporalWorkflowStateChange(ctx context.Context, m
 // stateChangeStartID derives the ID suffix of a workflow started by a state
 // change. It is the state change's event ID, so a redelivered event starts
 // nothing new.
-func stateChangeStartID(event *events.TemporalWorkflowStateChangeMessage) string {
-	return event.EventID().String()
+func stateChangeStartID(event *events.TemporalWorkflowStateChangeMessage) uuid.UUID {
+	return event.EventID()
 }
+
+// startWorkflowID builds the ID of a workflow the router starts for an event.
+func startWorkflowID(name string, eventID uuid.UUID) string {
+	return name + "_" + eventID.String()
+}
+
+// MaxWorkflowNameLength is the longest workflow name whose startWorkflowID
+// still fits Temporal's store.
+var MaxWorkflowNameLength = workflow.MaxStoredIDLength - len(startWorkflowID("", uuid.Nil)) //nolint:gochecknoglobals
 
 // requestIDNamespace is the UUIDv5 namespace of Temporal request IDs. It is
 // fixed forever: changing it would give a redelivered event new request IDs,
@@ -688,7 +715,7 @@ func (wr *SignalRouter) handleTemporalWorkflowStateChangeTrigger(ctx context.Con
 	var started *model.TemporalWorkflow
 
 	wfStartOpts := *DefaultCreatePolicy
-	wfStartOpts.ID = wf.Name + "_" + stateChangeStartID(event)
+	wfStartOpts.ID = startWorkflowID(wf.Name, stateChangeStartID(event))
 
 	if match.start && len(match.signalWithStart) == 0 {
 		started, err = wr.startWorkflow(ctx, client, event, wf, &wfStartOpts)

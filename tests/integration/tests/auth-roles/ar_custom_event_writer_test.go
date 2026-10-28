@@ -25,8 +25,8 @@ const customEventProbeType = "ar-custom-event-probe"
 // TestSendCustomEventRefusesReader pins that a READER cannot publish a custom
 // event. sendCustomEvent writes straight to the outbox, which no ent privacy
 // policy guards, so the resolver's own role check is the only barrier. The test
-// watches the relay's fire-and-forget mutation-event subject for the tenant and
-// event type: the READER's call must fail and its event must never be
+// watches the relay's custom event subject for the tenant and event type: the
+// READER's call must fail and its event must never be
 // published. WRITER control events bound the wait: the relay claims rows with
 // FOR UPDATE SKIP LOCKED and publishes a batch in no fixed order, so a READER
 // row committed before the first control could still be published just after
@@ -46,11 +46,10 @@ func (s *AuthRolesSuite) TestSendCustomEventRefusesReader() {
 	// The nil entity id and empty operation render as wildcards, so the
 	// subscription sees both the READER's and the WRITER's event.
 	published := make(chan *nats.Msg, 16)
-	subject := events.MutationEventTopic{
-		StreamName:  s.Cfg.NatsStream,
-		TenantID:    s.tenantUUID(),
-		ServiceName: "management",
-		SchemaName:  customEventProbeType,
+	subject := events.TenantCustomEventTopic{
+		StreamName: s.Cfg.NatsStream,
+		TenantID:   s.tenantUUID(),
+		EventType:  customEventProbeType,
 	}.String()
 	sub, err := nc.ChanSubscribe(subject, published)
 	s.Require().NoError(err, "subscribe %s", subject)
@@ -80,19 +79,18 @@ func (s *AuthRolesSuite) TestSendCustomEventRefusesReader() {
 // TestSendCustomEventAllowsServiceToken pins that the WRITER check does not
 // lock out the system service token, which workflow activities use to call
 // sendCustomEvent: its event is accepted and the relay publishes it on the
-// tenant's fire-and-forget mutation-event subject. A guard that ignored
-// ROLE_SYSTEM would fail the call.
+// tenant's custom event subject. A guard that ignored ROLE_SYSTEM would fail
+// the call.
 func (s *AuthRolesSuite) TestSendCustomEventAllowsServiceToken() {
 	nc, err := nats.Connect(s.Cfg.NatsURL)
 	s.Require().NoError(err, "nats connect")
 	defer nc.Close()
 
 	eventID := uuid.New()
-	subject := events.MutationEventTopic{
+	subject := events.TenantCustomEventTopic{
 		StreamName:    s.Cfg.NatsStream,
 		TenantID:      s.tenantUUID(),
-		ServiceName:   "management",
-		SchemaName:    customEventProbeType,
+		EventType:     customEventProbeType,
 		EntityID:      eventID,
 		OperationName: "created",
 	}.String()

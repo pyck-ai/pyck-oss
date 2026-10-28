@@ -52,8 +52,14 @@ readonly RE_CONVENTIONAL_PREFIX='^[a-z][a-z0-9]*(\([^)]*\))?!?: '
 readonly RE_FIRST_WORD='^([A-Za-z]+)[[:space:]]'
 readonly RE_FIXUP='^(fixup|squash)! '
 readonly RE_MODULE_BUMP='^Update (module|.+ (Docker tag|action|monorepo|image)) '
-readonly RE_FOOTER_KEYWORD='^(Closes|Fixes|Refs|Resolves|Implements|See also)($|[^A-Za-z])'
-readonly RE_FOOTER_CANONICAL='^(Closes|Fixes|Refs|Resolves|Implements|See also): #[0-9]+(, ?#[0-9]+)*$'
+# R14 (org trailer rule, ~/.pyck/guidelines/docs/git.md "Footer"). A line is
+# "trailer shaped" when it starts with a keyword, then ":" or whitespace, then
+# an issue ref ("#123" or "owner/repo#123"). Ordinary prose ("Fixes the
+# race", "See also the ADR") is not trailer shaped and is never flagged.
+readonly RE_ISSUE_REF_START='([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]'
+readonly RE_ALLOWED_TRAILER_SHAPE='^(Closes|Part-of|See-also)(:[[:space:]]*|[[:space:]]+)'"$RE_ISSUE_REF_START"
+readonly RE_LEGACY_TRAILER_SHAPE='^(Fixes|Fix|Resolves|Resolve|Implements|Refs|Ref|Related|See also|See)(:[[:space:]]*|[[:space:]]+)'"$RE_ISSUE_REF_START"
+readonly RE_ISSUE_TRAILER='^(Closes|Part-of|See-also): ([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+$'
 
 # Log error message to stderr
 # Args: error_message
@@ -199,9 +205,15 @@ function check_body() {
       add_violation FAIL R11 "body line is ${#line} chars (max 72): '$line'"
     fi
 
-    # R14: issue-footer lines must use the canonical "Keyword: #123" form.
-    if [[ "$line" =~ $RE_FOOTER_KEYWORD && ! "$line" =~ $RE_FOOTER_CANONICAL ]]; then
-      add_violation FAIL R14 "malformed issue footer, expected 'Keyword: #123[, #456]': '$line'"
+    # R14: issue references must be the org trailers "Closes: #123",
+    # "Part-of: #123" or "See-also: #123" (one issue per line, "owner/repo#123"
+    # for another repo); legacy keywords (Fixes, Refs, ...) are rejected.
+    if [[ "$line" =~ $RE_ALLOWED_TRAILER_SHAPE ]]; then
+      if [[ ! "$line" =~ $RE_ISSUE_TRAILER ]]; then
+        add_violation FAIL R14 "malformed issue trailer, expected 'Closes: #123' (one issue per line): '$line'"
+      fi
+    elif [[ "$line" =~ $RE_LEGACY_TRAILER_SHAPE ]]; then
+      add_violation FAIL R14 "'${BASH_REMATCH[1]}' is not an issue trailer, use 'Closes: #123', 'Part-of: #123' or 'See-also: #123': '$line'"
     fi
   done
 }

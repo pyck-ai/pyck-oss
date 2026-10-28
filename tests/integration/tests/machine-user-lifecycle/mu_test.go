@@ -124,7 +124,7 @@ func (s *MachineUserSuite) TestKeyLifecycle() {
 		r := s.Require()
 		r.NoError(zitadelclient.RemovePAT(s.Ctx, s.ZConn, userID, pat1ID))
 
-		took, err := tests.WaitUntilTokenRejected(s.Ctx, s.Cfg, pat1, registered.ID, 10*time.Second)
+		took, err := tests.WaitUntilTokenDenied(s.Ctx, s.Cfg, pat1, registered.ID, 10*time.Second)
 		r.NoError(err)
 		s.T().Logf("PAT1 rejected after %s", took.Round(time.Millisecond))
 
@@ -142,7 +142,7 @@ func (s *MachineUserSuite) TestKeyLifecycle() {
 		r := s.Require()
 		r.NoError(zitadelclient.DeleteMachineUser(s.Ctx, s.ZConn, userID))
 
-		took, err := tests.WaitUntilTokenRejected(s.Ctx, s.Cfg, pat2, registered.ID, 10*time.Second)
+		took, err := tests.WaitUntilTokenDenied(s.Ctx, s.Cfg, pat2, registered.ID, 10*time.Second)
 		r.NoError(err)
 		s.T().Logf("PAT2 rejected after %s", took.Round(time.Millisecond))
 	})

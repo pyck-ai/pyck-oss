@@ -21,6 +21,8 @@ type EventWorkerConfig struct {
 	// EventWorkerShutdownGrace is how long Close lets workers drain queued events
 	// before cancelling in-flight retries and dropping what is left.
 	EventWorkerShutdownGrace time.Duration `env:"PYCK_EVENT_WORKER_SHUTDOWN_GRACE,notEmpty" envDefault:"5s"`
+	// EventWorkerNoStreamGiveUp is how long an event no stream captures is retried before it is dropped.
+	EventWorkerNoStreamGiveUp time.Duration `env:"PYCK_EVENT_WORKER_NO_STREAM_GIVE_UP,notEmpty" envDefault:"5m"`
 }
 
 // EventAdapterConfig configures the temporal event adapter for workflow event broadcasting.
@@ -43,6 +45,14 @@ type EventAdapterConfig struct {
 	EventAdapterServices []string `env:"PYCK_EVENT_ADAPTER_SERVICES" envSeparator:","`
 }
 
+// ClaimMapperConfig bounds the Temporal frontend's claim mapping.
+type ClaimMapperConfig struct {
+	// ClaimsTimeout bounds one whole claim mapping: the token
+	// introspection and the tenant liveness lookup after it. It must
+	// exceed PYCK_LIVENESS_LOOKUP_TIMEOUT, or the server refuses to start.
+	ClaimsTimeout time.Duration `env:"PYCK_TEMPORAL_CLAIMS_TIMEOUT,notEmpty" envDefault:"2s"`
+}
+
 type config struct {
 	envconfig.EnvironmentConfig
 	envconfig.GatewayConfig
@@ -53,6 +63,7 @@ type config struct {
 
 	EventWorkerConfig
 	EventAdapterConfig
+	ClaimMapperConfig
 }
 
 var Config config

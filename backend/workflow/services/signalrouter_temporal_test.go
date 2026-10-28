@@ -82,7 +82,7 @@ type temporalRouterEnv struct {
 func newTemporalRouterEnv(t *testing.T) *temporalRouterEnv {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), 2*time.Minute)
 	t.Cleanup(cancel)
 
 	srv, err := testsuite.StartDevServer(ctx, testsuite.DevServerOptions{
@@ -515,7 +515,7 @@ func TestRouter_Temporal_SWSRedeliveryAfterTheRunFinishedStartsNoSecondRun(t *te
 func (e *temporalRouterEnv) cancelRun(t *testing.T, id, runID string) {
 	t.Helper()
 
-	if err := e.client.CancelWorkflow(context.Background(), id, runID); err != nil {
+	if err := e.client.CancelWorkflow(context.WithoutCancel(t.Context()), id, runID); err != nil {
 		t.Logf("cancel %s/%s: %v", id, runID, err)
 	}
 }

@@ -67,7 +67,10 @@ func TenantIDMutationHook() ent.Hook {
 
 			req := request.ForContext(ctx)
 			user := req.User()
-			tenantID := req.MutationTenantID()
+			tenantID, err := req.MutationTenantID()
+			if err != nil {
+				return nil, fmt.Errorf("%w for %s mutation", err, m.Type())
+			}
 
 			// If a tenant ID is set in the mutation, ensure it matches the one
 			// in the request context
@@ -142,11 +145,16 @@ func (TenantIDMutationFilter) EvalMutation(ctx context.Context, m ent.Mutation) 
 		return entprivacy.Skip
 	}
 
-	if !user.HasRole(authn.ROLE_WRITER, req.MutationTenantID()) {
-		return entprivacy.Denyf("%w: user %q does not have writer role for tenant %q", ErrUnauthorized, user.ID.String(), req.MutationTenantID().String())
+	tenantID, err := req.MutationTenantID()
+	if err != nil {
+		return entprivacy.Denyf("%w: user %q", err, user.ID.String())
 	}
 
-	if err := privacy.Where(m, sql.EQ(TenantFieldTenantID, req.MutationTenantID())); err != nil {
+	if !user.HasRole(authn.ROLE_WRITER, tenantID) {
+		return entprivacy.Denyf("%w: user %q does not have writer role for tenant %q", ErrUnauthorized, user.ID.String(), tenantID.String())
+	}
+
+	if err := privacy.Where(m, sql.EQ(TenantFieldTenantID, tenantID)); err != nil {
 		return entprivacy.Denyf("%w: filter error: %w", ErrUnauthorized, err)
 	}
 

@@ -1,4 +1,4 @@
-version: "3.45"
+version: "3.47"
 
 output: prefixed
 
@@ -7,7 +7,8 @@ set: [errexit, nounset, pipefail]
 includes:
   _: { internal: true, taskfile: ./task/_lib.yaml, flatten: true }
   container: { internal: true, taskfile: ./task/container.yaml }
-  github: { taskfile: ./.github/Taskfile.yaml, flatten: true }
+  # optional: the public mirror strips .github/ (see .publicignore)
+  github: { taskfile: ./.github/Taskfile.yaml, flatten: true, optional: true }
 
   bootstrap:
     {
@@ -87,6 +88,12 @@ includes:
       taskfile: ./tests/integration/Taskfile.yaml,
       dir: ./tests/integration,
     }
+  nats-e2e:
+    {
+      internal: true,
+      taskfile: ./tests/nats/Taskfile.yaml,
+      dir: ./tests/nats,
+    }
 
 vars:
   # Services `up` and `up:integration` bring up (defined once, used by both).
@@ -116,7 +123,7 @@ tasks:
   tidy:
     desc: Tidy go.mod/go.sum for every workspace module (keeps modules consistent across the monorepo)
     cmds:
-      - ./.github/renovate-post-upgrade.sh --tidy-only
+      - ./scripts/tidy-workspace.sh
 
   generate:
     desc: Generate all modules
@@ -145,6 +152,7 @@ tasks:
     desc: Lint all modules
     cmds:
       - go run ./hack/versiongroups
+      - task: bootstrap:{{.TASK}}
       - task: common:{{.TASK}}
       - task: file:{{.TASK}}
       - task: inventory:{{.TASK}}
@@ -155,6 +163,7 @@ tasks:
       - task: workflow:{{.TASK}}
       - task: workflowsdk:{{.TASK}}
       - task: temporal:{{.TASK}}
+      - task: integration:{{.TASK}}
 
   # Standalone by design, not wired into `lint`: that task runs constantly
   # during development and must not fail on unpushed WIP commits.
@@ -255,11 +264,41 @@ tasks:
       - task: integration:test:integration:run
         vars: { CLI_ARGS: '{{.CLI_ARGS}}' }
 
+  bruno:setup:
+    desc: >-
+      Provision a tenant for the Bruno collection against the running stack
+      and write .bruno/environments/local.yml. Requires `task up`.
+      Prints the login to use for the collection's OAuth step.
+    cmds:
+      - ./scripts/bruno-setup.sh
+
+  bruno:run:
+    desc: >-
+      Run the Bruno collection headlessly against the running stack, setting
+      up the tenant first. Pass a path to narrow the run, e.g.
+      `task bruno:run -- tests/inventory`.
+    cmds:
+      - task: bruno:setup
+      - ./scripts/bruno-run.sh {{.CLI_ARGS}}
+
   test:integration:up:
     desc: Boot the stack with the integration cadences (up:integration), then run the integration suites.
     cmds:
       - task: up:integration
       - task: integration:test:integration:run
+        vars: { CLI_ARGS: '{{.CLI_ARGS}}' }
+
+  test:nats:
+    desc: "Run the NATS e2e suite against a running stack (start it with: task up)"
+    cmds:
+      - task: nats-e2e:test:nats:run
+        vars: { CLI_ARGS: '{{.CLI_ARGS}}' }
+
+  test:nats:up:
+    desc: Boot the stack, then run the NATS e2e suite.
+    cmds:
+      - task: up
+      - task: nats-e2e:test:nats:run
         vars: { CLI_ARGS: '{{.CLI_ARGS}}' }
 
   build:
@@ -305,28 +344,34 @@ tasks:
     cmds:
       - task: container:{{.TASK}}
 
+  # Bootstraps against the existing stack and never deletes credentials:
+  # zitadel-admin-sa.json is minted once per Zitadel database and cannot be
+  # regenerated, so only `init` may wipe config/keys/ (#1470).
+  bootstrap-stack:
+    internal: true
+    cmds:
+      # Keep an existing .env; never clobber local values.
+      - test -f .env || cp .env.example .env
+      - docker compose up --build bootstrap
+
   init:
     aliases: [local-setup]
-    desc: "Set up local development environment"
-    env:
-      GOPRIVATE: github.com/pyck-ai
+    desc: "Reset local credentials and bootstrap (requires a fresh Zitadel database)"
     cmds:
-      - if: '[ ! -f .env ]'
-        cmd: cp .env.example .env
       - rm -f config/keys/*.json config/keys/*.key config/keys/*.pat config/keys/*.env
-      - docker compose up --build bootstrap
+      - task: bootstrap-stack
 
   up:
     desc: "Start all backend services (production cadences)"
     deps:
-      - task: init
+      - task: bootstrap-stack
     cmds:
       - docker compose up --build --wait {{.UP_SERVICES}}
 
   up:integration:
     desc: "Start all backend services with the fast integration-test cadences (config/compose/integration.yaml)"
     deps:
-      - task: init
+      - task: bootstrap-stack
     cmds:
       - docker compose -f docker-compose.yml -f config/compose/integration.yaml up --build --wait {{.UP_SERVICES}}
 

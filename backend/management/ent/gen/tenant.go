@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
+	"github.com/pyck-ai/pyck/backend/management/ent/types"
 )
 
 // Tenant is the model entity for the Tenant schema.
@@ -39,10 +40,16 @@ type Tenant struct {
 	DeletedBy uuid.UUID `json:"deleted_by,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
+	// NameKey holds the value of the "name_key" field.
+	NameKey string `json:"name_key,omitempty"`
 	// IdpOrgRef holds the value of the "idp_org_ref" field.
 	IdpOrgRef string `json:"idp_org_ref,omitempty"`
 	// ExpiresAt holds the value of the "expires_at" field.
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	// Status holds the value of the "status" field.
+	Status tenant.Status `json:"status,omitempty"`
+	// Registration holds the value of the "registration" field.
+	Registration *types.TenantRegistration `json:"-"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the TenantQuery when eager-loading is set.
 	Edges        TenantEdges `json:"edges"`
@@ -76,9 +83,9 @@ func (*Tenant) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case tenant.FieldData:
+		case tenant.FieldData, tenant.FieldRegistration:
 			values[i] = new([]byte)
-		case tenant.FieldDataTypeSlug, tenant.FieldName, tenant.FieldIdpOrgRef:
+		case tenant.FieldDataTypeSlug, tenant.FieldName, tenant.FieldNameKey, tenant.FieldIdpOrgRef, tenant.FieldStatus:
 			values[i] = new(sql.NullString)
 		case tenant.FieldCreatedAt, tenant.FieldUpdatedAt, tenant.FieldDeletedAt, tenant.FieldExpiresAt:
 			values[i] = new(sql.NullTime)
@@ -167,6 +174,12 @@ func (_m *Tenant) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Name = value.String
 			}
+		case tenant.FieldNameKey:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field name_key", values[i])
+			} else if value.Valid {
+				_m.NameKey = value.String
+			}
 		case tenant.FieldIdpOrgRef:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field idp_org_ref", values[i])
@@ -179,6 +192,20 @@ func (_m *Tenant) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ExpiresAt = new(time.Time)
 				*_m.ExpiresAt = value.Time
+			}
+		case tenant.FieldStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field status", values[i])
+			} else if value.Valid {
+				_m.Status = tenant.Status(value.String)
+			}
+		case tenant.FieldRegistration:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field registration", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Registration); err != nil {
+					return fmt.Errorf("unmarshal field registration: %w", err)
+				}
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -251,6 +278,9 @@ func (_m *Tenant) String() string {
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)
 	builder.WriteString(", ")
+	builder.WriteString("name_key=")
+	builder.WriteString(_m.NameKey)
+	builder.WriteString(", ")
 	builder.WriteString("idp_org_ref=")
 	builder.WriteString(_m.IdpOrgRef)
 	builder.WriteString(", ")
@@ -258,6 +288,11 @@ func (_m *Tenant) String() string {
 		builder.WriteString("expires_at=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
+	builder.WriteString(", ")
+	builder.WriteString("status=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Status))
+	builder.WriteString(", ")
+	builder.WriteString("registration=<sensitive>")
 	builder.WriteByte(')')
 	return builder.String()
 }

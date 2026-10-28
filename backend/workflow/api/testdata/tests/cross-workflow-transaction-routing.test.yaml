@@ -1,0 +1,58 @@
+---
+name: "Cross - Workflow Transaction Routing"
+description: >
+  A management mutation's event travels the tenant's own event stream, the
+  services' aggregate stream and the signal router, which records it per
+  transaction. The custom event matches no subscription, so its single
+  routing entry is DONE with the event dropped as unrouted.
+steps:
+  - id: send
+    name: "Send a custom event"
+    operation: management.sendCustomEvent
+    # Outbox publish, aggregate sourcing and routing before the lookup.
+    wait_after_ms: 3000
+    vars:
+      input:
+        type: {$fake: "routingprobe{{nonce}}"}
+        operation: "ping"
+        payload:
+          id: {$fake: "{{uuid}}"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "One event published"
+        assertions:
+          - ref: res.body.data.sendCustomEvent.eventCount
+            equal: 1
+
+  - name: "The router recorded the event"
+    operation: workflow.getTransactionRouting
+    vars:
+      transactionID: {$ref: "res[send].body.data.sendCustomEvent.transactionID"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "No GraphQL errors"
+        assertions:
+          - ref: res.body.errors
+            nil: true
+      - msg: "One entry per published event"
+        assertions:
+          - ref: res.body.data.transactionRouting.entries
+            len: 1
+      - msg: "Routing finished"
+        assertions:
+          - ref: res.body.data.transactionRouting.entries[0].outcome
+            equal: "DONE"
+      - msg: "Dropped as unrouted: nothing was subscribed"
+        assertions:
+          - ref: res.body.data.transactionRouting.entries[0].targets
+            len: 0

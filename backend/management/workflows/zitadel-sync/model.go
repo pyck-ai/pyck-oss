@@ -2,13 +2,6 @@ package zitadel_sync
 
 import "time"
 
-// Tenant represents a Zitadel organization mapped to the local DB tenant.
-type Tenant struct {
-	ID      string
-	Name    string
-	Flavour string
-}
-
 // ZitadelSyncWorkflowInput is the input for the orchestrator workflow.
 type ZitadelSyncWorkflowInput struct {
 	Period time.Duration
@@ -19,12 +12,6 @@ type TenantSyncWorkflowInput struct {
 	TenantID string
 }
 
-// ReconcileTenantsActivityInput carries Zitadel and DB tenants for reconciliation.
-type ReconcileTenantsActivityInput struct {
-	ZitadelTenants []Tenant
-	DbTenants      []Tenant
-}
-
 // ReconcileUsersActivityInput carries Zitadel and DB users for reconciliation.
 type ReconcileUsersActivityInput struct {
 	ZitadelUsers []User
@@ -32,10 +19,8 @@ type ReconcileUsersActivityInput struct {
 	TenantID     string
 }
 
-// FetchZitadelTenantsActivityInput triggers fetching all Zitadel orgs.
-type FetchZitadelTenantsActivityInput struct{}
-
-// FetchDbTenantsInput triggers fetching all DB tenants.
+// FetchDbTenantsInput triggers fetching the org IDs of all live, fully
+// registered DB tenants.
 type FetchDbTenantsInput struct{}
 
 // FetchDbUsersActivityInput triggers fetching DB users for a tenant.

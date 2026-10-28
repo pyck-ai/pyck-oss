@@ -4,33 +4,146 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"net/http"
-	"slices"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/nats-io/jwt/v2"
 	"github.com/nats-io/nats.go/micro"
 	"github.com/nats-io/nkeys"
+
 	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/pyck-ai/pyck/backend/common/liveness"
 	"github.com/pyck-ai/pyck/backend/common/log"
 )
+
+// Sentinel rejections of authorizeTenantSelection; each one answers the
+// connecting client with a 401 naming the axis that refused it.
+var (
+	errTenantNotServed = errors.New("tenant is not served")
+)
+
+const (
+	// defaultCalloutTimeout bounds one whole callout (token introspection, tenant
+	// selection, liveness) from the top of Handle. The endpoint handles
+	// requests serially per replica, and not everything it calls bounds
+	// itself: introspection rides an HTTP client with no overall timeout.
+	// Anything slower than the NATS server's own callout deadline is
+	// answered to a server that stopped listening, so waiting longer only
+	// wedges the queue behind one stall.
+	//
+	// Must stay BELOW the server's authorization timeout
+	// (config/nats/nats.conf, pinned by TestCalloutBudgetFitsNatsConfTimeout)
+	// and ABOVE the liveness cache's configured lookup timeout, which bounds
+	// the liveness lookup inside it. The three form one hierarchy:
+	// server > callout > lookup, and NewAuthService refuses a configuration
+	// that breaks the lower half of it.
+	defaultCalloutTimeout = 2 * time.Second
+
+	// defaultUserJWTTTL bounds the life of a tenant user's minted NATS credential.
+	// The callout runs only at connect time, so without an expiry a client
+	// already connected when its tenant is disabled or soft-deleted would
+	// keep its pub/sub permissions (the stream's retained history
+	// included) for the life of the TCP connection. The server disconnects
+	// the client when its JWT expires, the client reconnects on its own,
+	// and the callout re-evaluates role and liveness. Five minutes bounds
+	// revocation at the same order of magnitude as the HTTP fleet's
+	// liveness TTL without putting every client on a per-minute reconnect
+	// cadence. System users are exempt (see mintUserClaims).
+	defaultUserJWTTTL = 5 * time.Minute
+
+	// userJWTTTLJitter randomizes each minted expiry so a cohort admitted
+	// together (a mass reconnect after a NATS restart or an outage
+	// recovery) does not re-expire in lockstep every period forever, each
+	// wave hitting the serial callout with a cold liveness cache. Spread
+	// evenly around the TTL; one cycle desynchronizes any cohort. A TTL
+	// below twice this spread gets half the TTL as its spread instead, so
+	// no credential is minted already expired and each lives at least
+	// three quarters of the configured TTL.
+	userJWTTTLJitter = 2 * time.Minute
+)
+
+// AuthOption overrides a callout default; pass the service's configured
+// values (envconfig.NatsConfig) from main. A non-positive duration is
+// ignored, so an unset config field leaves the default bound in place.
+type AuthOption func(*authService)
+
+// WithCalloutTimeout overrides defaultCalloutTimeout. It must stay below
+// the NATS server's own authorization timeout and above the liveness
+// cache's lookup timeout; NewAuthService refuses the second violation and
+// the package tests pin the first.
+func WithCalloutTimeout(d time.Duration) AuthOption {
+	return func(s *authService) {
+		if d > 0 {
+			s.calloutTimeout = d
+		}
+	}
+}
+
+// WithUserJWTTTL overrides defaultUserJWTTTL, the life of a minted tenant
+// credential and with it the worst-case delay before a disabled tenant's
+// connected client is re-evaluated.
+func WithUserJWTTTL(d time.Duration) AuthOption {
+	return func(s *authService) {
+		if d > 0 {
+			s.userJWTTTL = d
+		}
+	}
+}
 
 type authService struct {
 	logger        log.Logger
 	streamName    string
+	accountName   string
 	issuerKeyPair nkeys.KeyPair
 	authn         authn.Authenticator
+	// livenessCache holds the tenant verdicts under liveness.TenantKey;
+	// shared with the auth provider and the tenant-events subscriber.
+	livenessCache *liveness.Cache
+	// tenantSource answers cache misses (management's tenant table).
+	tenantSource liveness.TenantSource
+	// faultLog keeps a failing source from writing one Error line per
+	// connection attempt: the shared source going down would otherwise
+	// emit at the reconnect rate of every NATS client.
+	faultLog *log.FaultThrottle
+	// contextBase yields the process context Handle roots per-request work
+	// in: callout requests arrive without a context of their own, and a
+	// detached context would keep in-flight Zitadel and DB work running
+	// through a shutdown and drop the service's log fields from fault
+	// lines. A func rather than a stored context, like authz.ClaimMapper.
+	contextBase func() context.Context
+	// calloutTimeout and userJWTTTL are the configured budgets of this
+	// service; immutable after construction. See defaultCalloutTimeout
+	// and defaultUserJWTTTL for what each one bounds.
+	calloutTimeout time.Duration
+	userJWTTTL     time.Duration
 }
 
-func newAuthService(ctx context.Context, streamName string, authProvider authn.Authenticator, keyPair nkeys.KeyPair) *authService {
-	return &authService{
+func newAuthService(ctx context.Context, streamName string, accountName string, authProvider authn.Authenticator, keyPair nkeys.KeyPair, cache *liveness.Cache, source liveness.TenantSource, opts ...AuthOption) *authService {
+	service := &authService{
 		logger:        *log.ForContext(ctx),
 		streamName:    streamName,
+		accountName:   accountName,
 		authn:         authProvider,
 		issuerKeyPair: keyPair,
+		livenessCache: cache,
+		tenantSource:  source,
+		faultLog:      log.NewFaultThrottle(log.FaultLogWindow),
+		contextBase:   func() context.Context { return ctx },
+
+		calloutTimeout: defaultCalloutTimeout,
+		userJWTTTL:     defaultUserJWTTTL,
 	}
+	for _, apply := range opts {
+		apply(service)
+	}
+	return service
 }
 
 func (service *authService) Handle(r micro.Request) {
+	ctx, cancel := context.WithTimeout(service.contextBase(), service.calloutTimeout)
+	defer cancel()
 	logger := service.logger
 
 	defer func() {
@@ -46,17 +159,17 @@ func (service *authService) Handle(r micro.Request) {
 		}
 	}()
 
+	// The request carries the client's credentials (connect options token
+	// and password), so neither the raw data nor the decoded claims or
+	// connect options are ever logged: only identifiers.
 	logger.Debug().
 		Str("request_subject", r.Subject()).
 		Str("request_reply", r.Reply()).
-		Str("request_data", string(r.Data())).
 		Msg("Auth handler received request")
 
 	rc, err := jwt.DecodeAuthorizationRequestClaims(string(r.Data()))
 	if err != nil {
-		logger.Err(err).
-			Str("raw_data", string(r.Data())).
-			Msg("Failed to decode auth request")
+		logger.Err(err).Msg("Failed to decode auth request")
 		err = r.Error("500", fmt.Sprintf("Failed to decode auth request: %v", err.Error()), nil)
 		if err != nil {
 			logger.Err(err).Msg("Error responding to request")
@@ -64,10 +177,10 @@ func (service *authService) Handle(r micro.Request) {
 		return
 	}
 	logger.Debug().
-		Interface("claims", rc).
+		Str("user_nkey", rc.UserNkey).
 		Interface("server", rc.Server).
-		Interface("connect_options", rc.ConnectOptions).
-		Strs("server_tags", rc.Server.Tags).
+		Interface("client_info", rc.ClientInformation).
+		Str("client_name", rc.ConnectOptions.Name).
 		Msg("Decoded auth request details")
 
 	if rc.ConnectOptions.Token == "" {
@@ -80,132 +193,123 @@ func (service *authService) Handle(r micro.Request) {
 	}
 	logger.Debug().Msg("Found token in request")
 
-	user, err := service.authn.Authenticate(context.TODO(), rc.ConnectOptions.Token)
+	user, err := service.authn.Authenticate(ctx, rc.ConnectOptions.Token)
 	if err != nil {
-		logger.Err(err).Msg("Token authorization failed")
+		// Info, not Error: a refused credential is an expected outcome of
+		// this endpoint, and during a dependency outage every reconnect of
+		// every denied client reaches this line; Error-level here would
+		// bury the throttled line naming the outage's cause.
+		logger.Info().Err(err).Msg("Token authorization failed")
 		err = r.Error("401", fmt.Sprintf("Authentication failed: %v", err.Error()), nil)
 		if err != nil {
 			logger.Err(err).Msg("Error responding to request")
 		}
 		return
 	}
-	logger.Debug().Interface("user", user).Msg("User authorized successfully")
+	logger.Debug().
+		Str("user_id", user.ID.String()).
+		Str("user_tenant_id", user.TenantID.String()).
+		Msg("User authorized successfully")
 
 	userNkey := rc.UserNkey
 	serverId := rc.Server.ID
 
-	// TODO(michael): This is just a work-around for now. Ideally, this handler
-	// should make use of the same middleware logic as the HTTP and GRPC
-	// handlers do. This would also allow easier integration with RBAC.
-	tenantID, err := resolveTenant(context.TODO(), user, http.Header(r.Headers()))
+	// TODO(michael): The callout enforces the single-tenant guard, the
+	// ROLE_READER floor and the tenant liveness verdict (see
+	// authorizeTenantSelection), but still not the full middleware chain
+	// the HTTP and GRPC handlers run, notably RBAC beyond the reader
+	// floor. Route it through the same middleware logic to close that gap.
+	tenantID, err := service.authorizeTenantSelection(ctx, user, http.Header(r.Headers()))
 	if err != nil {
-		logger.Err(err).Msg("Tenant access denied")
-		err = r.Error("401", fmt.Sprintf("Authentication failed: %v", err), nil)
+		// Info for the same reason as the Authenticate refusal above.
+		logger.Info().Err(err).Msg("Tenant authorization failed")
+		err = r.Error("401", fmt.Sprintf("Authentication failed: %v", err.Error()), nil)
 		if err != nil {
 			logger.Err(err).Msg("Error responding to request")
 		}
 		return
 	}
 
-	// Define the fixed consumer suffixes
-	consumerSuffixes := []string{"one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"}
+	claims := service.mintUserClaims(userNkey, tenantID, user.IsSystemUser())
 
-	// Initialize permission pattern arrays
-	allowedPubPatterns := []string{
-		"$JS.API.INFO", // Allow JetStream API info requests
-		fmt.Sprintf("%s.%s.>", service.streamName, tenantID), // Allow publishing to tenant's own subjects
-		// REQUIRED for stream info
-		"$JS.API.STREAM.NAMES",
-		fmt.Sprintf("$JS.API.STREAM.INFO.%s", service.streamName),
-	}
-
-	allowedSubPatterns := []string{
-		"_INBOX.>",     // Required for async JetStream responses
-		"$JS.API.INFO", // Allow JetStream API info requests
-		fmt.Sprintf("$JS.API.STREAM.INFO.%s", service.streamName), // Allow stream info requests
-		fmt.Sprintf("%s.%s.>", service.streamName, tenantID),      // Allow subscribing to tenant's own subjects
-	}
-
-	// Add explicit patterns for each consumer name - build both pub and sub patterns in one loop
-	for _, suffix := range consumerSuffixes {
-		consumerName := fmt.Sprintf("%s--%s", tenantID, suffix)
-
-		// Define all the patterns for this consumer
-		consumerPatterns := []string{
-			// Consumer creation
-			fmt.Sprintf("$JS.API.CONSUMER.CREATE.%s.%s.%s.%s.>",
-				service.streamName, consumerName, service.streamName, tenantID),
-
-			// Consumer deletion
-			fmt.Sprintf("$JS.API.CONSUMER.DELETE.%s.%s",
-				service.streamName, consumerName),
-
-			// Consumer operations - MSG.NEXT
-			fmt.Sprintf("$JS.API.CONSUMER.MSG.NEXT.%s.%s",
-				service.streamName, consumerName),
-
-			// Consumer operations - INFO
-			fmt.Sprintf("$JS.API.CONSUMER.INFO.%s.%s",
-				service.streamName, consumerName),
-
-			// Consumer operations - ACK
-			fmt.Sprintf("$JS.ACK.%s.%s.>",
-				service.streamName, consumerName),
-		}
-
-		// Add all patterns to both pub and sub arrays
-		allowedPubPatterns = append(allowedPubPatterns, consumerPatterns...)
-		allowedSubPatterns = append(allowedSubPatterns, consumerPatterns...)
-	}
-
-	// Add denied patterns -  Keep these, but they are less important now
-	deniedPubPatterns := []string{
-		"$JS.API.STREAM.LIST.>",
-		"$JS.API.STREAM.NAMES.>", // Redundant, but harmless
-		// Adding explicit deny patterns for consumer listing operations
-		"$JS.API.CONSUMER.LIST.>",
-		"$JS.API.CONSUMER.NAMES.>",
-		fmt.Sprintf("%s.*.crud.>", service.streamName),
-	}
-
-	// Tenant clients may publish under their own subjects, but not the
-	// state-change subjects the workflow signal router consumes: those are
-	// published only by the Temporal server, which connects with the
-	// auth_users credentials and bypasses this callout. Without the deny a
-	// tenant could forge state changes. Subscribing stays allowed.
-	deniedSubPatterns := deniedPubPatterns
-	deniedPubPatterns = append(slices.Clone(deniedPubPatterns), stateChangeDenyPattern(service.streamName))
-
-	// Log the key components and patterns
 	logger.Debug().
 		Str("user_nkey", userNkey).
 		Str("server_id", serverId).
 		Str("tenant_id", tenantID.String()).
-		Interface("connect_options", rc.ConnectOptions).
-		Interface("server_info", rc.Server).
-		Strs("allowed_pub_patterns", allowedPubPatterns).
-		Strs("allowed_sub_patterns", allowedSubPatterns).
+		Strs("allowed_pub_patterns", claims.Pub.Allow).
+		Strs("allowed_sub_patterns", claims.Sub.Allow).
 		Msg("Creating permissions")
-
-	claims := jwt.NewUserClaims(userNkey)
-	claims.Audience = "pyck" // Todo: make that dynamic from env files
-	claims.Name = tenantID.String()
-
-	userPermissions := jwt.Permissions{
-		Pub: jwt.Permission{
-			Allow: jwt.StringList(allowedPubPatterns),
-			Deny:  jwt.StringList(deniedPubPatterns),
-		},
-		Sub: jwt.Permission{
-			Allow: jwt.StringList(allowedSubPatterns),
-			Deny:  jwt.StringList(deniedSubPatterns),
-		},
-	}
-
-	claims.Permissions = userPermissions
 
 	token, err := service.validateAndSign(claims)
 	service.Respond(r, userNkey, serverId, token, err)
+}
+
+// mintUserClaims builds the user claims of one authorized connection:
+// pub/sub permissions scoped to the tenant's own stream (tenantPermissions),
+// and (for tenant users) an expiry of the configured TTL, which is what
+// forces a connected client back through the role and liveness checks
+// after its tenant is disabled. System users get no expiry: their access
+// is not derived from tenant liveness, and an expiring credential would
+// put every platform service on a reconnect cadence for no added
+// enforcement.
+func (service *authService) mintUserClaims(userNkey string, tenantID uuid.UUID, systemUser bool) *jwt.UserClaims {
+	claims := jwt.NewUserClaims(userNkey)
+	claims.Audience = service.accountName // account placement, case-sensitive
+	claims.Name = tenantID.String()
+	claims.Permissions = tenantPermissions(service.streamName, tenantID)
+	if !systemUser {
+		// The jitter spreads expiry instants across a cohort; it guards
+		// no secret, so a predictable generator is fine.
+		ttl := service.userJWTTTL
+		if jitter := min(userJWTTTLJitter, ttl/2); jitter > 0 {
+			ttl += rand.N(jitter) - jitter/2 //nolint:gosec
+		}
+		claims.Expires = time.Now().Add(ttl).Unix()
+	}
+	return claims
+}
+
+// authorizeTenantSelection resolves the connect headers to the single
+// tenant this connection is scoped to and authorizes it on three axes:
+// the selection must name exactly one tenant, the user must hold at least
+// ROLE_READER on it, and a live row must back it; a soft-deleted tenant's
+// retained JetStream history must not stay readable through a stale grant.
+// System users skip the role and liveness axes: they are how platform
+// services connect, and their identity is validated by the system-role
+// check at introspection. The exactly-one guard applies to them too: an
+// ambiguous selection has no answer for anyone. The first two axes are
+// resolveTenant's; this adds the liveness axis on top.
+// Extracted from Handle so the decision is testable without a NATS server.
+func (service *authService) authorizeTenantSelection(ctx context.Context, user authn.User, headers http.Header) (uuid.UUID, error) {
+	// The single-tenant guard and the ROLE_READER floor: refused before
+	// tenant state is ever consulted, so the callout is no tenant-state
+	// oracle for the unauthorized.
+	tenantID, err := resolveTenant(ctx, user, headers)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	if user.IsSystemUser() {
+		return tenantID, nil
+	}
+
+	// LookupTenants bounds this wait itself (the cache's configured lookup
+	// timeout), which keeps a stalled source from wedging the serial callout
+	// handler; a timeout surfaces as err and refuses the uncached tenant
+	// below like any other source fault.
+	live, err := service.livenessCache.LookupTenants(ctx, []uuid.UUID{tenantID}, service.tenantSource)
+	if err != nil {
+		// Cached verdicts were applied; a tenant with no verdict is refused
+		// below: a connection that cannot be verified is not granted
+		// tenant-scoped permissions. Nothing is cached from the fault, so
+		// the client's reconnect succeeds with the first answering lookup.
+		service.faultLog.Err(log.ForContext(ctx), err).
+			Msg("disabled-tenant lookup failed; refusing uncached tenants")
+	}
+	if !live[tenantID] {
+		return uuid.Nil, fmt.Errorf("%w %q", errTenantNotServed, tenantID)
+	}
+	return tenantID, nil
 }
 
 func (service *authService) Respond(req micro.Request, userNKey string, serverId string, userJWT string, err error) {

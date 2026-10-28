@@ -9,23 +9,14 @@ import (
 type IntrospectionResult = IntrospectionResponse
 
 // Client is the introspection-side of the Zitadel HTTP surface. It does
-// NOT carry the org-active check — that's a [authn.OrgValidator] passed
-// alongside the client to [authn.NewZitadelAuthProvider]. Splitting them
-// lets management swap in a local v2 SDK call while every other service
-// queries management's `organization` federated GraphQL field through
-// the gateway, without forcing the two responsibilities into the same
-// interface.
+// NOT carry the tenant liveness check: that's a [liveness.TenantSource]
+// passed alongside the client to [authn.NewZitadelAuthProvider]. Splitting
+// them lets management read its own tenant table in-process while every
+// other service queries management's `disabledTenants` federated GraphQL
+// field through the gateway, without forcing the two responsibilities into
+// the same interface.
 type Client interface {
 	IntrospectToken(ctx context.Context, token string) (*IntrospectionResult, error)
-}
-
-// OrganizationResult is the typed result returned by management's local
-// ResolveOrganization helper and surfaced via the `organization`
-// GraphQL resolver. Lives in common so non-management services can
-// decode the same shape without a management import.
-type OrganizationResult struct {
-	Active         bool
-	OrganizationID string
 }
 
 type client struct {

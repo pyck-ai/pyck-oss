@@ -14,4 +14,5 @@ var (
 	ErrUnqualifiedOperation = errors.New("operation must be fully qualified as \"service.operationName\"")
 	ErrServiceNameRequired  = errors.New("service name is required for tests generation")
 	ErrMissingOperation     = errors.New("missing required 'operation' field")
+	ErrUnknownAssertion     = errors.New("assertion has no supported operator")
 )

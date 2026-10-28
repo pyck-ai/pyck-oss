@@ -83,7 +83,7 @@ func newStatusEnvWith(t *testing.T, factory func(*fanoutEnv) workflow.ClientFact
 		Consumer:        consumer,
 	})
 
-	require.NoError(t, f.router.Start(context.Background()))
+	require.NoError(t, f.router.Start(context.WithoutCancel(t.Context())))
 	t.Cleanup(f.router.Stop)
 
 	return &statusEnv{fanoutEnv: f, nats: n, js: js}
@@ -330,10 +330,10 @@ func TestRoutingStatus_NotRecordedWithoutIDs(t *testing.T) {
 	e.status(last)
 	require.True(t, e.nats.settled())
 
-	kv, err := e.js.KeyValue(context.Background(), services.RoutingStatusBucket(consumerStream))
+	kv, err := e.js.KeyValue(t.Context(), services.RoutingStatusBucket(consumerStream))
 	require.NoError(t, err)
 
-	keys, err := kv.Keys(context.Background())
+	keys, err := kv.Keys(t.Context())
 	require.NoError(t, err)
 	assert.Len(t, keys, 1, "only the event with a transaction ID and an event ID is recorded")
 	assert.Len(t, e.temporal.starts, 3, "all three were routed regardless")
@@ -352,7 +352,7 @@ func TestRoutingStatus_StateChangesAreNotRecorded(t *testing.T) {
 	data, err := json.Marshal(change)
 	require.NoError(t, err)
 
-	_, err = e.js.Publish(context.Background(), events.TemporalWorkflowStateChangeTopic{
+	_, err = e.js.Publish(t.Context(), events.TemporalWorkflowStateChangeTopic{
 		StreamName: consumerStream, Namespace: change.Namespace, TaskQueue: change.TaskQueue,
 		WorkflowTypeName: "Other", WorkflowID: "other_1", RunID: "run-1", Status: "COMPLETED",
 	}.String(), data)
@@ -374,7 +374,7 @@ func TestRoutingStatus_WriteFailureStillAcknowledges(t *testing.T) {
 	e.publishMutation(first)
 	e.status(first) // the bucket exists and works
 
-	require.NoError(t, e.js.DeleteKeyValue(context.Background(), services.RoutingStatusBucket(consumerStream)))
+	require.NoError(t, e.js.DeleteKeyValue(t.Context(), services.RoutingStatusBucket(consumerStream)))
 
 	second := newMutation()
 	e.publishMutation(second)
@@ -382,10 +382,10 @@ func TestRoutingStatus_WriteFailureStillAcknowledges(t *testing.T) {
 	require.Eventually(t, func() bool { return len(e.temporal.callsOf("start")) == 2 }, 5*time.Second, 20*time.Millisecond)
 	require.True(t, e.nats.settled(), "the event is acknowledged although its status could not be written")
 
-	c, err := e.js.Consumer(context.Background(), consumerStream, services.DefaultConsumerDurable)
+	c, err := e.js.Consumer(t.Context(), consumerStream, services.DefaultConsumerDurable)
 	require.NoError(t, err)
 
-	info, err := c.Info(context.Background())
+	info, err := c.Info(t.Context())
 	require.NoError(t, err)
 	assert.Len(t, e.temporal.callsOf("start"), 2, "not redelivered: handled exactly once each")
 	assert.Zero(t, info.NumAckPending)
@@ -452,12 +452,12 @@ func TestRoutingStatus_NakedEventDiscardsItsCollector(t *testing.T) {
 	e.publishMutation(m)
 
 	require.Eventually(t, func() bool {
-		c, err := e.js.Consumer(context.Background(), consumerStream, services.DefaultConsumerDurable)
+		c, err := e.js.Consumer(t.Context(), consumerStream, services.DefaultConsumerDurable)
 		if err != nil {
 			return false
 		}
 
-		info, err := c.Info(context.Background())
+		info, err := c.Info(t.Context())
 
 		return err == nil && info.Delivered.Stream == 1 && info.NumAckPending == 1
 	}, 5*time.Second, 20*time.Millisecond, "the event was handled once and NAKed")

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -35,36 +36,38 @@ var _ = Describe("Core NATS Operations", func() {
 		}
 	})
 
+	// Tenant clients share one account, where the answers to a request are
+	// delivered on whatever reply subject it names, other tenants' subjects
+	// included; a tenant reads its events through its consumers instead.
 	Context("Core NATS subscription", func() {
-		It("should subscribe to every event in my tenant and receive published messages", func() {
-			subject := fmt.Sprintf("%s.%s.>", config.DefaultStreamName, testCtx.TenantID)
-			subscription, err := util.CreateCoreNATSSubscription(testCtx.NatsConn, subject)
-			Expect(err).NotTo(HaveOccurred())
+		It("should be refused a core subscription to its own tenant's subjects", func() {
+			subject := fmt.Sprintf("%s.%s.>", config.StreamName(), testCtx.TenantID)
 
-			testMessage := []byte("tenant event message")
-			err = testCtx.NatsConn.Publish(subject, testMessage)
-			Expect(err).NotTo(HaveOccurred())
+			select {
+			case err := <-util.AsyncErrorChannel:
+				GinkgoWriter.Printf("discarding an earlier async error: %v\n", err)
+			default:
+			}
 
-			receivedMsg, err := subscription.NextMsg(5 * time.Second)
+			_, err := util.CreateCoreNATSSubscription(testCtx.NatsConn, subject)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(receivedMsg.Data).To(Equal(testMessage))
+			Expect(testCtx.NatsConn.Flush()).To(Succeed())
+
+			err = util.WaitForAsyncError(5*time.Second, "Permissions Violation for Subscription")
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 
 	Context("Publishing on custom events within my tenant", func() {
-		It("should successfully publish and receive custom event messages", func() {
-			subject := fmt.Sprintf("%s.%s.events.test", config.DefaultStreamName, testCtx.TenantID)
+		It("should store a custom event in the tenant's own stream", func() {
+			subject := fmt.Sprintf("%s.%s.events.test", config.StreamName(), testCtx.TenantID)
 
-			subscription, err := util.CreateCoreNATSSubscription(testCtx.NatsConn, subject)
-			Expect(err).NotTo(HaveOccurred())
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
 
-			testMessage := []byte("custom event message")
-			err = testCtx.NatsConn.Publish(subject, testMessage)
+			ack, err := testCtx.JetStream.Publish(ctx, subject, []byte("custom event message"))
 			Expect(err).NotTo(HaveOccurred())
-
-			receivedMsg, err := subscription.NextMsg(5 * time.Second)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(receivedMsg.Data).To(Equal(testMessage))
+			Expect(ack.Stream).To(Equal(util.TenantStreamName(testCtx.TenantID)))
 		})
 	})
 })

@@ -272,7 +272,7 @@ func TestStartupRegistration(t *testing.T) {
 	api := &fakeWorkflowAPI{}
 	w := workflowsdk.NewTestWorker(api, "1@host#abc123")
 
-	require.NoError(t, w.RegisterLocal(context.Background(), testEntries()))
+	require.NoError(t, w.RegisterLocal(t.Context(), testEntries()))
 
 	assert.Zero(t, api.getCalls, "startup registration must not list other workers' workflows")
 	assert.Zero(t, api.deleteCalls, "startup registration must not delete workflows")
@@ -313,7 +313,7 @@ func TestStartupRegistration_WorkerIDPerTaskQueue(t *testing.T) {
 	api := &fakeWorkflowAPI{}
 	w := workflowsdk.NewTestWorker(api, "1@host#abc123")
 
-	require.NoError(t, w.RegisterLocal(context.Background(), entries))
+	require.NoError(t, w.RegisterLocal(t.Context(), entries))
 
 	assert.Equal(t, map[string]string{
 		"wf_one":   "1@host#abc123/queue-one",
@@ -345,7 +345,7 @@ func TestHeartbeat_RetriesSoonAfterFailureThenResumesInterval(t *testing.T) {
 	api := &fakeWorkflowAPI{failRegisters: 2}
 	w := workflowsdk.NewTestWorker(api, "1@host#abc123")
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan struct{})
 	go func() {
 		w.RunHeartbeat(ctx, testEntries())
@@ -383,7 +383,7 @@ func TestHeartbeat_RefreshesEachTaskQueueUnderItsOwnWorkerID(t *testing.T) {
 	api := &fakeWorkflowAPI{}
 	w := workflowsdk.NewTestWorker(api, "1@host#abc123")
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan struct{})
 	go func() {
 		w.RunHeartbeat(ctx, testEntries())
@@ -413,7 +413,7 @@ func TestStartupRegistration_TaskQueueChangedFailsFast(t *testing.T) {
 	}
 	w := workflowsdk.NewTestWorker(api, "1@host#abc123")
 
-	err := w.RegisterLocal(context.Background(), testEntries())
+	err := w.RegisterLocal(t.Context(), testEntries())
 	require.Error(t, err)
 	assert.Len(t, api.registered, len(testEntries()), "a task queue change is not a transient conflict: one attempt per workflow, no retry")
 }
@@ -424,7 +424,7 @@ func TestStop_UnregistersWhenEnabled(t *testing.T) {
 
 	api := &fakeWorkflowAPI{}
 	w := workflowsdk.NewTestWorker(api, "1@host#abc123")
-	w.MarkRegistered(context.Background(), testEntries())
+	w.MarkRegistered(t.Context(), testEntries())
 
 	w.Stop()
 	assert.Equal(t, []string{"1@host#abc123/queue-one", "1@host#abc123/queue-two"}, api.unregisterCalls(),
@@ -452,7 +452,7 @@ func TestStop_WaitsForInFlightHeartbeatBeforeUnregister(t *testing.T) {
 	w := workflowsdk.NewTestWorker(api, "1@host#abc123")
 	entries := testEntries()[:1]
 
-	ctx := context.Background()
+	ctx := t.Context()
 	w.MarkRegistered(ctx, entries)
 	w.StartHeartbeat(ctx, entries)
 
@@ -503,7 +503,7 @@ func TestStop_SkipsUnregisterWhenDisabled(t *testing.T) {
 
 	api := &fakeWorkflowAPI{}
 	w := workflowsdk.NewTestWorker(api, "1@host#abc123")
-	w.MarkRegistered(context.Background(), testEntries())
+	w.MarkRegistered(t.Context(), testEntries())
 
 	w.Stop()
 	assert.Empty(t, api.unregisterCalls())
@@ -526,7 +526,7 @@ func TestStop_UnregisterSurvivesCancelledStartContext(t *testing.T) {
 
 	api := &fakeWorkflowAPI{}
 	w := workflowsdk.NewTestWorker(api, "1@host#abc123")
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	w.MarkRegistered(ctx, testEntries())
 	cancel() // the usual shutdown trigger
 
@@ -541,7 +541,7 @@ func TestStop_UnregisterBoundedByTimeout(t *testing.T) {
 
 	api := &fakeWorkflowAPI{block: true}
 	w := workflowsdk.NewTestWorker(api, "1@host#abc123")
-	w.MarkRegistered(context.Background(), testEntries())
+	w.MarkRegistered(t.Context(), testEntries())
 
 	done := make(chan struct{})
 	start := time.Now()
@@ -568,7 +568,7 @@ func TestStop_UnregisterFailureDoesNotBlockShutdown(t *testing.T) {
 
 	api := &fakeWorkflowAPI{unregisterErr: errUnregisterFailed}
 	w := workflowsdk.NewTestWorker(api, "1@host#abc123")
-	w.MarkRegistered(context.Background(), testEntries())
+	w.MarkRegistered(t.Context(), testEntries())
 
 	done := make(chan struct{})
 	go func() {
@@ -629,7 +629,7 @@ func TestStop_InFlightHeartbeatCannotCommitAfterUnregister(t *testing.T) {
 	w := workflowsdk.NewTestWorker(api, "1@host#abc123")
 	entries := testEntries()[:1]
 
-	ctx := context.Background()
+	ctx := t.Context()
 	w.MarkRegistered(ctx, entries)
 	w.StartHeartbeat(ctx, entries)
 
@@ -681,7 +681,7 @@ func TestHeartbeat_RefreshesRemainingWorkflowsAfterOneFails(t *testing.T) {
 	api := &fakeWorkflowAPI{failWorkflows: map[string]error{"wf_one": errUnregisterFailed}}
 	w := workflowsdk.NewTestWorker(api, "1@host#abc123")
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan struct{})
 	go func() {
 		w.RunHeartbeat(ctx, testEntries())
@@ -707,7 +707,7 @@ func TestStartupRegistration_ReportsAllFailures(t *testing.T) {
 	}}
 	w := workflowsdk.NewTestWorker(api, "1@host#abc123")
 
-	err := w.RegisterLocal(context.Background(), testEntries())
+	err := w.RegisterLocal(t.Context(), testEntries())
 	require.Error(t, err)
 	require.ErrorIs(t, err, errUnregisterFailed)
 	require.ErrorContains(t, err, "second failure")
@@ -727,7 +727,7 @@ func TestStartupRegistration_PartialFailureUnregistersRegistered(t *testing.T) {
 	}}
 	w := workflowsdk.NewTestWorker(api, "1@host#abc123")
 
-	err := w.RegisterSubscriptions(context.Background(), testEntries())
+	err := w.RegisterSubscriptions(t.Context(), testEntries())
 	require.Error(t, err)
 	assert.Contains(t, api.unregisterCalls(), "1@host#abc123/queue-one",
 		"the workflow registered before the failure must be unregistered")

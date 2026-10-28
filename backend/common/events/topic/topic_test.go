@@ -495,6 +495,16 @@ func TestTopicRoundTrip(t *testing.T) {
 			},
 		},
 		{
+			name: "TenantCustomEventTopic",
+			topic: TenantCustomEventTopic{
+				StreamName:    "pyck",
+				TenantID:      tenantID,
+				EventType:     "tour-creation",
+				EntityID:      entityID,
+				OperationName: "create",
+			},
+		},
+		{
 			name: "UpdateEventTopic",
 			topic: UpdateEventTopic{
 				StreamName:    "pyck",
@@ -738,6 +748,12 @@ func TestWithTenant(t *testing.T) {
 			event:   "request.reply.pyck." + tid.String() + ".crud.inventory.item." + uuid.NewString() + ".created",
 		},
 		{
+			name:    "tenant custom event sets the tenant token",
+			subject: "pyck.*.custom.tour-creation.*.create",
+			want:    "pyck." + tid.String() + ".custom.tour-creation.*.create",
+			event:   "pyck." + tid.String() + ".custom.tour-creation." + uuid.NewString() + ".create",
+		},
+		{
 			name:    "temporal state change sets the namespace token",
 			subject: "pyck.*.temporal.*.childworkflow.*.*.completed",
 			want:    "pyck." + tid.String() + ".temporal.*.childworkflow.*.*.completed",
@@ -803,6 +819,8 @@ func TestMatchable(t *testing.T) {
 		{"pyck.0198a6b2000070008000000000000001.temporal.q.t.w.r.s", false},
 		{"pyck.0198A6B2-0000-7000-8000-000000000001.temporal.q.t.w.r.s", false},
 		{"pyck.{0198a6b2-0000-7000-8000-000000000001}.temporal.q.t.w.r.s", false},
+		// The wildcard tenant, expanded by registerWorkflow.
+		{"pyck.00000000-0000-0000-0000-000000000000.temporal.q.t.w.r.s", true},
 		{"not.a.known.topic", false},
 	}
 
@@ -875,4 +893,25 @@ func TestMatchesTenant_UnreadableTenantNeverMatches(t *testing.T) {
 
 	assert.False(t, matchesTenant(badTenant{}, &MutationEventTopic{TenantID: tid}))
 	assert.False(t, matchesTenant(&MutationEventTopic{}, badTenant{}))
+}
+
+// A custom event named after an entity must never be read as that entity's
+// change, and a CRUD subscription must never match it.
+func TestTenantCustomEventTopic_IsNotACrudEvent(t *testing.T) {
+	t.Parallel()
+
+	tenantID, entityID := uuid.New(), uuid.New()
+	custom := TenantCustomEventTopic{TenantID: tenantID, EventType: "datatype", EntityID: entityID, OperationName: "delete"}
+
+	assert.Equal(t, "pyck."+tenantID.String()+".custom.datatype."+entityID.String()+".delete", custom.String())
+
+	parsed, err := Parse(custom.String())
+	require.NoError(t, err)
+	assert.Equal(t, TopicTypeTenantCustomEvent, parsed.Type())
+
+	crud := MustParse("pyck.*.crud.management.datatype.*.delete")
+	assert.False(t, crud.Matches(parsed), "a CRUD subscription matched a custom event")
+	assert.True(t, MustParse("pyck.*.custom.datatype.*.delete").Matches(parsed))
+	assert.False(t, MustParse("pyck."+uuid.NewString()+".custom.datatype.*.delete").Matches(parsed),
+		"another tenant's subscription matched the event")
 }

@@ -24,6 +24,13 @@ type Mutation {
 
   deleteInventoryStock(input: ClearVirtualStockInput!): RepositoryDeletePayload
 
+  """
+  Recomputes the acting tenant's stock rows from its movement history.
+  Requires ROLE_ADMIN on the acting tenant. Event emission is suppressed
+  for the rebuild: only a system caller may opt back in with
+  X-Pyck-Feature: syncupdates, and a tenant caller sending that header
+  is refused with "system caller required".
+  """
   rebuildInventoryStock: RebuildStockOutput
 
   createInventoryItemSet(input: CreateInventoryItemSetInput!): InventoryItemSetOutput

@@ -46,7 +46,7 @@ graphql:
       {
         "input": {
           "expiresAt": null, // PLACEHOLDER: RFC3339 timestamp, or null to clear
-          "id": null // PLACEHOLDER: tenant ID
+          "tenantId": null // PLACEHOLDER: tenant ID
         }
       }
 

@@ -53,9 +53,12 @@ func (r *queryResolver) WorkflowIsAssignable(ctx context.Context, input model.Ge
 		return nil, err
 	}
 
-	req := request.ForContext(ctx)
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 
-	workflowClient, err := r.workflowRouter.GetClient(ctx, req.MutationTenantID().String())
+	workflowClient, err := r.workflowRouter.GetClient(ctx, tenantID.String())
 	if err != nil || workflowClient == nil {
 		return nil, ErrInvalidWorkflowClient
 	}

@@ -68,7 +68,7 @@ runtime:
         });
 
         test("KeyValue created", function() {
-          expect(body?.data?.setKeyValue?.id)/* UNSUPPORTED:  */;
+          expect(body?.data?.setKeyValue?.id).to.exist;
         });
     - type: after-response
       code: |-

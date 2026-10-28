@@ -631,7 +631,7 @@ func (e *RoutingOutcome) UnmarshalGQL(v any) error {
 }
 
 func (e RoutingOutcome) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *RoutingOutcome) UnmarshalJSON(b []byte) error {
@@ -698,7 +698,7 @@ func (e *RoutingTargetKind) UnmarshalGQL(v any) error {
 }
 
 func (e RoutingTargetKind) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *RoutingTargetKind) UnmarshalJSON(b []byte) error {
@@ -756,7 +756,7 @@ func (e *WorkflowExecutionOrderDirection) UnmarshalGQL(v any) error {
 }
 
 func (e WorkflowExecutionOrderDirection) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *WorkflowExecutionOrderDirection) UnmarshalJSON(b []byte) error {
@@ -829,7 +829,7 @@ func (e *WorkflowExecutionOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e WorkflowExecutionOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *WorkflowExecutionOrderField) UnmarshalJSON(b []byte) error {
@@ -890,7 +890,7 @@ func (e *WorkflowTarget) UnmarshalGQL(v any) error {
 }
 
 func (e WorkflowTarget) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *WorkflowTarget) UnmarshalJSON(b []byte) error {

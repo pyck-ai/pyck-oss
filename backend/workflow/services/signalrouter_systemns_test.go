@@ -1,7 +1,6 @@
 package services_test
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 
@@ -87,7 +86,7 @@ func TestDispatchEvent_TenantStateChangeStillRoutes(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = e.router.DispatchEvent(context.Background(), &nats.Msg{
+	err = e.router.DispatchEvent(t.Context(), &nats.Msg{
 		Subject: events.TemporalWorkflowStateChangeTopic{
 			StreamName: "pyck", Namespace: e.tenantID.String(), TaskQueue: fanoutTaskQueue,
 			WorkflowTypeName: "Other", WorkflowID: "other_1", RunID: "run-1", Status: "COMPLETED",

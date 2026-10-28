@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"entgo.io/ent/dialect"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/pyck-ai/pyck/backend/common/db"
 )
@@ -70,6 +71,7 @@ func TestBeginTx_ReadOnly_RoutesToReader(t *testing.T) {
 	writer := &fakeDriver{label: "writer"}
 
 	driver := db.NewMultiDriverWithDrivers(reader, writer)
+	t.Cleanup(func() { assert.NoError(t, driver.Close()) })
 
 	opts := &sql.TxOptions{ReadOnly: true}
 	if _, err := driver.BeginTx(context.Background(), opts); err != nil {
@@ -111,6 +113,7 @@ func TestBeginTx_ReadWrite_RoutesToWriter(t *testing.T) {
 			writer := &fakeDriver{label: "writer"}
 
 			driver := db.NewMultiDriverWithDrivers(reader, writer)
+			t.Cleanup(func() { assert.NoError(t, driver.Close()) })
 
 			if _, err := driver.BeginTx(context.Background(), tc.opts); err != nil {
 				t.Fatalf("BeginTx returned error: %v", err)
@@ -137,6 +140,7 @@ func TestTx_AlwaysRoutesToWriter(t *testing.T) {
 	writer := &fakeDriver{label: "writer"}
 
 	driver := db.NewMultiDriverWithDrivers(reader, writer)
+	t.Cleanup(func() { assert.NoError(t, driver.Close()) })
 
 	if _, err := driver.Tx(context.Background()); err != nil {
 		t.Fatalf("Tx returned error: %v", err)
@@ -161,6 +165,7 @@ func TestBeginTx_PropagatesError(t *testing.T) {
 	writer := &fakeDriver{label: "writer"}
 
 	driver := db.NewMultiDriverWithDrivers(reader, writer)
+	t.Cleanup(func() { assert.NoError(t, driver.Close()) })
 
 	_, err := driver.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
 	if !errors.Is(err, wantErr) {

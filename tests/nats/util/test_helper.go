@@ -19,8 +19,9 @@ import (
 // AsyncErrorChannel is used to capture async errors
 var AsyncErrorChannel = make(chan error, 1)
 
-// CreateTestConnection creates a NATS connection with the provided JWT token
-func CreateTestConnection(token string) (*nats.Conn, error) {
+// CreateTestConnection connects with token as a client of tenant tenantID,
+// on the tenant's inbox prefix the auth callout grants (config.InboxPrefix).
+func CreateTestConnection(token, tenantID string) (*nats.Conn, error) {
 	natsURL := os.Getenv(config.EnvNatsWSURL)
 
 	// Parse the URL to extract the path
@@ -36,6 +37,7 @@ func CreateTestConnection(token string) (*nats.Conn, error) {
 	opts := []nats.Option{
 		nats.Token(token),
 		nats.Name(config.TestClientName),
+		nats.CustomInboxPrefix(config.InboxPrefix(tenantID)),
 	}
 
 	x := parsedURL.String()
@@ -112,6 +114,12 @@ func GetTenantIDFromJWT(token string) (string, error) {
 
 	// Generate UUID using SHA1 with NameSpaceOID
 	return uuid.NewSHA1(uuid.NameSpaceOID, []byte(resourceOwnerID)).String(), nil
+}
+
+// TenantStreamName returns the name of the JetStream stream holding the events
+// of tenantID, the only stream a tenant client may use.
+func TenantStreamName(tenantID string) string {
+	return config.StreamName() + "-" + tenantID
 }
 
 // CheckPermissions sends a request to the NATS API and checks if it results in a permissions violation

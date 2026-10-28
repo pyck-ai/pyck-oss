@@ -24,6 +24,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/sqljsonpath"
 	"github.com/pyck-ai/pyck/backend/common/validator"
+	commonworkflow "github.com/pyck-ai/pyck/backend/common/workflow"
 	"github.com/pyck-ai/pyck/backend/workflow/core"
 	ent "github.com/pyck-ai/pyck/backend/workflow/ent/gen"
 	entworkflow "github.com/pyck-ai/pyck/backend/workflow/ent/gen/workflow"
@@ -46,10 +47,9 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 	req := request.ForContext(ctx)
 	user := authn.ForContext(ctx)
 
-	// MutationTenantID panics (and logs the caller's token) without a single
-	// tenant; answer with an error instead. The WRITER check is left to ent
-	// privacy, which every write path here goes through.
-	tenantID, err := singleTenantID(req)
+	// The WRITER check is left to ent privacy, which every write path here
+	// goes through.
+	tenantID, err := req.MutationTenantID()
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +60,15 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 
 	if input.TaskQueue != strings.TrimSpace(input.TaskQueue) {
 		return nil, ErrInvalidTaskQueue
+	}
+
+	// Both become Temporal identifiers that its store holds: one too long for
+	// it would fail every event routed to the workflow.
+	if len(input.Name) > services.MaxWorkflowNameLength {
+		return nil, fmt.Errorf("%w: %d bytes, longer than %d", ErrNameTooLong, len(input.Name), services.MaxWorkflowNameLength)
+	}
+	if len(input.TaskQueue) > commonworkflow.MaxStoredIDLength {
+		return nil, fmt.Errorf("%w: %d bytes, longer than %d", ErrTaskQueueTooLong, len(input.TaskQueue), commonworkflow.MaxStoredIDLength)
 	}
 
 	// worker_id scopes subscriptions to the calling worker so concurrent
@@ -223,6 +232,9 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 			(sType == entworkflowsignal.TemporalSignalTypeSignalWithStart || sType == entworkflowsignal.TemporalSignalTypeSignalByID) {
 			return nil, fmt.Errorf("%w: %q needs a signal name", ErrInvalidSignalName, sType)
 		}
+		if len(temporalSignal) > commonworkflow.MaxWorkflowIDLength {
+			return nil, fmt.Errorf("%w: %d bytes, longer than %d", ErrSignalNameTooLong, len(temporalSignal), commonworkflow.MaxWorkflowIDLength)
+		}
 
 		// The router evaluates the rule on every matching event; a rule it
 		// cannot evaluate would fail each of them, and one past the bounds
@@ -250,6 +262,7 @@ func (r *mutationResolver) RegisterWorkflow(ctx context.Context, input model.Reg
 			switch topic.(type) {
 			case *events.MutationEventTopic,
 				*events.MutationEventWithReplyTopic,
+				*events.TenantCustomEventTopic,
 				*events.TemporalWorkflowStateChangeTopic:
 			default:
 				return nil, fmt.Errorf("%w: %#v", ErrInvalidSignalTopic, topic)
@@ -465,6 +478,10 @@ func (r *mutationResolver) DeleteWorkflow(ctx context.Context, id uuid.UUID) (*m
 	}
 
 	req := request.ForContext(ctx)
+	tenantID, err := req.MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 	now := time.Now().UTC()
 
 	// Ensure the workflow exists, belongs to tenant, and is not already deleted.
@@ -472,7 +489,7 @@ func (r *mutationResolver) DeleteWorkflow(ctx context.Context, id uuid.UUID) (*m
 		Query().
 		Where(
 			entworkflow.IDEQ(id),
-			entworkflow.TenantIDEQ(req.MutationTenantID()),
+			entworkflow.TenantIDEQ(tenantID),
 		).
 		Only(ctx)
 	if err != nil {
@@ -497,7 +514,7 @@ func (r *mutationResolver) DeleteWorkflow(ctx context.Context, id uuid.UUID) (*m
 	signals, err := tx.WorkflowSignal.
 		Query().
 		Where(
-			entworkflowsignal.TenantIDEQ(req.MutationTenantID()),
+			entworkflowsignal.TenantIDEQ(tenantID),
 			entworkflowsignal.WorkflowIDEQ(wf.ID),
 			entworkflowsignal.DeletedAtIsNil(),
 		).
@@ -538,8 +555,7 @@ func (r *mutationResolver) UnregisterWorker(ctx context.Context, workerID string
 	}
 
 	// Stopping subscriptions needs WRITER like every other mutation that
-	// touches a tenant's routing, and MutationTenantID would panic (logging the
-	// caller's token) without a single tenant.
+	// touches a tenant's routing.
 	tenantID, err := writerTenantID(request.ForContext(ctx))
 	if err != nil {
 		return nil, err

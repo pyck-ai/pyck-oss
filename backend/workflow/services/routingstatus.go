@@ -262,7 +262,7 @@ func (wr *SignalRouter) recordOutcome(ctx context.Context, msg jetstream.Msg, ou
 		return
 	}
 
-	if topic, parseErr := events.Parse(msg.Subject()); parseErr != nil || topic.Type() != events.TopicTypeMutationEvent {
+	if !carriesMutationMessage(msg.Subject()) {
 		return // state changes have no mutation transaction
 	}
 
@@ -317,6 +317,17 @@ func (wr *SignalRouter) recordOutcome(ctx context.Context, msg jetstream.Msg, ou
 	}
 }
 
+// carriesMutationMessage reports whether subject is a mutation or tenant
+// custom event: both carry a MutationEventMessage of one transaction.
+func carriesMutationMessage(subject string) bool {
+	topic, err := events.Parse(subject)
+	if err != nil {
+		return false
+	}
+
+	return topic.Type() == events.TopicTypeMutationEvent || topic.Type() == events.TopicTypeTenantCustomEvent
+}
+
 // discardRouting drops the collector of a mutation event the consumer NAKed
 // instead of settling.
 func (wr *SignalRouter) discardRouting(msg jetstream.Msg) {
@@ -324,7 +335,7 @@ func (wr *SignalRouter) discardRouting(msg jetstream.Msg) {
 		return
 	}
 
-	if topic, parseErr := events.Parse(msg.Subject()); parseErr != nil || topic.Type() != events.TopicTypeMutationEvent {
+	if !carriesMutationMessage(msg.Subject()) {
 		return
 	}
 

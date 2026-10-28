@@ -1,6 +1,6 @@
 //go:build integration
 
-package workflow
+package workflow_test
 
 import (
 	"bytes"
@@ -42,6 +42,11 @@ import (
 const (
 	signalServiceName   = "integration"
 	signalOperationName = "create"
+
+	// listingFilterWait bounds how long a listing filter may lag a
+	// processed update before the suite calls it a bug; local visibility
+	// propagation is typically well under a second.
+	listingFilterWait = 10 * time.Second
 )
 
 // wfIdentity bundles the names that must be unique per workflow
@@ -97,7 +102,7 @@ func newWfIdentity(name string) wfIdentity {
 // the workflow with pyck, host a worker, trigger a run over NATS,
 // prove the run survives a worker outage, cancel it, and unregister.
 // The SA-specific stages stay inline in each test and read the fields
-// this struct exposes (pat, worker, workflowID, runID).
+// this struct exposes (pat, userID, worker, workflowID, runID).
 type wfLifecycle struct {
 	base *tests.Base
 	id   wfIdentity
@@ -105,6 +110,7 @@ type wfLifecycle struct {
 
 	registered     *gateway.RegisteredTenant
 	pat            string
+	userID         string // pyck user id of the PAT's machine user
 	worker         *wfWorker
 	workflowID     string
 	runID          string
@@ -138,6 +144,7 @@ func (l *wfLifecycle) provisionWorkerIdentity() bool {
 		p, err := tests.ProvisionUserInTenant(l.base.Ctx, l.base.Cfg, l.base.ZConn, rt, []string{"writer"})
 		r.NoError(err)
 		l.pat = p.PAT
+		l.userID = pyckUserID(l.base.Cfg, p.UserID)
 		l.base.T().Logf("tenantID=%s userID=%s", rt.ID, p.UserID)
 	}) {
 		return false
@@ -542,6 +549,58 @@ func waitForWorkflowStatus(ctx context.Context, c temporalclient.Client, workflo
 		got := desc.GetWorkflowExecutionInfo().GetStatus()
 		if got != want {
 			return fmt.Errorf("workflow status %s, want %s", got, want)
+		}
+		return nil
+	})
+}
+
+// countExecutions runs the gateway workflowExecutions query with the given
+// filter and returns totalCount, the listing path production clients use to
+// find work (resolver → tenant-scoped Temporal visibility query). The suites
+// in this package pin their filters to one workflowID, so the count is a 0/1
+// witness of whether a search-attribute filter matches the run.
+func countExecutions(ctx context.Context, cfg *config.Config, token string, where *workflowmodel.WorkflowExecutionsWhereInput) (int, error) {
+	c := gateway.NewWorkflowClient(cfg, token)
+	resp, err := c.GetWorkflowExecutions(ctx, workflowapi.GetWorkflowExecutionsArgs{Where: where})
+	if err != nil {
+		return 0, fmt.Errorf("workflowExecutions: %w", err)
+	}
+	conn := resp.GetWorkflowExecutions()
+	if conn == nil {
+		return 0, fmt.Errorf("workflowExecutions: nil connection")
+	}
+	return conn.TotalCount, nil
+}
+
+// countAssignableExecutions is countExecutions for the
+// assignableWorkflowExecutions wrapper, which pins isAssignable=true
+// server-side (null matches true) on top of the caller's filter.
+func countAssignableExecutions(ctx context.Context, cfg *config.Config, token string, where *workflowmodel.WorkflowExecutionsWhereInput) (int, error) {
+	c := gateway.NewWorkflowClient(cfg, token)
+	resp, err := c.GetAssignableWorkflowExecutions(ctx, workflowapi.GetAssignableWorkflowExecutionsArgs{Where: where})
+	if err != nil {
+		return 0, fmt.Errorf("assignableWorkflowExecutions: %w", err)
+	}
+	conn := resp.GetAssignableWorkflowExecutions()
+	if conn == nil {
+		return 0, fmt.Errorf("assignableWorkflowExecutions: nil connection")
+	}
+	return conn.TotalCount, nil
+}
+
+// waitForExecutionCount polls one of the count functions above until it
+// reports want. An update RPC returns once the workflow has processed it,
+// but the upserted search attribute reaches the visibility store
+// asynchronously: listing filters only see the new value after that
+// propagation, so equality is eventually-true and must be polled.
+func waitForExecutionCount(ctx context.Context, want int, count func() (int, error)) error {
+	return tests.PollUntil(ctx, listingFilterWait, 250*time.Millisecond, func() error {
+		got, err := count()
+		if err != nil {
+			return err
+		}
+		if got != want {
+			return fmt.Errorf("execution count %d, want %d", got, want)
 		}
 		return nil
 	})

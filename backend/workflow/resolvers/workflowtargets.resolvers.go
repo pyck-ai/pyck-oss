@@ -49,7 +49,10 @@ func (r *mutationResolver) SetWorkflowTargets(ctx context.Context, input model.S
 
 // WorkflowTargets is the resolver for the workflowTargets field.
 func (r *queryResolver) WorkflowTargets(ctx context.Context, input model.GetWorkflowTargetsInput) (*model.GetWorkflowTargetsResponse, error) {
-	tenantID := request.ForContext(ctx).MutationTenantID()
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 
 	workflowClient, err := r.workflowRouter.GetClient(ctx, tenantID.String())
 	if err != nil || workflowClient == nil {

@@ -21,8 +21,9 @@ func DefaultAuthLookup(ctx context.Context) (tenantID, userID uuid.UUID, ok bool
 	if !user.IsAuthenticated() {
 		return uuid.Nil, uuid.Nil, false
 	}
-	if !rc.HasMutationTenantID() {
+	tenantID, err := rc.MutationTenantID()
+	if err != nil {
 		return uuid.Nil, uuid.Nil, false
 	}
-	return rc.MutationTenantID(), user.ID, true
+	return tenantID, user.ID, true
 }

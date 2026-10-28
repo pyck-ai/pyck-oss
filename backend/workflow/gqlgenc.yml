@@ -7,17 +7,17 @@ client:
 models:
   UUID:
     model: github.com/99designs/gqlgen/graphql.UUID
+  # gqlgen auto-maps Int64 when it is declared as a scalar, but has no builtin
+  # for UInt64: without this entry gqlgenc falls back to string and the client
+  # fails to unmarshal numeric activityIndex/activityCount (currentUserDataInput).
+  UInt64:
+    model: github.com/99designs/gqlgen/graphql.Uint64
   Map:
     model: github.com/99designs/gqlgen/graphql.Map
   Any:
     model: any
   Cursor:
     model: github.com/99designs/gqlgen/graphql.String
-  # The server sends UInt64 as a JSON number. Left unmapped, gqlgenc types it as
-  # string and graphqljson fails to decode the response, which silently leaves
-  # every field after it empty.
-  UInt64:
-    model: github.com/99designs/gqlgen/graphql.Uint64
 autobind:
   - github.com/99designs/gqlgen/graphql/introspection
   - github.com/pyck-ai/pyck/backend/workflow/model

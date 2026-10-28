@@ -43,21 +43,24 @@ func _FieldNameNoOp() {
 var _FieldNameValues = []FieldName{FieldInvalid, FieldData, FieldJSONSchema, FieldTenantID, FieldID, FieldEntityEventsOutbox, FieldDataTypeSlug, FieldDeletedAt}
 
 var _FieldNameNameToValueMap = map[string]FieldName{
-	_FieldNameName[0:7]:        FieldInvalid,
+	_FieldNameName[0:7]:   FieldInvalid,
+	_FieldNameName[7:11]:  FieldData,
+	_FieldNameName[11:21]: FieldJSONSchema,
+	_FieldNameName[21:29]: FieldTenantID,
+	_FieldNameName[29:31]: FieldID,
+	_FieldNameName[31:49]: FieldEntityEventsOutbox,
+	_FieldNameName[49:61]: FieldDataTypeSlug,
+	_FieldNameName[61:70]: FieldDeletedAt,
+}
+
+var _FieldNameLowerNameToValueMap = map[string]FieldName{
 	_FieldNameLowerName[0:7]:   FieldInvalid,
-	_FieldNameName[7:11]:       FieldData,
 	_FieldNameLowerName[7:11]:  FieldData,
-	_FieldNameName[11:21]:      FieldJSONSchema,
 	_FieldNameLowerName[11:21]: FieldJSONSchema,
-	_FieldNameName[21:29]:      FieldTenantID,
 	_FieldNameLowerName[21:29]: FieldTenantID,
-	_FieldNameName[29:31]:      FieldID,
 	_FieldNameLowerName[29:31]: FieldID,
-	_FieldNameName[31:49]:      FieldEntityEventsOutbox,
 	_FieldNameLowerName[31:49]: FieldEntityEventsOutbox,
-	_FieldNameName[49:61]:      FieldDataTypeSlug,
 	_FieldNameLowerName[49:61]: FieldDataTypeSlug,
-	_FieldNameName[61:70]:      FieldDeletedAt,
 	_FieldNameLowerName[61:70]: FieldDeletedAt,
 }
 
@@ -79,7 +82,7 @@ func FieldNameString(s string) (FieldName, error) {
 		return val, nil
 	}
 
-	if val, ok := _FieldNameNameToValueMap[strings.ToLower(s)]; ok {
+	if val, ok := _FieldNameLowerNameToValueMap[strings.ToLower(s)]; ok {
 		return val, nil
 	}
 	return 0, errors.Join(enumerrs.ErrValueInvalid, fmt.Errorf("%s does not belong to FieldName values", s))

@@ -8,7 +8,8 @@
 // maxRedeliver in events/tenants/config.go). If a disable/restore message
 // is dropped because the prior workflow runs longer than the total
 // backoff window, the DB's intent and Zitadel's side-effects diverge.
-// This workflow runs on a schedule and heals any such drift.
+// This workflow runs on a schedule and heals any such drift. It also puts
+// the event streams of active tenants that have none.
 package tenantreconcile
 
 import (
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 
 	commonwf "github.com/pyck-ai/pyck/backend/common/workflow"
@@ -47,6 +49,8 @@ func TenantReconcileWorkflow(ctx workflow.Context, _ TenantReconcileWorkflowInpu
 	if err := workflow.ExecuteActivity(driftCtx, activityRefs.ComputeDriftActivity, ComputeDriftActivityInput{}).
 		Get(driftCtx, &drift); err != nil {
 		logger.Error("compute drift failed", "err", err)
+		// Stream repair needs no Zitadel, so a drift failure does not skip it.
+		repairEventStreams(ctx, driftRP)
 		return TenantReconcileWorkflowOutput{}, err
 	}
 
@@ -56,6 +60,7 @@ func TenantReconcileWorkflow(ctx workflow.Context, _ TenantReconcileWorkflowInpu
 	}
 	if out.Disabled == 0 && out.Restored == 0 {
 		logger.Info("tenant reconcile: no drift")
+		repairEventStreams(ctx, driftRP)
 		return out, nil
 	}
 
@@ -102,7 +107,22 @@ func TenantReconcileWorkflow(ctx workflow.Context, _ TenantReconcileWorkflowInpu
 		"dispatched", out.Dispatched,
 		"skipped", out.Skipped,
 	)
+	repairEventStreams(ctx, driftRP)
 	return out, nil
+}
+
+// repairEventStreams runs RepairEventStreamsActivity; a failure is left to the
+// next sweep. It is the last step, so runs started before it existed replay.
+func repairEventStreams(ctx workflow.Context, retry *temporal.RetryPolicy) {
+	streamsCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		StartToCloseTimeout:    2 * time.Minute,
+		ScheduleToCloseTimeout: 3 * time.Minute,
+		RetryPolicy:            retry,
+	})
+	if err := workflow.ExecuteActivity(streamsCtx, activityRefs.RepairEventStreamsActivity, RepairEventStreamsActivityInput{}).
+		Get(streamsCtx, nil); err != nil {
+		workflow.GetLogger(ctx).Warn("repair event streams failed; continuing", "err", err)
+	}
 }
 
 // EnsureSchedule installs the periodic schedule that drives the

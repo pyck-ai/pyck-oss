@@ -163,7 +163,7 @@ func TestServiceFlagSources(t *testing.T) {
 				return nil
 			}
 
-			require.NoError(t, app.Run(context.Background(), append([]string{"temporal"}, tt.args...)))
+			require.NoError(t, app.Run(t.Context(), append([]string{"temporal"}, tt.args...)))
 			require.Equal(t, tt.wantSet, gotSet)
 			require.Equal(t, tt.wantService, gotService)
 			require.Equal(t, tt.wantLegacy, gotLegacy)

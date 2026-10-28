@@ -491,21 +491,11 @@ func TestCreateRepositoryMovement_DoesNotRewriteUnaffectedAncestorItems(t *testi
 	require.NotNil(t, movement)
 
 	// The contract: only items physically on the moving repository may
-	// receive fresh stock rows tagged with this movement. Group by
-	// item_id (avoids .All(ctx) on Stock per limitlint) and compare the
-	// distinct set against {iMove.ID}.
-	itemIDStrs, err := tx.Stock.Query().
-		Where(
-			entstock.TenantID(tenantID),
-			entstock.MovementID(movement.ID),
-		).
-		GroupBy(entstock.FieldItemID).
-		Strings(ctx)
-	require.NoError(t, err)
-
+	// receive fresh stock rows tagged with this movement. Compare the
+	// distinct set of stamped items against {iMove.ID}.
 	require.ElementsMatch(t,
 		[]string{iMove.ID.String()},
-		itemIDStrs,
+		movementItemIDs(t, ctx, tx, tenantID, movement.ID),
 		"only items physically on the moving repository may get fresh stock rows; "+
 			"unaffected ancestor-only items must not be re-stamped",
 	)

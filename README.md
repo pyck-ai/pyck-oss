@@ -1,202 +1,87 @@
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fpyck-ai%2Fpyck.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fpyck-ai%2Fpyck?ref=badge_shield&issueType=license)
+[![Release](https://img.shields.io/github/v/tag/pyck-ai/pyck-oss?sort=semver&label=release)](https://github.com/pyck-ai/pyck-oss/tags)
+[![Docs](https://img.shields.io/website?url=https%3A%2F%2Fdocs.pyck.cloud&label=docs&up_message=docs.pyck.cloud&up_color=blue&down_message=down)](https://docs.pyck.cloud)
+[![Slack](https://img.shields.io/badge/slack-pyck--community-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/pyck-community/shared_invite/zt-3ulnckg7r-kBk6Spkeyk_DldYQpDmcxA)
 
 # pyck
 
-pyck is the logistical backbone and API for future warehousing. Built as a modular microservices platform, it streamlines operations like data management, inventory tracking, and order processing, while supporting sophisticated workflows through robust foundations.
+<!-- toc
+## Contents
 
-## Overview
+- [What is pyck?](#what-is-pyck)
+- [Getting started](#getting-started)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
+- [Security](#security)
+-->
 
-- **Modular Architecture:**
-  pyck is a collection of independent, self-contained services covering main data management, inventory tracking, order picking, receiving, file, and workflow processing.
+pyck is the logistical backbone and API for future warehousing.
 
-- **Unified API:**
-  A dedicated gateway aggregates GraphQL schemas from all services, providing a single, consistent endpoint for data interaction.
+## What is pyck?
 
-- **Docker-Enabled Environment:**
-  Using Docker Compose and Task commands, setting up and running pyck is simple and efficient.
+pyck covers the data and processes of a warehouse (master data, inventory, receiving, picking, files, workflows) as independent services behind one federated GraphQL gateway, so clients talk to a single API.
 
-## Technology
+It is a Go monorepo. The API uses GraphQL with Apollo Federation, data lives in PostgreSQL through the Ent ORM, workflows run on Temporal, services exchange messages over NATS, and Zitadel (OIDC/OAuth2) handles authentication. Observability uses OpenTelemetry and Jaeger. Every entity has a UUID v7 ID, rows are soft-deleted, and schemas are code-first: the Ent schema generates the database access code.
 
-pyck is built with **Go 1.26+** using a monorepo structure. It uses **GraphQL** with Apollo Federation for a unified API, **PostgreSQL** with Ent ORM for data management, **Temporal.io** for workflows, and **NATS.io** for messaging. Authentication is handled by **Zitadel** (OIDC/OAuth2), with observability via **OpenTelemetry** and **Jaeger**.
+Out of the box, pyck includes:
 
-The platform enforces **multi-tenancy** at the database level and uses **UUID v7** for time-ordered entity IDs. All data models use **soft deletes** and are managed through **code-first schemas** that auto-generate database access code.
+- **A federated GraphQL API:** the gateway composes every service's schema into one supergraph; see [backend/gateway/README.md](backend/gateway/README.md).
+- **Multi-tenancy:** the database layer scopes every query and mutation to the request's tenants; see [docs/tenant-access-control.md](docs/tenant-access-control.md).
+- **Tenant registration:** the management service provisions tenants and their identity; see [docs/tenant-registration.md](docs/tenant-registration.md).
+- **Workflows:** Temporal workflows register through a Go SDK; see [backend/workflowsdk/README.md](backend/workflowsdk/README.md).
+- **Identity and access:** Zitadel provides login and tokens; see [docs/zitadel-setup.md](docs/zitadel-setup.md).
+- **Graceful shutdown:** a defined shutdown ladder for the GraphQL services; see [docs/graceful-shutdown.md](docs/graceful-shutdown.md).
 
-## Directory Structure
+## Getting started
 
-```
-pyck/
-├── backend/              # Backend microservices and shared code
-│   ├── common/           # Shared libraries and utilities
-│   ├── file/             # File service
-│   ├── gateway/          # GraphQL gateway (federation)
-│   ├── inventory/        # Inventory service
-│   ├── main-data/        # Main data service
-│   ├── management/       # Management service
-│   ├── picking/          # Picking service
-│   ├── receiving/        # Receiving service
-│   ├── temporal/         # Temporal worker integration
-│   ├── workflow/         # Workflow service
-│   ├── workflowgen/      # Workflow code generation
-│   └── workflowsdk/      # Workflow SDK
-├── config/               # Configuration files
-│   ├── compose/          # Docker Compose service definitions
-│   ├── db/               # Database setup scripts
-│   ├── nats/             # NATS messaging configuration
-│   ├── setup/            # Local environment setup scripts
-│   └── temporal/         # Temporal workflow configuration
-├── docs/                 # Project documentation
-├── hack/                 # Standalone operator tooling (e.g. stock-ledger repair)
-├── scripts/              # Utility scripts
-├── task/                 # Taskfile definitions
-└── tests/                # Test files
+```sh
+git clone https://github.com/pyck-ai/pyck.git && cd pyck   # clone the repository
+task local-setup   # first run only: bootstrap local credentials in config/keys/
+task up            # build and start the stack with docker compose; safe to repeat
+task test          # run the unit tests of every module
 ```
 
-### Service Structure
-
-Each microservice follows a common structure with variations based on functionality:
-
-```
-service-name/
-├── api/                  # GraphQL API schema definitions
-├── cmd/                  # Service entry points (main.go)
-├── core/                 # Business logic and configurations
-├── ent/                  # Entity framework (data access layer)
-│   ├── schema/           # Data models
-│   ├── gen/              # Generated code (auto-generated, do not edit)
-│   └── migrate/          # Database migrations
-├── graph/                # GraphQL resolvers
-├── model/                # GraphQL models
-├── resolvers/            # GraphQL resolver implementations
-└── services/             # Business service layer
-```
-
-Additional directories may include:
-- `workflows/` - Temporal workflow definitions (in management service)
-- `bootstrap/` - Service initialization code
-- `utils/` - Utility functions
-
-> [!TIP]
-> When reviewing code, focus on handwritten files in `ent/schema/` and `ent/migrate/`. Files in `ent/gen/`, `model/`, and files marked with "Code generated" are auto-generated and should not be modified directly.
-
-## Getting Started
+`task local-setup` deletes the credentials in `config/keys/` and needs a fresh Zitadel database, so run it once per stack lifetime and never again after the stack exists.
 
 ### Prerequisites
 
-- [Go v1.25+](https://golang.org/dl/)
-- [Docker](https://docs.docker.com/get-docker/) or [podman](https://podman.io/docs/installation)
-- [Docker Compose v2](https://docs.docker.com/compose/install/)
-- [Task v3.45+](https://taskfile.dev) - *A task runner / build tool*
-- [golangci-lint v2.4+](https://golangci-lint.run/usage/install/) - *Go linter aggregator for code quality*
-- [Rover CLI v0.34+](https://www.apollographql.com/docs/rover/getting-started) - *Apollo GraphQL schema management tool*
-- [gotestsum v1.13+](https://github.com/gotestyourself/gotestsum?tab=readme-ov-file#install) - *Enhanced test runner for Go*
-- [mkcert](https://github.com/FiloSottile/mkcert) - *Simple tool for managing locally-trusted development certificates*
+- [Go](https://go.dev/dl/) 1.27+
+- [Docker](https://docs.docker.com/get-docker/) or [podman](https://podman.io/docs/installation), with Compose v2 (podman: see the [Podman Desktop Compose guide](https://podman-desktop.io/docs/compose/running-compose); macOS: see [docker/for-mac#2083](https://github.com/docker/for-mac/issues/2083))
+- [Task](https://taskfile.dev) 3.47+
+- [golangci-lint](https://golangci-lint.run/usage/install/) 2.4+
+- [Rover](https://www.apollographql.com/docs/rover/getting-started) 0.34+
+- [gotestsum](https://github.com/gotestyourself/gotestsum#install) 1.13+
+- [mkcert](https://github.com/FiloSottile/mkcert)
 
-  > [!TIP]
-  > If you are using *podman*, please refer to [this guide](https://podman-desktop.io/docs/compose/running-compose).
-  >
-  > If you are on *macOS*, please refer to [this issue](https://github.com/docker/for-mac/issues/2083).
+Set `PYCK_NATS_AUTH_KEY_SEED` in `.env.local` (gitignored, never commit it); [`.env.example`](.env.example) explains it.
 
-### Setup Instructions
+### More
 
-1. **Clone the Repository**
-   ```sh
-   git clone https://github.com/pyck-ai/pyck.git
-   cd pyck
-   ```
-
-2. **Configure Local Development Environment**
-   ```sh
-   task local-setup
-   ```
-   
-   > [!TIP]
-   > Each service relies on specific environment variables. Please refer to the individual service documentation for configuration details.
-
-   > [!NOTE]
-   > Set `PYCK_NATS_AUTH_KEY_SEED` in `.env.local` (gitignored, never commit it); see the comment above it in `.env.example`.
-
-3. **Build and Run the Services**
-   ```sh
-   task generate
-   docker compose up --wait
-   ```
-
-## GraphQL API
-
-The gateway service provides a unified GraphQL API with secure, tenant-isolated access to all microservices. Authentication uses Zitadel JWT tokens, and all list queries support Relay-style pagination. Use GraphQL Playground for interactive exploration during development.
-
-## Development
-
-pyck uses [Task](https://taskfile.dev) for all build operations. Common commands:
-
-```bash
-task generate      # Generate code from schemas
-task test          # Run tests with coverage
-task lint          # Run linters
-task build         # Build binaries
-```
-
-Services can be run individually with `task run` (Docker) or `task debug` (with debugger). See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed development workflow and contribution guidelines.
-
-### Integration Tests
-
-The `tests/integration/` module holds end-to-end suites that run against a live
-stack via the gateway. Each suite provisions its own fresh tenant, so runs are
-isolated and repeatable. All suites are behind the `integration` build tag.
-
-```bash
-task up:integration                              # Start (and bootstrap) all services with fast test cadences
-task test:integration                            # Run every suite (from repo root)
-task test:integration -- -run TestImportExport   # one suite
-task test:integration:up                         # up:integration, then run every suite
-```
-
-Use `task up:integration`, not plain `task up`, for suites: it layers
-`config/compose/integration.yaml` (5-10s sweep/sync intervals, 5s token cache) over
-the production cadences that `task up` keeps. `scripts/envrc.sh` reads the
-cadence back from the running management container.
-
-`task test` (unit tests) is unaffected — integration suites run only via the
-dedicated `test:integration` goal. From inside `tests/integration/` you can
-also run `task test:integration:run` (or `task test:integration:up` to boot
-the stack first) or `./scripts/start.sh` directly.
-
-`scripts/start.sh` sources `config/keys/bootstrap.env` (generated by `task up` / `task up:integration`),
-checks the stack is reachable, and runs the suites with `gotestsum` when available.
-
-| Suite (`tests/integration/tests/`) | What it covers |
-|---|---|
-| `auth-claims` | `pyck_tenant_id` reaching OIDC tokens via the Actions v2 webhook |
-| `auth-roles` | Per-service gate roles: assign/remove, catalog, cross-tenant isolation |
-| `deleted-org` | Disable/reconcile tolerance for Zitadel orgs removed out of band |
-| `import-export` | Import/export round-trip for 17 entity types across 5 services |
-| `machine-user-lifecycle` | Zitadel machine user / PAT lifecycle through pyck auth |
-| `org-verdict-cache` | Org-active verdict caching and eviction on the auth path |
-| `tenant-lifecycle` | Tenant provisioning, reconcile, expiry/soft-delete |
-| `workflow-search-attributes` | `is_assignable` / `targets` search-attribute round-trips |
-
-| Other module | What it covers |
-|---|---|
-| `tests/nats` | NATS JetStream connectivity and consumer management |
+Run `task --list` for every other command. For integration tests against a running stack, read [tests/integration/AGENTS.md](tests/integration/AGENTS.md).
 
 ## Documentation
 
-- **[docs.pyck.cloud](https://docs.pyck.cloud)** - Official documentation
-- **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Contribution workflow, code quality standards, testing requirements
-- **[docs/COMMIT_STANDARDS.md](./docs/COMMIT_STANDARDS.md)** - Commit message format and branch naming
-- **[docs/graceful-shutdown.md](./docs/graceful-shutdown.md)** - Shutdown ladder, time budget, and sizing the stop grace period
-- **[AGENTS.md](./AGENTS.md)** - Guidelines for AI agents working on this codebase
-
-## Community
-
-Join the pyck community on Slack to ask questions, share feedback, and connect with other contributors and users.
-
-[Join our Slack](https://join.slack.com/t/pyck-community/shared_invite/zt-3ulnckg7r-kBk6Spkeyk_DldYQpDmcxA)
+- [docs.pyck.cloud](https://docs.pyck.cloud): the official documentation.
+- [CONTRIBUTING.md](CONTRIBUTING.md): org rules, local checks and where to ask.
+- [docs/COMMIT_STANDARDS.md](docs/COMMIT_STANDARDS.md): the CI commit-message check and where it is stricter than the org guideline.
+- [docs/tenant-access-control.md](docs/tenant-access-control.md): `X-Pyck-Tenant-Id` semantics, role and liveness authorization, access for disabled tenants.
+- [docs/tenant-registration.md](docs/tenant-registration.md): how `registerTenant` provisions a tenant.
+- [docs/graceful-shutdown.md](docs/graceful-shutdown.md): shutdown ladder, time budget and sizing the stop grace period.
+- [docs/zitadel-setup.md](docs/zitadel-setup.md): the Zitadel v4 components and their setup.
+- [docs/adr/README.md](docs/adr/README.md): architecture decision records.
+- [backend/gateway/README.md](backend/gateway/README.md): the federation gateway, supergraph generation and adding a subgraph.
+- [backend/workflowsdk/README.md](backend/workflowsdk/README.md): the Temporal workflow SDK.
+- [tests/integration/AGENTS.md](tests/integration/AGENTS.md): end-to-end suites against a live stack, cadences and rules for new suites.
+- [hack/stockfix/README.md](hack/stockfix/README.md): operator tool that repairs the inventory stock ledger.
 
 ## Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for commit standards, code quality requirements, and the pull request process.
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). Read [AGENTS.md](AGENTS.md) first if you are an AI coding agent.
 
 ## License
 
-pyck is licensed under the [Functional Source License, Version 1.1, ALv2 Future License (FSL-1.1-ALv2)](./LICENSE.md). This means you can use, modify, and redistribute the software for any non-competing purpose. After two years, each version becomes available under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+pyck is licensed under the [Functional Source License, Version 1.1, ALv2 Future License (FSL-1.1-ALv2)](LICENSE.md). You can use, modify, and redistribute the software for any non-competing purpose. After two years, each version becomes available under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+
+## Security
+
+Report vulnerabilities privately; see the org [security policy](https://github.com/pyck-ai/.github/blob/main/.github/SECURITY.md).

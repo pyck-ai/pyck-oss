@@ -1,0 +1,558 @@
+---
+name: "User - Tenant Register Refusals"
+description: >
+  Proves registerTenant refuses a weak admin password, and any
+  X-Pyck-Feature header, before it writes anything: the mutation is
+  rejected at the resolver, no tenant row is committed and no
+  registration run starts, so the scenario leaves no
+  tenant behind (which a Bruno scenario could not clean up). Also pins
+  that the user-projection CRUD (createUser, updateUser, deleteUser)
+  refuses the suite's own tenant token with "system caller required": the
+  Bruno PAT holds admin on its tenant, so this error (not "admin role
+  required") is what proves the system-caller guard. Every write step
+  carries ids of its own, so a lost guard fails the assertion instead of
+  rewriting a real projection row.
+
+  The ADMITTED tenant-lifecycle paths are deliberately NOT here: their
+  only possible target under this PAT is the shared bruno-local tenant,
+  so exercising deleteTenant would soft-delete the collection's own
+  tenant mid-run and every later folder would fail against a dead
+  tenant. They are asserted against a disposable tenant in
+  tests/integration/tests/tenant-lifecycle/tn_admin_role_test.go. Their
+  REFUSALS now live in
+  tests/user-management-tenant-lifecycle-refusals.test.yaml: since the
+  three mutations name their target explicitly, a refusal can be probed
+  against a tenant id that is not the collection's own.
+
+  Nine input-shape refusals are here as wire probes (a name with a
+  leading space, a whitespace-only first name, a name with a trailing
+  no-break space, a NUL inside the last name, a NUL inside a tenant data
+  value, a NUL inside the admin password, a decomposed admin password, an
+  admin e-mail on an IDN host, an admin e-mail on an IP literal), the NUL
+  and non-ASCII ones sent as JSON escapes the gateway must pass through. A password with
+  surrounding spaces is accepted and therefore not here: a Bruno scenario
+  could not clean up the tenant it registers. The remaining input rules
+  (the data bounds, the Zitadel field limits, the rest of the e-mail
+  host-name rule, control characters)
+  and the refusals that need a registered tenant (duplicate name) live in
+  the resolver unit tests and the integration suite
+  (tests/integration/tests/tenant-lifecycle). The refusal steps only make
+  sense under the tenant PAT: run with the system token
+  (BRUNO_TOKEN=<system token> overrides env_pyck_token for the whole
+  collection) the mutations would succeed and write for real, so a probe
+  step detects the token mode and the refusal steps skip themselves under
+  a system caller.
+steps:
+  - name: "Weak admin password is refused before anything is written"
+    operation: management.registerTenant
+    vars:
+      input:
+        name: { $fake: "{{loremslug}}-{{nonce}}" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@example.com" }
+        adminFirstName: "Test"
+        adminLastName: "Admin"
+        adminPassword: "password"
+    tests:
+      - msg: "Rejected with a GraphQL error naming the password rule"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.errors[].message
+            contains: "admin password does not meet"
+      - msg: "No tenant returned"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "A past expiresAt is refused before anything is written"
+    operation: management.registerTenant
+    vars:
+      input:
+        name: { $fake: "{{loremslug}}-{{nonce}}" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@example.com" }
+        adminFirstName: "Test"
+        adminLastName: "Admin"
+        adminPassword: "Str0ng!pass"
+        expiresAt: "2020-01-01T00:00:00Z"
+    tests:
+      - msg: "Rejected with a GraphQL error naming the expiry rule"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.errors[].message
+            contains: "expiresAt must be in the future"
+      - msg: "No tenant returned: a tenant the next expiry sweep would disable is never created"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "An X-Pyck-Feature header is refused before anything is written"
+    description: >
+      suppressevents would make the pending row's insert skip its outbox
+      write, so no registration run would ever start and the row would
+      hold its name as pending forever. registerTenant is open to
+      anonymous callers, so it refuses every feature header. The input is
+      otherwise valid: only the header can be what is refused.
+    operation: management.registerTenant
+    headers:
+      X-Pyck-Feature: "suppressevents"
+    vars:
+      input:
+        name: { $fake: "{{loremslug}}-{{nonce}}" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@example.com" }
+        adminFirstName: "Test"
+        adminLastName: "Admin"
+        adminPassword: "Str0ng!pass"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Rejected with a GraphQL error naming the feature header"
+        assertions:
+          - ref: res.body.errors
+            len: 1
+          - ref: res.body.errors[].message
+            contains: "registerTenant accepts no X-Pyck-Feature header"
+      - msg: "No tenant returned"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "A nested data value is refused before the Zitadel org exists"
+    operation: management.registerTenant
+    vars:
+      input:
+        name: { $fake: "{{loremslug}}-{{nonce}}" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@example.com" }
+        adminFirstName: "Test"
+        adminLastName: "Admin"
+        adminPassword: "Str0ng!pass"
+        data:
+          plan:
+            tier: "gold"
+    tests:
+      - msg: "Rejected with a GraphQL error naming the tenant-data rule"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.errors[].message
+            contains: "tenant data"
+      - msg: "No tenant returned: org metadata is one string per key, and the activity that writes it runs after the org exists"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "An empty data value is refused before the Zitadel org exists"
+    operation: management.registerTenant
+    vars:
+      input:
+        name: { $fake: "{{loremslug}}-{{nonce}}" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@example.com" }
+        adminFirstName: "Test"
+        adminLastName: "Admin"
+        adminPassword: "Str0ng!pass"
+        data:
+          plan: ""
+    tests:
+      - msg: "Rejected with a GraphQL error naming the tenant-data rule"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.errors[].message
+            contains: "tenant data"
+      - msg: "No tenant returned: Zitadel rejects an empty metadata value, which would end the run as an error row holding the name"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "A tenant name with a leading space is refused before anything is written"
+    description: >
+      Zitadel trims an org name before it stores it, so " acme" next to a
+      live "acme" would pass the tenant name index and then collide inside
+      Zitadel, ending as a permanent error row with the name held.
+      registerTenant refuses surrounding whitespace in every field but the
+      password before the name pre-flight runs.
+    operation: management.registerTenant
+    vars:
+      input:
+        name: { $fake: " {{loremslug}}-{{nonce}}" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@example.com" }
+        adminFirstName: "Test"
+        adminLastName: "Admin"
+        adminPassword: "Str0ng!pass"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Rejected with a GraphQL error naming the field and the whitespace rule"
+        assertions:
+          - ref: res.body.errors
+            len: 1
+          - ref: res.body.errors[].message
+            contains: "name has leading or trailing whitespace"
+      - msg: "No tenant returned"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "A whitespace-only admin first name is refused before the Zitadel org exists"
+    description: >
+      Zitadel trims the user's names and refuses a blank one at user
+      import, which runs after the org exists: the org would stay ACTIVE
+      behind an error row. registerTenant refuses a blank field up front.
+    operation: management.registerTenant
+    vars:
+      input:
+        name: { $fake: "{{loremslug}}-{{nonce}}" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@example.com" }
+        adminFirstName: "   "
+        adminLastName: "Admin"
+        adminPassword: "Str0ng!pass"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Rejected with a GraphQL error naming the field and the blank rule"
+        assertions:
+          - ref: res.body.errors
+            len: 1
+          - ref: res.body.errors[].message
+            contains: "adminFirstName is blank"
+      - msg: "No tenant returned"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "A tenant name with a trailing no-break space is refused before anything is written"
+    description: >
+      strings.TrimSpace, which Zitadel applies to an org name, trims
+      Unicode spaces too, so a trailing U+00A0 is the same collision as a
+      leading ASCII space. The value travels as a JSON \u00a0 escape
+      through the gateway, which must hand the rune to management as is.
+    operation: management.registerTenant
+    vars:
+      input:
+        name: { $fake: "{{loremslug}}-{{nonce}}\u00a0" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@example.com" }
+        adminFirstName: "Test"
+        adminLastName: "Admin"
+        adminPassword: "Str0ng!pass"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Rejected with a GraphQL error naming the field and the whitespace rule"
+        assertions:
+          - ref: res.body.errors
+            len: 1
+          - ref: res.body.errors[].message
+            contains: "name has leading or trailing whitespace"
+      - msg: "No tenant returned"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "A NUL inside the admin last name is refused without driver text"
+    description: >
+      Postgres refuses NUL in text, and an accepted NUL would surface the
+      driver's "invalid byte sequence" text to an anonymous caller after
+      the bcrypt hash was paid. The value travels as a JSON \u0000 escape
+      through the gateway; registerTenant must answer its own refusal.
+    operation: management.registerTenant
+    vars:
+      input:
+        name: { $fake: "{{loremslug}}-{{nonce}}" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@example.com" }
+        adminFirstName: "Test"
+        adminLastName: "Ad\0min"
+        adminPassword: "Str0ng!pass"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Rejected with a GraphQL error naming the field and the control-character rule"
+        assertions:
+          - ref: res.body.errors
+            len: 1
+          - ref: res.body.errors[].message
+            contains: "adminLastName contains a control character"
+      - msg: "No driver text reaches the caller"
+        assertions:
+          - ref: res.body.errors[].message
+            regexp: "^((?!pq:|SQLSTATE|byte sequence).)*$"
+      - msg: "No tenant returned"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "A NUL inside a tenant data value is refused without driver text"
+    description: >
+      The data map lands in a jsonb column, which refuses a \u0000 escape
+      (22P05); an accepted NUL would surface the driver's "unsupported
+      Unicode escape sequence" text to an anonymous caller after the
+      bcrypt hash was paid. registerTenant must answer its own refusal.
+    operation: management.registerTenant
+    vars:
+      input:
+        name: { $fake: "{{loremslug}}-{{nonce}}" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@example.com" }
+        adminFirstName: "Test"
+        adminLastName: "Admin"
+        adminPassword: "Str0ng!pass"
+        data:
+          plan: "go\0ld"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Rejected with a GraphQL error naming the key and the NUL rule"
+        assertions:
+          - ref: res.body.errors
+            len: 1
+          - ref: res.body.errors[].message
+            contains: "holds a NUL character"
+      - msg: "No driver text reaches the caller"
+        assertions:
+          - ref: res.body.errors[].message
+            regexp: "^((?!pq:|SQLSTATE|escape sequence).)*$"
+      - msg: "No tenant returned"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "A NUL inside the admin password is refused without echoing the password"
+    description: >
+      The password is exempt from the whitespace rules (Zitadel stores its
+      hash and trims nothing), but a control character is still refused:
+      it cannot be typed at the login. The value travels as a JSON \u0000
+      escape through the gateway; the refusal names the field, never the
+      password.
+    operation: management.registerTenant
+    vars:
+      input:
+        name: { $fake: "{{loremslug}}-{{nonce}}" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@example.com" }
+        adminFirstName: "Test"
+        adminLastName: "Admin"
+        adminPassword: "Str0ng!pa\0ss"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Rejected with a GraphQL error naming the field and the control-character rule"
+        assertions:
+          - ref: res.body.errors
+            len: 1
+          - ref: res.body.errors[].message
+            contains: "adminPassword contains a control character"
+      - msg: "The password is not echoed"
+        assertions:
+          - ref: res.body.errors[].message
+            regexp: "^((?!Str0ng).)*$"
+      - msg: "No tenant returned"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "A decomposed admin password is refused without echoing the password"
+    description: >
+      The password is kept exactly as sent (no NFC normalization), and
+      Zitadel compares the login's bytes with its hash. Keyboards send NFC,
+      so a password whose umlaut arrives decomposed ("o" + U+0308) would
+      register bytes the admin cannot type; it is refused, not normalized.
+      The combining mark travels as raw UTF-8 through the gateway, which
+      must hand the bytes to management as is.
+    operation: management.registerTenant
+    vars:
+      input:
+        name: { $fake: "{{loremslug}}-{{nonce}}" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@example.com" }
+        adminFirstName: "Test"
+        adminLastName: "Admin"
+        adminPassword: "Str0ng!paso\u0308"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Rejected with a GraphQL error naming the field and the NFC rule"
+        assertions:
+          - ref: res.body.errors
+            len: 1
+          - ref: res.body.errors[].message
+            contains: "adminPassword is not in composed Unicode form (NFC)"
+      - msg: "The password is not echoed"
+        assertions:
+          - ref: res.body.errors[].message
+            regexp: "^((?!Str0ng).)*$"
+      - msg: "No tenant returned"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "An admin e-mail on an IDN host is refused before the Zitadel org exists"
+    description: >
+      Zitadel holds the admin e-mail to an ASCII host-name rule and refuses
+      an internationalised domain at user import, which runs after the org
+      exists: the org would stay ACTIVE behind an error row holding the
+      name. registerTenant refuses the address up front. The u-umlaut
+      travels as a JSON \u00fc escape through the gateway.
+    operation: management.registerTenant
+    vars:
+      input:
+        name: { $fake: "{{loremslug}}-{{nonce}}" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@b\u00fccher.example" }
+        adminFirstName: "Test"
+        adminLastName: "Admin"
+        adminPassword: "Str0ng!pass"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Rejected with a GraphQL error naming the field and the host-name rule"
+        assertions:
+          - ref: res.body.errors
+            len: 1
+          - ref: res.body.errors[].message
+            contains: "adminEmail"
+          - ref: res.body.errors[].message
+            contains: "other than an ASCII letter, digit or hyphen"
+      - msg: "No tenant returned"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "An admin e-mail on an IP literal is refused before the Zitadel org exists"
+    description: >
+      Zitadel's host-name rule takes ASCII labels only, so a domain literal
+      such as [127.0.0.1] is refused at user import, after the org exists.
+      registerTenant refuses it up front.
+    operation: management.registerTenant
+    vars:
+      input:
+        name: { $fake: "{{loremslug}}-{{nonce}}" }
+        adminUsername: { $fake: "admin-{{loremslug}}-{{nonce}}" }
+        adminEmail: { $fake: "admin-{{loremslug}}-{{nonce}}@[127.0.0.1]" }
+        adminFirstName: "Test"
+        adminLastName: "Admin"
+        adminPassword: "Str0ng!pass"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Rejected with a GraphQL error naming the field and the host-name rule"
+        assertions:
+          - ref: res.body.errors
+            len: 1
+          - ref: res.body.errors[].message
+            contains: "adminEmail"
+          - ref: res.body.errors[].message
+            contains: "other than an ASCII letter, digit or hyphen"
+      - msg: "No tenant returned"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - id: probe
+    name: "Probe the token mode via the system-only disabledTenants query"
+    operation: management.getDisabledTenants
+    vars:
+      ids: []
+    tests:
+      - msg: "Status is 200 under either token"
+        assertions:
+          - ref: res.status
+            equal: 200
+
+  - name: "createUser refuses the tenant's own admin token"
+    operation: management.createUser
+    skip:
+      - msg: "System-token run: the guard cannot refuse and the row would be written for real"
+        assertions:
+          - ref: res[probe].body.errors
+            nil: true
+    vars:
+      input:
+        idpID: { $fake: "sync-{{loremslug}}-{{nonce}}" }
+        username: { $fake: "sync-{{loremslug}}-{{nonce}}" }
+        email: { $fake: "sync-{{loremslug}}-{{nonce}}@example.com" }
+        firstName: "Sync"
+        lastName: "User"
+        tenantID: { $fake: uuid }
+    tests:
+      - msg: "Refused because the caller is not the system user"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.errors[].message
+            contains: "system caller required"
+      - msg: "No projection row returned"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "updateUser refuses the tenant's own admin token"
+    operation: management.updateUser
+    skip:
+      - msg: "System-token run: the guard cannot refuse and the projection would be rewritten"
+        assertions:
+          - ref: res[probe].body.errors
+            nil: true
+    vars:
+      id: { $fake: uuid }
+      input:
+        username: { $fake: "hijacked-{{loremslug}}-{{nonce}}" }
+    tests:
+      - msg: "Refused before the row is even looked up"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.errors[].message
+            contains: "system caller required"
+      - msg: "No user returned"
+        assertions:
+          - ref: res.body.data
+            nil: true
+
+  - name: "deleteUser refuses the tenant's own admin token"
+    operation: management.deleteUser
+    skip:
+      - msg: "System-token run: the guard cannot refuse and the projection row would be retired"
+        assertions:
+          - ref: res[probe].body.errors
+            nil: true
+    vars:
+      id: { $fake: uuid }
+    tests:
+      - msg: "Refused before the row is even looked up"
+        assertions:
+          - ref: res.body.errors
+            nil: false
+          - ref: res.body.errors[].message
+            contains: "system caller required"
+      - msg: "Nothing deleted"
+        assertions:
+          - ref: res.body.data
+            nil: true

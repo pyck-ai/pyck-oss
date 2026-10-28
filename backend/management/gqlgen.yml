@@ -61,6 +61,10 @@ models:
   String:
     model:
       - github.com/pyck-ai/pyck/backend/common/gqlscalar.NormalizedString
+  # Secrets keep the bytes the client sent: no NFC normalization.
+  Password:
+    model:
+      - github.com/pyck-ai/pyck/backend/common/gqlscalar.RawString
   ID:
     model:
       - github.com/99designs/gqlgen/graphql.UUID

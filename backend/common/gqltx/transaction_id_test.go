@@ -32,7 +32,7 @@ type handlePayload struct {
 // shipping a bogus handle.
 func TestTransactionID_NoTransaction_ReturnsNil(t *testing.T) {
 	t.Parallel()
-	assert.Equal(t, uuid.Nil, gqltx.TransactionID(context.Background()))
+	assert.Equal(t, uuid.Nil, gqltx.TransactionID(t.Context()))
 }
 
 // TestTransactionID_ResolverAssignment_MatchesAttempt proves the explicit
@@ -48,7 +48,7 @@ func TestTransactionID_ResolverAssignment_MatchesAttempt(t *testing.T) {
 	opCtx := &graphql.OperationContext{
 		Operation: &ast.OperationDefinition{Operation: ast.Mutation},
 	}
-	ctx := graphql.WithOperationContext(context.Background(), opCtx)
+	ctx := graphql.WithOperationContext(t.Context(), opCtx)
 
 	var payload *handlePayload
 	handler := mw.(*gqltx.Middleware[*mockTx]).InterceptOperation(ctx, func(attemptCtx context.Context) graphql.ResponseHandler {
@@ -77,7 +77,7 @@ func TestTransactionID_OCCRetry_HandleMatchesCommittedAttempt(t *testing.T) {
 	opCtx := &graphql.OperationContext{
 		Operation: &ast.OperationDefinition{Operation: ast.Mutation},
 	}
-	ctx := graphql.WithOperationContext(context.Background(), opCtx)
+	ctx := graphql.WithOperationContext(t.Context(), opCtx)
 
 	retryableErr := gqlerror.WrapPath(nil, &pq.Error{Code: "40001"})
 
@@ -166,7 +166,7 @@ func TestEventCount_CountsRecordedEventsPerAttempt(t *testing.T) {
 	opCtx := &graphql.OperationContext{
 		Operation: &ast.OperationDefinition{Operation: ast.Mutation},
 	}
-	ctx := graphql.WithOperationContext(context.Background(), opCtx)
+	ctx := graphql.WithOperationContext(t.Context(), opCtx)
 
 	retryableErr := gqlerror.WrapPath(nil, &pq.Error{Code: "40001"})
 
@@ -196,8 +196,8 @@ func TestEventCount_CountsRecordedEventsPerAttempt(t *testing.T) {
 
 func TestEventCount_NoTransaction_IsZero(t *testing.T) {
 	t.Parallel()
-	txid.RecordEvent(context.Background()) // must not panic
-	assert.Zero(t, gqltx.EventCount(context.Background()))
+	txid.RecordEvent(t.Context()) // must not panic
+	assert.Zero(t, gqltx.EventCount(t.Context()))
 }
 
 // TestInterceptField_EventCount proves the middleware fills a mutation
@@ -210,7 +210,7 @@ func TestInterceptField_EventCount(t *testing.T) {
 	client := &mockTxClient{tx: &mockTx{}}
 	mw := gqltx.NewMiddleware(client, injectTx, "testns", 0).(*gqltx.Middleware[*mockTx])
 
-	txCtx := txid.With(context.Background(), txid.New())
+	txCtx := txid.With(t.Context(), txid.New())
 	txid.RecordEvent(txCtx)
 	txid.RecordEvent(txCtx)
 	txid.RecordEvent(txCtx)

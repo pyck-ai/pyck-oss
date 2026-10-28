@@ -2,12 +2,15 @@ package core
 
 import (
 	"context"
+	"time"
 
 	"github.com/pyck-ai/pyck/backend/bootstrap/pkg/bootstrap"
 	"github.com/pyck-ai/pyck/backend/common/env"
 	envconfig "github.com/pyck-ai/pyck/backend/common/env/config"
 	"github.com/pyck-ai/pyck/backend/common/otel"
 	commonworkflow "github.com/pyck-ai/pyck/backend/common/workflow"
+
+	"github.com/pyck-ai/pyck/backend/management/workerapi"
 )
 
 // FrontendConfig holds environment variables for the frontend settings endpoint.
@@ -38,6 +41,8 @@ type config struct {
 	envconfig.ServiceConfig
 	envconfig.ServiceInstanceConfig
 	envconfig.TemporalConfig
+	envconfig.TenantEventsConfig
+	envconfig.TenantRegistrationConfig
 	envconfig.ZitadelConfig
 
 	// Temporal Worker Deployment Versioning (#1132). Off unless a build ID is
@@ -50,12 +55,26 @@ type config struct {
 
 	ZitadelServiceKeyPath string `env:"PYCK_ZITADEL_SERVICE_KEYFILE,notEmpty,required"`
 
+	// ZitadelSyncEvery is the cadence of the orchestrator that projects
+	// Zitadel users into the DB per tenant. Lower = user changes land
+	// faster, more list-users calls to Zitadel per tenant.
 	ZitadelSyncEvery string `env:"PYCK_ZITADEL_SYNC_EVERY,notEmpty" envDefault:"10m"`
 
 	// TenantReconcileInterval is how often the tenant-reconcile workflow
 	// heals DB ↔ Zitadel drift (deleted_at vs org state). Lower = drift
 	// closes faster, more list-orgs calls to Zitadel.
 	TenantReconcileInterval string `env:"PYCK_TENANT_RECONCILE_INTERVAL,notEmpty" envDefault:"5m"`
+
+	// EventStreamLockWait bounds how long registerTenant and restoreTenant
+	// wait for the event stream lock, which a startup reconcile holds while
+	// it puts every tenant stream; past it they fail without creating
+	// anything. It also bounds the wait of a failed registration's stream
+	// delete. Must be positive.
+	EventStreamLockWait time.Duration `env:"PYCK_EVENT_STREAM_LOCK_WAIT,notEmpty" envDefault:"10s"`
+
+	// EventStreamReconcileConcurrency bounds the parallel stream writes of
+	// the startup reconcile and the periodic repair.
+	EventStreamReconcileConcurrency int `env:"PYCK_EVENT_STREAM_RECONCILE_CONCURRENCY,notEmpty" envDefault:"32"`
 
 	// TenantExpiryCheckInterval is how often the tenant-expiry-check
 	// workflow scans for tenants whose expires_at has passed and
@@ -91,6 +110,13 @@ type config struct {
 	// wherever pyck-go tenants are registered: without it their registration
 	// fails rather than producing a tenant with no worker.
 	WorkerAPIURL string `env:"PYCK_WORKER_API_URL"`
+	// WorkerAPIRetry is the activity budget for worker-api calls made by the
+	// tenant lifecycle workflows.
+	WorkerAPIRetry workerapi.RetryConfig
+	// TenantWorkerLifecycle makes disable/restore stop and resume a pyck-go
+	// tenant's worker. Off for environments without a worker cluster, where
+	// the step would otherwise fail every pyck-go disable and restore.
+	TenantWorkerLifecycle bool `env:"PYCK_TENANT_WORKER_LIFECYCLE" envDefault:"true"`
 }
 
 type bootstrapConfig struct {

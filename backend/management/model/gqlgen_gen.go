@@ -54,15 +54,17 @@ type DataTypeDeletePayload struct {
 	DeletedID *uuid.UUID `json:"deletedID,omitempty"`
 }
 
+// Input for deleteTenant. tenantId names the tenant to retire; the
+// resolver enforces ROLE_ADMIN on it before any state change.
+type DeleteTenantInput struct {
+	TenantID uuid.UUID `json:"tenantId"`
+}
+
 // Result of a manually-triggered tenant delete. Triggers the
 // soft-delete half of the lifecycle — the row remains in the database
 // and can be reactivated via restoreTenant during the grace period.
 // Returns an error when the tenant does not exist; idempotent on
 // already-deleted tenants.
-//
-// Target tenant is derived from X-Pyck-Tenant-Id (req.MutationTenantID),
-// validated by tenant.Middleware; the resolver additionally enforces
-// ROLE_ADMIN on that tenant before any state change.
 type DeleteTenantResponse struct {
 	Success bool `json:"success"`
 }
@@ -123,20 +125,22 @@ type LocationOutput struct {
 	EventCount int `json:"eventCount"`
 }
 
-type Organization struct {
-	ID     *string `json:"id,omitempty"`
-	Active bool    `json:"active"`
-}
-
 type RegisterTenantInput struct {
 	Name           string `json:"name"`
 	AdminUsername  string `json:"adminUsername"`
 	AdminEmail     string `json:"adminEmail"`
 	AdminFirstName string `json:"adminFirstName"`
 	AdminLastName  string `json:"adminLastName"`
-	AdminPassword  string `json:"adminPassword"`
+	// Password of the tenant's first admin. Hashed exactly as sent (no
+	// normalization, no trimming); the admin logs in with the same bytes.
+	// Must be in Unicode NFC (composed) form, the form keyboards send: a
+	// decomposed password (e.g. "o" + U+0308) is refused, since the login
+	// would not send those bytes. Control characters are refused too.
+	AdminPassword string `json:"adminPassword"`
 	// Optional metadata for the tenant.
 	// Synced to Zitadel org metadata and tenant.data.
+	// The UI template keys (remoteWebUITemplate / remoteMobileUITemplate) require
+	// ROLE_SYSTEM and are validated as in setTenantUITemplate.
 	Data map[string]any `json:"data,omitempty"`
 	// Optional expiry timestamp. Written directly to
 	// tenant.expires_at; the periodic tenant-expiry-check workflow
@@ -161,9 +165,10 @@ type RemoveRolesResponse struct {
 	Roles []string `json:"roles"`
 }
 
-// Input for restoreTenant. Target tenant derived from
-// X-Pyck-Tenant-Id (req.MutationTenantID); ROLE_ADMIN required.
+// Input for restoreTenant. tenantId names the tenant to bring back; the
+// resolver requires a system caller, because restore is an operator action.
 type RestoreTenantInput struct {
+	TenantID uuid.UUID `json:"tenantId"`
 	// Optional new expiry timestamp written alongside the restore. When
 	// omitted, the tenant's prior expires_at persists.
 	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
@@ -205,9 +210,11 @@ type SetKeyValueInput struct {
 	Data       map[string]any `json:"data"`
 }
 
-// Input for setTenantExpiry. Target tenant derived from
-// X-Pyck-Tenant-Id (req.MutationTenantID); ROLE_ADMIN required.
+// Input for setTenantExpiry. tenantId names the tenant whose deadline
+// moves; the resolver requires a system caller, because the expiry is an
+// operator-imposed deadline.
 type SetTenantExpiryInput struct {
+	TenantID uuid.UUID `json:"tenantId"`
 	// New expiry timestamp; pass null to clear.
 	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
 }

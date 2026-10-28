@@ -242,41 +242,84 @@ func resolveExisting(ctx context.Context, rec *Record, checksum [32]byte) Result
 //	mutation { ... on Mutation { a {id} b {id} } }
 //
 // is correctly counted as 2 (and rejected by the >1 check in PreCheck).
-// Pre-this-fix the bare `for _, sel := range op.SelectionSet` counted
-// each fragment as a single selection regardless of how many fields it
-// contained, which let multi-field mutations slip through under a
-// fragment wrapper and violate the single-mutation contract.
+// A bare `for _, sel := range op.SelectionSet` counts each fragment as a
+// single selection regardless of how many fields it contains, which lets
+// multi-field mutations slip through under a fragment wrapper and violate
+// the single-mutation contract.
 func topLevelMutationCount(op *ast.OperationDefinition) int {
-	return countMutationFields(op.SelectionSet)
+	return len(TopLevelFieldNames(op.SelectionSet))
 }
 
-// countMutationFields walks a SelectionSet, recursing into inline
-// fragments and fragment spreads, and returns the total number of
-// top-level *ast.Field selections (i.e. actual mutation fields).
+// TopLevelFieldNames walks a SelectionSet, recursing into inline fragments
+// and fragment spreads, and returns the name of every top-level field the
+// operation selects, in document order.
 //
 // Introspection fields (names starting with "__", e.g. __typename)
-// are NOT counted: the GraphQL spec reserves the "__" prefix for
+// are NOT returned: the GraphQL spec reserves the "__" prefix for
 // introspection, those fields resolve without executing a mutation,
 // and Apollo Client / Relay inject __typename at the operation root
 // by default — counting it would reject every single-mutation
 // request from a typical frontend with MULTI_FIELD_MUTATION.
-func countMutationFields(set ast.SelectionSet) int {
-	n := 0
+//
+// Exported because every gate that keys on what an operation asks for
+// (this package's single-mutation rule, the transaction exemption and the
+// admission cap that build on it) must see the same set. The document is
+// written by the caller, so a gate reading only the SelectionSet's direct
+// *ast.Field entries is one fragment wrapper away from seeing no field at
+// all. This walk lives here rather than in gqltx because gqltx already
+// depends on this package, and not the other way round.
+//
+// A fragment spread whose definition the parser did not resolve
+// contributes nothing: gqlgen validates the document before any
+// interceptor runs, so an unresolved spread does not reach a gate, and
+// omitting it is the conservative answer anyway: a gate that sees fewer
+// fields does not hand out an exemption.
+//
+// A named fragment is expanded at most once per walk. That is what the
+// spec's CollectFields does with its visitedFragments set, and what
+// gqlgen's graphql.CollectFields does with it: spreading one fragment
+// twice collects the same response keys, so the executor runs those
+// fields once, and a gate counting them twice counts executions that
+// never happen. Expanding once per spread instead is exponential in the
+// document (`fragment A on Mutation { ...B ...B }` chained 24 deep is
+// about a kilobyte of text and 16 million names) and this walk runs on
+// every mutation in every service (gqltx) and on every operation reaching
+// an admission cap, both before any authentication. Expanding once keeps
+// the work a gate does to decide about a document a function of that
+// document's size. Repeats that ARE separate executions (the same field
+// under several aliases) still appear once per selection, because those
+// are separate selections rather than one fragment spread twice.
+func TopLevelFieldNames(set ast.SelectionSet) []string {
+	return appendTopLevelFieldNames(nil, set, make(map[string]struct{}))
+}
+
+// appendTopLevelFieldNames appends the top-level field names of set to
+// names. Expanded holds the name of every fragment definition already
+// expanded during this walk; it is shared by every nested call, which is
+// what bounds the walk and what stops a cyclic fragment (invalid, so
+// gqlgen refuses it first) from recursing forever.
+func appendTopLevelFieldNames(names []string, set ast.SelectionSet, expanded map[string]struct{}) []string {
 	for _, sel := range set {
 		switch s := sel.(type) {
 		case *ast.Field:
 			if !strings.HasPrefix(s.Name, "__") {
-				n++
+				names = append(names, s.Name)
 			}
 		case *ast.InlineFragment:
-			n += countMutationFields(s.SelectionSet)
+			names = appendTopLevelFieldNames(names, s.SelectionSet, expanded)
 		case *ast.FragmentSpread:
-			if s.Definition != nil {
-				n += countMutationFields(s.Definition.SelectionSet)
+			if s.Definition == nil {
+				continue
 			}
+			if _, done := expanded[s.Definition.Name]; done {
+				continue
+			}
+			expanded[s.Definition.Name] = struct{}{}
+			names = appendTopLevelFieldNames(names, s.Definition.SelectionSet, expanded)
 		}
 	}
-	return n
+
+	return names
 }
 
 // shortCircuit builds a short-circuit Result with a single GraphQL error

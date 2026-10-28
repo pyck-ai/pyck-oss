@@ -2,15 +2,17 @@ package resolvers
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/google/uuid"
 	authz_pb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/authorization/v2"
 	filter_pb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/filter/v2"
-	proj_pb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/project/v2"
 
 	"github.com/pyck-ai/pyck/backend/common/serviceroles"
+	"github.com/pyck-ai/pyck/backend/common/services/zitadel/sdk"
 
 	"github.com/pyck-ai/pyck/backend/management/core"
 	ent "github.com/pyck-ai/pyck/backend/management/ent/gen"
@@ -73,55 +75,46 @@ func (r *Resolver) listUserServiceRoles(ctx context.Context, orgID, zitadelUserI
 // assignServiceRoles adds the given per-service roles to the user's
 // authorization on the central Pyck project, preserving any roles they already
 // hold (additive). Returns the per-service roles held after the change.
+//
+// Both writes are the read-union-replace of sdk.ExtendProjectGrantRoles and
+// sdk.ExtendUserAuthorizationRoles, which document the lost-update window
+// Zitadel's full-replace updates leave open.
 func (r *Resolver) assignServiceRoles(ctx context.Context, orgID, zitadelUserID string, add []string) ([]string, error) {
+	grants := sdk.NewGrantClient(r.zitadelConn)
+	projectID := core.Config.ZitadelProjectId
+
 	// A user authorization can only carry roles the tenant org's project grant
 	// allows. Ensure the requested roles are on the grant first, so existing
 	// tenants (provisioned before these roles existed) self-heal rather than
 	// failing with Errors.Project.Role.NotFound.
-	if err := r.ensureProjectGrantRoles(ctx, orgID, add); err != nil {
-		return nil, err
+	if _, _, err := sdk.ExtendProjectGrantRoles(ctx, grants, projectID, orgID, add); err != nil {
+		if errors.Is(err, sdk.ErrProjectGrantNotFound) {
+			return nil, fmt.Errorf("%w: org %s", ErrTenantNoProjectGrant, orgID)
+		}
+		return nil, fmt.Errorf("extending project grant for org %s: %w", orgID, err)
 	}
 
-	authzClient := authz_pb.NewAuthorizationServiceClient(r.zitadelConn)
-
-	authz, found, err := r.userAuthorization(ctx, orgID, zitadelUserID)
-	if err != nil {
-		return nil, err
+	authz, _, err := sdk.ExtendUserAuthorizationRoles(ctx, grants, projectID, orgID, zitadelUserID, add)
+	if err == nil {
+		return serviceRoleSubset(authz.Roles), nil
+	}
+	if !errors.Is(err, sdk.ErrUserGrantNotFound) {
+		return nil, fmt.Errorf("extending authorization for user %s: %w", zitadelUserID, err)
 	}
 
 	// No existing authorization on the project: create one with exactly the
 	// requested roles.
-	if !found {
-		if _, err := authzClient.CreateAuthorization(ctx, &authz_pb.CreateAuthorizationRequest{
-			UserId:         zitadelUserID,
-			ProjectId:      core.Config.ZitadelProjectId,
-			OrganizationId: orgID,
-			RoleKeys:       sortedUnique(add),
-		}); err != nil {
-			return nil, fmt.Errorf("creating authorization for user %s: %w", zitadelUserID, err)
-		}
-		return sortedUnique(add), nil
-	}
-
-	// Existing authorization: union current roles with the requested ones and
-	// replace the role set (UpdateAuthorization is a full replace).
-	set := make(map[string]struct{})
-	for _, role := range authz.GetRoles() {
-		set[role.GetKey()] = struct{}{}
-	}
-	for _, k := range add {
-		set[k] = struct{}{}
-	}
-	fullSet := keysOf(set)
-
-	if _, err := authzClient.UpdateAuthorization(ctx, &authz_pb.UpdateAuthorizationRequest{
-		Id:       authz.GetId(),
-		RoleKeys: fullSet,
+	roles := sortedUnique(add)
+	authzClient := authz_pb.NewAuthorizationServiceClient(r.zitadelConn)
+	if _, err := authzClient.CreateAuthorization(ctx, &authz_pb.CreateAuthorizationRequest{
+		UserId:         zitadelUserID,
+		ProjectId:      projectID,
+		OrganizationId: orgID,
+		RoleKeys:       roles,
 	}); err != nil {
-		return nil, fmt.Errorf("updating authorization %s: %w", authz.GetId(), err)
+		return nil, fmt.Errorf("creating authorization for user %s: %w", zitadelUserID, err)
 	}
-
-	return serviceRoleSubset(fullSet), nil
+	return roles, nil
 }
 
 // removeServiceRoles removes the given per-service roles from the user's
@@ -199,59 +192,6 @@ func serviceRoleSubset(keys []string) []string {
 	return out
 }
 
-// ensureProjectGrantRoles makes sure the tenant org's project grant for the
-// central Pyck project includes the given role keys, adding any that are
-// missing (a full-set replace via UpdateProjectGrant). Idempotent — a no-op
-// when the grant already covers them. The grant is the org-level "menu" of
-// roles its users may hold; without this, assigning a role the grant lacks
-// fails with Errors.Project.Role.NotFound.
-func (r *Resolver) ensureProjectGrantRoles(ctx context.Context, orgID string, roleKeys []string) error {
-	projClient := proj_pb.NewProjectServiceClient(r.zitadelConn)
-
-	resp, err := projClient.ListProjectGrants(ctx, &proj_pb.ListProjectGrantsRequest{
-		Filters: []*proj_pb.ProjectGrantSearchFilter{
-			{Filter: &proj_pb.ProjectGrantSearchFilter_InProjectIdsFilter{
-				InProjectIdsFilter: &filter_pb.InIDsFilter{Ids: []string{core.Config.ZitadelProjectId}},
-			}},
-			{Filter: &proj_pb.ProjectGrantSearchFilter_GrantedOrganizationIdFilter{
-				GrantedOrganizationIdFilter: &filter_pb.IDFilter{Id: orgID},
-			}},
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("listing project grants for org %s: %w", orgID, err)
-	}
-
-	grants := resp.GetProjectGrants()
-	if len(grants) == 0 {
-		return fmt.Errorf("%w: org %s", ErrTenantNoProjectGrant, orgID)
-	}
-
-	set := make(map[string]struct{})
-	for _, k := range grants[0].GetGrantedRoleKeys() {
-		set[k] = struct{}{}
-	}
-	missing := false
-	for _, k := range roleKeys {
-		if _, ok := set[k]; !ok {
-			set[k] = struct{}{}
-			missing = true
-		}
-	}
-	if !missing {
-		return nil
-	}
-
-	if _, err := projClient.UpdateProjectGrant(ctx, &proj_pb.UpdateProjectGrantRequest{
-		ProjectId:             core.Config.ZitadelProjectId,
-		GrantedOrganizationId: orgID,
-		RoleKeys:              keysOf(set),
-	}); err != nil {
-		return fmt.Errorf("updating project grant for org %s: %w", orgID, err)
-	}
-	return nil
-}
-
 // userAuthorization returns the user's authorization on the central Pyck
 // project within the given org. found is false when the user has no
 // authorization there. Scoping by org is required because a cross-tenant user
@@ -281,19 +221,9 @@ func (r *Resolver) userAuthorization(ctx context.Context, orgID, zitadelUserID s
 	return resp.GetAuthorizations()[0], true, nil
 }
 
+// sortedUnique returns the distinct values of in, sorted.
 func sortedUnique(in []string) []string {
-	set := make(map[string]struct{}, len(in))
-	for _, s := range in {
-		set[s] = struct{}{}
-	}
-	return keysOf(set)
-}
-
-func keysOf(set map[string]struct{}) []string {
-	out := make([]string, 0, len(set))
-	for k := range set {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
+	out := slices.Clone(in)
+	slices.Sort(out)
+	return slices.Compact(out)
 }

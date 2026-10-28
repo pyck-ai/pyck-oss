@@ -10,7 +10,7 @@ import (
 // writerTenantID returns the request's tenant if the caller is a WRITER in it.
 // Temporal-only mutations need it: ent privacy checks roles only on DB writes.
 func writerTenantID(req request.RequestContext) (uuid.UUID, error) {
-	tenantID, err := singleTenantID(req)
+	tenantID, err := req.MutationTenantID()
 	if err != nil {
 		return uuid.Nil, err
 	}

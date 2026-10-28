@@ -226,8 +226,8 @@ func visibleToCaller(ctx context.Context, dt DataType) bool {
 	if dt.TenantID == uuid.Nil {
 		return true
 	}
-	req := request.ForContext(ctx)
-	return !req.HasMutationTenantID() || dt.TenantID == req.MutationTenantID()
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	return err != nil || dt.TenantID == tenantID
 }
 
 // ReadByID returns the cached DataType for id. On cache miss it falls back
@@ -252,11 +252,11 @@ func (dc *DataTypesCache) ReadByID(ctx context.Context, id uuid.UUID) (*DataType
 	// inside entity mutations, which always have one). Like ReadBySlug, the
 	// tenant comes from the context; ReadBySlug's TODO about moving it into
 	// the signature applies here too.
-	req := request.ForContext(ctx)
-	if dc.fetcher == nil || !req.HasMutationTenantID() || req.MutationTenantID() == uuid.Nil {
+	tenantID, tenantErr := request.ForContext(ctx).MutationTenantID()
+	if dc.fetcher == nil || tenantErr != nil || tenantID == uuid.Nil {
 		return nil, ErrDataTypeNotFound
 	}
-	fetched, err := dc.fetcher.GetDataTypeByID(ctx, id, req.MutationTenantID())
+	fetched, err := dc.fetcher.GetDataTypeByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +279,10 @@ func (dc *DataTypesCache) ReadBySlug(ctx context.Context, slug string) (*DataTyp
 	// errors and unnecessarily hard to test. This function is indirectly called
 	// from the create/update mutations, which already know exactly which
 	// TenantID they operate on.
-	tenantID := req.MutationTenantID()
+	tenantID, err := req.MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 
 	val, ok := dc.memStore.Get(dc.getSlugCacheKey(slug, &tenantID))
 	if !ok {

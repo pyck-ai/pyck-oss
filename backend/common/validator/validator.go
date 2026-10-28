@@ -172,18 +172,16 @@ func (v *Validator) ValidateDataTypeInput(ctx context.Context, strict bool, inpu
 	// mutation tenant, so there this is a second line of defence.
 	//
 	// Guards:
-	//   - HasMutationTenantID: a context naming no single tenant cannot be
-	//     matched against, so it is refused rather than served unscoped —
-	//     matching DataTypesCache.ReadByID's fallback gate. Nothing legitimate
-	//     is lost: every caller sits on a mutation path, and TenantMixin's
-	//     mutation hook reads MutationTenantID unconditionally, so such a
-	//     context panics before the write lands anyway.
+	//   - MutationTenantID: a context naming no single tenant is refused
+	//     rather than served unscoped, matching DataTypesCache.ReadByID's
+	//     fallback gate. Every caller sits on a mutation path, where
+	//     TenantMixin's hook would refuse such a context anyway.
 	//   - TenantID != uuid.Nil: real DataTypes always carry a non-nil tenant
 	//     (TenantMixin + NOT NULL column), so a zero tenant can only come from
 	//     a tenant-agnostic test fixture.
 	if dataType.TenantID != uuid.Nil {
-		req := request.ForContext(ctx)
-		if !req.HasMutationTenantID() || dataType.TenantID != req.MutationTenantID() {
+		tenantID, err := request.ForContext(ctx).MutationTenantID()
+		if err != nil || dataType.TenantID != tenantID {
 			return nil, ErrDataTypeNotFound
 		}
 	}
@@ -458,8 +456,12 @@ func (v *Validator) createQueryForCountingUniqueRecords(
 	// build query with placeholders. A soft-deleted row does not hold its
 	// value, like the partial unique indexes on business keys; counting it
 	// would refuse re-creating a record after deleting it.
+	tenantID, err := req.MutationTenantID()
+	if err != nil {
+		return "", nil, err
+	}
 	whereClause := fmt.Sprintf("%s AND data_type_id = %s AND tenant_id = %s AND deleted_at IS NULL", cond, nextPlaceholder(), nextPlaceholder())
-	args = append(args, dataTypeID, req.MutationTenantID())
+	args = append(args, dataTypeID, tenantID)
 	if excludeID != nil {
 		whereClause += fmt.Sprintf(" AND id != %s", nextPlaceholder())
 		args = append(args, *excludeID)

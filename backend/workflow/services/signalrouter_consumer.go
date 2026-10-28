@@ -76,11 +76,12 @@ var eventsGivenUp = promauto.NewCounter( //nolint:gochecknoglobals
 // replicas, created or updated at Start. It filters to
 //
 //	<stream>.*.crud.*.*.*.*         mutation events
+//	<stream>.*.custom.*.*.*         tenant custom events
 //	<stream>.*.temporal.*.*.*.*.*   Temporal workflow state changes
 //
-// so custom events, workflow events, attribute-change events, dead letters and
-// request.reply.* subjects are never delivered. DeliverPolicy is New and only
-// applies when the consumer is created: an existing consumer keeps its
+// so platform events, workflow events, attribute-change events, dead letters
+// and request.reply.* subjects are never delivered. DeliverPolicy is New and
+// only applies when the consumer is created: an existing consumer keeps its
 // position, so a restart or a rolling deploy replays nothing and loses
 // nothing.
 //
@@ -229,6 +230,7 @@ type consumerRun struct {
 func (wr *SignalRouter) filterSubjects() []string {
 	return []string{
 		events.MutationEventTopic{StreamName: wr.streamName}.String(),
+		events.TenantCustomEventTopic{StreamName: wr.streamName}.String(),
 		events.TemporalWorkflowStateChangeTopic{StreamName: wr.streamName}.String(),
 	}
 }
@@ -624,7 +626,7 @@ func systemNamespaceStateChange(subject string) (string, bool) {
 // would make it a permanent failure logged at WARN, for events that are
 // expected and have no tenant to route to. It returns nil, so the event is
 // acknowledged as handled; settle records nothing for it, since routing
-// statuses only exist for mutation events.
+// statuses only exist for mutation and custom events.
 func (wr *SignalRouter) dispatchEvent(ctx context.Context, msg *nats.Msg) error {
 	if namespace, ok := systemNamespaceStateChange(msg.Subject); ok {
 		log.ForContext(ctx).Debug().
@@ -640,8 +642,8 @@ func (wr *SignalRouter) dispatchEvent(ctx context.Context, msg *nats.Msg) error 
 		return permanent(fmt.Errorf("failed to parse event topic %q: %w", msg.Subject, err))
 	}
 
-	switch topic.Type() { //nolint:exhaustive // only two types are consumed
-	case events.TopicTypeMutationEvent:
+	switch topic.Type() { //nolint:exhaustive // only these types are consumed
+	case events.TopicTypeMutationEvent, events.TopicTypeTenantCustomEvent:
 		_, err = wr.HandleMutationEvent(ctx, msg)
 	case events.TopicTypeTemporalWorkflowStateChangeEvent:
 		_, err = wr.handleTemporalWorkflowStateChange(ctx, msg)

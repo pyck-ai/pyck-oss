@@ -19,6 +19,8 @@ default = "@linter"
 uniq-by-line = true
 max-same-issues = 10
 new = true
+# Local default. CI overrides it with a fixed SHA via `task lint LINT_BASE=...`
+# (see the discover job in .github/workflows/ci.yml).
 new-from-rev = "origin/main"
 whole-files = false
 
@@ -166,6 +168,12 @@ enable = [
   # "wsl_v5",                    # Manages empty lines
 ]
 
+[linters.settings.usetesting]
+# Tests own the work they start: t.Context() is cancelled with the test,
+# context.Background() never is.
+context-background = true
+context-todo = true
+
 [linters.settings.errcheck]
 # Flag `_ = f()` on error-returning calls: discarding an error silently is
 # never acceptable — handle it or at least log it (see go-standards-agent.md).
@@ -277,6 +285,15 @@ paths = [ "third_party$", "builtin$", "examples$" ]
   [[linters.exclusions.rules]]
   path = "backend/common/events/topic/topic_test\\.go$"
   linters = [ "testpackage" ]
+
+  # The integration module is test-only code behind the integration build
+  # tag: testify suites live in the package they name (there is no
+  # non-test code to black-box), run sequentially against one shared stack,
+  # and their poll callbacks return descriptive transient errors that no
+  # caller matches on.
+  [[linters.exclusions.rules]]
+  path = "^tests/integration/.*\\.go$"
+  linters = [ "err113", "testpackage", "paralleltest" ]
 
   # Topic leaf-package mirrors lints already accepted on main when the same
   # symbols lived in backend/common/events/topic.go (suppressed by the diff-

@@ -442,6 +442,7 @@ func TestLimitMixinDefaultLimit(t *testing.T) {
 			Count       int    `json:"count"`
 		}
 
+		//limitlint:allow the cap is what this test exercises: groups are formed before it applies
 		err := client.EntityWithLimitMixin.Query().
 			GroupBy("string_field").
 			Aggregate(gen.Count()).

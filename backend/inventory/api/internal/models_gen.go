@@ -1849,7 +1849,7 @@ func (e *InventoryCollectionOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e InventoryCollectionOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *InventoryCollectionOrderField) UnmarshalJSON(b []byte) error {
@@ -1917,7 +1917,7 @@ func (e *InventoryItemOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e InventoryItemOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *InventoryItemOrderField) UnmarshalJSON(b []byte) error {
@@ -1985,7 +1985,7 @@ func (e *InventoryItemSetOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e InventoryItemSetOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *InventoryItemSetOrderField) UnmarshalJSON(b []byte) error {
@@ -2073,7 +2073,7 @@ func (e *ItemMovementOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e ItemMovementOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *ItemMovementOrderField) UnmarshalJSON(b []byte) error {
@@ -2144,7 +2144,7 @@ func (e *JSONPatchOp) UnmarshalGQL(v any) error {
 }
 
 func (e JSONPatchOp) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *JSONPatchOp) UnmarshalJSON(b []byte) error {
@@ -2205,7 +2205,7 @@ func (e *JSONType) UnmarshalGQL(v any) error {
 }
 
 func (e JSONType) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *JSONType) UnmarshalJSON(b []byte) error {
@@ -2263,7 +2263,7 @@ func (e *OrderDirection) UnmarshalGQL(v any) error {
 }
 
 func (e OrderDirection) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *OrderDirection) UnmarshalJSON(b []byte) error {
@@ -2335,7 +2335,7 @@ func (e *ReplenishmentOrderItemOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e ReplenishmentOrderItemOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *ReplenishmentOrderItemOrderField) UnmarshalJSON(b []byte) error {
@@ -2403,7 +2403,7 @@ func (e *ReplenishmentOrderOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e ReplenishmentOrderOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *ReplenishmentOrderOrderField) UnmarshalJSON(b []byte) error {
@@ -2489,7 +2489,7 @@ func (e *RepositoryMovementOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e RepositoryMovementOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *RepositoryMovementOrderField) UnmarshalJSON(b []byte) error {
@@ -2567,7 +2567,7 @@ func (e *RepositoryOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e RepositoryOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *RepositoryOrderField) UnmarshalJSON(b []byte) error {
@@ -2653,7 +2653,7 @@ func (e *StockOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e StockOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *StockOrderField) UnmarshalJSON(b []byte) error {
@@ -2727,7 +2727,7 @@ func (e *TransactionOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e TransactionOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *TransactionOrderField) UnmarshalJSON(b []byte) error {

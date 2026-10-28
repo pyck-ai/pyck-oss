@@ -20,14 +20,17 @@ type Config struct {
 	// gate's HTTP status (403/200) is observable — the gateway would otherwise
 	// fold a subgraph 403 into a GraphQL error. Management and workflow are
 	// intentionally ungated and so have no entry here.
-	InventoryURL     string
-	PickingURL       string
-	ReceivingURL     string
-	FileURL          string
-	MainDataURL      string
-	TemporalAddress  string
-	NatsURL          string
-	NatsStream       string
+	InventoryURL    string
+	PickingURL      string
+	ReceivingURL    string
+	FileURL         string
+	MainDataURL     string
+	TemporalAddress string
+	NatsURL         string
+	NatsStream      string
+	// NatsWSURL is the websocket endpoint tenant clients use; it goes through
+	// the auth callout.
+	NatsWSURL        string
 	ServiceToken     string
 	ZitadelIssuer    string
 	ZitadelGrpcAddr  string
@@ -44,15 +47,30 @@ type Config struct {
 	// bootstrap already provisions — no extra Zitadel setup needed.
 	IntrospectClientID     string
 	IntrospectClientSecret string
-	// TenantExpiryCheckInterval and TenantReconcileInterval mirror the
-	// management service's background sweep cadences so timing-sensitive
-	// suites can size their observation windows instead of guessing.
-	// Defaults match the service defaults (backend/management/core/config.go:
-	// 1m and 5m); scripts/envrc.sh forwards the local .env overrides (5s), so
-	// a mismatch only occurs if the stack was started with different values
-	// than the shell running the tests — keep the two in sync.
+	// TenantExpiryCheckInterval, TenantReconcileInterval and
+	// ZitadelSyncInterval mirror the management service's background sweep
+	// cadences so timing-sensitive suites can size their observation windows
+	// instead of guessing. Defaults match the service defaults
+	// (backend/management/core/config.go: 1m, 5m and 10m); scripts/envrc.sh
+	// forwards the local .env overrides (5s), so a mismatch only occurs if
+	// the stack was started with different values than the shell running
+	// the tests; keep the two in sync.
 	TenantExpiryCheckInterval time.Duration
 	TenantReconcileInterval   time.Duration
+	ZitadelSyncInterval       time.Duration
+	// UserSyncWaitTimeout (PYCK_USER_SYNC_WAIT_TIMEOUT) bounds how long
+	// WaitForSyncedUser polls for a user to be projected into
+	// management.users; the helper floors it at ZitadelSyncInterval plus
+	// slack, so it only matters on a stack whose sweep is faster than that.
+	UserSyncWaitTimeout time.Duration
+	// LivenessCacheTTL mirrors PYCK_LIVENESS_CACHE_TTL
+	// of the services: how long a tenant-liveness verdict (org active,
+	// tenant enabled/disabled) is served from cache. Suites that
+	// assert a revocation was driven by the NATS eviction — not by the verdict
+	// merely expiring — size their latency bound from it. Default matches the
+	// service default (backend/common/env/config: 1m); scripts/envrc.sh
+	// forwards a local .env override.
+	LivenessCacheTTL time.Duration
 }
 
 // Load reads the environment into a Config, defaulting endpoints to the
@@ -69,6 +87,7 @@ func Load() (*Config, error) {
 		TemporalAddress:        envOr("PYCK_TEMPORAL_ADDRESS", "localhost:7233"),
 		NatsURL:                envOr("PYCK_NATS_URL", "nats://root:root@localhost:4222"),
 		NatsStream:             envOr("PYCK_NATS_STREAM_NAME", "pyck"),
+		NatsWSURL:              envOr("PYCK_TEST_NATS_WS_URL", "ws://localhost:8889"),
 		ServiceToken:           os.Getenv("PYCK_SERVICE_TOKEN"),
 		ZitadelIssuer:          os.Getenv("PYCK_ZITADEL_ISSUER"),
 		ZitadelGrpcAddr:        os.Getenv("PYCK_ZITADEL_GRPC_ADDR"),
@@ -87,6 +106,15 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	if cfg.TenantReconcileInterval, err = durationOr("PYCK_TENANT_RECONCILE_INTERVAL", 5*time.Minute); err != nil {
+		return nil, err
+	}
+	if cfg.ZitadelSyncInterval, err = durationOr("PYCK_ZITADEL_SYNC_EVERY", 10*time.Minute); err != nil {
+		return nil, err
+	}
+	if cfg.UserSyncWaitTimeout, err = durationOr("PYCK_USER_SYNC_WAIT_TIMEOUT", 30*time.Second); err != nil {
+		return nil, err
+	}
+	if cfg.LivenessCacheTTL, err = durationOr("PYCK_LIVENESS_CACHE_TTL", time.Minute); err != nil {
 		return nil, err
 	}
 

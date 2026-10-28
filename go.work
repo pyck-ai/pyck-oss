@@ -1,4 +1,4 @@
-go 1.26.4
+go 1.27.1
 
 // This workspace file is committed to ensure consistent dependency
 // versions across all backend modules in the monorepo.

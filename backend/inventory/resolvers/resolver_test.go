@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	otelapi "go.opentelemetry.io/otel"
+	"go.uber.org/goleak"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/events"
@@ -54,6 +55,10 @@ var (
 	pkgPGTerminate func()
 )
 
+// TestMain starts the shared Postgres container and the test tracer, and
+// fails the binary when a goroutine a test started outlives the tests
+// (goleak, no ignores): the container and the tracer are torn down inside
+// Run so the check sees only what the tests left behind.
 func TestMain(m *testing.M) {
 	pkgPG, pkgPGTerminate = pgtest.Start("resolvers")
 	// Tell the production resolver layer to use Postgres SQL syntax so the
@@ -61,10 +66,10 @@ func TestMain(m *testing.M) {
 	// all behave identically to the production deployment.
 	core.Config.DbDriver = dialect.Postgres
 	cleanup := resolver.MustSetupTestTracer("inventory")
-	code := m.Run()
-	pkgPGTerminate()
-	cleanup()
-	os.Exit(code)
+	goleak.VerifyTestMain(pgtest.RunThen(m, func() {
+		pkgPGTerminate()
+		cleanup()
+	}))
 }
 
 // =============================================================================
@@ -212,6 +217,13 @@ func setup(t *testing.T) *testEnv {
 	client := enttest.Open(t, dialect.Postgres, testDSN,
 		enttest.WithOptions(ent.Log(t.Log)),
 	)
+	// Closed even for a test that never calls te.Close: an open client
+	// keeps its connection-opener goroutine for the rest of the binary.
+	t.Cleanup(func() {
+		if cerr := client.Close(); cerr != nil {
+			t.Logf("close ent client: %v", cerr)
+		}
+	})
 
 	if os.Getenv("PYCK_TEST_DEBUG") == "true" {
 		client = client.Debug()

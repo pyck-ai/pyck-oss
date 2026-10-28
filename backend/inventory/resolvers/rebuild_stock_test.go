@@ -16,6 +16,8 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/feature"
+	"github.com/pyck-ai/pyck/backend/common/request"
+	testresolver "github.com/pyck-ai/pyck/backend/common/test/resolver"
 	"github.com/pyck-ai/pyck/backend/common/txid"
 
 	"github.com/pyck-ai/pyck/backend/inventory/api"
@@ -2559,4 +2561,73 @@ func TestRebuildInventoryStock_LargeClosureChunksOverWireLimit_Postgres(t *testi
 	require.NoError(t, err)
 	require.Equal(t, int64(1), movingItemStock.OwnQuantity,
 		"rebuilt own_quantity at moving_repo for the first item must equal the placed quantity")
+}
+
+var rebuildStockTemplate = testresolver.ParseTemplate(`
+mutation {
+	rebuildInventoryStock {
+		success
+	}
+}`)
+
+type rebuildStockData struct {
+	RebuildInventoryStock struct {
+		Success bool
+	}
+}
+
+// seedRebuildEventFixture creates the minimal movement history (one executed
+// virtual→real movement) so a rebuild writes stock rows that would emit
+// outbox events, then clears the outbox so the assertions see only the
+// rebuild's own emissions.
+func seedRebuildEventFixture(t *testing.T, te *testEnv, ctx context.Context, apiClient api.Client) {
+	t.Helper()
+	virtualID := stockTestCreateRepository(t, ctx, apiClient, "virtual", entrepository.TypeStatic, true, nil)
+	destID := stockTestCreateRepository(t, ctx, apiClient, "dest", entrepository.TypeStatic, false, nil)
+	itemID := stockTestCreateItem(t, ctx, apiClient, "REBUILD-EVT-ITEM-001")
+	m1 := stockTestCreateItemMovement(t, ctx, apiClient, itemID, virtualID, destID, 5)
+	stockTestExecuteItemMovement(t, ctx, apiClient, m1)
+	te.clearEvents(ctx)
+}
+
+// TestRebuildInventoryStock_TenantCallerCannotOptIntoEvents pins the
+// event-emission gate on the rebuild: the syncupdates feature rides a
+// client-controlled header, and honoring it for a tenant caller would let
+// any tenant admin re-emit its whole movement history into the shared
+// outbox on every call. The exec harness force-enables FEATURE_SYNC_UPDATES
+// on each request, so it plays the adversarial header for free: a tenant
+// admin asking for events is refused outright, before any row is touched:
+// a silent downgrade would leave the caller waiting for events that never
+// come.
+func TestRebuildInventoryStock_TenantCallerCannotOptIntoEvents(t *testing.T) {
+	t.Parallel()
+	te := setup(t)
+	ctx := te.ctx(userA)
+	apiClient := setupAPIClient(t, te)
+	seedRebuildEventFixture(t, te, ctx, apiClient)
+
+	execErr(te, ctx, rebuildStockTemplate, nil, "system caller required")
+
+	te.assertNoEvents(ctx)
+}
+
+// TestRebuildInventoryStock_SystemCallerKeepsSyncUpdatesOptIn is the
+// positive control for the gate above: a system caller requesting sync
+// updates still gets per-row event emission from the rebuild.
+func TestRebuildInventoryStock_SystemCallerKeepsSyncUpdatesOptIn(t *testing.T) {
+	t.Parallel()
+	te := setup(t)
+	ctx := te.ctx(userA)
+	apiClient := setupAPIClient(t, te)
+	seedRebuildEventFixture(t, te, ctx, apiClient)
+
+	// System caller acting on tenant A: inherit the traced test context and
+	// override the request identity.
+	sysCtx := request.Context(ctx, authn.SystemUser(), tenantA)
+	data := execOK[rebuildStockData](te, sysCtx, rebuildStockTemplate, nil)
+	require.True(t, data.RebuildInventoryStock.Success)
+
+	entries, err := te.Ent.EntityEventsOutbox.Query().All(ctx)
+	require.NoError(t, err)
+	assert.NotEmpty(t, entries, "a system caller requesting sync updates must emit rebuild events")
 }

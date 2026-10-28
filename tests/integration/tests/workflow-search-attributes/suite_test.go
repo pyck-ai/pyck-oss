@@ -1,6 +1,6 @@
 //go:build integration
 
-// Package workflow exercises in-process Temporal workers hosting
+// Package workflow_test exercises in-process Temporal workers hosting
 // minimal "keep-open" workflows against a freshly-provisioned tenant.
 // Each suite constructs its own worker through generic helpers
 // (wfIdentity, wfWorker, publishWfTrigger, registerWithPyck, ...),
@@ -10,7 +10,7 @@
 // Run with:
 //
 //	source ./scripts/envrc.sh && go test -tags=integration -v -count=1 ./tests/workflow-search-attributes/...
-package workflow
+package workflow_test
 
 import (
 	"testing"
@@ -18,15 +18,17 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// TestWfIsAssignable runs the WfIsAssignableSuite which exercises the
-// is_assignable search attribute through the full client trigger path.
-func TestWfIsAssignable(t *testing.T) {
-	suite.Run(t, new(WfIsAssignableSuite))
+// TestWfAssignment runs the WfAssignmentSuite, which covers the whole
+// workflow assignment API (is_assignable, assignee, their list filters and
+// their refusals) through the full client trigger path.
+func TestWfAssignment(t *testing.T) {
+	t.Parallel()
+	suite.Run(t, new(WfAssignmentSuite))
 }
 
 // TestWfTargets runs the WfTargetsSuite which exercises the
 // pyck_workflow_targets KeywordList search attribute through the full
-// client trigger path. Same shape as TestWfIsAssignable, exercising
+// client trigger path. Same shape as TestWfAssignment, exercising
 // the WorkflowTargetsGetter/Setter interface pair.
 func TestWfTargets(t *testing.T) {
 	suite.Run(t, new(WfTargetsSuite))

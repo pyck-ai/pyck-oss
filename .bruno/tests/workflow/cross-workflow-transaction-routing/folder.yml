@@ -1,0 +1,11 @@
+info:
+  name: Cross - Workflow Transaction Routing
+  type: folder
+  seq: 1
+
+docs: |-
+  A management mutation's event travels the tenant's own event stream, the services' aggregate stream and the signal router, which records it per transaction (#1656). The custom event matches no subscription, so its single routing entry is DONE with the event dropped as unrouted.
+
+
+request:
+  auth: inherit

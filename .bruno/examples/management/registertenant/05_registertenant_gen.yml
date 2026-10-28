@@ -42,6 +42,7 @@ graphql:
             id
             idpOrgRef
             name
+            status
             updatedAt
             updatedBy
           }
@@ -60,7 +61,6 @@ graphql:
 
       {
         "input": {
-          "idpOrgRef": null, // PLACEHOLDER: IDP organization reference
           "name": null // PLACEHOLDER: tenant name
         }
       }
@@ -97,6 +97,10 @@ runtime:
 
         test("Tenant name matches input", function() {
           expect(body?.data?.registerTenant?.tenant?.name).to.equal(vars.input.name);
+        });
+
+        test("Tenant is fully registered", function() {
+          expect(body?.data?.registerTenant?.tenant?.status).to.equal('done');
         });
 
 settings:

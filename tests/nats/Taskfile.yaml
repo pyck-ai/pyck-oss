@@ -1,0 +1,40 @@
+version: "3.47"
+
+set: [errexit, nounset, pipefail]
+
+# The suite authenticates over websocket through the auth callout, so it needs a
+# live stack and is not part of the backend/* unit-test matrix. It reads
+# PYCK_TEST_NATS_WS_URL (from the repo's .env) and PYCK_TEST_AUTH_TOKEN;
+# PYCK_TEST_TENANT_ID is only needed when the token is an opaque PAT, since a
+# JWT carries the tenant. The callout only admits a user with a role on a live
+# tenant, so provision one and export its token and ID first:
+#
+#   source tests/integration/scripts/envrc.sh
+#   eval "$(cd tests/integration && go run -tags=integration ./cmd/provision-tenant)"
+
+tasks:
+  default:
+    cmds:
+      - task: test:nats:run
+
+  test:nats:run:
+    desc: >-
+      Run the NATS e2e suite against the running local stack. Requires
+      `task up` first. Forwards extra args, e.g.
+      `task test:nats:run -- -args -ginkgo.focus="Consumer Management"`.
+    cmds:
+      - >-
+        gotestsum
+        --format-icons=text
+        --format-hide-empty-pkg
+        --packages=./tests/...
+        --
+        -count=1
+        -timeout=10m
+        {{.CLI_ARGS}}
+
+  test:nats:up:
+    desc: Boot the stack, then run the NATS e2e suite.
+    cmds:
+      - task -d ../.. up
+      - task: test:nats:run

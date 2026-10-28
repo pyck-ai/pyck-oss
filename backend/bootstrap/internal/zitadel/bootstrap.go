@@ -2,10 +2,10 @@ package zitadel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -26,6 +26,7 @@ import (
 
 	"github.com/pyck-ai/pyck/backend/common/log"
 	zitadelcommon "github.com/pyck-ai/pyck/backend/common/services/zitadel"
+	"github.com/pyck-ai/pyck/backend/common/services/zitadel/sdk"
 
 	"github.com/pyck-ai/pyck/backend/bootstrap/internal/exporters"
 )
@@ -1177,167 +1178,57 @@ func (s *Seeder) ensureProjectRole(ctx context.Context, conn *zitadel.Connection
 func (s *Seeder) ensureUserGrant(ctx context.Context, conn *zitadel.Connection, projectID string, orgID string, userID string, roleKeys []string) error {
 	logger := log.ForContext(ctx)
 
-	// Check if authorization exists using v2 Authorization API
+	// An existing authorization is widened to the union of its roles and the
+	// seed config's, so roles added to the config land on re-bootstrap
+	// instead of the first run winning. Idempotent: a no-op when all roles
+	// are held.
+	_, updated, err := sdk.ExtendUserAuthorizationRoles(ctx, sdk.NewGrantClient(conn), projectID, orgID, userID, roleKeys)
+	switch {
+	case err == nil:
+		logger.Debug().Str("user-id", userID).Str("project-id", projectID).Bool("updated", updated).Msg("Reconciled user authorization roles")
+		return nil
+	case !errors.Is(err, sdk.ErrUserGrantNotFound):
+		return fmt.Errorf("extending authorization for user %q on project %q: %w", userID, projectID, err)
+	}
+
 	authzClient := authz_pb.NewAuthorizationServiceClient(conn)
-	listResp, err := authzClient.ListAuthorizations(ctx, &authz_pb.ListAuthorizationsRequest{
-		Filters: []*authz_pb.AuthorizationsSearchFilter{
-			{
-				Filter: &authz_pb.AuthorizationsSearchFilter_InUserIds{
-					InUserIds: &filter_pb.InIDsFilter{
-						Ids: []string{userID},
-					},
-				},
-			},
-			{
-				Filter: &authz_pb.AuthorizationsSearchFilter_ProjectId{
-					ProjectId: &filter_pb.IDFilter{
-						Id: projectID,
-					},
-				},
-			},
-			{
-				// Scope to the granted org so a cross-tenant user (authorized
-				// in multiple orgs for this project) yields exactly their
-				// authorization in THIS org, not an arbitrary one.
-				Filter: &authz_pb.AuthorizationsSearchFilter_OrganizationId{
-					OrganizationId: &filter_pb.IDFilter{
-						Id: orgID,
-					},
-				},
-			},
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("listing authorizations for user %q: %w", userID, err)
-	}
-
-	auths := listResp.GetAuthorizations()
-
-	// No authorization yet: create one with the requested roles.
-	if len(auths) == 0 {
-		if _, err = authzClient.CreateAuthorization(ctx, &authz_pb.CreateAuthorizationRequest{
-			UserId:         userID,
-			ProjectId:      projectID,
-			OrganizationId: orgID,
-			RoleKeys:       roleKeys,
-		}); err != nil {
-			return fmt.Errorf("creating authorization for user %q on project %q: %w", userID, projectID, err)
-		}
-		logger.Debug().Str("user-id", userID).Str("project-id", projectID).Msg("Created user authorization")
-		return nil
-	}
-
-	// Authorization already exists: union the requested roles into the existing
-	// set so multiple grant entries for the same project accumulate instead of
-	// the first one winning. Idempotent — a no-op when all roles are held.
-	authz := auths[0]
-	have := make(map[string]struct{})
-	for _, role := range authz.GetRoles() {
-		have[role.GetKey()] = struct{}{}
-	}
-	missing := false
-	for _, k := range roleKeys {
-		if _, ok := have[k]; !ok {
-			have[k] = struct{}{}
-			missing = true
-		}
-	}
-	if !missing {
-		logger.Debug().Str("user-id", userID).Str("project-id", projectID).Msg("User grant already up to date")
-		return nil
-	}
-
-	keys := make([]string, 0, len(have))
-	for k := range have {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	if _, err = authzClient.UpdateAuthorization(ctx, &authz_pb.UpdateAuthorizationRequest{
-		Id:       authz.GetId(),
-		RoleKeys: keys,
+	if _, err := authzClient.CreateAuthorization(ctx, &authz_pb.CreateAuthorizationRequest{
+		UserId:         userID,
+		ProjectId:      projectID,
+		OrganizationId: orgID,
+		RoleKeys:       roleKeys,
 	}); err != nil {
-		return fmt.Errorf("updating authorization for user %q on project %q: %w", userID, projectID, err)
+		return fmt.Errorf("creating authorization for user %q on project %q: %w", userID, projectID, err)
 	}
-	logger.Debug().Str("user-id", userID).Str("project-id", projectID).Msg("Updated user authorization roles")
+	logger.Debug().Str("user-id", userID).Str("project-id", projectID).Msg("Created user authorization")
 	return nil
 }
 
 func (s *Seeder) ensureProjectGrant(ctx context.Context, conn *zitadel.Connection, projectID string, grantingOrgID string, roleKeys []string) error {
 	logger := log.ForContext(ctx)
 
-	// Check if grant already exists using v2 project service
+	// An existing grant has its role menu widened to the union with the seed
+	// config's roles: the update is a full replace, so sending only the
+	// additions would revoke every role already granted, and the user grants
+	// carrying them.
+	_, updated, err := sdk.ExtendProjectGrantRoles(ctx, sdk.NewGrantClient(conn), projectID, grantingOrgID, roleKeys)
+	switch {
+	case err == nil:
+		logger.Debug().Str("org-id", grantingOrgID).Str("project-id", projectID).Bool("updated", updated).Msg("Reconciled project grant roles")
+		return nil
+	case !errors.Is(err, sdk.ErrProjectGrantNotFound):
+		return fmt.Errorf("extending project grant for org %q on project %q: %w", grantingOrgID, projectID, err)
+	}
+
 	projClient := proj_pb.NewProjectServiceClient(conn)
-	listResp, err := projClient.ListProjectGrants(ctx, &proj_pb.ListProjectGrantsRequest{
-		Filters: []*proj_pb.ProjectGrantSearchFilter{
-			{
-				Filter: &proj_pb.ProjectGrantSearchFilter_InProjectIdsFilter{
-					InProjectIdsFilter: &filter_pb.InIDsFilter{
-						Ids: []string{projectID},
-					},
-				},
-			},
-			{
-				Filter: &proj_pb.ProjectGrantSearchFilter_GrantedOrganizationIdFilter{
-					GrantedOrganizationIdFilter: &filter_pb.IDFilter{
-						Id: grantingOrgID,
-					},
-				},
-			},
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("listing project grants for %q: %w", projectID, err)
-	}
-
-	grants := listResp.GetProjectGrants()
-
-	// No grant yet: create one with the requested roles.
-	if len(grants) == 0 {
-		if _, err = projClient.CreateProjectGrant(ctx, &proj_pb.CreateProjectGrantRequest{
-			ProjectId:             projectID,
-			GrantedOrganizationId: grantingOrgID,
-			RoleKeys:              roleKeys,
-		}); err != nil {
-			return fmt.Errorf("creating project grant for org %q on project %q: %w", grantingOrgID, projectID, err)
-		}
-		logger.Debug().Str("org-id", grantingOrgID).Str("project-id", projectID).Msg("Created project grant")
-		return nil
-	}
-
-	// Grant exists: union the requested roles into its granted role set so roles
-	// added to the seed config land on re-bootstrap. Idempotent — a no-op when
-	// all requested roles are already granted.
-	have := make(map[string]struct{})
-	for _, k := range grants[0].GetGrantedRoleKeys() {
-		have[k] = struct{}{}
-	}
-	missing := false
-	for _, k := range roleKeys {
-		if _, ok := have[k]; !ok {
-			have[k] = struct{}{}
-			missing = true
-		}
-	}
-	if !missing {
-		logger.Debug().Str("org-id", grantingOrgID).Str("project-id", projectID).Msg("Project grant already up to date")
-		return nil
-	}
-
-	keys := make([]string, 0, len(have))
-	for k := range have {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	if _, err = projClient.UpdateProjectGrant(ctx, &proj_pb.UpdateProjectGrantRequest{
+	if _, err := projClient.CreateProjectGrant(ctx, &proj_pb.CreateProjectGrantRequest{
 		ProjectId:             projectID,
 		GrantedOrganizationId: grantingOrgID,
-		RoleKeys:              keys,
+		RoleKeys:              roleKeys,
 	}); err != nil {
-		return fmt.Errorf("updating project grant for org %q on project %q: %w", grantingOrgID, projectID, err)
+		return fmt.Errorf("creating project grant for org %q on project %q: %w", grantingOrgID, projectID, err)
 	}
-	logger.Debug().Str("org-id", grantingOrgID).Str("project-id", projectID).Msg("Updated project grant roles")
+	logger.Debug().Str("org-id", grantingOrgID).Str("project-id", projectID).Msg("Created project grant")
 	return nil
 }
 

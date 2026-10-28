@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/google/uuid"
@@ -42,47 +43,54 @@ func (s *pruneCountingStore) Prune(_ context.Context, cutoff time.Time) (int, er
 	return s.deleted, s.err
 }
 
+// The janitor tests run in synctest bubbles, so the janitor's ticker and
+// the waits below use a fake clock that only advances while every
+// goroutine in the bubble is blocked. On the real clock a CI runner stall
+// of about a second failed them: a ticker drops the ticks it cannot
+// deliver, so Eventually's 1s budget ran out before enough prunes ran.
 func TestJanitor_RunsPruneOnInterval(t *testing.T) {
 	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		store := &pruneCountingStore{deleted: 3}
+		j := idempotency.NewJanitor(store, 10*time.Millisecond, time.Hour)
 
-	store := &pruneCountingStore{deleted: 3}
-	j := idempotency.NewJanitor(store, 10*time.Millisecond, time.Hour)
+		ctx, cancel := context.WithCancel(t.Context())
+		done := make(chan struct{})
+		go func() {
+			j.Run(ctx)
+			close(done)
+		}()
 
-	ctx, cancel := context.WithCancel(t.Context())
-	done := make(chan struct{})
-	go func() {
-		j.Run(ctx)
-		close(done)
-	}()
+		require.Eventually(t, func() bool {
+			return store.pruneCalls.Load() >= 2
+		}, time.Second, 5*time.Millisecond, "janitor should have pruned at least twice")
 
-	require.Eventually(t, func() bool {
-		return store.pruneCalls.Load() >= 2
-	}, time.Second, 5*time.Millisecond, "janitor should have pruned at least twice")
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("janitor did not stop after context cancel")
+		}
 
-	cancel()
-	select {
-	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("janitor did not stop after context cancel")
-	}
-
-	cutoff := store.lastCutoff.Load()
-	require.NotNil(t, cutoff)
-	assert.WithinDuration(t, time.Now().UTC().Add(-time.Hour), *cutoff, 5*time.Second)
+		cutoff := store.lastCutoff.Load()
+		require.NotNil(t, cutoff)
+		assert.WithinDuration(t, time.Now().UTC().Add(-time.Hour), *cutoff, 5*time.Second)
+	})
 }
 
 func TestJanitor_PruneErrorDoesNotKillLoop(t *testing.T) {
 	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		store := &pruneCountingStore{err: errors.New("nope")}
+		j := idempotency.NewJanitor(store, 10*time.Millisecond, time.Hour)
 
-	store := &pruneCountingStore{err: errors.New("nope")}
-	j := idempotency.NewJanitor(store, 10*time.Millisecond, time.Hour)
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
 
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
+		go j.Run(ctx)
 
-	go j.Run(ctx)
-
-	require.Eventually(t, func() bool {
-		return store.pruneCalls.Load() >= 3
-	}, time.Second, 5*time.Millisecond, "janitor should keep ticking after prune errors")
+		require.Eventually(t, func() bool {
+			return store.pruneCalls.Load() >= 3
+		}, time.Second, 5*time.Millisecond, "janitor should keep ticking after prune errors")
+	})
 }

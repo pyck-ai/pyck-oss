@@ -6,7 +6,6 @@ description: >
 vars:
   input:
     name: { $placeholder: "tenant name" }
-    idpOrgRef: { $placeholder: "IDP organization reference" }
 expect:
   - msg: "Status is 200"
     assertions:
@@ -32,3 +31,7 @@ expect:
     assertions:
       - ref: res.body.data.registerTenant.tenant.name
         equal: { $ref: "req.body.variables.input.name" }
+  - msg: "Tenant is fully registered"
+    assertions:
+      - ref: res.body.data.registerTenant.tenant.status
+        equal: "done"

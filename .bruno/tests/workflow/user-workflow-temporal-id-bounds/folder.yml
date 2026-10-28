@@ -1,0 +1,11 @@
+info:
+  name: User - Workflow Temporal Id Bounds
+  type: folder
+  seq: 1
+
+docs: |-
+  registerWorkflow and submitUserDataInput refuse names that cannot work in Temporal (#1502), before anything is stored and before Temporal is called. The name is capped at 218 bytes so name + "_" + uuid fits the 255 characters Temporal's store holds; the task queue at 255 bytes for the same reason; signal names at Temporal's 1000-byte limit, and update names at the same 1000 bytes. The SDK's built-in SetAssignee and SetIsAssignable updates are refused too, as each has its own mutation.
+
+
+request:
+  auth: inherit

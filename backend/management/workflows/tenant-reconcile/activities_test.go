@@ -88,7 +88,7 @@ func TestComputeDrift_Matrix(t *testing.T) {
 		{name: "disabled + DELETED → terminal, not drift", org: "o3", state: stateDeleted, dbDis: true, wantDeleted: true},
 		{name: "active + ACTIVE → aligned", org: "o4", state: stateActive, dbDis: false},
 		{name: "active + INACTIVE → restore", org: "o5", state: stateInactive, dbDis: false, wantRestore: true},
-		{name: "active + DELETED → out of scope here", org: "o6", state: stateDeleted, dbDis: false},
+		{name: "active + DELETED → not drift", org: "o6", state: stateDeleted, dbDis: false},
 	}
 
 	for _, tt := range tests {

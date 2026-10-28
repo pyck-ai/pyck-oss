@@ -1,12 +1,12 @@
 package nats_test
 
 import (
-	"context"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	natsclient "github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -45,7 +45,7 @@ func TestResolveTenant(t *testing.T) {
 
 		user := newUser(map[uuid.UUID]authn.Role{own: authn.ROLE_READER})
 
-		got, err := natsgo.ResolveTenant(context.Background(), user, tenantHeader(own.String()))
+		got, err := natsgo.ResolveTenant(t.Context(), user, tenantHeader(own.String()))
 
 		require.NoError(t, err)
 		assert.Equal(t, own, got)
@@ -56,7 +56,7 @@ func TestResolveTenant(t *testing.T) {
 
 		user := newUser(map[uuid.UUID]authn.Role{own: authn.ROLE_ADMIN})
 
-		_, err := natsgo.ResolveTenant(context.Background(), user, tenantHeader(other.String()))
+		_, err := natsgo.ResolveTenant(t.Context(), user, tenantHeader(other.String()))
 
 		require.ErrorIs(t, err, tenant.ErrNoAccessToTenantID)
 	})
@@ -66,7 +66,7 @@ func TestResolveTenant(t *testing.T) {
 
 		user := newUser(map[uuid.UUID]authn.Role{own: authn.ROLE_NONE})
 
-		_, err := natsgo.ResolveTenant(context.Background(), user, tenantHeader(own.String()))
+		_, err := natsgo.ResolveTenant(t.Context(), user, tenantHeader(own.String()))
 
 		require.ErrorIs(t, err, tenant.ErrNoAccessToTenantID)
 	})
@@ -76,7 +76,7 @@ func TestResolveTenant(t *testing.T) {
 
 		user := newUser(map[uuid.UUID]authn.Role{own: authn.ROLE_READER})
 
-		got, err := natsgo.ResolveTenant(context.Background(), user, http.Header{})
+		got, err := natsgo.ResolveTenant(t.Context(), user, http.Header{})
 
 		require.NoError(t, err)
 		assert.Equal(t, own, got)
@@ -87,7 +87,7 @@ func TestResolveTenant(t *testing.T) {
 
 		user := newUser(nil)
 
-		_, err := natsgo.ResolveTenant(context.Background(), user, http.Header{})
+		_, err := natsgo.ResolveTenant(t.Context(), user, http.Header{})
 
 		require.ErrorIs(t, err, natsgo.ErrTenantNotSingle)
 	})
@@ -98,7 +98,7 @@ func TestResolveTenant(t *testing.T) {
 		user := newUser(map[uuid.UUID]authn.Role{own: authn.ROLE_READER, other: authn.ROLE_READER})
 
 		assert.NotPanics(t, func() {
-			_, err := natsgo.ResolveTenant(context.Background(), user, tenantHeader(tenant.AllTenantIDsValue))
+			_, err := natsgo.ResolveTenant(t.Context(), user, tenantHeader(tenant.AllTenantIDsValue))
 			require.ErrorIs(t, err, natsgo.ErrTenantNotSingle)
 		})
 	})
@@ -109,7 +109,7 @@ func TestResolveTenant(t *testing.T) {
 		user := newUser(map[uuid.UUID]authn.Role{own: authn.ROLE_READER, other: authn.ROLE_READER})
 
 		assert.NotPanics(t, func() {
-			_, err := natsgo.ResolveTenant(context.Background(), user, http.Header{})
+			_, err := natsgo.ResolveTenant(t.Context(), user, http.Header{})
 			require.ErrorIs(t, err, natsgo.ErrTenantNotSingle)
 		})
 	})
@@ -120,7 +120,7 @@ func TestResolveTenant(t *testing.T) {
 		user := newUser(map[uuid.UUID]authn.Role{own: authn.ROLE_READER, other: authn.ROLE_READER})
 
 		assert.NotPanics(t, func() {
-			_, err := natsgo.ResolveTenant(context.Background(), user, tenantHeader(own.String()+","+other.String()))
+			_, err := natsgo.ResolveTenant(t.Context(), user, tenantHeader(own.String()+","+other.String()))
 			require.ErrorIs(t, err, natsgo.ErrTenantNotSingle)
 		})
 	})
@@ -130,7 +130,7 @@ func TestResolveTenant(t *testing.T) {
 
 		user := newUser(map[uuid.UUID]authn.Role{own: authn.ROLE_READER, third: authn.ROLE_READER})
 
-		_, err := natsgo.ResolveTenant(context.Background(), user, tenantHeader(own.String(), tenant.AllTenantIDsValue))
+		_, err := natsgo.ResolveTenant(t.Context(), user, tenantHeader(own.String(), tenant.AllTenantIDsValue))
 
 		require.ErrorIs(t, err, natsgo.ErrTenantNotSingle)
 	})
@@ -140,7 +140,7 @@ func TestResolveTenant(t *testing.T) {
 
 		user := newUser(map[uuid.UUID]authn.Role{own: authn.ROLE_READER})
 
-		_, err := natsgo.ResolveTenant(context.Background(), user, tenantHeader("not-a-uuid"))
+		_, err := natsgo.ResolveTenant(t.Context(), user, tenantHeader("not-a-uuid"))
 
 		require.ErrorIs(t, err, tenant.ErrInvalidTenantID)
 	})
@@ -148,7 +148,7 @@ func TestResolveTenant(t *testing.T) {
 	t.Run("unauthenticated user is rejected", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := natsgo.ResolveTenant(context.Background(), authn.User{}, tenantHeader(own.String()))
+		_, err := natsgo.ResolveTenant(t.Context(), authn.User{}, tenantHeader(own.String()))
 
 		require.ErrorIs(t, err, tenant.ErrNoAccessToTenantID)
 	})
@@ -156,7 +156,7 @@ func TestResolveTenant(t *testing.T) {
 	t.Run("system user may name any tenant", func(t *testing.T) {
 		t.Parallel()
 
-		got, err := natsgo.ResolveTenant(context.Background(), *authn.SystemUser(), tenantHeader(other.String()))
+		got, err := natsgo.ResolveTenant(t.Context(), *authn.SystemUser(), tenantHeader(other.String()))
 
 		require.NoError(t, err)
 		assert.Equal(t, other, got)
@@ -165,7 +165,7 @@ func TestResolveTenant(t *testing.T) {
 	t.Run("system user without a tenant header is rejected", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := natsgo.ResolveTenant(context.Background(), *authn.SystemUser(), http.Header{})
+		_, err := natsgo.ResolveTenant(t.Context(), *authn.SystemUser(), http.Header{})
 
 		require.ErrorIs(t, err, natsgo.ErrTenantNotSingle)
 	})
@@ -233,5 +233,50 @@ func TestStateChangeDenyPattern(t *testing.T) {
 
 		wf := events.WorkflowEventTopic{StreamName: stream, TenantID: tenantID, WorkflowID: uuid.New(), WorkflowName: "w"}
 		assert.False(t, subjectMatches(pattern, wf.String()), wf.String())
+	})
+}
+
+// The grant must cover the inboxes nats.go builds from the prefix, and no
+// other tenant's or default-prefix inbox.
+func TestTenantInboxPrefix_IsTheClientPrefixTheGrantCovers(t *testing.T) {
+	t.Parallel()
+
+	own := uuid.New()
+	other := uuid.New()
+	prefix := natsgo.TenantInboxPrefix(own)
+	grant := prefix + ".>"
+
+	t.Run("is the tenant's id under the inbox namespace", func(t *testing.T) {
+		t.Parallel()
+
+		assert.Equal(t, "_INBOX."+own.String(), prefix)
+	})
+
+	t.Run("is accepted by nats.CustomInboxPrefix and covers the client's inboxes", func(t *testing.T) {
+		t.Parallel()
+
+		opts := natsclient.GetDefaultOptions()
+		require.NoError(t, natsclient.CustomInboxPrefix(prefix)(&opts))
+		require.Equal(t, prefix, opts.InboxPrefix)
+
+		inbox := (&natsclient.Conn{Opts: opts}).NewInbox()
+		assert.True(t, subjectMatches(grant, inbox), "grant %s must cover the client's inbox %s", grant, inbox)
+	})
+
+	t.Run("does not cover another tenant's inboxes", func(t *testing.T) {
+		t.Parallel()
+
+		opts := natsclient.GetDefaultOptions()
+		require.NoError(t, natsclient.CustomInboxPrefix(natsgo.TenantInboxPrefix(other))(&opts))
+
+		inbox := (&natsclient.Conn{Opts: opts}).NewInbox()
+		assert.False(t, subjectMatches(grant, inbox), "grant %s must not cover tenant %s's inbox %s", grant, other, inbox)
+	})
+
+	t.Run("does not cover the library's default inboxes", func(t *testing.T) {
+		t.Parallel()
+
+		inbox := natsclient.NewInbox()
+		assert.False(t, subjectMatches(grant, inbox), "grant %s must not cover the default inbox %s", grant, inbox)
 	})
 }

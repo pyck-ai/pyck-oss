@@ -1,0 +1,13 @@
+info:
+  name: User - Tenant Register Refusals
+  type: folder
+  seq: 1
+
+docs: |-
+  Proves registerTenant refuses a weak admin password, and any X-Pyck-Feature header, before it writes anything: the mutation is rejected at the resolver, no tenant row is committed and no registration run starts, so the scenario leaves no tenant behind (which a Bruno scenario could not clean up). Also pins that the user-projection CRUD (createUser, updateUser, deleteUser) refuses the suite's own tenant token with "system caller required": the Bruno PAT holds admin on its tenant, so this error (not "admin role required") is what proves the system-caller guard. Every write step carries ids of its own, so a lost guard fails the assertion instead of rewriting a real projection row.
+    The ADMITTED tenant-lifecycle paths are deliberately NOT here: their only possible target under this PAT is the shared bruno-local tenant, so exercising deleteTenant would soft-delete the collection's own tenant mid-run and every later folder would fail against a dead tenant. They are asserted against a disposable tenant in tests/integration/tests/tenant-lifecycle/tn_admin_role_test.go. Their REFUSALS now live in tests/user-management-tenant-lifecycle-refusals.test.yaml: since the three mutations name their target explicitly, a refusal can be probed against a tenant id that is not the collection's own.
+    Eight input-shape refusals are here as wire probes (a name with a leading space, a whitespace-only first name, a name with a trailing no-break space, a NUL inside the last name, a NUL inside a tenant data value, a NUL inside the admin password, an admin e-mail on an IDN host, an admin e-mail on an IP literal), the NUL and non-ASCII ones sent as JSON escapes the gateway must pass through. A password with surrounding spaces is accepted and therefore not here: a Bruno scenario could not clean up the tenant it registers. The remaining input rules (the data bounds, the Zitadel field limits, the rest of the e-mail host-name rule, control characters) and the refusals that need a registered tenant (duplicate name) live in the resolver unit tests and the integration suite (tests/integration/tests/tenant-lifecycle). The refusal steps only make sense under the tenant PAT: run with the system token (BRUNO_TOKEN=<system token> overrides env_pyck_token for the whole collection) the mutations would succeed and write for real, so a probe step detects the token mode and the refusal steps skip themselves under a system caller.
+
+
+request:
+  auth: inherit

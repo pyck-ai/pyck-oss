@@ -3,6 +3,7 @@ package services_test
 import (
 	"context"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/google/uuid"
@@ -54,7 +55,7 @@ func TestSubscriptionJanitor_Sweep(t *testing.T) {
 	newSignalFor(t, client, wf, "worker-dead", time.Now().UTC().Add(-time.Hour))
 	newSignalFor(t, client, wf, "worker-live", time.Now().UTC().Add(time.Hour))
 
-	n, err := services.NewSubscriptionJanitor(client, time.Minute).Sweep(context.Background())
+	n, err := services.NewSubscriptionJanitor(client, time.Minute).Sweep(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, 1, n)
 
@@ -69,23 +70,34 @@ func TestSubscriptionJanitor_Sweep(t *testing.T) {
 // Temporal's poller history is in memory with a short TTL, so "no pollers"
 // also describes a worker outage or a Temporal restart, and deleting on it
 // would lose the workflow (pyck#1564).
+//
+// It runs in a synctest bubble, so the janitor's ticker and the test's sleep
+// use a fake clock that only advances while every goroutine in the bubble is
+// blocked. On the real clock a CI runner stall during the sleep let both
+// deadlines pass at once, so cancel could stop the janitor before its first
+// sweep.
 func TestSubscriptionJanitor_NeverDeletesWorkflows(t *testing.T) {
 	t.Parallel()
 
-	tenantID := uuid.New()
+	// Open the database outside the bubble: its name is made unique with
+	// time.Now, and every bubble starts at the same fake time.
 	client := newExpiryTestClient(t)
-	wf := newWorkflow(t, client, tenantID, "wf_outage", "queue")
-	newSignalFor(t, client, wf, "worker-dead", time.Now().UTC().Add(-time.Hour))
+	synctest.Test(t, func(t *testing.T) {
+		tenantID := uuid.New()
+		wf := newWorkflow(t, client, tenantID, "wf_outage", "queue")
+		newSignalFor(t, client, wf, "worker-dead", time.Now().UTC().Add(-time.Hour))
 
-	// Let the janitor tick many times, then stop it before reading: the SQLite
-	// test database rejects concurrent access.
-	ctx, cancel := context.WithCancel(context.Background())
-	services.NewSubscriptionJanitor(client, 10*time.Millisecond).Start(ctx)
-	time.Sleep(500 * time.Millisecond)
-	cancel()
-	time.Sleep(100 * time.Millisecond)
+		// Let the janitor tick many times, then stop it before reading: the
+		// SQLite test database rejects concurrent access. Wait returns once the
+		// janitor goroutine has exited.
+		ctx, cancel := context.WithCancel(t.Context())
+		services.NewSubscriptionJanitor(client, 10*time.Millisecond).Start(ctx)
+		time.Sleep(500 * time.Millisecond)
+		cancel()
+		synctest.Wait()
 
-	signals := client.WorkflowSignal.Query().Where(entworkflowsignal.WorkflowIDEQ(wf.ID)).CountX(seedCtx(tenantID))
-	assert.Zero(t, signals, "the expired subscription is removed")
-	assert.False(t, isWorkflowDeleted(t, client, wf), "the workflow row must never be soft-deleted")
+		signals := client.WorkflowSignal.Query().Where(entworkflowsignal.WorkflowIDEQ(wf.ID)).CountX(seedCtx(tenantID))
+		assert.Zero(t, signals, "the expired subscription is removed")
+		assert.False(t, isWorkflowDeleted(t, client, wf), "the workflow row must never be soft-deleted")
+	})
 }

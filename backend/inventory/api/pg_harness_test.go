@@ -10,10 +10,10 @@
 package api_test
 
 import (
-	"os"
 	"testing"
 
 	"entgo.io/ent/dialect"
+	"go.uber.org/goleak"
 
 	"github.com/pyck-ai/pyck/backend/common/test/pgtest"
 
@@ -29,16 +29,16 @@ var (
 )
 
 // TestMain starts the shared Postgres container (once per test binary) before
-// running any tests, then tears it down on exit.
+// running any tests, and fails the binary when a goroutine a test started
+// outlives the tests (goleak, no ignores): the container is torn down
+// inside Run so the check sees only what the tests left behind.
 func TestMain(m *testing.M) {
 	pkgPG, pkgPGTerminate = pgtest.Start("api")
 	// The resolver layer reads core.Config.DbDriver for dialect-conditional
 	// SQL (uniqueness validation, proc dispatch); leaving it empty would make
 	// it emit SQLite syntax against the real Postgres database.
 	core.Config.DbDriver = dialect.Postgres
-	code := m.Run()
-	pkgPGTerminate()
-	os.Exit(code)
+	goleak.VerifyTestMain(pgtest.RunThen(m, pkgPGTerminate))
 }
 
 // openPGEntClientWithLogger allocates an isolated per-test Postgres database,

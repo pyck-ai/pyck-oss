@@ -2,7 +2,7 @@
 # Source: backend/management/api/testdata/tests/cross-management-custom-event-forgery.test.yaml
 
 info:
-  #name: Send Custom Event - A custom event named after the datatype entity is refused
+  #name: Send Custom Event - A custom event named after the datatype entity is accepted
   name: Send Custom Event
   type: graphql
   seq: 3
@@ -50,9 +50,12 @@ runtime:
           expect(res.status).to.equal(200);
         });
 
-        test("The forged entity event is refused", function() {
-          expect(body?.errors).to.exist;
-          expect(body?.errors[0]?.message).to.include('reserved');
+        test("No GraphQL errors", function() {
+          expect(body?.errors).to.not.exist;
+        });
+
+        test("Event accepted", function() {
+          expect(body?.data?.sendCustomEvent?.success).to.equal(true);
         });
 
         await bru.sleep(1500);

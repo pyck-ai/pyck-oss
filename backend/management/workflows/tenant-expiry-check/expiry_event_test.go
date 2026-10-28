@@ -150,7 +150,7 @@ func setupWithEvents(t *testing.T) (*ent.Client, *idsProbe) {
 func seedExpiredTenant(t *testing.T, client *ent.Client) uuid.UUID {
 	t.Helper()
 	id := uuid.New()
-	ctx := feature.Context(authn.Context(context.Background(), authn.SystemUser()), feature.FEATURE_SUPPRESS_EVENTS)
+	ctx := feature.Context(authn.Context(t.Context(), authn.SystemUser()), feature.FEATURE_SUPPRESS_EVENTS)
 	_, err := client.Tenant.Create().
 		SetID(id).
 		SetName("expired-" + id.String()).
@@ -170,7 +170,7 @@ func tenantDeleteEvents(t *testing.T, client *ent.Client, id uuid.UUID) (matchin
 	t.Helper()
 	rows, err := client.EntityEventsOutbox.Query().
 		Order(ent.Asc(entityeventsoutbox.FieldCreatedAt)).
-		All(context.Background())
+		All(t.Context())
 	require.NoError(t, err)
 	for _, r := range rows {
 		all = append(all, r.Topic)
@@ -183,7 +183,7 @@ func tenantDeleteEvents(t *testing.T, client *ent.Client, id uuid.UUID) (matchin
 
 func softDeleted(t *testing.T, client *ent.Client, id uuid.UUID) bool {
 	t.Helper()
-	ctx := feature.Context(authn.Context(context.Background(), authn.SystemUser()), feature.FEATURE_SHOW_DELETED)
+	ctx := feature.Context(authn.Context(t.Context(), authn.SystemUser()), feature.FEATURE_SHOW_DELETED)
 	row, err := client.Tenant.Query().Where(enttenant.IDEQ(id)).Only(ctx)
 	require.NoError(t, err)
 	return !row.DeletedAt.IsZero()
@@ -199,7 +199,7 @@ func TestSoftDeleteExpiredTenantEmitsDeleteEvent(t *testing.T) {
 	id := seedExpiredTenant(t, client)
 
 	activities := tenantexpirycheck.NewActivities(client)
-	ctx := authn.Context(context.Background(), authn.SystemUser())
+	ctx := authn.Context(t.Context(), authn.SystemUser())
 	require.NoError(t, activities.SoftDeleteExpiredTenantActivity(ctx,
 		tenantexpirycheck.SoftDeleteExpiredTenantActivityInput{TenantID: id}))
 
@@ -240,7 +240,7 @@ func TestSoftDeleteExpiredTenant_NoTenantContext_EmitsViaSelfTenant(t *testing.T
 			client, _ := setupWithEvents(t)
 			id := seedExpiredTenant(t, client)
 
-			ctx := txid.With(authn.Context(context.Background(), authn.SystemUser()), txid.New())
+			ctx := txid.With(authn.Context(t.Context(), authn.SystemUser()), txid.New())
 			tx, err := client.Tx(ctx)
 			require.NoError(t, err)
 			ctx = ent.NewTxContext(ctx, tx)
@@ -270,7 +270,7 @@ func TestSoftDeleteExpiredTenant_NoTenantResolvable_FailsAndRollsBack(t *testing
 	}))
 	id := seedExpiredTenant(t, client)
 
-	ctx := txid.With(authn.Context(context.Background(), authn.SystemUser()), txid.New())
+	ctx := txid.With(authn.Context(t.Context(), authn.SystemUser()), txid.New())
 	tx, err := client.Tx(ctx)
 	require.NoError(t, err)
 	ctx = ent.NewTxContext(ctx, tx)
@@ -300,7 +300,7 @@ func TestSoftDeleteExpiredTenant_ActivityProvidesTenantContext(t *testing.T) {
 	id := seedExpiredTenant(t, client)
 
 	require.NoError(t, tenantexpirycheck.NewActivities(client).SoftDeleteExpiredTenantActivity(
-		authn.Context(context.Background(), authn.SystemUser()),
+		authn.Context(t.Context(), authn.SystemUser()),
 		tenantexpirycheck.SoftDeleteExpiredTenantActivityInput{TenantID: id}))
 
 	matching, all := tenantDeleteEvents(t, client, id)

@@ -2,10 +2,12 @@ package event
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -16,8 +18,10 @@ import (
 
 // Reasons an event is dropped without being published.
 const (
-	dropReasonQueueFull = "queue_full"
-	dropReasonShutdown  = "shutdown"
+	dropReasonQueueFull  = "queue_full"
+	dropReasonShutdown   = "shutdown"
+	dropReasonNoStream   = "no_stream"
+	dropReasonParkedFull = "parked_full" // EventWorkerQueueSize events already wait for a stream
 )
 
 var droppedEvents = promauto.NewCounterVec(
@@ -51,6 +55,9 @@ const (
 	// DefaultShutdownGrace is how long Close lets workers drain the queue
 	// before it abandons in-flight retries and drops whatever is left.
 	DefaultShutdownGrace = 5 * time.Second
+
+	// DefaultNoStreamGiveUp is how long an event no stream captures is retried.
+	DefaultNoStreamGiveUp = 5 * time.Minute
 )
 
 // EventConfig is an alias for config.EventConfig to avoid breaking existing code.
@@ -68,9 +75,16 @@ type EventConfig = config.EventWorkerConfig
 // drops a repeat beyond it. A worker that is retrying one event stays on it;
 // the other workers keep draining the queue.
 //
-// Events are only ever dropped, never blocked on, when the queue is full or
-// when they are still pending once Close's grace period has elapsed. Each drop
-// is logged and counted in temporal_state_change_events_dropped_total.
+// An event no stream captures (a namespace that outlived its tenant's stream,
+// or a tenant whose stream is not there yet) waits for its next attempt off the
+// worker and is queued again, so such events cannot take the whole pool. It is
+// retried for EventWorkerNoStreamGiveUp, and at most EventWorkerQueueSize of
+// them wait at once.
+//
+// Events are only ever dropped, never blocked on, when the queue is full, when
+// no stream takes them, or when they are still pending once Close's grace
+// period has elapsed. Each drop is logged and counted in
+// temporal_state_change_events_dropped_total.
 type Handler struct {
 	publisher events.Publisher
 	config    EventConfig
@@ -84,6 +98,12 @@ type Handler struct {
 	stateMu sync.RWMutex
 	closed  bool
 	closeMu sync.Mutex
+
+	// parked holds the events waiting off the workers for their next attempt,
+	// with the timer that queues them again. Whoever removes an entry owns it.
+	parkedMu     sync.Mutex
+	parked       map[*publishRequest]*time.Timer
+	parkedClosed bool
 }
 
 type publishRequest struct {
@@ -91,6 +111,11 @@ type publishRequest struct {
 	// a cancelled context in the worker goroutine.
 	logger log.Logger
 	event  *events.TemporalWorkflowStateChangeMessage
+
+	// Retry state, kept across a parked event's attempts.
+	attempt       int
+	backoff       time.Duration
+	noStreamSince time.Time // first of the consecutive no-stream failures
 }
 
 // NewHandler creates a new event handler with configuration from EventConfig.
@@ -110,6 +135,8 @@ type publishRequest struct {
 //   - PYCK_EVENT_WORKER_RETRY_MAX_BACKOFF (default: 5s)
 //
 //   - PYCK_EVENT_WORKER_SHUTDOWN_GRACE (default: 5s)
+//
+//   - PYCK_EVENT_WORKER_NO_STREAM_GIVE_UP (default: 5m)
 //
 // config.EventWorkerPublishTimeout bounds how long the worker waits for one
 // publish attempt before retrying; it does not cancel the publish itself, which
@@ -131,6 +158,10 @@ func NewHandler(ctx context.Context, publisher events.Publisher, cfg EventConfig
 		cfg.EventWorkerShutdownGrace = DefaultShutdownGrace
 	}
 
+	if cfg.EventWorkerNoStreamGiveUp <= 0 {
+		cfg.EventWorkerNoStreamGiveUp = DefaultNoStreamGiveUp
+	}
+
 	bgCtx, cancel := context.WithCancel(ctx)
 
 	h := &Handler{
@@ -138,6 +169,7 @@ func NewHandler(ctx context.Context, publisher events.Publisher, cfg EventConfig
 		config:    cfg,
 		eventChan: make(chan *publishRequest, cfg.EventWorkerQueueSize),
 		cancel:    cancel,
+		parked:    make(map[*publishRequest]*time.Timer),
 	}
 
 	for i := 0; i < cfg.EventWorkerPoolSize; i++ {
@@ -178,13 +210,20 @@ func (h *Handler) worker(bgCtx context.Context) {
 }
 
 // publishWithRetry publishes one event, retrying with exponential backoff until
-// it succeeds or bgCtx is cancelled (shutdown), in which case the event is dropped.
+// it succeeds. It drops the event when bgCtx is cancelled (shutdown) or no stream
+// has taken it for EventWorkerNoStreamGiveUp. After a no-stream failure the event
+// is parked instead of holding the worker.
 // A "duplicate message id is in process" error (another pod is storing the same
 // change) is retried like any other failure but logged at debug level.
 func (h *Handler) publishWithRetry(bgCtx context.Context, req *publishRequest) {
-	backoff := h.config.EventWorkerRetryInitialBackoff
+	if req.backoff == 0 {
+		req.backoff = h.config.EventWorkerRetryInitialBackoff
+	}
 
-	for attempt := 1; ; attempt++ {
+	for {
+		req.attempt++
+		attempt, backoff := req.attempt, req.backoff
+
 		err := h.publishOnce(bgCtx, req)
 		if err == nil {
 			req.logger.Debug().
@@ -202,6 +241,29 @@ func (h *Handler) publishWithRetry(bgCtx context.Context, req *publishRequest) {
 
 		if bgCtx.Err() != nil {
 			h.dropOnShutdown(req)
+
+			return
+		}
+
+		req.noStreamSince = noStreamClock(err, req.noStreamSince, time.Now())
+		if h.giveUpNoStream(err, req.noStreamSince) {
+			h.dropNoStream(req, err, attempt, time.Since(req.noStreamSince))
+
+			return
+		}
+
+		req.backoff = min(backoff*2, h.config.EventWorkerRetryMaxBackoff)
+
+		if errors.Is(err, jetstream.ErrNoStreamResponse) {
+			req.logger.Debug().
+				Err(err).
+				Int("attempt", attempt).
+				Dur("retry-in", backoff).
+				Str("namespace", req.event.Namespace).
+				Str("workflow-id", req.event.WorkflowID).
+				Msg("no stream takes the workflow event yet, retrying")
+
+			h.park(req, backoff, err)
 
 			return
 		}
@@ -230,9 +292,64 @@ func (h *Handler) publishWithRetry(bgCtx context.Context, req *publishRequest) {
 
 			return
 		}
-
-		backoff = min(backoff*2, h.config.EventWorkerRetryMaxBackoff)
 	}
+}
+
+// park queues req again after backoff, off the workers. Past
+// EventWorkerQueueSize parked events it drops req instead.
+func (h *Handler) park(req *publishRequest, backoff time.Duration, err error) {
+	h.parkedMu.Lock()
+	defer h.parkedMu.Unlock()
+
+	if h.parkedClosed {
+		h.dropOnShutdown(req)
+
+		return
+	}
+
+	if len(h.parked) >= h.config.EventWorkerQueueSize {
+		h.dropParkedFull(req, err)
+
+		return
+	}
+
+	h.parked[req] = time.AfterFunc(backoff, func() { h.unpark(req) })
+}
+
+// unpark queues a parked event again, unless Close has taken it.
+func (h *Handler) unpark(req *publishRequest) {
+	h.parkedMu.Lock()
+	_, ok := h.parked[req]
+	delete(h.parked, req)
+	h.parkedMu.Unlock()
+
+	if ok {
+		h.enqueue(req)
+	}
+}
+
+// noStreamClock returns when the event's current run of no-stream failures
+// began, after an attempt failed with err at now. An answer from a stream (an
+// API error) ends the run; a timeout leaves it as it is.
+func noStreamClock(err error, since, now time.Time) time.Time {
+	var apiErr *jetstream.APIError
+	if errors.As(err, &apiErr) {
+		return time.Time{}
+	}
+
+	if errors.Is(err, jetstream.ErrNoStreamResponse) && since.IsZero() {
+		return now
+	}
+
+	return since
+}
+
+// giveUpNoStream reports whether no stream has taken the event for
+// EventWorkerNoStreamGiveUp.
+func (h *Handler) giveUpNoStream(err error, since time.Time) bool {
+	return errors.Is(err, jetstream.ErrNoStreamResponse) &&
+		!since.IsZero() &&
+		time.Since(since) >= h.config.EventWorkerNoStreamGiveUp
 }
 
 // publishOnce makes a single publish attempt and waits at most
@@ -257,6 +374,34 @@ func (h *Handler) publishOnce(bgCtx context.Context, req *publishRequest) error 
 	case <-ctx.Done():
 		return fmt.Errorf("publish attempt timed out after %s: %w", h.config.EventWorkerPublishTimeout, ctx.Err())
 	}
+}
+
+func (h *Handler) dropNoStream(req *publishRequest, err error, attempts int, retriedFor time.Duration) {
+	droppedEvents.WithLabelValues(dropReasonNoStream).Inc()
+	req.logger.Warn().
+		Err(err).
+		Int("attempts", attempts).
+		Dur("retried-for", retriedFor).
+		Str("namespace", req.event.Namespace).
+		Str("workflow-type", req.event.WorkflowTypeName).
+		Str("workflow-id", req.event.WorkflowID).
+		Str("run-id", req.event.RunID).
+		Str("status", req.event.Status).
+		Msg("no stream takes the workflow event - event dropped")
+}
+
+func (h *Handler) dropParkedFull(req *publishRequest, err error) {
+	droppedEvents.WithLabelValues(dropReasonParkedFull).Inc()
+	req.logger.Warn().
+		Err(err).
+		Int("attempts", req.attempt).
+		Int("parked", h.config.EventWorkerQueueSize).
+		Str("namespace", req.event.Namespace).
+		Str("workflow-type", req.event.WorkflowTypeName).
+		Str("workflow-id", req.event.WorkflowID).
+		Str("run-id", req.event.RunID).
+		Str("status", req.event.Status).
+		Msg("too many workflow events wait for a stream - event dropped")
 }
 
 func (h *Handler) dropOnShutdown(req *publishRequest) {
@@ -288,20 +433,24 @@ func (h *Handler) Notify(ctx context.Context, event *events.TemporalWorkflowStat
 	// This prevents using a cancelled context in worker goroutines.
 	logger := log.ForContext(ctx)
 
-	req := &publishRequest{
+	h.enqueue(&publishRequest{
 		logger: *logger,
 		event:  event,
-	}
+	})
+}
 
+// enqueue sends req to the workers without blocking, or drops it when the
+// handler is closed or the queue is full.
+func (h *Handler) enqueue(req *publishRequest) {
 	h.stateMu.RLock()
 	defer h.stateMu.RUnlock()
 
 	if h.closed {
 		droppedEvents.WithLabelValues(dropReasonShutdown).Inc()
-		logger.Warn().
-			Str("namespace", event.Namespace).
-			Str("workflow-id", event.WorkflowID).
-			Str("run-id", event.RunID).
+		req.logger.Warn().
+			Str("namespace", req.event.Namespace).
+			Str("workflow-id", req.event.WorkflowID).
+			Str("run-id", req.event.RunID).
 			Msg("handler shut down - workflow event dropped")
 
 		return
@@ -313,20 +462,21 @@ func (h *Handler) Notify(ctx context.Context, event *events.TemporalWorkflowStat
 		// Successfully queued
 	default:
 		droppedEvents.WithLabelValues(dropReasonQueueFull).Inc()
-		logger.Warn().
-			Str("namespace", event.Namespace).
-			Str("workflow-type", event.WorkflowTypeName).
-			Str("workflow-id", event.WorkflowID).
-			Str("run-id", event.RunID).
-			Str("status", event.Status).
+		req.logger.Warn().
+			Str("namespace", req.event.Namespace).
+			Str("workflow-type", req.event.WorkflowTypeName).
+			Str("workflow-id", req.event.WorkflowID).
+			Str("run-id", req.event.RunID).
+			Str("status", req.event.Status).
 			Msg("event queue full - workflow event dropped")
 	}
 }
 
 // Close signals the handler to stop accepting new events and lets the workers
-// drain the queue. Events still unpublished after config.EventWorkerShutdownGrace
-// are dropped (logged and counted) and in-flight retries are abandoned, so Close
-// returns within roughly the grace period plus one publish attempt.
+// drain the queue. Parked events are dropped at once: no stream took them. Events
+// still unpublished after config.EventWorkerShutdownGrace are dropped (logged and
+// counted) and in-flight retries are abandoned, so Close returns within roughly
+// the grace period plus one publish attempt.
 //
 // Close is safe to call multiple times.
 func (h *Handler) Close() {
@@ -341,6 +491,8 @@ func (h *Handler) Close() {
 	h.closed = true
 	close(h.eventChan)
 	h.stateMu.Unlock()
+
+	h.dropParked()
 
 	drained := make(chan struct{})
 
@@ -361,4 +513,18 @@ func (h *Handler) Close() {
 	}
 
 	h.cancel()
+}
+
+// dropParked drops every parked event, and every event parked later.
+func (h *Handler) dropParked() {
+	h.parkedMu.Lock()
+	parked := h.parked
+	h.parked = nil
+	h.parkedClosed = true
+	h.parkedMu.Unlock()
+
+	for req, timer := range parked {
+		timer.Stop()
+		h.dropOnShutdown(req)
+	}
 }

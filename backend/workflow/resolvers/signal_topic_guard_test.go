@@ -33,6 +33,10 @@ var signalTopicSeeds = []string{
 	"pyck.A.temporal.q.t.w.r.s",
 	"pyck.*.temporal.q.>",
 	"pyck.*.temporal.*.*.*.*.*",
+	"pyck.A.custom.tour-creation.*.create",
+	"pyck.*.custom.tour-creation.*.create",
+	"pyck.*.custom.>",
+	"pyck.A.custom.datatype.123e4567-e89b-12d3-a456-426614174000.delete",
 	"  request.reply.pyck.A.crud.workflow.item.*.created  ",
 	// empty tokens: the class the subscription-subject guard refuses
 	"request.reply.pyck.A.crud..item.*.created",
@@ -46,6 +50,8 @@ var signalTopicSeeds = []string{
 	".request.reply.pyck.A.crud.workflow.item.*.created",
 	"request.reply.pyck.A.crud.workflow.item.*.created.",
 	"pyck..temporal.q.t.w.r.s",
+	"pyck.A.custom..*.create",
+	"pyck.A.custom.tour-creation.*.",
 	// wildcard misuse and characters NATS refuses inside a token
 	"request.reply.pyck.A.crud.wo*rk.item.*.created",
 	"request.reply.pyck.A.crud.workflow.item.*.cre>ated",
@@ -65,6 +71,8 @@ var signalTopicSeeds = []string{
 	"request.reply.pyck.11111111-1111-1111-1111-111111111111.crud.workflow.item.*.created",
 	"request.reply.pyck.A.crud.workflow.item.not-a-uuid.created",
 	"pyck.11111111-1111-1111-1111-111111111111.temporal.q.t.w.r.s",
+	"pyck.11111111-1111-1111-1111-111111111111.custom.tour-creation.*.create",
+	"pyck.A.custom.tour-creation.not-a-uuid.create",
 	// The nil UUID is the topic model's wildcard value: Parse reads "*" as
 	// uuid.Nil and String renders uuid.Nil as "*", so this entity token is a
 	// wildcard by design, the same as the nil-UUID tenant token above, which
@@ -106,7 +114,7 @@ func storedSignalSubject(natsTopic string, tenant uuid.UUID) (stored string, acc
 	}
 
 	switch parsed.(type) {
-	case *events.MutationEventTopic, *events.MutationEventWithReplyTopic, *events.TemporalWorkflowStateChangeTopic:
+	case *events.MutationEventTopic, *events.MutationEventWithReplyTopic, *events.TenantCustomEventTopic, *events.TemporalWorkflowStateChangeTopic:
 	default:
 		return "", false, false
 	}
@@ -141,6 +149,8 @@ func storedSignalSubject(natsTopic string, tenant uuid.UUID) (stored string, acc
 	switch p := parsed.(type) {
 	case *events.MutationEventTopic:
 		topicTenant = p.TenantID
+	case *events.TenantCustomEventTopic:
+		topicTenant = p.TenantID
 	case *events.TemporalWorkflowStateChangeTopic:
 		if p.Namespace != "" && p.Namespace != "*" {
 			if topicTenant, err = uuid.Parse(p.Namespace); err != nil {
@@ -170,6 +180,7 @@ func storedSignalSubject(natsTopic string, tenant uuid.UUID) (stored string, acc
 // carries a value the router compares.
 var literalPositions = map[events.TopicType]map[int]bool{
 	events.TopicTypeMutationEvent:                    {2: true},
+	events.TopicTypeTenantCustomEvent:                {2: true},
 	events.TopicTypeTemporalWorkflowStateChangeEvent: {2: true},
 }
 
@@ -221,6 +232,8 @@ func assertStoredSubjectSafe(t *testing.T, input, stored string, tenant uuid.UUI
 	switch p := parsed.(type) {
 	case *events.MutationEventTopic:
 		gotTenant = p.TenantID
+	case *events.TenantCustomEventTopic:
+		gotTenant = p.TenantID
 	case *events.TemporalWorkflowStateChangeTopic:
 		gotTenant, err = uuid.Parse(p.Namespace)
 		require.NoError(t, err, "accepted %q but stored %q has namespace %q", input, stored, p.Namespace)
@@ -260,6 +273,16 @@ func publishedEventFor(t *testing.T, signal events.Topic, tenant uuid.UUID) even
 		e.StreamName = fill(s.GetStreamName())
 		e.TenantID = tenant
 		e.ServiceName, e.SchemaName, e.OperationName = fill(s.ServiceName), fill(s.SchemaName), fill(s.OperationName)
+		if s.EntityID != uuid.Nil {
+			entity = s.EntityID
+		}
+		e.EntityID = entity
+		event = e
+	case *events.TenantCustomEventTopic:
+		e := *s
+		e.StreamName = fill(s.GetStreamName())
+		e.TenantID = tenant
+		e.EventType, e.OperationName = fill(s.EventType), fill(s.OperationName)
 		if s.EntityID != uuid.Nil {
 			entity = s.EntityID
 		}

@@ -67,7 +67,12 @@ func (r *mutationResolver) CreateInventoryItem(ctx context.Context, input ent.Cr
 		return nil, err
 	}
 
-	if err = validateItemEdgeOwnership(ctx, tx, request.ForContext(ctx).MutationTenantID(),
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
+
+	if err = validateItemEdgeOwnership(ctx, tx, tenantID,
 		input.ItemSetIDs, input.ItemStockIDs, input.ItemMovementItemIDs, input.ItemTransactionIDs); err != nil {
 		return nil, err
 	}
@@ -109,9 +114,14 @@ func (r *mutationResolver) UpdateInventoryItem(ctx context.Context, id uuid.UUID
 		return nil, err
 	}
 
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
+
 	// Validate both the add and remove lists: removing a link on another
 	// tenant's row is a cross-tenant write too.
-	if err = validateItemEdgeOwnership(ctx, tx, request.ForContext(ctx).MutationTenantID(),
+	if err = validateItemEdgeOwnership(ctx, tx, tenantID,
 		slices.Concat(input.AddItemSetIDs, input.RemoveItemSetIDs),
 		slices.Concat(input.AddItemStockIDs, input.RemoveItemStockIDs),
 		slices.Concat(input.AddItemMovementItemIDs, input.RemoveItemMovementItemIDs),
@@ -234,7 +244,12 @@ func (r *mutationResolver) CreateInventoryRepository(ctx context.Context, input 
 		return nil, err
 	}
 
-	if err = validateRepositoryEdgeOwnership(ctx, tx, request.ForContext(ctx).MutationTenantID(),
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
+
+	if err = validateRepositoryEdgeOwnership(ctx, tx, tenantID,
 		slices.Concat(input.ItemMovementToRepositoryIDs, input.ItemMovementFromRepositoryIDs),
 		slices.Concat(input.RepositoryMovementToRepositoryIDs, input.RepositoryMovementFromRepositoryIDs, input.RepositoryMovementRepositoryIDs),
 		input.RepositoryTransactionIDs, input.RepositoryStockIDs, input.ChildIDs); err != nil {
@@ -285,9 +300,14 @@ func (r *mutationResolver) UpdateInventoryRepository(ctx context.Context, id uui
 		return nil, err
 	}
 
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
+
 	// Validate both add and remove lists: detaching another tenant's row is a
 	// cross-tenant write too.
-	if err = validateRepositoryEdgeOwnership(ctx, tx, request.ForContext(ctx).MutationTenantID(),
+	if err = validateRepositoryEdgeOwnership(ctx, tx, tenantID,
 		slices.Concat(input.AddItemMovementToRepositoryIDs, input.RemoveItemMovementToRepositoryIDs,
 			input.AddItemMovementFromRepositoryIDs, input.RemoveItemMovementFromRepositoryIDs),
 		slices.Concat(input.AddRepositoryMovementToRepositoryIDs, input.RemoveRepositoryMovementToRepositoryIDs,
@@ -320,6 +340,10 @@ func (r *mutationResolver) DeleteInventoryRepository(ctx context.Context, id uui
 	var resp model.InventoryRepositoryDeletePayload
 	resp.TransactionID = gqltx.TransactionID(ctx)
 	req := request.ForContext(ctx)
+	tenantID, err := req.MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 
 	stockMap, err := r.stock.GetCurrentRepositoriesStock(ctx, tx, []uuid.UUID{id})
 	if err != nil {
@@ -341,7 +365,7 @@ func (r *mutationResolver) DeleteInventoryRepository(ctx context.Context, id uui
 	childList, err := tx.Repository.
 		Query().
 		Where(repository.ParentIDEQ(id)).
-		Where(repository.TenantID(req.MutationTenantID())).
+		Where(repository.TenantID(tenantID)).
 		AllPages(ctx, mixin.Limit)
 	if err != nil {
 		return nil, err
@@ -385,8 +409,12 @@ func (r *mutationResolver) CreateInventoryItemMovement(ctx context.Context, inpu
 			TableName: itemmovement.Table, FieldName: itemmovement.FieldData,
 		})
 	}
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 	itemMovementInput := stocksvc.CreateItemMovementInput{
-		Input: input, TenantID: request.ForContext(ctx).MutationTenantID(), ValidateUniquenessHook: uniqueness,
+		Input: input, TenantID: tenantID, ValidateUniquenessHook: uniqueness,
 	}
 	if dataType != nil {
 		itemMovementInput.DataTypeSlug = &dataType.Slug
@@ -447,8 +475,12 @@ func (r *mutationResolver) ExecuteInventoryItemMovement(ctx context.Context, id 
 	if err != nil {
 		return nil, err
 	}
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 	itemMovement, err := r.stock.ExecuteItemMovement(ctx, tx, stocksvc.ExecuteItemMovementInput{
-		ID: id, TenantID: request.ForContext(ctx).MutationTenantID(),
+		ID: id, TenantID: tenantID,
 	})
 	if err != nil {
 		return nil, err
@@ -464,8 +496,12 @@ func (r *mutationResolver) DeleteInventoryItemMovement(ctx context.Context, id u
 		return nil, err
 	}
 	req := request.ForContext(ctx)
+	tenantID, err := req.MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 	if _, err = r.stock.DeleteItemMovement(ctx, tx, stocksvc.DeleteItemMovementInput{
-		ID: id, TenantID: req.MutationTenantID(), DeletedBy: req.User().ID,
+		ID: id, TenantID: tenantID, DeletedBy: req.User().ID,
 	}); err != nil {
 		return nil, err
 	}
@@ -492,8 +528,12 @@ func (r *mutationResolver) CreateInventoryRepositoryMovement(ctx context.Context
 			TableName: repositorymovement.Table, FieldName: repositorymovement.FieldData,
 		})
 	}
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 	repositoryMovementInput := stocksvc.CreateRepositoryMovementInput{
-		Input: input, TenantID: request.ForContext(ctx).MutationTenantID(), ValidateUniquenessHook: uniqueness,
+		Input: input, TenantID: tenantID, ValidateUniquenessHook: uniqueness,
 	}
 	if dataType != nil {
 		repositoryMovementInput.DataTypeSlug = &dataType.Slug
@@ -554,8 +594,12 @@ func (r *mutationResolver) ExecuteInventoryRepositoryMovement(ctx context.Contex
 	if err != nil {
 		return nil, err
 	}
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 	repositoryMovement, err := r.stock.ExecuteRepositoryMovement(ctx, tx, stocksvc.ExecuteRepositoryMovementInput{
-		ID: id, TenantID: request.ForContext(ctx).MutationTenantID(),
+		ID: id, TenantID: tenantID,
 	})
 	if err != nil {
 		return nil, err
@@ -571,8 +615,12 @@ func (r *mutationResolver) DeleteInventoryRepositoryMovement(ctx context.Context
 		return nil, err
 	}
 	req := request.ForContext(ctx)
+	tenantID, err := req.MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 	if _, err = r.stock.DeleteRepositoryMovement(ctx, tx, stocksvc.DeleteRepositoryMovementInput{
-		ID: id, TenantID: req.MutationTenantID(), DeletedBy: req.User().ID,
+		ID: id, TenantID: tenantID, DeletedBy: req.User().ID,
 	}); err != nil {
 		return nil, err
 	}
@@ -629,10 +677,14 @@ func (r *mutationResolver) CreateInventoryCollectionMovement(ctx context.Context
 			TableName: collection_movement.Table, FieldName: collection_movement.FieldData,
 		})
 	}
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 	out, err := r.stock.CreateCollectionMovement(ctx, tx, stocksvc.CreateCollectionMovementInput{
 		ID: uuidgql.GenerateV7UUID(), DataTypeID: resolvedDataTypeID, DataTypeSlug: resolvedDataTypeSlug,
 		Data: input.Data, Handler: input.Handler, Collection: collection,
-		TenantID: request.ForContext(ctx).MutationTenantID(), PreInsertStockHook: uniqueness,
+		TenantID: tenantID, PreInsertStockHook: uniqueness,
 	})
 	if err != nil {
 		return nil, err
@@ -709,6 +761,10 @@ func (r *mutationResolver) DeleteInventoryStock(ctx context.Context, input model
 	}
 
 	req := request.ForContext(ctx)
+	tenantID, err := req.MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 
 	repo, err := tx.Repository.Get(ctx, input.RepositoryID)
 	if err != nil {
@@ -765,7 +821,7 @@ func (r *mutationResolver) DeleteInventoryStock(ctx context.Context, input model
 					tx.Stock.
 						Create().
 						SetItemID(v).
-						SetTenantID(req.MutationTenantID()).
+						SetTenantID(tenantID).
 						SetRepositoryID(c.ID).
 						SetQuantity(0).
 						SetCreatedBy(req.User().ID).
@@ -776,7 +832,7 @@ func (r *mutationResolver) DeleteInventoryStock(ctx context.Context, input model
 					tx.Transaction.
 						Create().
 						SetItemID(v).
-						SetTenantID(req.MutationTenantID()).
+						SetTenantID(tenantID).
 						SetRepositoryID(c.ID).
 						SetType(transaction.TypeOut).
 						SetQuantity(stockMap[repo.ID][v].Quantity).
@@ -791,7 +847,7 @@ func (r *mutationResolver) DeleteInventoryStock(ctx context.Context, input model
 				tx.Stock.
 					Create().
 					SetItemID(v).
-					SetTenantID(req.MutationTenantID()).
+					SetTenantID(tenantID).
 					SetRepositoryID(repo.ID).
 					SetQuantity(0).
 					SetCreatedBy(req.User().ID).
@@ -802,7 +858,7 @@ func (r *mutationResolver) DeleteInventoryStock(ctx context.Context, input model
 				tx.Transaction.
 					Create().
 					SetItemID(v).
-					SetTenantID(req.MutationTenantID()).
+					SetTenantID(tenantID).
 					SetRepositoryID(repo.ID).
 					SetType(transaction.TypeOut).
 					SetQuantity(stockMap[repo.ID][v].Quantity).
@@ -816,7 +872,7 @@ func (r *mutationResolver) DeleteInventoryStock(ctx context.Context, input model
 				tx.Stock.
 					Create().
 					SetItemID(v).
-					SetTenantID(req.MutationTenantID()).
+					SetTenantID(tenantID).
 					SetRepositoryID(repo.ParentID).
 					SetQuantity(stockMap[repo.ParentID][v].Quantity-stockMap[repo.ID][v].Quantity).
 					SetCreatedBy(req.User().ID).
@@ -827,7 +883,7 @@ func (r *mutationResolver) DeleteInventoryStock(ctx context.Context, input model
 				tx.Transaction.
 					Create().
 					SetItemID(v).
-					SetTenantID(req.MutationTenantID()).
+					SetTenantID(tenantID).
 					SetRepositoryID(repo.ParentID).
 					SetType(transaction.TypeOut).
 					SetQuantity(stockMap[repo.ID][v].Quantity).
@@ -855,12 +911,21 @@ func (r *mutationResolver) DeleteInventoryStock(ctx context.Context, input model
 }
 
 // RebuildInventoryStock is the resolver for the rebuildInventoryStock field.
-// Requires admin role to execute.
+//
+// Requires ROLE_ADMIN on the acting tenant. Tenant registration grants the
+// tenant's own admin that role, and this mutation is deliberately left
+// tenant-reachable: the rebuild replays only the acting tenant's own
+// movements into its own stock rows (RebuildStockTable is scoped by the
+// tenant ID) with event emission suppressed. What a misuse costs is
+// bounded by that tenant's own history: the replay buffers the tenant's
+// movements in the inventory pod's memory and, running as one
+// serializable transaction that first deletes the tenant's stock rows,
+// aborts that tenant's concurrent stock writes with 40001 for its
+// duration. Other tenants only share the database and pod load.
 func (r *mutationResolver) RebuildInventoryStock(ctx context.Context) (*model.RebuildStockOutput, error) {
-	req := request.ForContext(ctx)
-
-	if !req.User().HasRole(authn.ROLE_ADMIN, req.MutationTenantID()) {
-		return nil, fmt.Errorf("%w: admin role required for rebuildInventoryStock", authn.ErrUnauthorized)
+	tenantID, err := request.ForContext(ctx).RequireRole(authn.ROLE_ADMIN, "rebuildInventoryStock")
+	if err != nil {
+		return nil, err
 	}
 
 	tx, err := gqltx.ForContext(ctx, ent.TxFromContext)
@@ -870,16 +935,23 @@ func (r *mutationResolver) RebuildInventoryStock(ctx context.Context) (*model.Re
 
 	// The rebuild replays every movement, writing one stock row per event.
 	// Emitting an outbox event per replayed row would flood the outbox and can
-	// OOM the publisher draining the backlog, so suppress event creation by
-	// default for this mutation. A caller can opt back into normal event
-	// emission by explicitly requesting sync updates (X-Pyck-Feature:
-	// syncupdates); all other mutations keep the normal sync behavior.
-	rebuildCtx := ctx
-	if !feature.HasFeature(ctx, feature.FEATURE_SYNC_UPDATES) {
-		rebuildCtx = feature.Context(ctx, feature.FEATURE_SUPPRESS_EVENTS)
+	// OOM the publisher draining the backlog (a blast radius shared by every
+	// tenant on the service) so suppress event creation for this mutation.
+	// Only a system caller may opt back into normal emission (X-Pyck-Feature:
+	// syncupdates): the header is client-controlled, and honoring it for a
+	// tenant admin would let any tenant re-emit its whole movement history
+	// into the shared outbox per call. A tenant caller that asks for it is
+	// refused rather than silently downgraded, so the caller learns the
+	// events it expected will not come instead of waiting for them.
+	rebuildCtx := feature.Context(ctx, feature.FEATURE_SUPPRESS_EVENTS)
+	if feature.HasFeature(ctx, feature.FEATURE_SYNC_UPDATES) {
+		if !authn.ForContext(ctx).IsSystemUser() {
+			return nil, fmt.Errorf("rebuildInventoryStock: %w for X-Pyck-Feature syncupdates", authn.ErrSystemCallerRequired)
+		}
+		rebuildCtx = ctx
 	}
 
-	if err := r.stock.RebuildStockTable(rebuildCtx, tx, req.MutationTenantID()); err != nil {
+	if err := r.stock.RebuildStockTable(rebuildCtx, tx, tenantID); err != nil {
 		return nil, err
 	}
 
@@ -901,10 +973,13 @@ func (r *mutationResolver) CreateInventoryItemSet(ctx context.Context, input ent
 
 	var resp model.InventoryItemSetOutput
 	resp.TransactionID = gqltx.TransactionID(ctx)
-	req := request.ForContext(ctx)
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 
 	items, err := tx.Item.Query().
-		Where(entitem.TenantID(req.MutationTenantID())).
+		Where(entitem.TenantID(tenantID)).
 		Where(entitem.IDIn(input.ItemIDs...)).
 		AllPages(ctx, mixin.Limit)
 	if err != nil {
@@ -962,7 +1037,10 @@ func (r *mutationResolver) UpdateInventoryItemSet(ctx context.Context, id uuid.U
 
 	var resp model.InventoryItemSetOutput
 	resp.TransactionID = gqltx.TransactionID(ctx)
-	req := request.ForContext(ctx)
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 
 	// Verify the item set belongs to the caller's tenant before validating input.
 	if _, err := tx.ItemSet.Get(ctx, id); err != nil {
@@ -971,7 +1049,7 @@ func (r *mutationResolver) UpdateInventoryItemSet(ctx context.Context, id uuid.U
 
 	if len(input.AddItemIDs) > 0 {
 		items, err := tx.Item.Query().
-			Where(entitem.TenantID(req.MutationTenantID())).
+			Where(entitem.TenantID(tenantID)).
 			Where(entitem.IDIn(input.AddItemIDs...)).
 			AllPages(ctx, mixin.Limit)
 		if err != nil {
@@ -1159,9 +1237,14 @@ func (r *mutationResolver) UpdateReplenishmentOrder(ctx context.Context, id uuid
 		return nil, err
 	}
 
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
+
 	// Validate both add and remove lists: detaching another tenant's row is a
 	// cross-tenant write too.
-	if err = validateReplenishmentOrderEdgeOwnership(ctx, tx, request.ForContext(ctx).MutationTenantID(),
+	if err = validateReplenishmentOrderEdgeOwnership(ctx, tx, tenantID,
 		slices.Concat(input.AddReplenishmentOrderItemIDs, input.RemoveReplenishmentOrderItemIDs)); err != nil {
 		return nil, err
 	}

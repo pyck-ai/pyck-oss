@@ -33,6 +33,7 @@ import (
 	httpclient "github.com/pyck-ai/pyck/backend/common/http_client"
 	"github.com/pyck-ai/pyck/backend/common/idempotency"
 	json_schema "github.com/pyck-ai/pyck/backend/common/json-schema"
+	"github.com/pyck-ai/pyck/backend/common/liveness"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	logadapter "github.com/pyck-ai/pyck/backend/common/log/adapter"
 	"github.com/pyck-ai/pyck/backend/common/otel"
@@ -183,7 +184,8 @@ func run(ctx context.Context) error {
 	defer events.DrainNatsClient(procCtx, natsClient, events.DrainTimeout)
 
 	// Set up JetStream
-	jetstreamClient, err := events.CreateOrUpdateJetstream(procCtx, natsClient, core.Config.NatsStreamName, core.Config.NatsReplicasNumber)
+	jetstreamClient, err := events.SetupJetStream(procCtx, natsClient, core.Config.NatsStreamName, core.Config.NatsReplicasNumber,
+		events.StreamLimitsOf(core.Config.NatsConfig))
 	if err != nil {
 		return fmt.Errorf("failed setting up JetStream: %w", err)
 	}
@@ -192,15 +194,23 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	// Auth path: introspection via Zitadel; org-active probe routed
-	// through the federation gateway to management's `organization`
-	// resolver. The revocation subscriber evicts cached entries within
-	// the JetStream-propagation window when a tenant is disabled.
-	authProvider, revocationCC, err := authn.NewProviderWithRevocation(
+	// Auth path: introspection via Zitadel; tenant liveness (the
+	// caller's home tenant at authentication and the acting set in the
+	// tenant middleware) answered by one lookup routed through the
+	// federation gateway to management's `disabledTenants` resolver.
+	// Verdicts live in one liveness cache shared by the auth provider,
+	// the tenant middleware and the tenant lifecycle subscriber, which
+	// evicts them within the JetStream-propagation window when a tenant
+	// changes state.
+	livenessCache := liveness.NewCacheFromConfig(core.Config.LivenessConfig)
+	defer livenessCache.Close()
+	disabledTenantSource := managementapi.NewDisabledTenantsSource(mgmtClient)
+	authProvider, tenantEventsCC, err := authn.NewProviderWithTenantEvents(
 		procCtx,
 		zitadel.NewClient(core.Config.ZitadelConfig),
 		core.Config.ZitadelConfig,
-		managementapi.NewOrganizationValidator(mgmtClient),
+		disabledTenantSource,
+		livenessCache,
 		jetstreamClient,
 		core.Config.NatsStreamName,
 		serviceName,
@@ -208,7 +218,10 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to set up auth provider: %w", err)
 	}
-	defer revocationCC.Stop()
+	// Stops the token cache's janitor goroutine; deferred before the
+	// subscriber's Stop so the subscriber stops first.
+	defer authProvider.Close()
+	defer tenantEventsCC.Stop()
 
 	jetstreamPub := events.NewEventPublisher(jetstreamClient, natsClient, core.Config.NatsStreamName)
 
@@ -299,10 +312,15 @@ func run(ctx context.Context) error {
 	gqlServer.Use(otel.NewTracingMiddleware())
 	gqlServer.Use(resolvers.NewLoaderExtension(dbClient))
 
+	tenantMiddleware, err := tenant.HTTPMiddleware(livenessCache, disabledTenantSource)
+	if err != nil {
+		return fmt.Errorf("failed setting up tenant middleware: %w", err)
+	}
+
 	gqlHandler := chi.NewRouter()
 	gqlHandler.Use(
 		authProvider.HTTPMiddleware(),
-		tenant.HTTPMiddleware(),
+		tenantMiddleware,
 		gate.HTTPMiddleware(serviceroles.Inventory),
 		feature.HTTPMiddleware(),
 	)

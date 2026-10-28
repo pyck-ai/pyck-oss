@@ -39,13 +39,16 @@ func _AdapterTypeNoOp() {
 var _AdapterTypeValues = []AdapterType{AdapterTypeInvalid, AdapterTypeDefault, AdapterTypeGRPC, AdapterTypePostgresListen}
 
 var _AdapterTypeNameToValueMap = map[string]AdapterType{
-	_AdapterTypeName[0:7]:        AdapterTypeInvalid,
+	_AdapterTypeName[0:7]:   AdapterTypeInvalid,
+	_AdapterTypeName[7:14]:  AdapterTypeDefault,
+	_AdapterTypeName[14:18]: AdapterTypeGRPC,
+	_AdapterTypeName[18:33]: AdapterTypePostgresListen,
+}
+
+var _AdapterTypeLowerNameToValueMap = map[string]AdapterType{
 	_AdapterTypeLowerName[0:7]:   AdapterTypeInvalid,
-	_AdapterTypeName[7:14]:       AdapterTypeDefault,
 	_AdapterTypeLowerName[7:14]:  AdapterTypeDefault,
-	_AdapterTypeName[14:18]:      AdapterTypeGRPC,
 	_AdapterTypeLowerName[14:18]: AdapterTypeGRPC,
-	_AdapterTypeName[18:33]:      AdapterTypePostgresListen,
 	_AdapterTypeLowerName[18:33]: AdapterTypePostgresListen,
 }
 
@@ -63,7 +66,7 @@ func AdapterTypeString(s string) (AdapterType, error) {
 		return val, nil
 	}
 
-	if val, ok := _AdapterTypeNameToValueMap[strings.ToLower(s)]; ok {
+	if val, ok := _AdapterTypeLowerNameToValueMap[strings.ToLower(s)]; ok {
 		return val, nil
 	}
 	return 0, errors.Join(enumerrs.ErrValueInvalid, fmt.Errorf("%s does not belong to AdapterType values", s))

@@ -34,6 +34,8 @@ x-common: &common
 services:
   bootstrap-zitadel:
     <<: *common
+    # Capped so a broken bootstrap fails `task up` instead of hanging it.
+    restart: on-failure:3
     entrypoint: ["/usr/local/bin/service"]
     environment:
       - PYCK_BOOTSTRAP_TIMEOUT=10m

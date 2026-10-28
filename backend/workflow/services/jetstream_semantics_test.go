@@ -1,7 +1,6 @@
 package services_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -16,7 +15,7 @@ import (
 func semanticsConsumer(t *testing.T, e *natsEnv, maxDeliver int) jetstream.Consumer {
 	t.Helper()
 
-	c, err := e.js.CreateOrUpdateConsumer(context.Background(), consumerStream, jetstream.ConsumerConfig{
+	c, err := e.js.CreateOrUpdateConsumer(t.Context(), consumerStream, jetstream.ConsumerConfig{
 		Durable:        "semantics",
 		FilterSubjects: []string{consumerStream + ".*.crud.*.*.*.*"},
 		AckPolicy:      jetstream.AckExplicitPolicy,
@@ -103,7 +102,7 @@ func TestJetStream_InProgressHoldsPastAckWait(t *testing.T) {
 		require.NoError(t, msg.InProgress())
 	}
 
-	info, err := c.Info(context.Background())
+	info, err := c.Info(t.Context())
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, info.Delivered.Stream, "held 2.4s with a 1s AckWait and never redelivered")
 	assert.Zero(t, info.NumRedelivered)

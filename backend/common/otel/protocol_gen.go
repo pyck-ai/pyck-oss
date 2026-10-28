@@ -39,13 +39,16 @@ func _ProtocolTypeNoOp() {
 var _ProtocolTypeValues = []ProtocolType{ProtocolTypeInvalid, ProtocolTypeGRPC, ProtocolTypeHTTP, ProtocolTypeHTTPProtobuf}
 
 var _ProtocolTypeNameToValueMap = map[string]ProtocolType{
-	_ProtocolTypeName[0:7]:        ProtocolTypeInvalid,
+	_ProtocolTypeName[0:7]:   ProtocolTypeInvalid,
+	_ProtocolTypeName[7:11]:  ProtocolTypeGRPC,
+	_ProtocolTypeName[11:15]: ProtocolTypeHTTP,
+	_ProtocolTypeName[15:28]: ProtocolTypeHTTPProtobuf,
+}
+
+var _ProtocolTypeLowerNameToValueMap = map[string]ProtocolType{
 	_ProtocolTypeLowerName[0:7]:   ProtocolTypeInvalid,
-	_ProtocolTypeName[7:11]:       ProtocolTypeGRPC,
 	_ProtocolTypeLowerName[7:11]:  ProtocolTypeGRPC,
-	_ProtocolTypeName[11:15]:      ProtocolTypeHTTP,
 	_ProtocolTypeLowerName[11:15]: ProtocolTypeHTTP,
-	_ProtocolTypeName[15:28]:      ProtocolTypeHTTPProtobuf,
 	_ProtocolTypeLowerName[15:28]: ProtocolTypeHTTPProtobuf,
 }
 
@@ -63,7 +66,7 @@ func ProtocolTypeString(s string) (ProtocolType, error) {
 		return val, nil
 	}
 
-	if val, ok := _ProtocolTypeNameToValueMap[strings.ToLower(s)]; ok {
+	if val, ok := _ProtocolTypeLowerNameToValueMap[strings.ToLower(s)]; ok {
 		return val, nil
 	}
 	return 0, errors.Join(enumerrs.ErrValueInvalid, fmt.Errorf("%s does not belong to ProtocolType values", s))

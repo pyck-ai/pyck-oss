@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"github.com/nats-io/nats.go/jetstream"
 	"github.com/pyck-ai/pyck/backend/common/log"
 )
 
@@ -17,10 +16,9 @@ const (
 	// publishing has stopped by then.
 	DrainTimeout = 5 * time.Second
 
-	// StreamDuplicateWindow is how long the main stream remembers JetStream
-	// message IDs (Nats-Msg-Id) and drops a repeat publish. It equals the NATS
-	// default; it is set explicitly so the dedup that state-change publishing
-	// relies on does not depend on a server default.
+	// StreamDuplicateWindow is how long the tenant and system streams remember
+	// a Nats-Msg-Id. It equals the NATS default; set explicitly because
+	// state-change publishing relies on it.
 	StreamDuplicateWindow = 2 * time.Minute
 )
 
@@ -28,6 +26,19 @@ func NewNatsClient(ctx context.Context, natsURL string) (*nats.Conn, error) {
 	client, err := nats.Connect(
 		natsURL,
 		nats.RetryOnFailedConnect(true),
+		// The platform must ride out auth refusals rather than give up:
+		// the auth callout denies while its dependencies (Zitadel, the
+		// tenant liveness source) are unreachable, and the client's
+		// default behaviour (abort reconnecting after the same auth
+		// error twice, cap reconnects at 60) would turn such a blip
+		// into a permanently closed connection that silently stops the
+		// outbox drainer and every consumer until the pod restarts.
+		// Reconnect forever and treat auth errors as retryable; a
+		// genuinely revoked credential then shows as an endless logged
+		// reconnect loop, which monitoring catches, instead of a dead
+		// pod that looks healthy.
+		nats.IgnoreAuthErrorAbort(),
+		nats.MaxReconnects(-1),
 		nats.ConnectHandler(connectHandler(ctx)),
 		nats.DisconnectErrHandler(disconnectErrorHandler(ctx)),
 		nats.ReconnectHandler(reconnectHandler(ctx)),
@@ -84,51 +95,6 @@ func DrainNatsClient(ctx context.Context, nc *nats.Conn, timeout time.Duration) 
 		logger.Warn().Dur("timeout", timeout).Msg("NATS drain timed out, closing")
 		nc.Close()
 	}
-}
-
-func CreateOrUpdateJetstream(ctx context.Context, natsClient *nats.Conn, streamName string, natsReplicaNo int) (jetstream.JetStream, error) {
-	js, err := jetstream.New(natsClient)
-	if err != nil {
-		return nil, err
-	}
-
-	streamConfig := jetstream.StreamConfig{
-		Name:         streamName,
-		Subjects:     []string{streamName + ".>"},
-		Replicas:     natsReplicaNo,
-		MaxConsumers: 200,
-		MaxAge:       time.Hour * 24 * 3,
-		Duplicates:   StreamDuplicateWindow,
-		Retention:    jetstream.LimitsPolicy,
-		Discard:      jetstream.DiscardOld,
-		ConsumerLimits: jetstream.StreamConsumerLimits{
-			InactiveThreshold: time.Hour * 24 * 3, // Consumers inactive for 3 days may be removed
-			MaxAckPending:     10000,              // Maximum number of messages without acknowledgement
-		},
-	}
-	_, err = js.CreateOrUpdateStream(ctx, streamConfig)
-	if err != nil {
-		return nil, err
-	}
-	return js, nil
-}
-
-func CreateOrUpdateStream(ctx context.Context, js jetstream.JetStream, streamName string, natsReplicaNo int, subjects []string) (jetstream.JetStream, error) {
-	streamConfig := jetstream.StreamConfig{
-		Name:         streamName,
-		Subjects:     subjects,
-		Replicas:     natsReplicaNo,
-		MaxConsumers: 200,
-		MaxAge:       time.Hour * 24 * 3,
-		Retention:    jetstream.LimitsPolicy,
-		Discard:      jetstream.DiscardOld,
-	}
-
-	_, err := js.CreateOrUpdateStream(ctx, streamConfig)
-	if err != nil {
-		return nil, err
-	}
-	return js, nil
 }
 
 func connectHandler(ctx context.Context) nats.ConnHandler {

@@ -79,7 +79,7 @@ func startTargets(t *testing.T) []target {
 		t.Skipf("%s is not a native temporal CLI binary (set TEMPORAL_CLI_PATH)", temporalCLIPath())
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
 	defer cancel()
 
 	srv, err := testsuite.StartDevServer(ctx, testsuite.DevServerOptions{
@@ -196,7 +196,7 @@ func TestRequestID(t *testing.T) {
 		t.Run(tg.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
+			ctx := context.WithoutCancel(t.Context())
 			c := tg.c
 			opts := func(id string) client.StartWorkflowOptions {
 				return client.StartWorkflowOptions{ID: id, TaskQueue: tg.taskQueue}
@@ -400,17 +400,17 @@ func isNativeBinary(path string) bool {
 func TestRequestIDFromContext(t *testing.T) {
 	t.Parallel()
 
-	_, ok := temporal.RequestIDFromContext(context.Background())
+	_, ok := temporal.RequestIDFromContext(t.Context())
 	if ok {
 		t.Fatal("no ID on a plain context")
 	}
 
-	_, ok = temporal.RequestIDFromContext(temporal.WithRequestID(context.Background(), ""))
+	_, ok = temporal.RequestIDFromContext(temporal.WithRequestID(t.Context(), ""))
 	if ok {
 		t.Fatal("an empty ID counts as none")
 	}
 
-	id, ok := temporal.RequestIDFromContext(temporal.WithRequestID(context.Background(), "abc"))
+	id, ok := temporal.RequestIDFromContext(temporal.WithRequestID(t.Context(), "abc"))
 	if !ok || id != "abc" {
 		t.Fatalf("got %q, %v", id, ok)
 	}

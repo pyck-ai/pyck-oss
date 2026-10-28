@@ -2,7 +2,10 @@
 // parsed GraphQL types, and test-fixture types.
 package types
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // Config holds all settings for a brunogen generation run.
 type Config struct {
@@ -127,15 +130,18 @@ type TestAssertion struct {
 //
 // Supported assertion keys:
 //
-//	equal, notEqual, nil, exists, empty, contains, isType,
-//	greater, less, greaterOrEqual, lessOrEqual, len, regexp
+//	equal, notEqual, nil, notNil, exists, empty, notEmpty, contains,
+//	isType, greater, less, greaterOrEqual, lessOrEqual, len, regexp
 //
 // nil: true checks that the value does not exist (.to.not.exist).
 // nil: false checks that the value exists (.to.exist).
-// exists: true checks that the value exists (.to.exist).
-// exists: false checks that the value does not exist (.to.not.exist).
+// notNil and exists are the inverse of nil.
 // empty: true checks that the value is empty (.to.be.empty).
 // empty: false checks that the value is not empty (.to.not.be.empty).
+// notEmpty is the inverse of empty.
+//
+// The keys must match $defs.Assertion in api/schemas/test.schema.json and the
+// renderer's chaiChain; TestAssertionKeysCoverSchema guards the first pair.
 type Assertion struct {
 	Ref  string // res.status | res.headers.<n> | res.body.<path> | req.body.variables.<path> | res[<id>].<path>
 	Test string // assertion name, e.g. "equal"
@@ -143,7 +149,7 @@ type Assertion struct {
 }
 
 var assertionKeys = []string{
-	"equal", "notEqual", "nil", "exists", "empty",
+	"equal", "notEqual", "nil", "notNil", "exists", "empty", "notEmpty",
 	"contains", "isType", "greater", "less", "greaterOrEqual", "lessOrEqual",
 	"len", "regexp",
 }
@@ -163,6 +169,11 @@ func (a *Assertion) UnmarshalYAML(unmarshal func(any) error) error {
 			a.Args = args
 			break
 		}
+	}
+	if a.Test == "" {
+		// Without an operator the assertion would render as a comment and
+		// check nothing.
+		return fmt.Errorf("%w: ref %q", ErrUnknownAssertion, a.Ref)
 	}
 	return nil
 }

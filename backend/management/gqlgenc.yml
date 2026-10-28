@@ -13,6 +13,8 @@ models:
     model: any
   Cursor:
     model: github.com/99designs/gqlgen/graphql.String
+  Password:
+    model: github.com/99designs/gqlgen/graphql.String
 autobind:
   - github.com/99designs/gqlgen/graphql/introspection
   - github.com/pyck-ai/pyck/backend/management/model

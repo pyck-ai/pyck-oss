@@ -173,7 +173,7 @@ func TestCreateItemMovementViaProc_DtoTenantOtherThanRequestTenantCommitsNothing
 
 	f := newMovementPolicyFixture(t) // tenant B: the dto's tenant, holds the rows
 	tenantA := uuid.New()
-	writerOfA := request.Context(context.Background(), roleUser(tenantA, tenantA, authn.ROLE_WRITER), tenantA)
+	writerOfA := request.Context(t.Context(), roleUser(tenantA, tenantA, authn.ROLE_WRITER), tenantA)
 	allowB := entprivacy.DecisionContext(f.callerCtx(&authn.User{ID: uuid.New(), TenantID: f.tenantID}), entprivacy.Allow)
 
 	for _, path := range []struct {

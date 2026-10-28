@@ -79,7 +79,7 @@ runtime:
         });
 
         test("File was created", function() {
-          expect(body?.data?.createFile?.file?.id)/* UNSUPPORTED:  */;
+          expect(body?.data?.createFile?.file?.id).to.exist;
         });
     - type: after-response
       code: |-

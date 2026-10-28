@@ -48,14 +48,11 @@ var stateChangeNamespace = uuid.MustParse("d0005538-6693-4943-ad45-f4b684716d13"
 //
 // It is published with a JetStream message ID derived from EventID, so the
 // copies that several Temporal pods publish for one change collapse into one
-// stored message within the stream's duplicate window. The ID is a hash of
-// public fields and so predictable: a client allowed to publish to the stream
-// could suppress a real state change within that window by sending a message
-// with the ID the real one would get. That risk is accepted until each tenant
-// has its own stream (#1656). Beyond the window, or when a publish is retried,
-// a change can still be stored twice; the signal router absorbs that, because
-// its Temporal request IDs are derived from the same (namespace, workflow ID,
-// run ID, status) fields.
+// stored message within the stream's duplicate window. The ID is predictable,
+// but a tenant can only suppress changes in its own stream. Beyond the
+// window, or when a publish is retried, a change can still be stored twice; the
+// signal router absorbs that, because its Temporal request IDs are derived from
+// the same (namespace, workflow ID, run ID, status) fields.
 type TemporalWorkflowStateChangeMessage struct {
 	Namespace        string `json:"namespace"`
 	TaskQueue        string `json:"task_queue"`

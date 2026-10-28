@@ -1,0 +1,52 @@
+version: "3.47"
+
+output: interleaved
+
+# The ADRs are rendered by pyck-ai/gfm2pdf, a small Go tool. `go run` fetches
+# it on demand, so there is nothing to install here and no lockfile to keep in
+# sync -- the previous Node renderer that lived in scripts/ is gone.
+#
+# The version is deliberately unpinned. The Markdown is the source of truth;
+# the PDF is derived output and is expected to follow the tool as it improves,
+# so every render picks up the current gfm2pdf.
+#
+# Two things must be set up once per machine:
+#
+#   1. gfm2pdf is a private module, so the public Go proxy cannot serve it:
+#        go env -w GOPRIVATE=github.com/pyck-ai/*
+#      plus git credentials that can read github.com/pyck-ai/gfm2pdf.
+#   2. A Chrome or Chromium binary on PATH, or CHROME_BIN pointing at one.
+#      gfm2pdf drives it headlessly to print the PDF.
+
+vars:
+  GFM2PDF: github.com/pyck-ai/gfm2pdf@latest
+
+tasks:
+  default:
+    aliases: [help]
+    cmds:
+      - task --list
+
+  pdf:
+    desc: "Render the ADRs to PDF (pass file names as args, default: all adr-*.md)"
+    sources:
+      - "*.md"
+    generates:
+      - "*.pdf"
+    cmds:
+      - go run {{.GFM2PDF}} {{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}adr-*.md{{end}}
+
+  number:
+    desc: "Renumber the ADR section headings in place (idempotent)"
+    cmds:
+      - go run {{.GFM2PDF}} -number-headings {{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}adr-*.md{{end}}
+
+  number:check:
+    desc: "Show which ADR headings would be renumbered, without writing"
+    cmds:
+      - go run {{.GFM2PDF}} -number-headings -n {{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}adr-*.md{{end}}
+
+  clean:
+    desc: "Remove the generated PDFs"
+    cmds:
+      - rm -f ./*.pdf

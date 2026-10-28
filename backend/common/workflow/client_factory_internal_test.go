@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/operatorservice/v1"
+	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/api/workflowservice/v1"
 	temporalclient "go.temporal.io/sdk/client"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -326,6 +328,77 @@ type operatorTemporal struct {
 
 func (f operatorTemporal) OperatorService() operatorservice.OperatorServiceClient {
 	return f.operator
+}
+
+// fakeWorkflowService serves only RegisterNamespace; every other call of the
+// service interface is left to the embedded nil and would panic, which is the
+// point: a test reaching one has drifted from what it claims to cover.
+type fakeWorkflowService struct {
+	workflowservice.WorkflowServiceClient
+	register func(*workflowservice.RegisterNamespaceRequest) (*workflowservice.RegisterNamespaceResponse, error)
+}
+
+func (f fakeWorkflowService) RegisterNamespace(_ context.Context, in *workflowservice.RegisterNamespaceRequest, _ ...grpc.CallOption) (*workflowservice.RegisterNamespaceResponse, error) {
+	return f.register(in)
+}
+
+// registeringTemporal exposes a fake workflow service on the otherwise unused
+// Temporal client interface.
+type registeringTemporal struct {
+	temporalclient.Client
+	service fakeWorkflowService
+}
+
+func (f registeringTemporal) WorkflowService() workflowservice.WorkflowServiceClient {
+	return f.service
+}
+
+// TestEnsureNamespaceExists_ToleratesAlreadyExistsByCode pins that an existing
+// namespace is read from the status code rather than from the message: the
+// namespace of a tenant whose client was evicted is registered again on every
+// cache miss, and a Temporal release rewording its conflict would otherwise
+// turn that into a failure to serve the tenant at all.
+func TestEnsureNamespaceExists_ToleratesAlreadyExistsByCode(t *testing.T) {
+	t.Parallel()
+
+	root, _ := newFakeRoot()
+	f := NewDefaultClientFactory(t.Context(), root, "localhost:7233", DefaultClientCreationTimeout)
+	f.root = registeringTemporal{service: fakeWorkflowService{
+		register: func(*workflowservice.RegisterNamespaceRequest) (*workflowservice.RegisterNamespaceResponse, error) {
+			return nil, serviceerror.NewNamespaceAlreadyExists("tenant-a")
+		},
+	}}
+
+	require.NoError(t, f.ensureNamespaceExists(t.Context(), "tenant-a"))
+
+	f.root = registeringTemporal{service: fakeWorkflowService{
+		register: func(*workflowservice.RegisterNamespaceRequest) (*workflowservice.RegisterNamespaceResponse, error) {
+			return nil, status.Error(codes.AlreadyExists, "namespace is already registered")
+		},
+	}}
+
+	assert.NoError(t, f.ensureNamespaceExists(t.Context(), "tenant-a"),
+		"a conflict whose wording differs must still be tolerated")
+}
+
+// TestEnsureNamespaceExists_SurfacesEveryOtherFailure pins the other half: a
+// registration Temporal refuses or cannot serve must reach the caller, so the
+// client is not memoized over a namespace that does not exist.
+func TestEnsureNamespaceExists_SurfacesEveryOtherFailure(t *testing.T) {
+	t.Parallel()
+
+	root, _ := newFakeRoot()
+	f := NewDefaultClientFactory(t.Context(), root, "localhost:7233", DefaultClientCreationTimeout)
+	f.root = registeringTemporal{service: fakeWorkflowService{
+		register: func(*workflowservice.RegisterNamespaceRequest) (*workflowservice.RegisterNamespaceResponse, error) {
+			return nil, status.Error(codes.Unavailable, "namespace already exists in another cluster")
+		},
+	}}
+
+	err := f.ensureNamespaceExists(t.Context(), "tenant-a")
+
+	require.Error(t, err, "a message that merely mentions the phrase is not a conflict")
+	assert.Equal(t, codes.Unavailable, status.Code(errors.Unwrap(err)))
 }
 
 // TestAddSearchAttributes_RetriesStillMissingOnAlreadyExists verifies the

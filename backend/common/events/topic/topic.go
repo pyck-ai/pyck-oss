@@ -33,7 +33,8 @@ const (
 	// TopicTypeUnknown is the default topic type.
 	TopicTypeUnknown TopicType = iota
 
-	// TopicTypeCustomEvent represents a custom event topic.
+	// TopicTypeCustomEvent represents a platform event of no tenant (Zitadel
+	// login).
 	// Pattern: <stream>.custom-events
 	TopicTypeCustomEvent
 
@@ -61,6 +62,11 @@ const (
 	// TopicTypeTemporalWorkflowStateChangeEvent represents a temporal workflow state change event.
 	// Pattern: <stream>.<namespace>.temporal.<taskQueue>.<workflowTypeName>.<workflowID>.<runID>.<status>
 	TopicTypeTemporalWorkflowStateChangeEvent
+
+	// TopicTypeTenantCustomEvent represents a tenant's custom event
+	// (sendCustomEvent), kept out of the CRUD namespace.
+	// Pattern: <stream>.<tenant>.custom.<type>.<entity>.<operation>
+	TopicTypeTenantCustomEvent
 )
 
 // Topic is the interface that all topic types implement.
@@ -209,7 +215,10 @@ func WithTenant(subject string, tenantID uuid.UUID) (string, error) {
 // Matchable reports whether subject can match a published subject, whose string
 // tokens are always escaped by formatTopicPart. A temporal namespace is matched
 // as a string and published as the tenant's canonical UUID, so any other UUID
-// spelling, such as one without dashes, can never match.
+// spelling, such as one without dashes, can never match, and neither can a
+// namespace of no tenant, which is published to the system stream
+// (ParseTenantNamespace). The nil UUID passes: like a mutation topic's, it is
+// the wildcard tenant, which registerWorkflow expands before storing.
 func Matchable(subject string) bool {
 	pattern, parts, err := splitSubject(subject)
 	if err != nil {
@@ -226,8 +235,8 @@ func Matchable(subject string) bool {
 		if escapeTopicToken(parts[i]) != parts[i] {
 			return false
 		}
-		if tok.field == "namespace" {
-			if id, err := uuid.Parse(parts[i]); err != nil || id.String() != parts[i] {
+		if tok.field == "namespace" && parts[i] != uuid.Nil.String() {
+			if _, ok := ParseTenantNamespace(parts[i]); !ok {
 				return false
 			}
 		}
@@ -391,7 +400,9 @@ func matchesTenant(a, b TenantProvider) bool {
 	return aTenant == uuid.Nil || aTenant == bTenant
 }
 
-// CustomEventTopic represents a custom event topic: stream.custom-events
+// CustomEventTopic is the subject of platform events of no tenant, such as the
+// Zitadel login: <stream>.custom-events. Tenant events use
+// TenantCustomEventTopic.
 type CustomEventTopic struct {
 	StreamName string
 }
@@ -425,6 +436,59 @@ func (t CustomEventTopic) Matches(other Topic) bool {
 	}
 
 	return matchesStream(t, otherTopic)
+}
+
+// TenantCustomEventTopic is the subject of a tenant's custom event:
+// <stream>.<tenant>.custom.<type>.<entity>.<operation>.
+type TenantCustomEventTopic struct {
+	StreamName    string
+	TenantID      uuid.UUID
+	EventType     string
+	EntityID      uuid.UUID
+	OperationName string
+}
+
+func (t TenantCustomEventTopic) GetStreamName() string {
+	return getStreamName(t.StreamName)
+}
+
+func (t TenantCustomEventTopic) GetTenantID() (uuid.UUID, error) {
+	return t.TenantID, nil
+}
+
+func (t *TenantCustomEventTopic) SetTenantID(tenantID uuid.UUID) {
+	t.TenantID = tenantID
+}
+
+func (t TenantCustomEventTopic) String() string {
+	return formatTopic(t.GetStreamName(), t.TenantID, "custom", t.EventType, t.EntityID, t.OperationName)
+}
+
+func (t TenantCustomEventTopic) Type() TopicType {
+	return TopicTypeTenantCustomEvent
+}
+
+func (t TenantCustomEventTopic) Valid() bool {
+	return IsValidSubscriptionSubject(t.String())
+}
+
+func (t TenantCustomEventTopic) Matches(other Topic) bool {
+	var otherTopic TenantCustomEventTopic
+
+	switch other := other.(type) {
+	case TenantCustomEventTopic:
+		otherTopic = other
+	case *TenantCustomEventTopic:
+		otherTopic = *other
+	default:
+		return false
+	}
+
+	return matchesStream(t, otherTopic) &&
+		matchesTenant(&t, &otherTopic) &&
+		matchesString(t.EventType, otherTopic.EventType) &&
+		matchesUUID(t.EntityID, otherTopic.EntityID) &&
+		matchesString(t.OperationName, otherTopic.OperationName)
 }
 
 // MutationEventTopic represents a CRUD mutation event.
@@ -902,6 +966,29 @@ var knownTopics = map[TopicType]topicSpec{
 			b := newFieldBuilder(fields)
 			topic := &CustomEventTopic{
 				StreamName: b.getString("stream"),
+			}
+			return topic, b.err
+		},
+	},
+
+	// TenantCustomEvent: <stream>.<tenant>.custom.<type>.<entity>.<operation>
+	TopicTypeTenantCustomEvent: {
+		pattern: []topicToken{
+			{"stream", false, fieldTypeString},
+			{"tenant", false, fieldTypeUUID},
+			{"custom", true, fieldTypeString},
+			{"type", false, fieldTypeString},
+			{"entity", false, fieldTypeUUID},
+			{"operation", false, fieldTypeString},
+		},
+		factory: func(fields map[string]any) (Topic, error) {
+			b := newFieldBuilder(fields)
+			topic := &TenantCustomEventTopic{
+				StreamName:    b.getString("stream"),
+				TenantID:      b.getUUID("tenant"),
+				EventType:     b.getString("type"),
+				EntityID:      b.getUUID("entity"),
+				OperationName: b.getString("operation"),
 			}
 			return topic, b.err
 		},

@@ -12,6 +12,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/log"
 )
 
+// MigrateOptions configures one service's migration generator run.
 type MigrateOptions struct {
 	TargetSchema          string
 	DbMasterUrl           string

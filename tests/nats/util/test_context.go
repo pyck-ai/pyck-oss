@@ -36,7 +36,7 @@ func NewTestContext(token, tenantID string) (*TestContext, error) {
 // Setup establishes NATS connection and JetStream
 func (tc *TestContext) Setup() error {
 	// Create NATS connection
-	conn, err := CreateTestConnection(tc.ValidToken)
+	conn, err := CreateTestConnection(tc.ValidToken, tc.TenantID)
 	if err != nil {
 		return err
 	}

@@ -63,3 +63,26 @@ coverage.html
 ##############################
 
 docker-compose.override.yml
+
+##############################
+### 🧪 Local Bruno env     ###
+##############################
+
+# Written by scripts/bruno-setup.sh from scripts/bruno-template.yaml: carries
+# a tenant PAT and the system token for the local stack, so it must never be
+# committed.
+.bruno/environments/local.yml
+# Both spellings: the CLI only resolves .yml, but an editor or a hand-copied
+# file can leave a .yaml next to it, carrying the same credentials.
+.bruno/environments/local.yaml
+
+# `go build ./cmd/...` in tests/integration drops the binary next to go.mod.
+/tests/integration/provision-tenant
+
+# `go build ./cmd/...` in a service drops the service binary next to its
+# go.mod; these are build outputs of ~100 MB each and must never be staged.
+/backend/*/pyck-*
+
+# `go test -c` and an interrupted `go test -fuzz` leave the compiled test
+# binary next to the package's module root; same size class as above.
+*.test

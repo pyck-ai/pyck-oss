@@ -71,7 +71,7 @@ func TestEventID_EndToEnd(t *testing.T) {
 	// only read.
 	t.Parallel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), 2*time.Minute)
 	// Not defer: the parallel subtests run after this function returns.
 	t.Cleanup(cancel)
 

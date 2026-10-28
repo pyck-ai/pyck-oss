@@ -3,7 +3,6 @@
 package authroles
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -163,29 +162,11 @@ func (s *AuthRolesSuite) waitForSyncedUser(username string) string {
 
 // waitForSyncedUserInTenant is waitForSyncedUser generalized to an arbitrary
 // tenant, for cross-tenant tests where a synced user's management id is needed
-// in a tenant other than the suite's own. The lookup filters by username
-// server-side, so it stays O(1) however many users the tenant accumulates.
+// in a tenant other than the suite's own.
 func (s *AuthRolesSuite) waitForSyncedUserInTenant(tenantID, username string) string {
 	s.T().Helper()
 
-	c := gateway.NewClient(s.Cfg, s.Cfg.ServiceToken)
-	first := 1
-	var userID string
-	err := tests.PollUntil(s.Ctx, 30*time.Second, 500*time.Millisecond, func() error {
-		resp, err := c.GetUsers(s.Ctx, managementapi.GetUsersArgs{
-			First: &first,
-			Where: &managementapi.UserWhereInput{TenantID: &tenantID, Username: &username},
-		})
-		if err != nil {
-			return fmt.Errorf("getUsers: %w", err)
-		}
-		users := resp.GetUsers()
-		if users == nil || len(users.GetEdges()) == 0 || users.GetEdges()[0].GetNode() == nil {
-			return fmt.Errorf("user %q not yet synced into tenant %s", username, tenantID)
-		}
-		userID = users.GetEdges()[0].GetNode().GetID()
-		return nil
-	})
+	userID, err := tests.WaitForSyncedUser(s.Ctx, s.Cfg, tenantID, username)
 	s.Require().NoError(err, "machine user %q not projected into tenant %s", username, tenantID)
 	return userID
 }

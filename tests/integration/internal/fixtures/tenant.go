@@ -19,6 +19,12 @@ type Tenant struct {
 	AdminFirstName string
 	AdminLastName  string
 	AdminPassword  string
+	// Data is the optional metadata map of the registration input. nil
+	// (the NewTenant default) leaves it out of the mutation; a suite that
+	// asserts on tenant.data / org metadata sets it explicitly. Keep
+	// flavour keys (data.flavour, isPyckGo) out unless the suite wants
+	// the pyck-go worker branch of the registration workflow.
+	Data map[string]any
 }
 
 // NewTenant returns a Tenant filled with random values. Re-runs and

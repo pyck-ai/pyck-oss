@@ -7,6 +7,7 @@ package resolvers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pyck-ai/pyck/backend/common/request"
 	common_workflow "github.com/pyck-ai/pyck/backend/common/workflow"
@@ -16,7 +17,8 @@ import (
 
 // SetWorkflowAssignee is the resolver for the setWorkflowAssignee field.
 func (r *mutationResolver) SetWorkflowAssignee(ctx context.Context, input model.SetWorkflowAssigneeInput) (*model.SetWorkflowAssigneeResponse, error) {
-	tenantID, err := writerTenantID(request.ForContext(ctx))
+	req := request.ForContext(ctx)
+	tenantID, err := writerTenantID(req)
 	if err != nil {
 		return nil, err
 	}
@@ -29,6 +31,9 @@ func (r *mutationResolver) SetWorkflowAssignee(ctx context.Context, input model.
 	// Build the assignee value: nil means "unassign", non-nil means "assign to this user".
 	var assignee common_workflow.WorkflowAssignee
 	if input.AssigneeID != nil {
+		if err := r.checkAssignee(ctx, tenantID, req.User().ID, *input.AssigneeID); err != nil {
+			return nil, err
+		}
 		s := input.AssigneeID.String()
 		assignee = &s
 	}
@@ -55,9 +60,12 @@ func (r *mutationResolver) SetWorkflowAssignee(ctx context.Context, input model.
 
 // WorkflowAssignee is the resolver for the workflowAssignee field.
 func (r *queryResolver) WorkflowAssignee(ctx context.Context, input model.GetWorkflowAssigneeInput) (*model.GetWorkflowAssigneeResponse, error) {
-	req := request.ForContext(ctx)
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 
-	workflowClient, err := r.workflowRouter.GetClient(ctx, req.MutationTenantID().String())
+	workflowClient, err := r.workflowRouter.GetClient(ctx, tenantID.String())
 	if err != nil || workflowClient == nil {
 		return nil, ErrInvalidWorkflowClient
 	}
@@ -67,13 +75,12 @@ func (r *queryResolver) WorkflowAssignee(ctx context.Context, input model.GetWor
 		return nil, err
 	}
 
-	dataConverter := converter.GetDefaultDataConverter()
-
+	// Decode the keyword rather than ToString it: ToString returns the raw
+	// JSON payload, so the assignee would come back wrapped in quotes.
 	var assignee string
-
-	for key, value := range executionInfo.GetSearchAttributes().GetIndexedFields() {
-		if key == "pyck_workflow_assignee" {
-			assignee = dataConverter.ToString(value)
+	if payload, ok := executionInfo.GetSearchAttributes().GetIndexedFields()[common_workflow.PyckWorkflowAssigneeKey]; ok {
+		if err := converter.GetDefaultDataConverter().FromPayload(payload, &assignee); err != nil {
+			return nil, fmt.Errorf("decode assignee search attribute: %w", err)
 		}
 	}
 

@@ -13,9 +13,10 @@ import (
 
 const (
 	// orgInactiveTimeout covers Zitadel applying DeactivateOrganization to
-	// the ListOrganizations projection — the same read the org-active
-	// validator consults, so reaching INACTIVE here is the barrier that
-	// makes the stale-positive probes meaningful.
+	// the ListOrganizations projection. Nothing on the auth path reads it
+	// any more; the barrier exists so the acceptance probes below provably
+	// run while the org is INACTIVE, which is what makes "the verdict
+	// ignores Zitadel org state" a demonstrated property, not a vacuous one.
 	orgInactiveTimeout = 30 * time.Second
 	// rejectionTimeout bounds the revocation phase: deleteTenant's
 	// synchronous soft delete emits the tenant CRUD event, NATS propagation
@@ -91,10 +92,10 @@ func (s *VerdictCacheSuite) TestVerdictCacheLifecycle() {
 
 	if !s.Run("stale positive verdict still accepted", func() {
 		r := s.Require()
-		// The org is INACTIVE in the very projection the validator reads,
-		// and no pyck mutation ran, so no eviction event exists. A build
-		// without the verdict cache runs the validator on this request and
-		// 401s; acceptance here can only come from the cached verdict.
+		// The org is INACTIVE in Zitadel and no pyck mutation ran, so no
+		// eviction event exists. Acceptance is the documented contract:
+		// the verdict is read from the tenant row, which pyck alone writes,
+		// so deactivating an organization out of band revokes nothing.
 		_, err := tests.TenantInList(s.Ctx, s.Cfg, pat, s.tenant.ID)
 		r.NoError(err, "management must still accept the token while the verdict is cached")
 		r.NoError(s.probeInventory(pat), "inventory must still accept the token while the verdict is cached")
@@ -116,11 +117,12 @@ func (s *VerdictCacheSuite) TestVerdictCacheLifecycle() {
 		// Disable through pyck: the mutation soft-deletes the row and the
 		// tenant CRUD event fans out to every service's revocation
 		// subscriber, evicting the cached token + verdict. The next
-		// introspection runs the validator against the INACTIVE org and
-		// rejects. Also proves negative verdicts are not served from cache.
+		// introspection re-reads the verdict, now answered from the
+		// soft-deleted row, and rejects. Also proves negative verdicts are
+		// not served from cache.
 		r.NoError(gateway.DeleteTenant(s.Ctx, s.Cfg, s.tenant.ID))
 
-		took, err := tests.WaitUntilTokenRejected(s.Ctx, s.Cfg, pat, s.tenant.ID, rejectionTimeout)
+		took, err := tests.WaitUntilTokenDenied(s.Ctx, s.Cfg, pat, s.tenant.ID, rejectionTimeout)
 		r.NoError(err, "management must reject the token after tenant disable")
 		s.T().Logf("management rejected after %s", took.Round(time.Millisecond))
 

@@ -3,8 +3,6 @@ package zitadel_sync
 import (
 	"context"
 	"errors"
-	"strconv"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,17 +11,14 @@ import (
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
-	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/services/zitadel/sdk"
 	common_tenant "github.com/pyck-ai/pyck/backend/common/tenant"
 	"github.com/pyck-ai/pyck/backend/common/txid"
 
-	"github.com/pyck-ai/pyck/backend/management/core"
 	ent "github.com/pyck-ai/pyck/backend/management/ent/gen"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/user"
@@ -31,241 +26,90 @@ import (
 
 // ErrZitadelOrgNotFound is the application-error type returned by
 // FetchZitadelUsersActivity when a tenant's Zitadel org no longer exists
-// (e.g. deleted mid-cycle, after the tenant reconcile but before user
-// sync). It is non-retryable so TenantSyncWorkflow skips the tenant
-// instead of burning its retry budget; the tenant-level reconcile will
-// soft-delete the now-orphaned tenant on its next pass.
+// (deleted out of band). It is non-retryable so TenantSyncWorkflow skips
+// the tenant instead of burning its retry budget. Tenant liveness is
+// DB-owned: nothing soft-deletes the row because its org is gone, so the
+// tenant stays listed (with its last projected users) every cycle until an
+// operator disables it through deleteTenant, whose Zitadel deactivation
+// tolerates NotFound.
 const ErrZitadelOrgNotFound = "ZitadelOrgNotFound"
 
-// orgNotFoundErr maps a Zitadel NotFound gRPC error to a non-retryable
-// application error so per-tenant user sync can skip a deleted org rather
-// than retry an operation that can never succeed. Any other error is
-// returned unchanged (and stays retryable).
+// orgNotFoundErr maps "the org is gone" (a Zitadel NotFound gRPC status or
+// the SDK's sdk.ErrOrganizationNotFound from the org probe) to a
+// non-retryable application error so per-tenant user sync can skip a
+// deleted org rather than retry an operation that can never succeed. Any
+// other error is returned unchanged (and stays retryable).
 func orgNotFoundErr(err error) error {
-	if status.Code(err) == codes.NotFound {
+	if status.Code(err) == codes.NotFound || errors.Is(err, sdk.ErrOrganizationNotFound) {
 		return temporal.NewNonRetryableApplicationError(
 			"zitadel org no longer exists", ErrZitadelOrgNotFound, err)
 	}
 	return err
 }
 
-// NewActivities wires dependencies for all Zitadel sync activities.
-func NewActivities(ent *ent.Client, temporal client.Client, apiURL, grpcAddr, audience, keyFilePath, projectID string, tlsInsecure bool) *Activities {
+// NewActivities wires dependencies for all Zitadel sync activities. The
+// Zitadel client is opened per activity call, scoped to the tenant's org,
+// from the service-account key at keyFilePath.
+func NewActivities(ent *ent.Client, temporal client.Client, apiURL, grpcAddr, audience, keyFilePath string, tlsInsecure bool) *Activities {
 	return &Activities{
-		Ent:              ent,
-		Temporal:         temporal,
-		APIURL:           apiURL,
-		GrpcAddr:         grpcAddr,
-		Audience:         audience,
-		KeyFilePath:      keyFilePath,
-		ZitadelProjectID: projectID,
-		TlsInsecure:      tlsInsecure,
+		Ent:      ent,
+		Temporal: temporal,
+		Audience: audience,
+		newOrgClient: func(ctx context.Context, orgID string) (orgUsersClient, error) {
+			c, err := sdk.SdkClient(ctx, audience, grpcAddr, apiURL, keyFilePath, orgID, tlsInsecure)
+			if err != nil {
+				return nil, err
+			}
+			return c, nil
+		},
 	}
+}
+
+// orgUsersClient is the part of the Zitadel SDK FetchZitadelUsersActivity
+// uses, scoped to one org. *sdk.ZitadelSdkClient implements it; tests
+// substitute a fake to observe the org probe without a gRPC connection.
+type orgUsersClient interface {
+	GetOrganizationByID(ctx context.Context, orgID string) (*sdk.Org, error)
+	GetAllOrganizationUsers(ctx context.Context) ([]*sdk.UserProfile, error)
+	GetAllOrganizationOwners(ctx context.Context) ([]string, error)
+	Close()
 }
 
 // Activities holds shared dependencies for all activities.
 type Activities struct {
-	Ent              *ent.Client
-	Temporal         client.Client
-	APIURL           string
-	GrpcAddr         string
-	Audience         string
-	KeyFilePath      string
-	ZitadelProjectID string
-	TlsInsecure      bool
+	Ent      *ent.Client
+	Temporal client.Client
+	Audience string
+	// newOrgClient opens a Zitadel client scoped to the given org ID; set by
+	// NewActivities, required by FetchZitadelUsersActivity.
+	newOrgClient func(ctx context.Context, orgID string) (orgUsersClient, error)
 }
 
-// FetchZitadelTenantsActivity returns all organizations from Zitadel.
-func (a *Activities) FetchZitadelTenantsActivity(ctx context.Context, _ FetchZitadelTenantsActivityInput) ([]Tenant, error) {
-	logger := activity.GetLogger(ctx)
-
-	c, err := GetZitadelClient(ctx, a.APIURL, a.GrpcAddr, a.Audience, a.KeyFilePath, a.TlsInsecure, "")
-	if err != nil {
-		logger.Error("failed to get Zitadel client", "err", err)
-		return nil, err
-	}
-	defer c.Close()
-
-	orgs, err := c.GetAllOrganizations(ctx)
-	if err != nil {
-		logger.Error("failed to fetch Zitadel organizations", "err", err)
-		return nil, err
-	}
-
-	out := make([]Tenant, len(orgs))
-	for i, o := range orgs {
-		out[i] = Tenant{ID: o.ID, Name: o.Name}
-	}
-
-	return out, nil
-}
-
-// FetchDbTenantsActivity returns all active tenants from the local DB.
-func (a *Activities) FetchDbTenantsActivity(ctx context.Context, _ FetchDbTenantsInput) ([]Tenant, error) {
+// FetchDbTenantsActivity returns the Zitadel org IDs of all live, fully
+// registered tenants. Pending rows are excluded because their org does not
+// exist yet; a system token skips the tenant privacy filter, so the
+// predicate is the whole scope of this all-tenant listing. DeletedAtIsNil
+// duplicates mixin.HistoryMixinQueryFilter, which the policy skips under
+// FEATURE_SHOW_DELETED: the listing's scope must not depend on which
+// features the activity context happens to carry.
+func (a *Activities) FetchDbTenantsActivity(ctx context.Context, _ FetchDbTenantsInput) ([]string, error) {
 	logger := activity.GetLogger(ctx)
 	serviceUserCtx := authn.Context(ctx, authn.SystemUser())
 
 	dbTenants, err := a.Ent.Tenant.Query().
-		Where(tenant.DeletedAtIsNil()).
+		Where(tenant.DeletedAtIsNil(), tenant.StatusEQ(tenant.StatusDone)).
 		AllPages(serviceUserCtx, 100)
 	if err != nil {
 		logger.Error("failed to fetch tenants from DB", "err", err)
 		return nil, err
 	}
 
-	out := make([]Tenant, len(dbTenants))
+	orgIDs := make([]string, len(dbTenants))
 	for i, t := range dbTenants {
-		out[i] = Tenant{
-			ID:   t.IdpOrgRef,
-			Name: t.Name,
-		}
+		orgIDs[i] = t.IdpOrgRef
 	}
 
-	return out, nil
-}
-
-// ReconcileTenantsActivity creates, updates, or soft-deletes DB tenants to match Zitadel.
-func (a *Activities) ReconcileTenantsActivity(ctx context.Context, input ReconcileTenantsActivityInput) (err error) {
-	logger := activity.GetLogger(ctx)
-	serviceUserCtx := authn.Context(ctx, authn.SystemUser())
-
-	zitadelTenantsMap := make(map[string]Tenant, len(input.ZitadelTenants))
-	for _, t := range input.ZitadelTenants {
-		zitadelTenantsMap[t.ID] = t
-	}
-
-	dbTenantsMap := make(map[string]Tenant, len(input.DbTenants))
-	for _, t := range input.DbTenants {
-		dbTenantsMap[t.ID] = t
-	}
-
-	// Collect org IDs that exist in both Zitadel and DB (need metadata fetch)
-	var matchedOrgIDs []string
-	for id := range zitadelTenantsMap {
-		if _, ok := dbTenantsMap[id]; ok {
-			matchedOrgIDs = append(matchedOrgIDs, id)
-		}
-	}
-
-	// Fetch metadata for all matched orgs in parallel using a single gRPC connection
-	allMetadata := a.fetchAllOrgMetadata(ctx, matchedOrgIDs)
-
-	serviceUserCtx = txid.With(serviceUserCtx, txid.New())
-	tx, err := a.Ent.Tx(serviceUserCtx)
-	if err != nil {
-		logger.Error("failed to start transaction", "err", err)
-		return err
-	}
-	serviceUserCtx = ent.NewTxContext(serviceUserCtx, tx)
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		}
-	}()
-
-	for id, dbT := range dbTenantsMap {
-		if _, ok := zitadelTenantsMap[id]; !ok {
-			// One UpdateOneID per tenant with the tenant ID in the context,
-			// so MutationEventHook emits a tenant.<id>.delete event for each
-			// soft-deleted tenant.
-			tenantID := authn.ComputeUUID(a.Audience, dbT.ID)
-			tenantCtx := request.Context(serviceUserCtx, authn.SystemUser(), tenantID)
-			if e := tx.Tenant.UpdateOneID(tenantID).
-				SetDeletedAt(time.Now().UTC()).
-				Exec(tenantCtx); e != nil {
-				// "No matching row" is a no-op (the tenant was already
-				// soft-deleted or removed since the DB snapshot); any other
-				// error fails the transaction, including hook errors such as
-				// ErrNoTenantForEvent.
-				if ent.IsNotFound(e) {
-					logger.Warn("tenant to soft-delete no longer active; skipping",
-						"tenant_id", dbT.ID, "name", dbT.Name)
-					continue
-				}
-				logger.Error("failed to soft delete tenant", "tenant_id", dbT.ID, "name", dbT.Name, "err", e)
-				err = e
-				return err
-			}
-			// Active DB tenant whose Zitadel org has disappeared (deleted out
-			// of band). Zitadel is the SSOT, so we soft-delete — but surface
-			// it at Info: an active tenant losing its org is unexpected and
-			// worth flagging, unlike the routine disabled/inactive alignment.
-			logger.Info("tenant active in DB but Zitadel org no longer exists; soft-deleting",
-				"idp_org_ref", dbT.ID, "name", dbT.Name)
-		}
-	}
-
-	for id, zt := range zitadelTenantsMap {
-		dbT, ok := dbTenantsMap[id]
-		tenantID := authn.ComputeUUID(a.Audience, zt.ID)
-
-		if !ok {
-			logger.Debug("organization in Zitadel but not in database: use registerTenant mutation if sync needed",
-				"zitadel_org_id", zt.ID,
-				"name", zt.Name,
-				"tenant_id", tenantID)
-			continue
-		}
-
-		// Use pre-fetched metadata, converting boolean fields at ingestion
-		var zitadelData map[string]any
-		if metadata, ok := allMetadata[zt.ID]; ok && len(metadata) > 0 {
-			zitadelData = make(map[string]any, len(metadata))
-			for k, v := range metadata {
-				if core.IsBooleanField(k) {
-					if b, err := strconv.ParseBool(v); err == nil {
-						zitadelData[k] = b
-						continue
-					}
-				}
-				zitadelData[k] = v
-			}
-		}
-
-		// Read existing tenant to merge data (preserves DB-only keys like computed URLs)
-		existingTenant, getErr := tx.Tenant.Get(serviceUserCtx, tenantID)
-		if getErr != nil {
-			logger.Error("failed to fetch tenant for data merge", "tenant_id", dbT.ID, "err", getErr)
-			err = getErr
-			return err
-		}
-
-		// Merge only the Zitadel-synced flag keys onto stored data. Sync must not
-		// re-derive UI templates: that would resurrect a cleared override (#1317).
-		mergedData := core.MergeData(existingTenant.Data, zitadelData)
-
-		// Check if update is needed
-		needsNameUpdate := zt.Name != dbT.Name
-		needsDataUpdate := !core.MapsEqual(existingTenant.Data, mergedData)
-
-		if needsNameUpdate || needsDataUpdate {
-			// UpdateOneID + a per-tenant context so MutationEventHook emits
-			// the tenant update event under this tenant.
-			updateOp := tx.Tenant.UpdateOneID(tenantID)
-
-			if needsNameUpdate {
-				updateOp = updateOp.SetName(zt.Name)
-			}
-
-			if needsDataUpdate {
-				updateOp = updateOp.SetData(mergedData)
-			}
-
-			if e := updateOp.Exec(request.Context(serviceUserCtx, authn.SystemUser(), tenantID)); e != nil {
-				logger.Error("failed to update tenant", "tenant_id", dbT.ID, "err", e)
-				err = e
-				return err
-			}
-			logger.Debug("updated tenant", "tenant_id", dbT.ID, "name_updated", needsNameUpdate, "data_updated", needsDataUpdate)
-		}
-	}
-
-	if err = tx.Commit(); err != nil {
-		logger.Error("failed to commit transaction", "err", err)
-		return err
-	}
-
-	return nil
+	return orgIDs, nil
 }
 
 // StartTenantSyncActivity starts user sync for specific tenant
@@ -301,16 +145,28 @@ func (a *Activities) StartTenantSyncActivity(ctx context.Context, in StartTenant
 	return nil
 }
 
-// FetchZitadelUsersActivity returns all users/owners from Zitadel for a tenant.
+// FetchZitadelUsersActivity returns all users/owners from Zitadel for a
+// tenant, or ErrZitadelOrgNotFound when the tenant's org is gone.
 func (a *Activities) FetchZitadelUsersActivity(ctx context.Context, input FetchZitadelUsersActivityInput) ([]User, error) {
 	logger := activity.GetLogger(ctx)
 
-	c, err := GetZitadelClient(ctx, a.APIURL, a.GrpcAddr, a.Audience, a.KeyFilePath, a.TlsInsecure, input.TenantID)
+	c, err := a.newOrgClient(ctx, input.TenantID)
 	if err != nil {
 		logger.Error("failed to get Zitadel client", "err", err)
 		return nil, err
 	}
 	defer c.Close()
+
+	// Zitadel answers the org-scoped user and member listings of a removed
+	// org with empty results, not NotFound; reconciling that would
+	// soft-delete the tenant's whole user projection. The org is therefore
+	// probed first, and a missing one ends the sync here.
+	if _, err := c.GetOrganizationByID(ctx, input.TenantID); err != nil {
+		if !errors.Is(err, sdk.ErrOrganizationNotFound) {
+			logger.Error("failed to look up Zitadel org", "err", err)
+		}
+		return nil, orgNotFoundErr(err)
+	}
 
 	users, err := c.GetAllOrganizationUsers(ctx)
 	if err != nil {
@@ -536,53 +392,4 @@ func liveUserID(ctx context.Context, tx *ent.Tx, idpID string, tenantID uuid.UUI
 		return uuid.Nil, false, err
 	}
 	return id, true, nil
-}
-
-// fetchAllOrgMetadata retrieves metadata for all given org IDs using a single
-// shared gRPC connection and concurrent workers. This avoids the overhead of
-// creating a new TLS connection per organization.
-func (a *Activities) fetchAllOrgMetadata(ctx context.Context, orgIDs []string) map[string]map[string]string {
-	logger := activity.GetLogger(ctx)
-
-	if len(orgIDs) == 0 {
-		return nil
-	}
-
-	c, err := GetZitadelClient(ctx, a.APIURL, a.GrpcAddr, a.Audience, a.KeyFilePath, a.TlsInsecure, "")
-	if err != nil {
-		logger.Error("failed to create shared Zitadel client for metadata fetch", "err", err)
-		return nil
-	}
-	defer c.Close()
-
-	const maxWorkers = 20
-	results := make(map[string]map[string]string, len(orgIDs))
-	var mu sync.Mutex
-
-	g, gCtx := errgroup.WithContext(ctx)
-	g.SetLimit(maxWorkers)
-
-	for _, orgID := range orgIDs {
-		g.Go(func() error {
-			md, fetchErr := c.ListOrgMetadataForOrg(gCtx, orgID)
-			if fetchErr != nil {
-				logger.Warn("failed to fetch metadata for org", "org_id", orgID, "err", fetchErr)
-				return nil // non-fatal: skip this org
-			}
-
-			mu.Lock()
-			results[orgID] = md
-			mu.Unlock()
-			return nil
-		})
-	}
-
-	_ = g.Wait() // errors already handled per-goroutine
-	logger.Info("fetched org metadata", "total", len(orgIDs), "success", len(results))
-	return results
-}
-
-// GetZitadelClient builds a Zitadel SDK client for the given API URL and audience.
-func GetZitadelClient(ctx context.Context, apiURL, grpcAddr, audience, keyFilePath string, tlsInsecure bool, orgID string) (*sdk.ZitadelSdkClient, error) {
-	return sdk.SdkClient(ctx, audience, grpcAddr, apiURL, keyFilePath, orgID, tlsInsecure)
 }

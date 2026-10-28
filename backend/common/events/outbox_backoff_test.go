@@ -266,7 +266,7 @@ func TestPublishTransactionGroup_DropCountExcludesPublished(t *testing.T) {
 	}
 
 	counts := events.PublishTransactionGroupCountsForTest(
-		context.Background(), txID, entries, publisher, 10,
+		t.Context(), txID, entries, publisher, 10,
 	)
 
 	assert.Equal(t, 1, counts.Published, "E1 should be published")

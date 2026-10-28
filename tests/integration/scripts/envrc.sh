@@ -47,16 +47,18 @@ export PYCK_ZITADEL_ISSUER=http://localhost:8080
 export PYCK_ZITADEL_GRPC_ADDR=localhost:8080
 export PYCK_ZITADEL_ADMIN_KEYFILE="$PYCK_ROOT/config/keys/zitadel-admin-sa.json"
 
-# Forward only the *_INTERVAL vars so sweep-timing tests (e.g. tenant expiry)
-# can size their waits to the management service's ACTUAL cadence. The source
-# of truth is the running management container's environment: that is what the
-# stack really uses, including the fast values from
-# config/compose/integration.yaml (`task up:integration`), which .env does not
-# carry. If docker or the container is unavailable, fall back to the .env file.
+# Forward only the cadence, cache and wait vars (*_INTERVAL, *_EVERY,
+# *_CACHE_TTL, *_TIMEOUT) so timing-sensitive tests (tenant expiry and
+# zitadel-sync sweeps, verdict-cache revocation bounds) can size their waits
+# to the management service's ACTUAL cadence. The source of truth is the
+# running management container's environment: that is what the stack really
+# uses, including the fast values from config/compose/integration.yaml
+# (`task up:integration`), which .env does not carry. If docker or the
+# container is unavailable, fall back to the .env file.
 # Exported via read+export — NOT source/eval, which would expand $(...) and
 # other metacharacters in the value — and the value charset is pinned to
 # duration syntax so a malformed line is skipped, not executed.
-_interval_re='^PYCK_[A-Z_]+_INTERVAL=[0-9smh.]+$'
+_interval_re='^PYCK_[A-Z_]+_(INTERVAL|EVERY|CACHE_TTL|TIMEOUT)=[0-9smh.]+$'
 _interval_lines=""
 if command -v docker >/dev/null 2>&1; then
   _interval_lines=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' pyck-management 2>/dev/null \

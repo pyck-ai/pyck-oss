@@ -2119,6 +2119,7 @@ type Tenant implements Node {
   name: String!
   idpOrgRef: String!
   expiresAt: Time
+  status: TenantStatus!
   tenantUsers(
     """
     Returns the elements in the list that come after the specified cursor.
@@ -2215,6 +2216,15 @@ enum TenantOrderField {
   NAME
   IDP_ORG_REF
   EXPIRES_AT
+  STATUS
+}
+"""
+TenantStatus is enum for the field status
+"""
+enum TenantStatus @goModel(model: "github.com/pyck-ai/pyck/backend/management/ent/gen/tenant.Status") {
+  pending
+  done
+  error
 }
 """
 TenantWhereInput is used for filtering Tenant objects.
@@ -2359,6 +2369,13 @@ input TenantWhereInput {
   expiresAtLTE: Time
   expiresAtIsNil: Boolean
   expiresAtNotNil: Boolean
+  """
+  status field predicates
+  """
+  status: TenantStatus
+  statusNEQ: TenantStatus
+  statusIn: [TenantStatus!]
+  statusNotIn: [TenantStatus!]
   """
   tenantUsers edge predicates
   """

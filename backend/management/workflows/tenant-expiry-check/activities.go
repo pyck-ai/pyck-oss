@@ -9,6 +9,7 @@ import (
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
+	"github.com/pyck-ai/pyck/backend/common/log"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/txid"
 
@@ -34,10 +35,12 @@ func NewActivities(entClient *ent.Client) *Activities {
 	return &Activities{ent: entClient}
 }
 
-// FindExpiredTenantsActivity returns every tenant whose expires_at is
-// non-null, has passed, and which is not already soft-deleted. The
-// query is cheap because the candidate set is normally tiny — most
-// tenants either have no expiry or are still in the future.
+// FindExpiredTenantsActivity returns every fully registered tenant whose
+// expires_at is non-null, has passed, and which is not already
+// soft-deleted. Pending rows are skipped: they have no Zitadel org, so
+// the disable workflow their deletion would trigger has nothing to
+// deactivate. The query is cheap because the candidate set is normally
+// tiny: most tenants either have no expiry or are still in the future.
 func (a *Activities) FindExpiredTenantsActivity(ctx context.Context, _ FindExpiredTenantsActivityInput) ([]ExpiredTenantRef, error) {
 	logger := activity.GetLogger(ctx)
 	sysCtx := authn.Context(ctx, authn.SystemUser())
@@ -48,6 +51,7 @@ func (a *Activities) FindExpiredTenantsActivity(ctx context.Context, _ FindExpir
 			enttenant.ExpiresAtNotNil(),
 			enttenant.ExpiresAtLTE(now),
 			enttenant.DeletedAtIsNil(),
+			enttenant.StatusEQ(enttenant.StatusDone),
 		).
 		AllPages(sysCtx, mixin.Limit)
 	if err != nil {
@@ -70,9 +74,13 @@ func (a *Activities) FindExpiredTenantsActivity(ctx context.Context, _ FindExpir
 // current DB state at write time.
 //
 // The MutationEventHook writes an outbox row in the same Ent tx;
-// OutboxHandler publishes pyck.<tenant>.crud.management.tenant.<id>.deleted
+// OutboxHandler publishes pyck.<tenant>.crud.management.tenant.<id>.delete
 // which drives DisableTenantWorkflow (Zitadel deactivation) and the
 // per-service revocation-cache eviction.
+//
+// The registration column is cleared with the soft delete: a done row
+// has none, but a soft-deleted row must never hold an admin password
+// hash whoever set its status.
 //
 // Idempotent: NotFound means the predicate no longer matches (tenant
 // gone, already deleted, expiry extended, or no expiry). Returns nil.
@@ -91,10 +99,12 @@ func (a *Activities) SoftDeleteExpiredTenantActivity(ctx context.Context, input 
 	}
 	defer func() {
 		if err != nil {
-			_ = tx.Rollback()
-		} else {
-			err = tx.Commit()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.ForContext(ctx).Warn().Err(rbErr).Msg("rollback failed")
+			}
+			return
 		}
+		err = tx.Commit()
 	}()
 	sysCtx = ent.NewTxContext(sysCtx, tx)
 
@@ -106,8 +116,10 @@ func (a *Activities) SoftDeleteExpiredTenantActivity(ctx context.Context, input 
 		Where(
 			enttenant.ExpiresAtNotNil(),
 			enttenant.ExpiresAtLTE(now),
+			enttenant.StatusEQ(enttenant.StatusDone),
 		).
 		SetDeletedAt(now).
+		ClearRegistration().
 		Exec(sysCtx); err != nil {
 		if ent.IsNotFound(err) {
 			return nil

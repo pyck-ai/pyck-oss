@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqlgo/gqlgenc/clientv2"
+	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
 	"github.com/pyck-ai/pyck/backend/management/model"
 )
 
@@ -22,7 +23,7 @@ type APIClient interface {
 	GetUsers(ctx context.Context, after *string, first *int, before *string, last *int, orderBy *UserOrder, where *UserWhereInput, interceptors ...clientv2.RequestInterceptor) (*GetUsers, error)
 	GetDataTypeEntities(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetDataTypeEntities, error)
 	GetDataTypeBySlug(ctx context.Context, slug string, interceptors ...clientv2.RequestInterceptor) (*GetDataTypeBySlug, error)
-	GetOrganization(ctx context.Context, sub string, interceptors ...clientv2.RequestInterceptor) (*GetOrganization, error)
+	GetDisabledTenants(ctx context.Context, ids []string, interceptors ...clientv2.RequestInterceptor) (*GetDisabledTenants, error)
 	GetServiceRoles(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetServiceRoles, error)
 	GetUserServiceRoles(ctx context.Context, input model.UserServiceRolesInput, interceptors ...clientv2.RequestInterceptor) (*GetUserServiceRoles, error)
 	GetManagementServiceInfo(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetManagementServiceInfo, error)
@@ -32,7 +33,7 @@ type APIClient interface {
 	DeleteDataType(ctx context.Context, id string, interceptors ...clientv2.RequestInterceptor) (*DeleteDataType, error)
 	SendCustomEvent(ctx context.Context, input model.SendCustomEventInput, interceptors ...clientv2.RequestInterceptor) (*SendCustomEvent, error)
 	RegisterTenant(ctx context.Context, input model.RegisterTenantInput, interceptors ...clientv2.RequestInterceptor) (*RegisterTenant, error)
-	DeleteTenant(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*DeleteTenant, error)
+	DeleteTenant(ctx context.Context, input model.DeleteTenantInput, interceptors ...clientv2.RequestInterceptor) (*DeleteTenant, error)
 	RestoreTenant(ctx context.Context, input model.RestoreTenantInput, interceptors ...clientv2.RequestInterceptor) (*RestoreTenant, error)
 	SetTenantExpiry(ctx context.Context, input model.SetTenantExpiryInput, interceptors ...clientv2.RequestInterceptor) (*SetTenantExpiry, error)
 	SetTenantUITemplate(ctx context.Context, input model.SetTenantUITemplateInput, interceptors ...clientv2.RequestInterceptor) (*SetTenantUITemplate, error)
@@ -1138,6 +1139,7 @@ type GetTenants_Tenants_Edges_Node struct {
 	ID           string         "json:\"id\" graphql:\"id\""
 	IdpOrgRef    string         "json:\"idpOrgRef\" graphql:\"idpOrgRef\""
 	Name         string         "json:\"name\" graphql:\"name\""
+	Status       tenant.Status  "json:\"status\" graphql:\"status\""
 	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
 	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
 }
@@ -1207,6 +1209,12 @@ func (t *GetTenants_Tenants_Edges_Node) GetName() string {
 		t = &GetTenants_Tenants_Edges_Node{}
 	}
 	return t.Name
+}
+func (t *GetTenants_Tenants_Edges_Node) GetStatus() *tenant.Status {
+	if t == nil {
+		t = &GetTenants_Tenants_Edges_Node{}
+	}
+	return &t.Status
 }
 func (t *GetTenants_Tenants_Edges_Node) GetUpdatedAt() *time.Time {
 	if t == nil {
@@ -1555,24 +1563,6 @@ func (t *GetDataTypeBySlug_DataTypeBySlug) GetVersion() int {
 		t = &GetDataTypeBySlug_DataTypeBySlug{}
 	}
 	return t.Version
-}
-
-type GetOrganization_Organization struct {
-	Active bool    "json:\"active\" graphql:\"active\""
-	ID     *string "json:\"id,omitempty\" graphql:\"id\""
-}
-
-func (t *GetOrganization_Organization) GetActive() bool {
-	if t == nil {
-		t = &GetOrganization_Organization{}
-	}
-	return t.Active
-}
-func (t *GetOrganization_Organization) GetID() *string {
-	if t == nil {
-		t = &GetOrganization_Organization{}
-	}
-	return t.ID
 }
 
 type GetServiceRoles_ServiceRoles struct {
@@ -1994,6 +1984,7 @@ type RegisterTenant_RegisterTenant_Tenant struct {
 	ID           string         "json:\"id\" graphql:\"id\""
 	IdpOrgRef    string         "json:\"idpOrgRef\" graphql:\"idpOrgRef\""
 	Name         string         "json:\"name\" graphql:\"name\""
+	Status       tenant.Status  "json:\"status\" graphql:\"status\""
 	UpdatedAt    *time.Time     "json:\"updatedAt,omitempty\" graphql:\"updatedAt\""
 	UpdatedBy    *uuid.UUID     "json:\"updatedBy,omitempty\" graphql:\"updatedBy\""
 }
@@ -2063,6 +2054,12 @@ func (t *RegisterTenant_RegisterTenant_Tenant) GetName() string {
 		t = &RegisterTenant_RegisterTenant_Tenant{}
 	}
 	return t.Name
+}
+func (t *RegisterTenant_RegisterTenant_Tenant) GetStatus() *tenant.Status {
+	if t == nil {
+		t = &RegisterTenant_RegisterTenant_Tenant{}
+	}
+	return &t.Status
 }
 func (t *RegisterTenant_RegisterTenant_Tenant) GetUpdatedAt() *time.Time {
 	if t == nil {
@@ -3839,15 +3836,15 @@ func (t *GetDataTypeBySlug) GetDataTypeBySlug() *GetDataTypeBySlug_DataTypeBySlu
 	return t.DataTypeBySlug
 }
 
-type GetOrganization struct {
-	Organization GetOrganization_Organization "json:\"organization\" graphql:\"organization\""
+type GetDisabledTenants struct {
+	DisabledTenants []string "json:\"disabledTenants\" graphql:\"disabledTenants\""
 }
 
-func (t *GetOrganization) GetOrganization() *GetOrganization_Organization {
+func (t *GetDisabledTenants) GetDisabledTenants() []string {
 	if t == nil {
-		t = &GetOrganization{}
+		t = &GetDisabledTenants{}
 	}
-	return &t.Organization
+	return t.DisabledTenants
 }
 
 type GetServiceRoles struct {
@@ -4566,6 +4563,7 @@ const GetTenantsDocument = `query GetTenants ($after: Cursor, $first: Int, $befo
 				id
 				idpOrgRef
 				name
+				status
 				updatedAt
 				updatedBy
 			}
@@ -4709,21 +4707,18 @@ func (c *Client) GetDataTypeBySlug(ctx context.Context, slug string, interceptor
 	return &res, nil
 }
 
-const GetOrganizationDocument = `query GetOrganization ($sub: String!) {
-	organization(sub: $sub) {
-		active
-		id
-	}
+const GetDisabledTenantsDocument = `query GetDisabledTenants ($ids: [ID!]!) {
+	disabledTenants(ids: $ids)
 }
 `
 
-func (c *Client) GetOrganization(ctx context.Context, sub string, interceptors ...clientv2.RequestInterceptor) (*GetOrganization, error) {
+func (c *Client) GetDisabledTenants(ctx context.Context, ids []string, interceptors ...clientv2.RequestInterceptor) (*GetDisabledTenants, error) {
 	vars := map[string]any{
-		"sub": sub,
+		"ids": ids,
 	}
 
-	var res GetOrganization
-	if err := c.Client.Post(ctx, "GetOrganization", GetOrganizationDocument, &res, vars, interceptors...); err != nil {
+	var res GetDisabledTenants
+	if err := c.Client.Post(ctx, "GetDisabledTenants", GetDisabledTenantsDocument, &res, vars, interceptors...); err != nil {
 		if c.Client.ParseDataWhenErrors {
 			return &res, err
 		}
@@ -4982,6 +4977,7 @@ const RegisterTenantDocument = `mutation RegisterTenant ($input: RegisterTenantI
 			id
 			idpOrgRef
 			name
+			status
 			updatedAt
 			updatedBy
 		}
@@ -5006,15 +5002,17 @@ func (c *Client) RegisterTenant(ctx context.Context, input model.RegisterTenantI
 	return &res, nil
 }
 
-const DeleteTenantDocument = `mutation DeleteTenant {
-	deleteTenant {
+const DeleteTenantDocument = `mutation DeleteTenant ($input: DeleteTenantInput!) {
+	deleteTenant(input: $input) {
 		success
 	}
 }
 `
 
-func (c *Client) DeleteTenant(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*DeleteTenant, error) {
-	vars := map[string]any{}
+func (c *Client) DeleteTenant(ctx context.Context, input model.DeleteTenantInput, interceptors ...clientv2.RequestInterceptor) (*DeleteTenant, error) {
+	vars := map[string]any{
+		"input": input,
+	}
 
 	var res DeleteTenant
 	if err := c.Client.Post(ctx, "DeleteTenant", DeleteTenantDocument, &res, vars, interceptors...); err != nil {
@@ -5819,7 +5817,7 @@ var DocumentOperationNames = map[string]string{
 	GetUsersDocument:                 "GetUsers",
 	GetDataTypeEntitiesDocument:      "GetDataTypeEntities",
 	GetDataTypeBySlugDocument:        "GetDataTypeBySlug",
-	GetOrganizationDocument:          "GetOrganization",
+	GetDisabledTenantsDocument:       "GetDisabledTenants",
 	GetServiceRolesDocument:          "GetServiceRoles",
 	GetUserServiceRolesDocument:      "GetUserServiceRoles",
 	GetManagementServiceInfoDocument: "GetManagementServiceInfo",

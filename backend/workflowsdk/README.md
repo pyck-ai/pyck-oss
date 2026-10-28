@@ -282,7 +282,31 @@ Signal types (constructor, target, may start):
 > - **Omitted fields become wildcards**: Only set the fields you need to match. For example, omitting `SchemaName` will match events from any schema.
 > - **Tenant ID is special**: If `TenantID` is not set (or set to zero), it will be automatically replaced with ALL tenant IDs the current user is authorized for. This ensures proper multi-tenant isolation.
 > - **Available fields**: `MutationEventTopic` supports `TenantID`, `ServiceName`, `SchemaName`, `EntityID`, and `OperationName`. (Legacy `request.reply.*` registrations are still accepted and normalized to this form.)
-> - **Other topic types**: See [backend/common/events](../common/events) for `CustomEventTopic`, `WorkflowEventTopic`, etc.
+> - **Other topic types**: `TenantCustomEventTopic` (below) and `TemporalWorkflowStateChangeTopic`.
+
+#### Custom events
+
+`sendCustomEvent` publishes on `pyck.<tenant>.custom.<type>.<id>.<operation>`,
+outside the CRUD subjects. Subscribe with `workflowsdk.CustomSignalTopic`
+(`events.TenantCustomEventTopic`), which supports `TenantID`, `EventType`,
+`EntityID` and `OperationName`:
+
+```go
+signal.NewStartSignal(workflowsdk.CustomSignalTopic{
+    EventType:     "tour-creation",
+    OperationName: "create",
+})
+```
+
+Any operation is routed, unlike CRUD events, which carry only `create`,
+`update` and `delete`. Those three keep their start policies; any other takes
+the `update` one: a new run per entity once the previous run has closed, and
+an event that arrives while one runs is recorded as `already_running`.
+
+**Migrating** a signal registered as `SignalTopic{ServiceName: "management",
+SchemaName: "<type>", ...}` for a custom event: register
+`CustomSignalTopic{EventType: "<type>", ...}` instead, with the same
+operation and entity ID. The CRUD form no longer receives custom events.
 
 #### Filter rules and payloads
 
@@ -293,6 +317,7 @@ payload). An empty rule matches every event on the topic.
 | Topic | Filter variables (top-level JSON fields) | Start input / signal payload |
 |-------|------------------------------------------|------------------------------|
 | `MutationEventTopic` | the fields of the entity after the change (`DataAfter`) | `DataAfter` |
+| `TenantCustomEventTopic` | the event's `payload`: `id` and `data` | the `payload` |
 | `TemporalWorkflowStateChangeTopic` | `namespace`, `task_queue`, `workflow_id`, `workflow_type_name`, `run_id`, `status` | the state-change message, with the same six fields |
 
 For state changes, `status` is the Temporal status the run entered (for example

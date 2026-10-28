@@ -46,25 +46,28 @@ func _WorkflowQueryTypeNoOp() {
 var _WorkflowQueryTypeValues = []WorkflowQueryType{WorkflowQueryTypeGetState, WorkflowQueryTypeGetUserDataInput, WorkflowQueryTypeAwaitUserDataInput, WorkflowQueryTypeGetAssignee, WorkflowQueryTypeSetAssignee, WorkflowQueryTypeGetAvailableActions, WorkflowQueryTypeGetTargets, WorkflowQueryTypeSetTargets, WorkflowQueryTypeGetIsAssignable, WorkflowQueryTypeSetIsAssignable}
 
 var _WorkflowQueryTypeNameToValueMap = map[string]WorkflowQueryType{
-	_WorkflowQueryTypeName[0:8]:          WorkflowQueryTypeGetState,
+	_WorkflowQueryTypeName[0:8]:     WorkflowQueryTypeGetState,
+	_WorkflowQueryTypeName[8:24]:    WorkflowQueryTypeGetUserDataInput,
+	_WorkflowQueryTypeName[24:42]:   WorkflowQueryTypeAwaitUserDataInput,
+	_WorkflowQueryTypeName[42:53]:   WorkflowQueryTypeGetAssignee,
+	_WorkflowQueryTypeName[53:64]:   WorkflowQueryTypeSetAssignee,
+	_WorkflowQueryTypeName[64:83]:   WorkflowQueryTypeGetAvailableActions,
+	_WorkflowQueryTypeName[83:93]:   WorkflowQueryTypeGetTargets,
+	_WorkflowQueryTypeName[93:103]:  WorkflowQueryTypeSetTargets,
+	_WorkflowQueryTypeName[103:118]: WorkflowQueryTypeGetIsAssignable,
+	_WorkflowQueryTypeName[118:133]: WorkflowQueryTypeSetIsAssignable,
+}
+
+var _WorkflowQueryTypeLowerNameToValueMap = map[string]WorkflowQueryType{
 	_WorkflowQueryTypeLowerName[0:8]:     WorkflowQueryTypeGetState,
-	_WorkflowQueryTypeName[8:24]:         WorkflowQueryTypeGetUserDataInput,
 	_WorkflowQueryTypeLowerName[8:24]:    WorkflowQueryTypeGetUserDataInput,
-	_WorkflowQueryTypeName[24:42]:        WorkflowQueryTypeAwaitUserDataInput,
 	_WorkflowQueryTypeLowerName[24:42]:   WorkflowQueryTypeAwaitUserDataInput,
-	_WorkflowQueryTypeName[42:53]:        WorkflowQueryTypeGetAssignee,
 	_WorkflowQueryTypeLowerName[42:53]:   WorkflowQueryTypeGetAssignee,
-	_WorkflowQueryTypeName[53:64]:        WorkflowQueryTypeSetAssignee,
 	_WorkflowQueryTypeLowerName[53:64]:   WorkflowQueryTypeSetAssignee,
-	_WorkflowQueryTypeName[64:83]:        WorkflowQueryTypeGetAvailableActions,
 	_WorkflowQueryTypeLowerName[64:83]:   WorkflowQueryTypeGetAvailableActions,
-	_WorkflowQueryTypeName[83:93]:        WorkflowQueryTypeGetTargets,
 	_WorkflowQueryTypeLowerName[83:93]:   WorkflowQueryTypeGetTargets,
-	_WorkflowQueryTypeName[93:103]:       WorkflowQueryTypeSetTargets,
 	_WorkflowQueryTypeLowerName[93:103]:  WorkflowQueryTypeSetTargets,
-	_WorkflowQueryTypeName[103:118]:      WorkflowQueryTypeGetIsAssignable,
 	_WorkflowQueryTypeLowerName[103:118]: WorkflowQueryTypeGetIsAssignable,
-	_WorkflowQueryTypeName[118:133]:      WorkflowQueryTypeSetIsAssignable,
 	_WorkflowQueryTypeLowerName[118:133]: WorkflowQueryTypeSetIsAssignable,
 }
 
@@ -88,7 +91,7 @@ func WorkflowQueryTypeString(s string) (WorkflowQueryType, error) {
 		return val, nil
 	}
 
-	if val, ok := _WorkflowQueryTypeNameToValueMap[strings.ToLower(s)]; ok {
+	if val, ok := _WorkflowQueryTypeLowerNameToValueMap[strings.ToLower(s)]; ok {
 		return val, nil
 	}
 	return 0, errors.Join(enumerrs.ErrValueInvalid, fmt.Errorf("%s does not belong to WorkflowQueryType values", s))

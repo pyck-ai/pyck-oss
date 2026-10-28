@@ -1,0 +1,11 @@
+info:
+  name: User - Workflow Assignee Must Be A Tenant User
+  type: folder
+  seq: 1
+
+docs: |-
+  setWorkflowAssignee refuses an assignee that is not a user of the acting tenant (#1503). The execution does not exist, so a request that passes the check ends on Temporal's "not found" instead of the refusal. Users rows come from the Zitadel sync, which a fresh tenant has not run yet, so the accepted and other-tenant cases are left to the resolver unit tests.
+
+
+request:
+  auth: inherit

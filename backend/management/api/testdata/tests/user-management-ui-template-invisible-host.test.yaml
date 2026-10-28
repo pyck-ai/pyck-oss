@@ -1,0 +1,103 @@
+---
+name: "User - Management UI Template Invisible Host"
+description: >
+  setTenantUITemplate and registerTenant refuse a URL template whose host
+  holds an invisible character (#1507), percent-encoded so the generated
+  files stay ASCII. Both are system-only for a UI template, so the probe
+  step picks the token mode: the host checks run under the system token
+  (BRUNO_TOKEN), the system-gate check under the default tenant PAT.
+steps:
+  - id: probe
+    name: "Probe the token mode via the system-only disabledTenants query"
+    operation: management.getDisabledTenants
+    vars:
+      ids: []
+    tests:
+      - msg: "Status is 200 under either token"
+        assertions:
+          - ref: res.status
+            equal: 200
+
+  - name: "Refuse a web template with a bidi override in the host"
+    operation: management.setTenantUITemplate
+    skip:
+      - msg: "Tenant-token run: the system gate refuses before the host check"
+        assertions:
+          - ref: res[probe].body.errors
+            nil: false
+    vars:
+      input:
+        webTemplate: "https://ok%E2%80%AE.example.test/{{.Version}}"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Refused as an invalid template"
+        assertions:
+          - ref: res.body.errors
+            len: 1
+          - ref: res.body.errors[0].message
+            contains: "invisible or control character"
+
+  - name: "Refuse tenant registration with that template in data"
+    operation: management.registerTenant
+    skip:
+      - msg: "Tenant-token run: the system gate refuses before the host check"
+        assertions:
+          - ref: res[probe].body.errors
+            nil: false
+    vars:
+      input:
+        name: "ui-template-invisible-host"
+        adminUsername: "uitemplateadmin"
+        adminEmail: "uitemplateadmin@example.test"
+        adminFirstName: "UI"
+        adminLastName: "Template"
+        adminPassword: "SecurePass123!"
+        data:
+          remoteWebUITemplate: "https://ok%E2%80%AE.example.test/{{.Version}}"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Refused as an invalid template"
+        assertions:
+          - ref: res.body.errors
+            len: 1
+          - ref: res.body.errors[0].message
+            contains: "invisible or control character"
+
+  - name: "Refuse a well-formed template in registerTenant data from a non-system caller"
+    operation: management.registerTenant
+    skip:
+      - msg: "System-token run: the gate cannot refuse and the tenant would be registered for real"
+        assertions:
+          - ref: res[probe].body.errors
+            nil: true
+    vars:
+      input:
+        name: "ui-template-non-system"
+        adminUsername: "uitemplateadmin"
+        adminEmail: "uitemplateadmin@example.test"
+        adminFirstName: "UI"
+        adminLastName: "Template"
+        adminPassword: "SecurePass123!"
+        data:
+          remoteWebUITemplate: "https://cdn.example.test/{{.Version}}/mf-manifest.json"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Refused because the caller is not the system user"
+        assertions:
+          - ref: res.body.errors
+            len: 1
+          - ref: res.body.errors[0].message
+            contains: "registerTenant: system caller required to set remoteWebUITemplate"
+      - msg: "No tenant returned"
+        assertions:
+          - ref: res.body.data
+            nil: true

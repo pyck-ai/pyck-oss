@@ -5,7 +5,7 @@ volumes:
 ---
 services:
   rustfs:
-    image: rustfs/rustfs:1.0.0
+    image: rustfs/rustfs:1.0.3
     container_name: rustfs
     restart: always
     ports:

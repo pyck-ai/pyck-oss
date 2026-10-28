@@ -67,10 +67,10 @@ func pauseCfg(dep *fakeDependency) services.ConsumerConfig {
 func delivered(t *testing.T, e *natsEnv) (stream, redelivered uint64) {
 	t.Helper()
 
-	c, err := e.js.Consumer(context.Background(), consumerStream, services.DefaultConsumerDurable)
+	c, err := e.js.Consumer(t.Context(), consumerStream, services.DefaultConsumerDurable)
 	require.NoError(t, err)
 
-	info, err := c.Info(context.Background())
+	info, err := c.Info(t.Context())
 	require.NoError(t, err)
 
 	return info.Delivered.Stream, uint64(info.NumRedelivered)
@@ -526,7 +526,7 @@ func TestConsumer_HasNoServerSideMaxDeliver(t *testing.T) {
 
 	e := newNatsEnv(t)
 
-	_, err := e.js.CreateOrUpdateConsumer(context.Background(), consumerStream, jetstream.ConsumerConfig{
+	_, err := e.js.CreateOrUpdateConsumer(t.Context(), consumerStream, jetstream.ConsumerConfig{
 		Durable:        services.DefaultConsumerDurable,
 		FilterSubjects: []string{consumerStream + ".*.crud.*.*.*.*"},
 		DeliverPolicy:  jetstream.DeliverNewPolicy,
@@ -538,10 +538,10 @@ func TestConsumer_HasNoServerSideMaxDeliver(t *testing.T) {
 
 	e.router(fastCfg(), func(context.Context, *nats.Msg) error { return nil })
 
-	c, err := e.js.Consumer(context.Background(), consumerStream, services.DefaultConsumerDurable)
+	c, err := e.js.Consumer(t.Context(), consumerStream, services.DefaultConsumerDurable)
 	require.NoError(t, err)
 
-	info, err := c.Info(context.Background())
+	info, err := c.Info(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, -1, info.Config.MaxDeliver, "an existing durable is updated in place")
 }
@@ -584,10 +584,10 @@ func TestSQLHealthCheck(t *testing.T) {
 	require.NoError(t, err)
 
 	check := services.SQLHealthCheck("db", db)
-	require.NoError(t, check.Check(context.Background()))
+	require.NoError(t, check.Check(t.Context()))
 
 	require.NoError(t, db.Close())
-	assert.Error(t, check.Check(context.Background()), "a closed database is unhealthy")
+	assert.Error(t, check.Check(t.Context()), "a closed database is unhealthy")
 }
 
 type stubTemporal struct{ err error }
@@ -599,8 +599,8 @@ func (s stubTemporal) CheckHealth(context.Context, *temporalclient.CheckHealthRe
 func TestTemporalHealthCheck(t *testing.T) {
 	t.Parallel()
 
-	require.NoError(t, services.TemporalHealthCheck("temporal", stubTemporal{}).Check(context.Background()))
-	assert.Error(t, services.TemporalHealthCheck("temporal", stubTemporal{err: errOutage}).Check(context.Background()))
+	require.NoError(t, services.TemporalHealthCheck("temporal", stubTemporal{}).Check(t.Context()))
+	assert.Error(t, services.TemporalHealthCheck("temporal", stubTemporal{err: errOutage}).Check(t.Context()))
 }
 
 // syncBuffer is a log sink several goroutines write to.
@@ -638,7 +638,7 @@ func TestPause_StillPausedIsLoggedRepeatedly(t *testing.T) {
 	cfg.Health.PausedWarnInterval = 100 * time.Millisecond
 
 	logs := &syncBuffer{}
-	ctx := zerolog.New(logs).WithContext(context.Background())
+	ctx := zerolog.New(logs).WithContext(t.Context())
 
 	js, err := jetstream.New(e.connect())
 	require.NoError(t, err)

@@ -58,32 +58,32 @@ Our current implementation:
 | Test Name               | Description                                      | Expected Result                 | Test File       |
 | ----------------------- | ------------------------------------------------ | ------------------------------- | --------------- |
 | TestJetStreamAPIInfo      | Request JetStream API info                        | Success                         | jetstream_test.go |
-| TestStreamInfo             | Request stream info for allowed stream            | Success                         | jetstream_test.go |
+| TestStreamInfo             | Request stream info for the tenant's own stream   | Success                         | jetstream_test.go |
 | TestNonAllowedStreamInfo | Request stream info for non-allowed stream        | Failure (Permission Violation)  | jetstream_test.go |
 
 ### 3. Consumer Management Tests
 
 | Test Name                   | Description                                      | Consumer Name          | Stream Name   | Expected Result                 | Test File                   |
 | --------------------------- | ------------------------------------------------ | ---------------------- | ------------- | ------------------------------- | --------------------------- |
-| TestBasicConsumerCreation     | Create consumer with valid name pattern          | `${tenantId}--one`    | `pyck`        | Success                         | consumer_management_test.go |
-| TestInvalidConsumerName       | Create consumer with invalid name pattern        | `invalid-consumer-name` | `pyck`        | Failure (Permission Violation)  | consumer_management_test.go |
+| TestBasicConsumerCreation     | Create consumer with valid name pattern          | `${tenantId}--one`    | `pyck-${tenantId}` | Success                         | consumer_management_test.go |
+| TestInvalidConsumerName       | Create consumer with invalid name pattern        | `invalid-consumer-name` | `pyck-${tenantId}` | Failure (Permission Violation)  | consumer_management_test.go |
 | TestNonAllowedStream         | Create consumer for non-allowed stream          | `${tenantId}--one`    | `not-allowed` | Failure (Permission Violation)  | consumer_management_test.go |
-| TestDurableConsumerCreation   | Create durable consumer                          | `${tenantId}--two`    | `pyck`        | Success                         | consumer_management_test.go |
-| TestConsumerDeletion           | Delete a consumer                                | `${tenantId}--three`  | `pyck`        | Success                         | consumer_management_test.go |
-| TestConsumerInfoRequest       | Request consumer info                            | `${tenantId}--four`   | `pyck`        | Success                         | consumer_management_test.go |
-| TestConsumerListRequest       | List all consumers                               | N/A                    | `pyck`        | Failure (Permission Violation)  | consumer_management_test.go |
-| TestConsumerNamesRequest      | List consumer names                              | N/A                    | `pyck`        | Failure (Permission Violation)  | consumer_management_test.go |
-| TestEleventhConsumer           | Create an 11th consumer                         | `${tenantId}--eleven` | `pyck`        | Failure (Permission Violation)  | consumer_management_test.go |
-| TestDifferentTenantID         | Access another tenant's resources               | `different-tenant--one` | `pyck`        | Failure (Permission Violation)  | consumer_management_test.go |
-| TestDeleteOtherTenantConsumer | Attempt to delete another tenant's consumer    | `different-tenant--one` | `pyck`        | Failure (Permission Violation)  | consumer_management_test.go |
+| TestDurableConsumerCreation   | Create durable consumer                          | `${tenantId}--two`    | `pyck-${tenantId}` | Success                         | consumer_management_test.go |
+| TestConsumerDeletion           | Delete a consumer                                | `${tenantId}--three`  | `pyck-${tenantId}` | Success                         | consumer_management_test.go |
+| TestConsumerInfoRequest       | Request consumer info                            | `${tenantId}--four`   | `pyck-${tenantId}` | Success                         | consumer_management_test.go |
+| TestConsumerListRequest       | List all consumers                               | N/A                    | `pyck-${tenantId}` | Failure (Permission Violation)  | consumer_management_test.go |
+| TestConsumerNamesRequest      | List consumer names                              | N/A                    | `pyck-${tenantId}` | Failure (Permission Violation)  | consumer_management_test.go |
+| TestEleventhConsumer           | Create an 11th consumer                         | `${tenantId}--eleven` | `pyck-${tenantId}` | Failure (Permission Violation)  | consumer_management_test.go |
+| TestDifferentTenantID         | Access another tenant's resources               | `different-tenant--one` | `pyck-${tenantId}` | Failure (Permission Violation)  | consumer_management_test.go |
+| TestDeleteOtherTenantConsumer | Attempt to delete another tenant's consumer    | `different-tenant--one` | `pyck-${tenantId}` | Failure (Permission Violation)  | consumer_management_test.go |
 
 ### 4. Message Operation Tests
 
 | Test Name                       | Description                                                            | Consumer Name          | Stream Name   | Expected Result                 | Test File              |
 | ------------------------------- | ---------------------------------------------------------------------- | ---------------------- | ------------- | ------------------------------- | ---------------------- |
-| TestBasicJetStreamPublishSubscribe | Publish messages to a stream and verify they can be received           | `${tenantId}--five`    | `pyck`        | Success                         | message_operations_test.go |
-| TestMessageAcknowledgment         | Verify messages can be properly acknowledged                           | `${tenantId}--six`    | `pyck`        | Success                         | message_operations_test.go |
-| TestCrossTenantMessageAccess     | Attempt to access messages from another tenant's subject              | `${tenantId}--seven`  | `pyck`        | Failure (Permission Violation)  | message_operations_test.go |
+| TestBasicJetStreamPublishSubscribe | Publish messages to a stream and verify they can be received           | `${tenantId}--five`    | `pyck-${tenantId}` | Success                         | message_operations_test.go |
+| TestMessageAcknowledgment         | Verify messages can be properly acknowledged                           | `${tenantId}--six`    | `pyck-${tenantId}` | Success                         | message_operations_test.go |
+| TestCrossTenantMessageAccess     | Attempt to access messages from another tenant's subject              | `${tenantId}--seven`  | `pyck-${tenantId}` | Failure (Permission Violation)  | message_operations_test.go |
 
 ### 5. Stream Access Tests
 
@@ -96,10 +96,10 @@ Our current implementation:
 
 | Test Name                   | Description                                      | Consumer Name          | Stream Name   | Expected Result                 | Test File              |
 | --------------------------- | ------------------------------------------------ | ---------------------- | ------------- | ------------------------------- | ---------------------- |
-| TestFilterSubjectVariation    | Test different filter subject patterns          | `${tenantId}--seven`    | `pyck`        | Success                         | complex_scenarios_test.go |
-| TestDeliverSubjectVariation   | Test different deliver subject patterns         | `${tenantId}--eight`   | `pyck`        | Success                         | complex_scenarios_test.go |
-| TestMultipleOperationsSequence | Sequence of operations (create, info, delete)   | `${tenantId}--nine`    | `pyck`        | Success                         | complex_scenarios_test.go |
-| TestConcurrentOperations       | Multiple concurrent operations                  | Various                | `pyck`        | Success for all valid operations | complex_scenarios_test.go |
+| TestFilterSubjectVariation    | Test different filter subject patterns          | `${tenantId}--seven`    | `pyck-${tenantId}` | Success                         | complex_scenarios_test.go |
+| TestDeliverSubjectVariation   | Test different deliver subject patterns         | `${tenantId}--eight`   | `pyck-${tenantId}` | Success                         | complex_scenarios_test.go |
+| TestMultipleOperationsSequence | Sequence of operations (create, info, delete)   | `${tenantId}--nine`    | `pyck-${tenantId}` | Success                         | complex_scenarios_test.go |
+| TestConcurrentOperations       | Multiple concurrent operations                  | Various                | `pyck-${tenantId}` | Success for all valid operations | complex_scenarios_test.go |
 
 ## Implementation Details
 
@@ -115,7 +115,7 @@ Tests will be structured using Ginkgo's BDD style, with `Describe`, `Context`, `
 
 Helper functions will be created in a separate file (e.g., `test_helper.go`) to encapsulate common tasks:
 
--   `createTestConnection(token string) (*nats.Conn, error)`:  Creates a NATS connection with the provided JWT token.
+-   `CreateTestConnection(token, tenantID string) (*nats.Conn, error)`:  Creates a NATS connection with the provided token, on the tenant's inbox prefix (`config.InboxPrefix`); the callout grants no other inbox.
 -   `getTenantIDFromJWT(token string) (string, error)`: Extracts the tenant ID from the JWT token.
 -   `CreateJetStreamConsumer(ctx context.Context, js jetstream.JetStream, streamName, consumerName string) (jetstream.Consumer, error)`: Creates a JetStream consumer.
 -   `deleteJetStreamConsumer(ctx context.Context, js jetstream.JetStream, streamName, consumerName string) error`: Deletes a JetStream consumer.
@@ -132,6 +132,7 @@ Organize tests into the following files:
 5.  `stream_access_test.go` - Stream access restrictions.
 6.  `complex_scenarios_test.go` - Complex scenarios and edge cases.
 7.  `core_nats_test.go` - *Only if needed*: Tests for core NATS functionality (if any).
+8.  `inbox_isolation_test.go` - Reply inboxes beyond the tenant's own prefix are refused; the tenant's own JetStream replies arrive.
 
 ## Execution Environment
 

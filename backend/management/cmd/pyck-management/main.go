@@ -11,14 +11,17 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go/micro"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	zitadelsdk "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel"
 
 	"github.com/pyck-ai/pyck/backend/bootstrap/pkg/bootstrap"
+	"github.com/pyck-ai/pyck/backend/common/admission"
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/dataindex"
 	"github.com/pyck-ai/pyck/backend/common/db"
@@ -30,6 +33,8 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/hooks"
 	"github.com/pyck-ai/pyck/backend/common/http"
 	"github.com/pyck-ai/pyck/backend/common/idempotency"
+	"github.com/pyck-ai/pyck/backend/common/liveness"
+	"github.com/pyck-ai/pyck/backend/common/locking"
 	"github.com/pyck-ai/pyck/backend/common/log"
 	logadapter "github.com/pyck-ai/pyck/backend/common/log/adapter"
 	"github.com/pyck-ai/pyck/backend/common/nats"
@@ -55,10 +60,22 @@ import (
 	"github.com/pyck-ai/pyck/backend/management/webhooks"
 	"github.com/pyck-ai/pyck/backend/management/workerapi"
 	"github.com/pyck-ai/pyck/backend/management/workflows"
-	zitadelsync "github.com/pyck-ai/pyck/backend/management/workflows/zitadel-sync"
 )
 
-const serviceName = "management"
+const (
+	serviceName = "management"
+
+	// registerTenantField is the top-level mutation field the admission cap
+	// and the transaction exemption are both configured for: the anonymous
+	// tenant registration.
+	registerTenantField = "registerTenant"
+
+	// natsAccountCheckTimeout bounds nats.RequireSeparateTenantAccount.
+	natsAccountCheckTimeout = 10 * time.Second
+)
+
+// eventStreamsLockID serializes event stream changes across management replicas.
+var eventStreamsLockID = locking.GenerateLockID(serviceName + "/event-streams") //nolint:gochecknoglobals
 
 // Schedule intervals parse from free-form env strings; these sentinels turn
 // the range violations into static errors while the wrapping fmt.Errorf
@@ -66,7 +83,99 @@ const serviceName = "management"
 var (
 	errNegativeInterval    = errors.New("interval must not be negative")
 	errNonPositiveInterval = errors.New("interval must be positive")
+	errPollNotBelowWait    = errors.New("poll interval must be below the wait")
+
+	errNonPositiveConcurrency = errors.New("concurrency must be positive")
 )
+
+// validateRegistrationBudgets refuses registration budgets that would break
+// registration without an error of their own: a poll of zero or less spins
+// Temporal and DB reads for the whole wait, a wait the poll does not fit in
+// never re-reads, a Temporal call timeout of zero or less expires every
+// trigger delivery before it starts, so the create event is NAKed until
+// JetStream drops it and the row stays pending, and a stream lock wait of
+// zero or less fails every registerTenant and restoreTenant with
+// events.ErrStreamLockNotAcquired.
+func validateRegistrationBudgets(wait, poll, temporalCallTimeout, streamLockWait time.Duration) error {
+	for _, budget := range []struct {
+		name string
+		d    time.Duration
+	}{
+		{"PYCK_TENANT_REGISTRATION_WAIT", wait},
+		{"PYCK_TENANT_REGISTRATION_POLL", poll},
+		{"PYCK_TENANT_EVENT_TEMPORAL_CALL_TIMEOUT", temporalCallTimeout},
+		{"PYCK_EVENT_STREAM_LOCK_WAIT", streamLockWait},
+	} {
+		if budget.d <= 0 {
+			return fmt.Errorf("invalid %s value %s: %w", budget.name, budget.d, errNonPositiveInterval)
+		}
+	}
+	if poll >= wait {
+		return fmt.Errorf("invalid PYCK_TENANT_REGISTRATION_POLL value %s with PYCK_TENANT_REGISTRATION_WAIT %s: %w",
+			poll, wait, errPollNotBelowWait)
+	}
+	return nil
+}
+
+// graphQLServerConfig is the slice of the service configuration the GraphQL
+// extension list is built from, so that list can be assembled (and its
+// ordering and per-operation wiring asserted) without the process-wide
+// core.Config.
+type graphQLServerConfig struct {
+	// Introspection exposes the schema; only development sets it.
+	Introspection bool
+	// RegisterTenantMaxInFlight caps concurrent registerTenant executions
+	// on this replica; see the admission package.
+	RegisterTenantMaxInFlight int
+	// TxRetries is the serialization-failure retry budget of a mutation.
+	TxRetries int
+	// IdempotencyMaxResponseBytes caps the response cached per key.
+	IdempotencyMaxResponseBytes int
+}
+
+// graphQLExtensions is the ordered list of gqlgen extensions the management
+// GraphQL server runs. The order is behaviour rather than taste: gqlgen
+// invokes operation interceptors in registration order, so admission has to
+// come before the transaction middleware: an operation refused by the cap
+// must be refused before a writer connection is checked out for it.
+//
+// It is a function taking its configuration rather than reading the
+// process-wide one, so the ordering and the registerTenant exemption can be
+// asserted without starting the service; realMain only feeds the result to
+// Server.Use.
+func graphQLExtensions(
+	cfg graphQLServerConfig, dbClient *ent.Client, idemStore idempotency.Store,
+) []graphql.HandlerExtension {
+	exts := make([]graphql.HandlerExtension, 0, 3)
+
+	// Enable introspection only in development
+	if cfg.Introspection {
+		exts = append(exts, extension.Introspection{})
+	}
+
+	// Admission runs BEFORE the transaction middleware: gqlgen invokes
+	// operation interceptors in registration order, so a registerTenant
+	// refused here never reaches a database connection. registerTenant is
+	// anonymous and provisions a whole tenant, which makes the number of
+	// them one replica runs at once the only thing standing between a
+	// caller and the writer pool.
+	exts = append(exts, admission.New(map[string]int{
+		registerTenantField: cfg.RegisterTenantMaxInFlight,
+	}))
+
+	exts = append(exts, gqltx.NewMiddleware(
+		dbClient, ent.NewTxContext, serviceName, cfg.TxRetries,
+		gqltx.WithIdempotency(idemStore, idempotency.DefaultAuthLookup),
+		gqltx.WithIdempotencyMaxResponseBytes(cfg.IdempotencyMaxResponseBytes),
+		// registerTenant commits its tenant row itself and then waits for
+		// the registration run that row's event starts; holding the
+		// request's writer connection across that wait would pin one
+		// connection per in-flight registration.
+		gqltx.WithoutTransaction(registerTenantField),
+	))
+
+	return exts
+}
 
 func main() {
 	os.Exit(realMain())
@@ -145,6 +254,13 @@ func run(ctx context.Context) error {
 	if err := core.LoadEnv(); err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
+	if err := validateRegistrationBudgets(core.Config.RegistrationWait, core.Config.RegistrationPoll,
+		core.Config.TenantEventTemporalCallTimeout, core.Config.EventStreamLockWait); err != nil {
+		return err
+	}
+	if n := core.Config.EventStreamReconcileConcurrency; n <= 0 {
+		return fmt.Errorf("invalid PYCK_EVENT_STREAM_RECONCILE_CONCURRENCY value %d: %w", n, errNonPositiveConcurrency)
+	}
 
 	// Re-initialize logger with full configuration
 	procCtx, l := log.SetupLogger(ctx, serviceName, core.Config.LogConfig)
@@ -211,11 +327,12 @@ func run(ctx context.Context) error {
 		Slug:       entdatatype.FieldSlug,
 	}, dataTypeLineageBindings(dbClient)))
 
-	// Single Zitadel gRPC connection used by the tenant lifecycle
-	// workflows (disable/restore/reconcile) AND the organization
-	// resolver's v2 SDK calls (GetUserByID + ListOrganizations). JWT
-	// profile auth from the bootstrap-provisioned sa-admin service
-	// account.
+	// Single Zitadel gRPC connection used by the tenant lifecycle workflows
+	// (disable/restore) and zitadel-sync. Tenant registration is NOT a
+	// consumer: it dials its own per-attempt connection (see
+	// register-tenant's dialZitadel), so this connection's sa-admin scope
+	// is justified by the lifecycle workflows alone. JWT profile auth from
+	// the bootstrap-provisioned sa-admin service account.
 	zitadelOpts := []zitadelsdk.Option{
 		zitadelsdk.WithTokenSource(zitadel.NewJWTProfileTokenSource(
 			core.Config.ZitadelOAuthURL,
@@ -244,21 +361,19 @@ func run(ctx context.Context) error {
 	}
 
 	// Set up auth provider. Management introspects via the standard
-	// Zitadel client and runs the org-active check in-process: the
-	// validator is an inline closure that calls the local v2 SDK
-	// helper (mgmthandlers.ResolveOrganization) against the same system
-	// zitadelConn the workflows use. No HTTP self-loop, same Zitadel
-	// surface the 6 other services see through the `organization`
-	// GraphQL query.
+	// Zitadel client and answers the liveness check that follows in-process
+	// from its own tenant table (mgmthandlers.DisabledTenants). No HTTP
+	// self-loop; the 6 other services ask the same question through the
+	// `disabledTenants` GraphQL query. One source feeds both readers, the
+	// auth provider (the caller's own tenant) and the tenant middleware (the
+	// acting set), so their verdicts share a cache entry, kept current by
+	// the tenant lifecycle subscriber.
 	zitadelClient := zitadel.NewClient(core.Config.ZitadelConfig)
-	orgValidator := func(ctx context.Context, sub string) (bool, error) {
-		result, err := mgmthandlers.ResolveOrganization(ctx, zitadelConn, sub)
-		if err != nil {
-			return false, err
-		}
-		return result.Active, nil
+	disabledTenantSource := func(ctx context.Context, tenantIDs []uuid.UUID) ([]uuid.UUID, error) {
+		return mgmthandlers.DisabledTenants(ctx, dbClient, tenantIDs)
 	}
-	authProvider := authn.NewZitadelAuthProvider(zitadelClient, core.Config.ZitadelConfig, orgValidator)
+	livenessCache := liveness.NewCacheFromConfig(core.Config.LivenessConfig)
+	defer livenessCache.Close()
 
 	// Set up NATS client
 	natsClient, err := events.NewNatsClient(procCtx, core.Config.NatsUrl)
@@ -268,33 +383,68 @@ func run(ctx context.Context) error {
 
 	defer events.DrainNatsClient(procCtx, natsClient, events.DrainTimeout)
 
+	// Tenant clients must never share the services' account. Checked before
+	// anything touches the streams, workflows or event consumers.
+	accountCtx, cancelAccount := context.WithTimeout(procCtx, natsAccountCheckTimeout)
+	err = nats.RequireSeparateTenantAccount(accountCtx, natsClient, core.Config.NatsTenantAccountName)
+	cancelAccount()
+	if err != nil {
+		return fmt.Errorf("failed checking PYCK_NATS_TENANT_ACCOUNT_NAME: %w", err)
+	}
+
 	// Set up JetStream
-	jetstreamClient, err := events.CreateOrUpdateJetstream(procCtx, natsClient, core.Config.NatsStreamName, core.Config.NatsReplicasNumber)
+	streamLimits := events.StreamLimitsOf(core.Config.NatsConfig)
+
+	jetstreamClient, err := events.SetupJetStream(procCtx, natsClient, core.Config.NatsStreamName, core.Config.NatsReplicasNumber, streamLimits)
 	if err != nil {
 		return fmt.Errorf("failed setting up JetStream: %w", err)
+	}
+
+	// Management owns the tenant streams and the aggregate's sources.
+	streamLocks := locking.NewPostgresLocks(pgxDriver.DB())
+	eventStreams := events.NewStreamTopology(
+		jetstreamClient,
+		core.Config.NatsStreamName,
+		core.Config.NatsReplicasNumber,
+		func(ctx context.Context, fn func(context.Context) error) error {
+			return streamLocks.WithXactLock(ctx, eventStreamsLockID, fn)
+		},
+		streamLimits,
+		events.WithLockWait(core.Config.EventStreamLockWait),
+		events.WithReconcileConcurrency(core.Config.EventStreamReconcileConcurrency),
+	)
+
+	// Before the outbox starts, so a tenant's events find its stream.
+	if err := tenants.ReconcileStreams(procCtx, dbClient, eventStreams); err != nil {
+		return fmt.Errorf("failed setting up the tenant event streams: %w", err)
 	}
 
 	if err := startup.Check(appCtx, "nats setup"); err != nil {
 		return err
 	}
 
-	// Sub-second eviction of cached entries on tenant-disable NATS events.
-	// Pairs with the TenantValidator on the cache-miss path: the next
-	// request runs introspect + validate against management, the validator
-	// catches the disabled tenant, and the lookup is not re-cached.
-	// Restores are no-op here — the missing cache entry just gets rebuilt
-	// on the next request once management's /me sees the tenant again.
-	revocationCC, err := authn.SubscribeRevocations(
+	// The auth provider with its sub-second reaction to tenant lifecycle
+	// NATS events: the tenant's liveness verdict is evicted so the next
+	// lookup reads the row, and on disable the cached tokens of the
+	// tenant's users are dropped. A failed subscribe closes the provider
+	// it built.
+	authProvider, tenantEventsCC, err := authn.NewProviderWithTenantEvents(
 		procCtx,
+		zitadelClient,
+		core.Config.ZitadelConfig,
+		disabledTenantSource,
+		livenessCache,
 		jetstreamClient,
 		core.Config.NatsStreamName,
 		serviceName,
-		authProvider.OnTenantDisabled,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to subscribe to tenant revocation events: %w", err)
+		return fmt.Errorf("failed to set up auth provider: %w", err)
 	}
-	defer revocationCC.Stop()
+	// Stops the token cache's janitor goroutine; deferred before the
+	// subscriber's Stop so the subscriber stops first.
+	defer authProvider.Close()
+	defer tenantEventsCC.Stop()
 
 	jetstreamPub := events.NewEventPublisher(jetstreamClient, natsClient, core.Config.NatsStreamName)
 
@@ -338,7 +488,7 @@ func run(ctx context.Context) error {
 	// Set up GraphQL resolver
 	// authorizer := authz.NewManagementAuthorizer(client)
 	dataTypeValidator := validator.NewValidator(service.NewDatabaseDataTypeProvider(dbClient))
-	resolver := resolvers.NewResolver(serviceName, dbClient, dataTypeValidator, workflowClient, zitadelConn)
+	resolver := resolvers.NewResolver(serviceName, dbClient, dataTypeValidator, workflowClient, zitadelConn, eventStreams)
 
 	// Set up temporal worker
 	temporalWorker, err := workflows.NewTemporalWorker(
@@ -365,6 +515,9 @@ func run(ctx context.Context) error {
 
 	nsGetter := workflow.NewNamespaceGetter(core.Config.ZitadelAudience)
 	workerAPIClient := workerapi.New(core.Config.WorkerAPIURL, core.Config.ServiceToken)
+	if err := core.Config.WorkerAPIRetry.Validate(); err != nil {
+		return err
+	}
 	if !workerAPIClient.Configured() {
 		// Say it at boot: otherwise the first pyck-go registration fails with
 		// no obvious cause.
@@ -373,12 +526,18 @@ func run(ctx context.Context) error {
 	}
 
 	temporalWorker.RegisterTenantWorkflow(dbClient, nsGetter, workerAPIClient)
-	temporalWorker.RegisterDisableTenantWorkflow(zitadelConn)
-	temporalWorker.RegisterRestoreTenantWorkflow(zitadelConn)
-	temporalWorker.RegisterTenantReconcileWorkflow(dbClient, zitadelConn)
+	if !core.Config.TenantWorkerLifecycle {
+		log.ForContext(procCtx).Warn().
+			Msg("PYCK_TENANT_WORKER_LIFECYCLE is off: disabling or restoring a pyck-go tenant will not stop or resume its worker")
+	}
+	temporalWorker.RegisterDisableTenantWorkflow(dbClient, zitadelConn, workerAPIClient, nsGetter, core.Config.TenantWorkerLifecycle)
+	temporalWorker.RegisterRestoreTenantWorkflow(dbClient, zitadelConn, workerAPIClient, nsGetter, core.Config.TenantWorkerLifecycle)
+	temporalWorker.RegisterTenantReconcileWorkflow(dbClient, zitadelConn, func(ctx context.Context) error {
+		return tenants.RepairStreams(ctx, dbClient, eventStreams)
+	})
 	temporalWorker.RegisterTenantExpiryCheckWorkflow(dbClient)
 	temporalWorker.RegisterGenerateJsonSchemaWorkflow()
-	temporalWorker.RegisterZitadelSyncWorkflow(dbClient, core.Config.ZitadelOAuthURL, core.Config.ZitadelGrpcAddr, core.Config.ZitadelAudience, core.Config.ZitadelServiceKeyPath, core.Config.ZitadelProjectId, core.Config.ZitadelTlsInsecure)
+	temporalWorker.RegisterZitadelSyncWorkflow(dbClient, core.Config.ZitadelOAuthURL, core.Config.ZitadelGrpcAddr, core.Config.ZitadelAudience, core.Config.ZitadelServiceKeyPath, core.Config.ZitadelTlsInsecure)
 
 	err = temporalWorker.Start()
 	if err != nil {
@@ -391,7 +550,11 @@ func run(ctx context.Context) error {
 
 	// Subscribe to tenant lifecycle events: the trigger subscriber starts
 	// the disable/restore workflows when a tenant's deleted_at transitions.
-	triggerCC, err := tenants.SubscribeTrigger(procCtx, jetstreamClient, temporalClient, core.Config.NatsStreamName)
+	triggerCC, err := tenants.SubscribeTrigger(procCtx, jetstreamClient, temporalClient, core.Config.NatsStreamName,
+		tenants.TriggerConfig{
+			MaxRedeliver:        core.Config.TenantEventMaxRedeliver,
+			TemporalCallTimeout: core.Config.TenantEventTemporalCallTimeout,
+		})
 	if err != nil {
 		return fmt.Errorf("failed to subscribe tenant lifecycle trigger: %w", err)
 	}
@@ -438,7 +601,9 @@ func run(ctx context.Context) error {
 	}
 
 	// Set up NATS auth service
-	natsAuthService, err := nats.NewAuthService(procCtx, serviceName, core.Config.NatsStreamName, authProvider, core.Config.NatsAuthKeySeed)
+	natsAuthService, err := nats.NewAuthService(procCtx, serviceName, core.Config.NatsStreamName, core.Config.NatsTenantAccountName, authProvider, core.Config.NatsAuthKeySeed, livenessCache, disabledTenantSource,
+		nats.WithCalloutTimeout(core.Config.NatsCalloutTimeout),
+		nats.WithUserJWTTTL(core.Config.NatsUserJWTTTL))
 	if err != nil {
 		return fmt.Errorf("failed setting up NATS auth service: %w", err)
 	}
@@ -463,21 +628,25 @@ func run(ctx context.Context) error {
 	// Set GraphQL server
 	gqlServer := gqlserver.New(resolvers.NewSchema(resolver))
 
-	// Enable introspection only in development
-	if core.Config.EnvironmentName == "development" {
-		gqlServer.Use(extension.Introspection{})
+	gqlExtensionConfig := graphQLServerConfig{
+		Introspection:               core.Config.EnvironmentName == "development",
+		RegisterTenantMaxInFlight:   core.Config.RegisterTenantMaxInFlight,
+		TxRetries:                   core.Config.TxRetries,
+		IdempotencyMaxResponseBytes: core.Config.IdempotencyMaxResponseBytes,
+	}
+	for _, ext := range graphQLExtensions(gqlExtensionConfig, dbClient, idemStore) {
+		gqlServer.Use(ext)
 	}
 
-	gqlServer.Use(gqltx.NewMiddleware(
-		dbClient, ent.NewTxContext, serviceName, core.Config.TxRetries,
-		gqltx.WithIdempotency(idemStore, idempotency.DefaultAuthLookup),
-		gqltx.WithIdempotencyMaxResponseBytes(core.Config.IdempotencyMaxResponseBytes),
-	))
+	tenantMiddleware, err := tenant.HTTPMiddleware(livenessCache, disabledTenantSource)
+	if err != nil {
+		return fmt.Errorf("failed setting up tenant middleware: %w", err)
+	}
 
 	gqlHandler := chi.NewRouter()
 	gqlHandler.Use(
 		authProvider.HTTPMiddleware(),
-		tenant.HTTPMiddleware(),
+		tenantMiddleware,
 		feature.HTTPMiddleware(),
 	)
 	gqlHandler.Mount("/", gqlServer)
@@ -526,8 +695,6 @@ func run(ctx context.Context) error {
 	httpRouter.Handle("/static/settings.json", mgmthandlers.NewSettingsHandler(core.Config.FrontendConfig))
 	httpRouter.Mount("/github", github.Router(core.Config.GithubClientID, core.Config.GithubClientSecret))
 	httpRouter.Mount("/webhook", webhooks.Router(webhooks.Config{
-		TemporalClient:       temporalClient,
-		TenantSyncTaskQueue:  zitadelsync.TenantSyncTaskQueue,
 		ZitadelAudience:      core.Config.ZitadelAudience,
 		ZitadelActionSignKey: core.Config.ZitadelActionSigningKey,
 

@@ -267,3 +267,6 @@ func PublishDeadLettersForTest(ctx context.Context, serviceName, streamName stri
 	}
 	return ids
 }
+
+// TenantStreamConfig exposes tenantStreamConfig to the stream tests.
+var TenantStreamConfig = tenantStreamConfig

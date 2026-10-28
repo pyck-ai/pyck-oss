@@ -1,4 +1,4 @@
-version: "3.45"
+version: "3.47"
 
 set: [errexit, nounset, pipefail]
 
@@ -12,6 +12,19 @@ tasks:
   default:
     cmds:
       - task: test:integration:run
+
+  # Every file here sits behind the integration build tag, so a lint run
+  # without it sees an empty module and passes vacuously.
+  lint:
+    desc: Lint the integration module (needs the integration build tag)
+    cmds:
+      - go mod verify
+      - >-
+        golangci-lint run
+        --allow-serial-runners
+        --timeout=10m
+        --build-tags integration
+        ./...
 
   test:integration:run:
     desc: >-

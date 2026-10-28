@@ -33,6 +33,29 @@ func (q *ItemQuery) PagedIDs(ctx context.Context, pageSize int) ([]int, error) {
 	return nil, nil
 }
 
+// Select returns a projection that embeds the query, the way ent's
+// generated *<Entity>Select does: .All/.IDs/.Limit/.AllPages are promoted
+// from the query, and the scalar scanners are added on top.
+func (q *ItemQuery) Select(...string) *ItemSelect { return &ItemSelect{ItemQuery: q} }
+
+// GroupBy returns a projection that holds the query as a field, the way
+// ent's generated *<Entity>GroupBy does: nothing is promoted, so a .Limit
+// must come before .GroupBy in the chain.
+func (q *ItemQuery) GroupBy(...string) *ItemGroupBy { return &ItemGroupBy{build: q} }
+
+type ItemSelect struct{ *ItemQuery }
+
+func (s *ItemSelect) Strings(ctx context.Context) ([]string, error)   { return nil, nil }
+func (s *ItemSelect) Ints(ctx context.Context) ([]int, error)         { return nil, nil }
+func (s *ItemSelect) Float64s(ctx context.Context) ([]float64, error) { return nil, nil }
+func (s *ItemSelect) Bools(ctx context.Context) ([]bool, error)       { return nil, nil }
+func (s *ItemSelect) Scan(ctx context.Context, v any) error           { return nil }
+
+type ItemGroupBy struct{ build *ItemQuery }
+
+func (g *ItemGroupBy) Strings(ctx context.Context) ([]string, error) { return nil, nil }
+func (g *ItemGroupBy) Scan(ctx context.Context, v any) error         { return nil }
+
 // ItemMutation mirrors a real ent mutation builder, which also exposes
 // .IDs(ctx). Its receiver is *ItemMutation (not ...Query), so the analyzer
 // must NOT flag it — mutations are not subject to the limit interceptor.
@@ -51,5 +74,10 @@ type EventQuery struct{}
 func (q *EventQuery) All(ctx context.Context) ([]*Event, error) { return nil, nil }
 func (q *EventQuery) IDs(ctx context.Context) ([]int, error)    { return nil, nil }
 func (q *EventQuery) Limit(int) *EventQuery                     { return q }
+func (q *EventQuery) Select(...string) *EventSelect             { return &EventSelect{EventQuery: q} }
+
+type EventSelect struct{ *EventQuery }
+
+func (s *EventSelect) Strings(ctx context.Context) ([]string, error) { return nil, nil }
 
 type Event struct{}

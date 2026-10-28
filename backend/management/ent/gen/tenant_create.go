@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/user"
+	"github.com/pyck-ai/pyck/backend/management/ent/types"
 )
 
 // TenantCreate is the builder for creating a Tenant entity.
@@ -133,6 +134,12 @@ func (_c *TenantCreate) SetName(v string) *TenantCreate {
 	return _c
 }
 
+// SetNameKey sets the "name_key" field.
+func (_c *TenantCreate) SetNameKey(v string) *TenantCreate {
+	_c.mutation.SetNameKey(v)
+	return _c
+}
+
 // SetIdpOrgRef sets the "idp_org_ref" field.
 func (_c *TenantCreate) SetIdpOrgRef(v string) *TenantCreate {
 	_c.mutation.SetIdpOrgRef(v)
@@ -150,6 +157,26 @@ func (_c *TenantCreate) SetNillableExpiresAt(v *time.Time) *TenantCreate {
 	if v != nil {
 		_c.SetExpiresAt(*v)
 	}
+	return _c
+}
+
+// SetStatus sets the "status" field.
+func (_c *TenantCreate) SetStatus(v tenant.Status) *TenantCreate {
+	_c.mutation.SetStatus(v)
+	return _c
+}
+
+// SetNillableStatus sets the "status" field if the given value is not nil.
+func (_c *TenantCreate) SetNillableStatus(v *tenant.Status) *TenantCreate {
+	if v != nil {
+		_c.SetStatus(*v)
+	}
+	return _c
+}
+
+// SetRegistration sets the "registration" field.
+func (_c *TenantCreate) SetRegistration(v *types.TenantRegistration) *TenantCreate {
+	_c.mutation.SetRegistration(v)
 	return _c
 }
 
@@ -219,6 +246,10 @@ func (_c *TenantCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *TenantCreate) defaults() error {
+	if _, ok := _c.mutation.Status(); !ok {
+		v := tenant.DefaultStatus
+		_c.mutation.SetStatus(v)
+	}
 	if _, ok := _c.mutation.ID(); !ok {
 		if tenant.DefaultID == nil {
 			return fmt.Errorf("gen: uninitialized tenant.DefaultID (forgotten import gen/runtime?)")
@@ -245,8 +276,24 @@ func (_c *TenantCreate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`gen: validator failed for field "Tenant.name": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.NameKey(); !ok {
+		return &ValidationError{Name: "name_key", err: errors.New(`gen: missing required field "Tenant.name_key"`)}
+	}
+	if v, ok := _c.mutation.NameKey(); ok {
+		if err := tenant.NameKeyValidator(v); err != nil {
+			return &ValidationError{Name: "name_key", err: fmt.Errorf(`gen: validator failed for field "Tenant.name_key": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.IdpOrgRef(); !ok {
 		return &ValidationError{Name: "idp_org_ref", err: errors.New(`gen: missing required field "Tenant.idp_org_ref"`)}
+	}
+	if _, ok := _c.mutation.Status(); !ok {
+		return &ValidationError{Name: "status", err: errors.New(`gen: missing required field "Tenant.status"`)}
+	}
+	if v, ok := _c.mutation.Status(); ok {
+		if err := tenant.StatusValidator(v); err != nil {
+			return &ValidationError{Name: "status", err: fmt.Errorf(`gen: validator failed for field "Tenant.status": %w`, err)}
+		}
 	}
 	return nil
 }
@@ -325,6 +372,10 @@ func (_c *TenantCreate) createSpec() (*Tenant, *sqlgraph.CreateSpec) {
 		_spec.SetField(tenant.FieldName, field.TypeString, value)
 		_node.Name = value
 	}
+	if value, ok := _c.mutation.NameKey(); ok {
+		_spec.SetField(tenant.FieldNameKey, field.TypeString, value)
+		_node.NameKey = value
+	}
 	if value, ok := _c.mutation.IdpOrgRef(); ok {
 		_spec.SetField(tenant.FieldIdpOrgRef, field.TypeString, value)
 		_node.IdpOrgRef = value
@@ -332,6 +383,14 @@ func (_c *TenantCreate) createSpec() (*Tenant, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ExpiresAt(); ok {
 		_spec.SetField(tenant.FieldExpiresAt, field.TypeTime, value)
 		_node.ExpiresAt = &value
+	}
+	if value, ok := _c.mutation.Status(); ok {
+		_spec.SetField(tenant.FieldStatus, field.TypeEnum, value)
+		_node.Status = value
+	}
+	if value, ok := _c.mutation.Registration(); ok {
+		_spec.SetField(tenant.FieldRegistration, field.TypeJSON, value)
+		_node.Registration = value
 	}
 	if nodes := _c.mutation.TenantUsersIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -540,6 +599,18 @@ func (u *TenantUpsert) UpdateName() *TenantUpsert {
 	return u
 }
 
+// SetNameKey sets the "name_key" field.
+func (u *TenantUpsert) SetNameKey(v string) *TenantUpsert {
+	u.Set(tenant.FieldNameKey, v)
+	return u
+}
+
+// UpdateNameKey sets the "name_key" field to the value that was provided on create.
+func (u *TenantUpsert) UpdateNameKey() *TenantUpsert {
+	u.SetExcluded(tenant.FieldNameKey)
+	return u
+}
+
 // SetIdpOrgRef sets the "idp_org_ref" field.
 func (u *TenantUpsert) SetIdpOrgRef(v string) *TenantUpsert {
 	u.Set(tenant.FieldIdpOrgRef, v)
@@ -567,6 +638,36 @@ func (u *TenantUpsert) UpdateExpiresAt() *TenantUpsert {
 // ClearExpiresAt clears the value of the "expires_at" field.
 func (u *TenantUpsert) ClearExpiresAt() *TenantUpsert {
 	u.SetNull(tenant.FieldExpiresAt)
+	return u
+}
+
+// SetStatus sets the "status" field.
+func (u *TenantUpsert) SetStatus(v tenant.Status) *TenantUpsert {
+	u.Set(tenant.FieldStatus, v)
+	return u
+}
+
+// UpdateStatus sets the "status" field to the value that was provided on create.
+func (u *TenantUpsert) UpdateStatus() *TenantUpsert {
+	u.SetExcluded(tenant.FieldStatus)
+	return u
+}
+
+// SetRegistration sets the "registration" field.
+func (u *TenantUpsert) SetRegistration(v *types.TenantRegistration) *TenantUpsert {
+	u.Set(tenant.FieldRegistration, v)
+	return u
+}
+
+// UpdateRegistration sets the "registration" field to the value that was provided on create.
+func (u *TenantUpsert) UpdateRegistration() *TenantUpsert {
+	u.SetExcluded(tenant.FieldRegistration)
+	return u
+}
+
+// ClearRegistration clears the value of the "registration" field.
+func (u *TenantUpsert) ClearRegistration() *TenantUpsert {
+	u.SetNull(tenant.FieldRegistration)
 	return u
 }
 
@@ -785,6 +886,20 @@ func (u *TenantUpsertOne) UpdateName() *TenantUpsertOne {
 	})
 }
 
+// SetNameKey sets the "name_key" field.
+func (u *TenantUpsertOne) SetNameKey(v string) *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetNameKey(v)
+	})
+}
+
+// UpdateNameKey sets the "name_key" field to the value that was provided on create.
+func (u *TenantUpsertOne) UpdateNameKey() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateNameKey()
+	})
+}
+
 // SetIdpOrgRef sets the "idp_org_ref" field.
 func (u *TenantUpsertOne) SetIdpOrgRef(v string) *TenantUpsertOne {
 	return u.Update(func(s *TenantUpsert) {
@@ -817,6 +932,41 @@ func (u *TenantUpsertOne) UpdateExpiresAt() *TenantUpsertOne {
 func (u *TenantUpsertOne) ClearExpiresAt() *TenantUpsertOne {
 	return u.Update(func(s *TenantUpsert) {
 		s.ClearExpiresAt()
+	})
+}
+
+// SetStatus sets the "status" field.
+func (u *TenantUpsertOne) SetStatus(v tenant.Status) *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetStatus(v)
+	})
+}
+
+// UpdateStatus sets the "status" field to the value that was provided on create.
+func (u *TenantUpsertOne) UpdateStatus() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateStatus()
+	})
+}
+
+// SetRegistration sets the "registration" field.
+func (u *TenantUpsertOne) SetRegistration(v *types.TenantRegistration) *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetRegistration(v)
+	})
+}
+
+// UpdateRegistration sets the "registration" field to the value that was provided on create.
+func (u *TenantUpsertOne) UpdateRegistration() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateRegistration()
+	})
+}
+
+// ClearRegistration clears the value of the "registration" field.
+func (u *TenantUpsertOne) ClearRegistration() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.ClearRegistration()
 	})
 }
 
@@ -1202,6 +1352,20 @@ func (u *TenantUpsertBulk) UpdateName() *TenantUpsertBulk {
 	})
 }
 
+// SetNameKey sets the "name_key" field.
+func (u *TenantUpsertBulk) SetNameKey(v string) *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetNameKey(v)
+	})
+}
+
+// UpdateNameKey sets the "name_key" field to the value that was provided on create.
+func (u *TenantUpsertBulk) UpdateNameKey() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateNameKey()
+	})
+}
+
 // SetIdpOrgRef sets the "idp_org_ref" field.
 func (u *TenantUpsertBulk) SetIdpOrgRef(v string) *TenantUpsertBulk {
 	return u.Update(func(s *TenantUpsert) {
@@ -1234,6 +1398,41 @@ func (u *TenantUpsertBulk) UpdateExpiresAt() *TenantUpsertBulk {
 func (u *TenantUpsertBulk) ClearExpiresAt() *TenantUpsertBulk {
 	return u.Update(func(s *TenantUpsert) {
 		s.ClearExpiresAt()
+	})
+}
+
+// SetStatus sets the "status" field.
+func (u *TenantUpsertBulk) SetStatus(v tenant.Status) *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetStatus(v)
+	})
+}
+
+// UpdateStatus sets the "status" field to the value that was provided on create.
+func (u *TenantUpsertBulk) UpdateStatus() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateStatus()
+	})
+}
+
+// SetRegistration sets the "registration" field.
+func (u *TenantUpsertBulk) SetRegistration(v *types.TenantRegistration) *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetRegistration(v)
+	})
+}
+
+// UpdateRegistration sets the "registration" field to the value that was provided on create.
+func (u *TenantUpsertBulk) UpdateRegistration() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateRegistration()
+	})
+}
+
+// ClearRegistration clears the value of the "registration" field.
+func (u *TenantUpsertBulk) ClearRegistration() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.ClearRegistration()
 	})
 }
 

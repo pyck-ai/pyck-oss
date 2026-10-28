@@ -7,10 +7,12 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+
 	"github.com/pyck-ai/pyck/tests/nats/config"
 	"github.com/pyck-ai/pyck/tests/nats/util"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Consumer Management", func() {
@@ -51,7 +53,7 @@ var _ = Describe("Consumer Management", func() {
 			consumerName := fmt.Sprintf("%s--one", testCtx.TenantID)
 			subject := fmt.Sprintf("pyck.%s.>", testCtx.TenantID)
 
-			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, config.DefaultStreamName, consumerName, subject)
+			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, util.TenantStreamName(testCtx.TenantID), consumerName, subject)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(consumer).NotTo(BeNil(), "Consumer should not be nil")
 			Expect(testCtx.NatsConn.Status()).To(Equal(nats.CONNECTED), "NATS connection should be active")
@@ -67,7 +69,7 @@ var _ = Describe("Consumer Management", func() {
 			consumerName := fmt.Sprintf("%s--one", testCtx.TenantID)
 			subject := fmt.Sprintf("pyck.%s.*", testCtx.TenantID)
 
-			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, config.DefaultStreamName, consumerName, subject)
+			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, util.TenantStreamName(testCtx.TenantID), consumerName, subject)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(consumer).NotTo(BeNil())
 
@@ -82,7 +84,7 @@ var _ = Describe("Consumer Management", func() {
 			invalidName := "invalid-consumer-name"
 			subject := fmt.Sprintf("pyck.%s.>", testCtx.TenantID)
 
-			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, config.DefaultStreamName, invalidName, subject)
+			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, util.TenantStreamName(testCtx.TenantID), invalidName, subject)
 			Expect(err).To(HaveOccurred())
 			Expect(consumer).To(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Permissions Violation"))
@@ -92,7 +94,7 @@ var _ = Describe("Consumer Management", func() {
 			consumerName := fmt.Sprintf("%s--one", testCtx.TenantID)
 			invalidSubject := fmt.Sprintf("wrong.%s.>", testCtx.TenantID)
 
-			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, config.DefaultStreamName, consumerName, invalidSubject)
+			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, util.TenantStreamName(testCtx.TenantID), consumerName, invalidSubject)
 			Expect(err).To(HaveOccurred())
 			Expect(consumer).To(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Permissions Violation"))
@@ -102,7 +104,7 @@ var _ = Describe("Consumer Management", func() {
 			consumerName := fmt.Sprintf("%s--one", testCtx.TenantID)
 			invalidSubject := fmt.Sprintf("pyck.%s", testCtx.TenantID)
 
-			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, config.DefaultStreamName, consumerName, invalidSubject)
+			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, util.TenantStreamName(testCtx.TenantID), consumerName, invalidSubject)
 			Expect(err).To(HaveOccurred())
 			Expect(consumer).To(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Permissions Violation"))
@@ -112,10 +114,12 @@ var _ = Describe("Consumer Management", func() {
 			consumerName := fmt.Sprintf("%s--one", testCtx.TenantID)
 			invalidSubject := fmt.Sprintf("pyck.>.%s", testCtx.TenantID)
 
-			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, config.DefaultStreamName, consumerName, invalidSubject)
+			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, util.TenantStreamName(testCtx.TenantID), consumerName, invalidSubject)
 			Expect(err).To(HaveOccurred())
 			Expect(consumer).To(BeNil())
-			Expect(err.Error()).To(ContainSubstring("Permissions Violation"))
+			// ">" is only valid as the last token, so the client rejects the
+			// subject before it reaches the server's permission check.
+			Expect(err.Error()).To(ContainSubstring("invalid subject name"))
 		})
 
 		It("should fail to create a consumer for non-allowed stream", func() {
@@ -133,7 +137,7 @@ var _ = Describe("Consumer Management", func() {
 			consumerName := fmt.Sprintf("%s--two", testCtx.TenantID)
 			subject := fmt.Sprintf("pyck.%s.>", testCtx.TenantID)
 
-			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, config.DefaultStreamName, consumerName, subject)
+			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, util.TenantStreamName(testCtx.TenantID), consumerName, subject)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(consumer).NotTo(BeNil())
 
@@ -145,7 +149,7 @@ var _ = Describe("Consumer Management", func() {
 			Expect(info.Config.FilterSubject).To(Equal(subject))
 
 			// Delete the consumer
-			err = util.DeleteJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, config.DefaultStreamName, consumerName)
+			err = util.DeleteJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, util.TenantStreamName(testCtx.TenantID), consumerName)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Verify consumer no longer exists
@@ -157,7 +161,7 @@ var _ = Describe("Consumer Management", func() {
 			consumerName := fmt.Sprintf("%s--three", testCtx.TenantID)
 			subject := fmt.Sprintf("pyck.%s.>", testCtx.TenantID)
 
-			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, config.DefaultStreamName, consumerName, subject)
+			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, util.TenantStreamName(testCtx.TenantID), consumerName, subject)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(consumer).NotTo(BeNil())
 
@@ -165,13 +169,13 @@ var _ = Describe("Consumer Management", func() {
 			info, err := consumer.Info(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(info.Config.Name).To(Equal(consumerName))
-			Expect(info.Stream).To(Equal(config.DefaultStreamName))
+			Expect(info.Stream).To(Equal(util.TenantStreamName(testCtx.TenantID)))
 			Expect(info.Config.FilterSubject).To(Equal(subject))
 		})
 
 		It("should fail to list all consumers", func() {
 			// Try to list all consumers directly using NATS API
-			subject := fmt.Sprintf("$JS.API.CONSUMER.LIST.%s", config.DefaultStreamName)
+			subject := fmt.Sprintf("$JS.API.CONSUMER.LIST.%s", util.TenantStreamName(testCtx.TenantID))
 
 			// Send the request and wait for the async error
 			go func() {
@@ -185,7 +189,7 @@ var _ = Describe("Consumer Management", func() {
 
 		It("should fail to list consumer names", func() {
 			// Try to list consumer names directly using NATS API
-			subject := fmt.Sprintf("$JS.API.CONSUMER.NAMES.%s", config.DefaultStreamName)
+			subject := fmt.Sprintf("$JS.API.CONSUMER.NAMES.%s", util.TenantStreamName(testCtx.TenantID))
 
 			// Send the request and wait for the async error
 			go func() {
@@ -206,7 +210,7 @@ var _ = Describe("Consumer Management", func() {
 				consumerName := fmt.Sprintf("%s--%s", testCtx.TenantID, consumerSuffixes[i-1])
 				subject := fmt.Sprintf("pyck.%s.>", testCtx.TenantID)
 
-				consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, config.DefaultStreamName, consumerName, subject)
+				consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, util.TenantStreamName(testCtx.TenantID), consumerName, subject)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(consumer).NotTo(BeNil())
 			}
@@ -215,7 +219,7 @@ var _ = Describe("Consumer Management", func() {
 			consumerName := fmt.Sprintf("%s--eleven", testCtx.TenantID)
 			subject := fmt.Sprintf("pyck.%s.>", testCtx.TenantID)
 
-			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, config.DefaultStreamName, consumerName, subject)
+			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, util.TenantStreamName(testCtx.TenantID), consumerName, subject)
 			Expect(err).To(HaveOccurred())
 			Expect(consumer).To(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Permissions Violation"))
@@ -228,7 +232,7 @@ var _ = Describe("Consumer Management", func() {
 			consumerName := fmt.Sprintf("%s--one", otherTenantID)
 			subject := fmt.Sprintf("pyck.%s.>", otherTenantID)
 
-			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, config.DefaultStreamName, consumerName, subject)
+			consumer, err := util.CreateJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, util.TenantStreamName(testCtx.TenantID), consumerName, subject)
 			Expect(err).To(HaveOccurred())
 			Expect(consumer).To(BeNil())
 			Expect(err.Error()).To(ContainSubstring("Permissions Violation"))
@@ -238,7 +242,7 @@ var _ = Describe("Consumer Management", func() {
 			otherTenantID := "different-tenant"
 			consumerName := fmt.Sprintf("%s--one", otherTenantID)
 
-			err := util.DeleteJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, config.DefaultStreamName, consumerName)
+			err := util.DeleteJetStreamConsumer(ctx, testCtx.JetStream, testCtx.NatsConn, util.TenantStreamName(testCtx.TenantID), consumerName)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("Permissions Violation"))
 		})

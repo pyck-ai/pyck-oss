@@ -11,7 +11,7 @@ description: >
   already-at-target-state cases.
 vars:
   input:
-    id: { $placeholder: "tenant ID" }
+    tenantId: { $placeholder: "tenant ID" }
     expiresAt: { $placeholder: "RFC3339 timestamp, or null to clear" }
 expect:
   - msg: "Status is 200"

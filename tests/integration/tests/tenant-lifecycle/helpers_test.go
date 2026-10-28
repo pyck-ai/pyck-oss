@@ -119,7 +119,7 @@ func probe(ctx context.Context, cfg *config.Config, token, query string) (probeO
 // revocationTimeout bounds how long a disable/expiry may take to be
 // rejected by every service. The NATS fast path evicts caches sub-second,
 // but if a service misses that message the token stays accepted until the
-// org-active verdict cache expires — bounded by ZitadelOrganizationCacheTTL
+// org-active verdict cache expires — bounded by LivenessCacheTTL
 // (default 1m, see backend/common/env/config). A bound of exactly the TTL
 // races that backstop; 90s clears it with margin so the backstop path still
 // passes deterministically rather than flaking on the 60s boundary.

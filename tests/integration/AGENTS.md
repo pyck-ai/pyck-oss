@@ -1,16 +1,16 @@
-# tests/integration — guide for adding tests
+# tests/integration
 
 This module holds **end-to-end integration suites** that run against a *live*
-pyck stack (gateway, zitadel, temporal, nats, postgres) — not unit tests. If
-you only need a DB or a single resolver, write a unit test in the owning
-`backend/<service>` module instead (those use testcontainers and run on every
-push). Reach for this module only when a test must exercise the federated
+pyck stack (gateway, zitadel, temporal, nats, postgres). They are not unit
+tests. If you only need a DB or a single resolver, write a unit test in the
+owning `backend/<service>` module instead (those use testcontainers and run on
+every push). Reach for this module only when a test must exercise the federated
 gateway, real Zitadel auth, or a running Temporal namespace.
 
 ## How it runs
 
 - Every test file is behind `//go:build integration`, so a plain
-  `go test ./...` is a no-op here — the suites compile and run only with
+  `go test ./...` is a no-op here; the suites compile and run only with
   `-tags=integration`.
 - `task test:integration` (from repo root) or `task test:integration:run` /
   `./scripts/start.sh` (from this dir) sources `config/keys/bootstrap.env`,
@@ -27,28 +27,13 @@ gateway, real Zitadel auth, or a running Temporal namespace.
   `pyck-management` container's environment (the stack's real cadence) so
   sweep-timing tests size their waits to it, falling back to `.env` if docker or
   the container is unavailable.
-- For a single suite from your shell or IDE, load the env first — the suites
+- For a single suite from your shell or IDE, load the env first; the suites
   fail at `config.Load` without it:
   `source ./scripts/envrc.sh && go test -tags=integration -run TestExpiry ./tests/tenant-lifecycle/...`
-- CI: not wired yet (a follow-up). When added it should run on its own —
-  separate from the `backend/*` unit-test matrix, since it needs a live stack.
 
-## Layout (keep this shape)
+## Layout
 
-```
-internal/            shared, reusable, NOT build-tagged
-  config/            env → Config (add fields here, default sanely)
-  fixtures/          gofakeit-backed random inputs (NewTenant, NewMachineUser)
-  gateway/           typed API-client + helper wrappers (RegisterTenant, …)
-  temporal/          Temporal dials (API-key auth, TLSDisabled for local TCP)
-  workerproc/        build + run helper worker binaries as OS processes (Start, Stop on SIGTERM)
-  zitadelclient/     Zitadel SDK helpers (EnsureMachineUser, AddPAT, grants)
-tests/
-  <suite-folder>/    one folder per feature area; files //go:build integration
-    suite_test.go    package doc + the `func TestXxx(t)` runner
-    <prefix>_test.go  the suite struct + lifecycle test (prefix: tn_, wf_, …)
-    helpers_test.go   suite-private helpers (optional)
-```
+`internal/` holds the shared, reusable helpers (config, fixtures, gateway, temporal, workerproc, zitadelclient) and is not build-tagged. `tests/<suite>/` holds one folder per feature area: `suite_test.go` (package doc and the `TestXxx` runner), `<prefix>_test.go` (suite struct and lifecycle test) and an optional `helpers_test.go`.
 
 ## Rules for a new suite
 
@@ -57,8 +42,8 @@ tests/
    `//go:build integration`.
 2. **Embed `tests.Base`** in your suite struct and use `testify/suite`. `Base`
    gives you `s.Ctx`, `s.Cfg`, and a dialed `s.ZConn` for free via
-   `SetupSuite` — do not re-load config or re-dial Zitadel.
-3. **Provision a fresh tenant per run** — never touch a shared/default tenant.
+   `SetupSuite`; do not re-load config or re-dial Zitadel.
+3. **Provision a fresh tenant per run**; never touch a shared or default tenant.
    The standard recipe (registers the tenant, creates a machine user, grants
    roles, mints a PAT, and waits out Zitadel's async projections):
    ```go
@@ -72,7 +57,7 @@ tests/
    through the gateway; bare `[]string{"writer"}` otherwise. `fixtures.New*`
    names never collide across re-runs or parallel packages. Call
    `s.DeferTenantCleanup` (drained in `TearDownTest`) right after
-   registration — NOT as a final `s.Run("cleanup")` stage (every early
+   registration, not as a final `s.Run("cleanup")` stage (every early
    return before it skips it, leaking a live tenant + org per failed run),
    and NOT via `s.T().Cleanup` inside a stage (inside `s.Run`, `s.T()` is
    the stage's own T, so the cleanup fires when the stage ends and disables
@@ -89,7 +74,7 @@ tests/
    ctx-aware; PollStable fails fast the moment the invariant breaks). A
    fixed `time.Sleep` is flaky and forbidden. Size sweep-driven windows from
    the config cadences (`s.Cfg.TenantExpiryCheckInterval`,
-   `s.Cfg.TenantReconcileInterval` — envrc.sh forwards the local `.env`
+   `s.Cfg.TenantReconcileInterval`; envrc.sh forwards the local `.env`
    overrides), and `t.Skipf` with a clear message when the stack's cadence is
    too slow for the window to prove anything (see tn_reconcile / deleted-org).
 6. **Verify from two vantage points** when asserting on a propagated value
@@ -101,6 +86,6 @@ tests/
 
 ## Wiring a brand-new suite into CI
 
-Nothing to do — `scripts/start.sh` runs `./tests/...`, so a new folder is
+Nothing to do: `scripts/start.sh` runs `./tests/...`, so a new folder is
 picked up automatically. Just confirm it passes locally with
 `task test:integration -- -run TestYourSuite` against `task up:integration`.

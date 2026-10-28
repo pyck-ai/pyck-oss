@@ -3,12 +3,13 @@ operation: RestoreTenant
 name: "Restore Tenant"
 description: >
   Manually restores a previously disabled tenant by clearing its
-  deleted_at flag via the RestoreTenantWorkflow. Returns an error
-  when the tenant does not exist; idempotent on already-active
-  tenants.
+  deleted_at flag via the RestoreTenantWorkflow. System role
+  required. Only a tenant whose registration finished can be
+  restored. Returns an error when the tenant does not exist;
+  idempotent on already-active tenants.
 vars:
   input:
-    id: { $placeholder: "tenant ID" }
+    tenantId: { $placeholder: "tenant ID" }
     expiresAt: { $placeholder: "RFC3339 timestamp, omit to keep existing expiry" }
 expect:
   - msg: "Status is 200"

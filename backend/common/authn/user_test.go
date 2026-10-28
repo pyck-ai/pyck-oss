@@ -1,11 +1,14 @@
 package authn_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/pyck-ai/pyck/backend/common/authn"
 )
 
 func TestSystemUser(t *testing.T) {
@@ -512,4 +515,21 @@ func TestUser_HasServiceRole(t *testing.T) {
 			assert.Equal(t, tc.expected, tc.user.HasServiceRole(tc.key, tc.tenantID))
 		})
 	}
+}
+
+// TestUser_TokenNeverLogged guards the log lines that serialize a whole
+// User (zerolog's Any/Interface go through encoding/json): the bearer token
+// is a replayable credential and must not reach them.
+func TestUser_TokenNeverLogged(t *testing.T) {
+	t.Parallel()
+
+	const token = "caller-bearer-token-must-not-be-logged"
+	user := authn.User{ID: uuid.New(), TenantID: uuid.New(), Username: "caller", Token: token}
+
+	var buf bytes.Buffer
+	logger := zerolog.New(&buf)
+	logger.Info().Any("user", user).Msg("probe")
+
+	assert.NotContains(t, buf.String(), token)
+	assert.Contains(t, buf.String(), user.ID.String(), "identifiers stay logged")
 }

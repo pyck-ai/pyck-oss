@@ -77,19 +77,6 @@ func paginateDeploymentVersionUIBundles(versions []commonworkflow.DeploymentVers
 	}
 }
 
-// singleTenantID resolves the one tenant a namespace-scoped query targets.
-//
-// These resolvers must run against a single Temporal namespace. Unlike the
-// mutation path's MutationTenantID(), this returns a clean error instead of
-// panicking when the request carries zero or multiple tenant IDs.
-func singleTenantID(req request.RequestContext) (uuid.UUID, error) {
-	ids := req.TenantIDs()
-	if len(ids) != 1 {
-		return uuid.Nil, ErrSingleTenantRequired
-	}
-	return ids[0], nil
-}
-
 // Tenant.data keys written by management's setTenantUITemplate mutation, holding
 // URL templates with {{.Slug}}/{{.Version}} placeholders this service renders into
 // final URLs. Defined in common/workflow so both sides share one definition of

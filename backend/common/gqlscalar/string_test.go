@@ -188,3 +188,41 @@ func TestGreekFinalSigma(t *testing.T) {
 		t.Log("expected: stdlib folds Σ→σ uniformly, never ς; ΣΙΓΜΑΣ misses Σίγμας — out of scope for NFC fix")
 	}
 }
+
+// TestUnmarshalRawString_NFD_StaysByteIdentical is the contract of the
+// secret scalar: inbound NFD bytes reach the resolver unchanged, so a
+// password is hashed as the client sent it rather than in a composed form
+// the client's login would never send.
+func TestUnmarshalRawString_NFD_StaysByteIdentical(t *testing.T) {
+	t.Parallel()
+	for _, in := range []string{nfd, nfc, "Passo\u0308rd!1", "\u212b"} {
+		out, err := gqlscalar.UnmarshalRawString(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out != in {
+			t.Errorf("UnmarshalRawString(%q, %d bytes) = %q (%d bytes); want the input unchanged",
+				in, len(in), out, len(out))
+		}
+	}
+}
+
+// TestMarshalRawString_NFD_StaysByteIdentical proves the outbound side
+// applies no normalization either.
+func TestMarshalRawString_NFD_StaysByteIdentical(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	gqlscalar.MarshalRawString(nfd).MarshalGQL(&buf)
+	if got := strings.Trim(buf.String(), `"`); got != nfd {
+		t.Errorf("MarshalRawString(NFD) = %q; want NFD %q", got, nfd)
+	}
+}
+
+// TestUnmarshalRawString_InvalidType confirms a non-string value is refused
+// exactly as the String scalar refuses it.
+func TestUnmarshalRawString_InvalidType(t *testing.T) {
+	t.Parallel()
+	if _, err := gqlscalar.UnmarshalRawString(struct{}{}); err == nil {
+		t.Error("expected error for invalid type, got nil")
+	}
+}

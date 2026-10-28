@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/pyck-ai/pyck/backend/management/core"
 )
@@ -45,77 +46,6 @@ func TestDetectFlavourDoesNotMutate(t *testing.T) {
 	assert.Equal(t, "val", data["other"])
 }
 
-func TestIsBooleanField(t *testing.T) {
-	t.Parallel()
-
-	assert.True(t, core.IsBooleanField("isPyckGo"))
-	assert.True(t, core.IsBooleanField("isSetupPending"))
-	assert.False(t, core.IsBooleanField("flavour"))
-	assert.False(t, core.IsBooleanField("remoteMobileUITemplate"))
-	assert.False(t, core.IsBooleanField(""))
-}
-
-func TestMergeData(t *testing.T) {
-	t.Parallel()
-
-	t.Run("both nil", func(t *testing.T) {
-		t.Parallel()
-		assert.Nil(t, core.MergeData(nil, nil))
-	})
-
-	t.Run("only existing is preserved verbatim", func(t *testing.T) {
-		t.Parallel()
-		existing := map[string]any{"a": "1"}
-		result := core.MergeData(existing, nil)
-		assert.Equal(t, map[string]any{"a": "1"}, result)
-	})
-
-	t.Run("non-flag incoming keys are dropped", func(t *testing.T) {
-		t.Parallel()
-		incoming := map[string]any{"b": "2"}
-		result := core.MergeData(nil, incoming)
-		assert.Equal(t, map[string]any{}, result)
-	})
-
-	t.Run("stored data wins for non-flag keys", func(t *testing.T) {
-		t.Parallel()
-		existing := map[string]any{"a": "old", "b": "keep"}
-		incoming := map[string]any{"a": "new"} // "a" is not a synced flag
-		result := core.MergeData(existing, incoming)
-		assert.Equal(t, "old", result["a"])
-		assert.Equal(t, "keep", result["b"])
-	})
-
-	t.Run("flag keys from incoming overlay stored data", func(t *testing.T) {
-		t.Parallel()
-		existing := map[string]any{"isPyckGo": false, "other": "x"}
-		incoming := map[string]any{"isPyckGo": true, "isSetupPending": true, "flavour": "pyck-go"}
-		result := core.MergeData(existing, incoming)
-		assert.Equal(t, true, result["isPyckGo"])
-		assert.Equal(t, true, result["isSetupPending"])
-		assert.Equal(t, "pyck-go", result["flavour"])
-		assert.Equal(t, "x", result["other"])
-	})
-
-	t.Run("template keys from incoming are ignored", func(t *testing.T) {
-		t.Parallel()
-		existing := map[string]any{core.RemoteWebUITemplateKey: "stored"}
-		incoming := map[string]any{core.RemoteWebUITemplateKey: "from-zitadel", "isPyckGo": true}
-		result := core.MergeData(existing, incoming)
-		assert.Equal(t, "stored", result[core.RemoteWebUITemplateKey])
-		assert.Equal(t, true, result["isPyckGo"])
-	})
-
-	t.Run("originals not mutated", func(t *testing.T) {
-		t.Parallel()
-		existing := map[string]any{"a": "1"}
-		incoming := map[string]any{"isPyckGo": true}
-		core.MergeData(existing, incoming)
-		assert.Equal(t, "1", existing["a"])
-		assert.NotContains(t, existing, "isPyckGo")
-	})
-}
-
 func TestMapsEqual(t *testing.T) {
 	t.Parallel()
 
@@ -144,30 +74,6 @@ func TestMapsEqual(t *testing.T) {
 	}
 }
 
-// TestMergeDataClearStaysCleared guards the clear-vs-sync fix (#1317): a cleared
-// UI template override must NOT be resurrected by the next Zitadel sync. Sync is
-// MergeData only — it no longer re-derives templates — so an absent key stays
-// absent across a sync.
-func TestMergeDataClearStaysCleared(t *testing.T) {
-	t.Parallel()
-	const (
-		webKey    = core.RemoteWebUITemplateKey
-		mobileKey = core.RemoteMobileUITemplateKey
-	)
-
-	// Tenant cleared its web override (key absent); a manual mobile override and a
-	// flavour flag remain. Zitadel sync brings the flag plus a stale template key.
-	existing := map[string]any{mobileKey: "custom-mobile", "isPyckGo": true}
-	zitadel := map[string]any{webKey: "stale-from-zitadel", "isPyckGo": true}
-
-	result := core.MergeData(existing, zitadel)
-
-	_, webPresent := result[webKey]
-	assert.False(t, webPresent, "cleared web override must stay cleared after sync")
-	assert.Equal(t, "custom-mobile", result[mobileKey], "manual override preserved")
-	assert.Equal(t, true, result["isPyckGo"], "flag synced from Zitadel")
-}
-
 func TestValidateRemoteUITemplate(t *testing.T) {
 	t.Parallel()
 
@@ -176,6 +82,10 @@ func TestValidateRemoteUITemplate(t *testing.T) {
 		ok := []string{
 			"https://cdn.example.com/web/{{.Slug}}/{{.Version}}/mf-manifest.json",
 			"https://cdn.example.com/tenants/t1/{{.Version}}/web/mf.json", // slug optional (per-tenant)
+			"https://b\u00fccher.example.test/{{.Version}}",               // IDN host
+			"https://xn--bcher-kva.example.test/{{.Version}}",             // punycode host
+			"https://localhost:5173/{{.Version}}/mf.json",                 // port
+			"https://[::1]:8443/{{.Version}}",                             // IPv6 literal
 		}
 		for _, tmpl := range ok {
 			assert.NoError(t, core.ValidateRemoteUITemplate(tmpl), tmpl)
@@ -196,4 +106,67 @@ func TestValidateRemoteUITemplate(t *testing.T) {
 			assert.ErrorIs(t, core.ValidateRemoteUITemplate(tmpl), core.ErrInvalidUITemplate, tmpl)
 		}
 	})
+
+	t.Run("rejects invisible characters in the host", func(t *testing.T) {
+		t.Parallel()
+		bad := map[string]string{
+			"bidi override":             "https://ok\u202e.example.test/{{.Version}}",
+			"encoded bidi override":     "https://ok%E2%80%AE.example.test/{{.Version}}",
+			"zero width space":          "https://ok\u200b.example.test/{{.Version}}",
+			"no-break space":            "https://ok\u00a0.example.test/{{.Version}}",
+			"line separator":            "https://ok\u2028.example.test/{{.Version}}",
+			"C1 control":                "https://ok\u0085.example.test/{{.Version}}",
+			"variation selector":        "https://ok\ufe0f.example.test/{{.Version}}",
+			"combining grapheme joiner": "https://ok\u034f.example.test/{{.Version}}",
+			"hangul filler":             "https://ok\u3164.example.test/{{.Version}}",
+			"private use":               "https://ok\ue000.example.test/{{.Version}}",
+			"noncharacter":              "https://ok\ufdd0.example.test/{{.Version}}",
+			"encoded invalid UTF-8":     "https://ok%FF.example.test/{{.Version}}",
+		}
+		for name, tmpl := range bad {
+			err := core.ValidateRemoteUITemplate(tmpl)
+			require.ErrorIs(t, err, core.ErrInvalidUITemplate, name)
+			assert.ErrorContains(t, err, "invisible", name)
+		}
+	})
+
+	t.Run("rejects a percent sign or IPv6 zone in the host", func(t *testing.T) {
+		t.Parallel()
+		bad := map[string]string{
+			"zone with escaped space": "https://[fe80::1%25en%200]/{{.Version}}",
+			"zone":                    "https://[fe80::1%25en0]/{{.Version}}",
+			"escaped percent":         "https://ok%25.example.test/{{.Version}}",
+		}
+		for name, tmpl := range bad {
+			err := core.ValidateRemoteUITemplate(tmpl)
+			require.ErrorIs(t, err, core.ErrInvalidUITemplate, name)
+			assert.ErrorContains(t, err, "IPv6 zone", name)
+		}
+	})
+}
+
+func TestValidateRemoteUITemplates(t *testing.T) {
+	t.Parallel()
+
+	const (
+		ok  = "https://cdn.example.com/{{.Version}}/mf.json"
+		bad = "https://ok\u202e.example.test/{{.Version}}"
+	)
+
+	for name, data := range map[string]map[string]any{
+		"nil data":       nil,
+		"no template":    {"flavour": "pyck-go"},
+		"valid template": {core.RemoteWebUITemplateKey: ok, core.RemoteMobileUITemplateKey: ok},
+	} {
+		require.NoError(t, core.ValidateRemoteUITemplates(data), name)
+	}
+
+	for name, data := range map[string]map[string]any{
+		"invalid web":    {core.RemoteWebUITemplateKey: bad},
+		"invalid mobile": {core.RemoteWebUITemplateKey: ok, core.RemoteMobileUITemplateKey: bad},
+		"non-string":     {core.RemoteWebUITemplateKey: 42},
+		"null":           {core.RemoteMobileUITemplateKey: nil},
+	} {
+		assert.ErrorIs(t, core.ValidateRemoteUITemplates(data), core.ErrInvalidUITemplate, name)
+	}
 }

@@ -13,11 +13,11 @@ import (
 	"strings"
 )
 
-const _TopicTypeName = "UnknownCustomEventMutationEventDeadLetterEventMutationEventWithReplyUpdateEventWorkflowEventTemporalWorkflowStateChangeEvent"
+const _TopicTypeName = "UnknownCustomEventMutationEventDeadLetterEventMutationEventWithReplyUpdateEventWorkflowEventTemporalWorkflowStateChangeEventTenantCustomEvent"
 
-var _TopicTypeIndex = [...]uint8{0, 7, 18, 31, 46, 68, 79, 92, 124}
+var _TopicTypeIndex = [...]uint8{0, 7, 18, 31, 46, 68, 79, 92, 124, 141}
 
-const _TopicTypeLowerName = "unknowncustomeventmutationeventdeadlettereventmutationeventwithreplyupdateeventworkfloweventtemporalworkflowstatechangeevent"
+const _TopicTypeLowerName = "unknowncustomeventmutationeventdeadlettereventmutationeventwithreplyupdateeventworkfloweventtemporalworkflowstatechangeeventtenantcustomevent"
 
 func (i TopicType) String() string {
 	if i < 0 || i >= TopicType(len(_TopicTypeIndex)-1) {
@@ -38,27 +38,33 @@ func _TopicTypeNoOp() {
 	_ = x[TopicTypeUpdateEvent-(5)]
 	_ = x[TopicTypeWorkflowEvent-(6)]
 	_ = x[TopicTypeTemporalWorkflowStateChangeEvent-(7)]
+	_ = x[TopicTypeTenantCustomEvent-(8)]
 }
 
-var _TopicTypeValues = []TopicType{TopicTypeUnknown, TopicTypeCustomEvent, TopicTypeMutationEvent, TopicTypeDeadLetterEvent, TopicTypeMutationEventWithReply, TopicTypeUpdateEvent, TopicTypeWorkflowEvent, TopicTypeTemporalWorkflowStateChangeEvent}
+var _TopicTypeValues = []TopicType{TopicTypeUnknown, TopicTypeCustomEvent, TopicTypeMutationEvent, TopicTypeDeadLetterEvent, TopicTypeMutationEventWithReply, TopicTypeUpdateEvent, TopicTypeWorkflowEvent, TopicTypeTemporalWorkflowStateChangeEvent, TopicTypeTenantCustomEvent}
 
 var _TopicTypeNameToValueMap = map[string]TopicType{
-	_TopicTypeName[0:7]:         TopicTypeUnknown,
-	_TopicTypeLowerName[0:7]:    TopicTypeUnknown,
-	_TopicTypeName[7:18]:        TopicTypeCustomEvent,
-	_TopicTypeLowerName[7:18]:   TopicTypeCustomEvent,
-	_TopicTypeName[18:31]:       TopicTypeMutationEvent,
-	_TopicTypeLowerName[18:31]:  TopicTypeMutationEvent,
-	_TopicTypeName[31:46]:       TopicTypeDeadLetterEvent,
-	_TopicTypeLowerName[31:46]:  TopicTypeDeadLetterEvent,
-	_TopicTypeName[46:68]:       TopicTypeMutationEventWithReply,
-	_TopicTypeLowerName[46:68]:  TopicTypeMutationEventWithReply,
-	_TopicTypeName[68:79]:       TopicTypeUpdateEvent,
-	_TopicTypeLowerName[68:79]:  TopicTypeUpdateEvent,
-	_TopicTypeName[79:92]:       TopicTypeWorkflowEvent,
-	_TopicTypeLowerName[79:92]:  TopicTypeWorkflowEvent,
-	_TopicTypeName[92:124]:      TopicTypeTemporalWorkflowStateChangeEvent,
-	_TopicTypeLowerName[92:124]: TopicTypeTemporalWorkflowStateChangeEvent,
+	_TopicTypeName[0:7]:     TopicTypeUnknown,
+	_TopicTypeName[7:18]:    TopicTypeCustomEvent,
+	_TopicTypeName[18:31]:   TopicTypeMutationEvent,
+	_TopicTypeName[31:46]:   TopicTypeDeadLetterEvent,
+	_TopicTypeName[46:68]:   TopicTypeMutationEventWithReply,
+	_TopicTypeName[68:79]:   TopicTypeUpdateEvent,
+	_TopicTypeName[79:92]:   TopicTypeWorkflowEvent,
+	_TopicTypeName[92:124]:  TopicTypeTemporalWorkflowStateChangeEvent,
+	_TopicTypeName[124:141]: TopicTypeTenantCustomEvent,
+}
+
+var _TopicTypeLowerNameToValueMap = map[string]TopicType{
+	_TopicTypeLowerName[0:7]:     TopicTypeUnknown,
+	_TopicTypeLowerName[7:18]:    TopicTypeCustomEvent,
+	_TopicTypeLowerName[18:31]:   TopicTypeMutationEvent,
+	_TopicTypeLowerName[31:46]:   TopicTypeDeadLetterEvent,
+	_TopicTypeLowerName[46:68]:   TopicTypeMutationEventWithReply,
+	_TopicTypeLowerName[68:79]:   TopicTypeUpdateEvent,
+	_TopicTypeLowerName[79:92]:   TopicTypeWorkflowEvent,
+	_TopicTypeLowerName[92:124]:  TopicTypeTemporalWorkflowStateChangeEvent,
+	_TopicTypeLowerName[124:141]: TopicTypeTenantCustomEvent,
 }
 
 var _TopicTypeNames = []string{
@@ -70,6 +76,7 @@ var _TopicTypeNames = []string{
 	_TopicTypeName[68:79],
 	_TopicTypeName[79:92],
 	_TopicTypeName[92:124],
+	_TopicTypeName[124:141],
 }
 
 // TopicTypeString retrieves an enum value from the enum constants string name.
@@ -79,7 +86,7 @@ func TopicTypeString(s string) (TopicType, error) {
 		return val, nil
 	}
 
-	if val, ok := _TopicTypeNameToValueMap[strings.ToLower(s)]; ok {
+	if val, ok := _TopicTypeLowerNameToValueMap[strings.ToLower(s)]; ok {
 		return val, nil
 	}
 	return 0, errors.Join(enumerrs.ErrValueInvalid, fmt.Errorf("%s does not belong to TopicType values", s))

@@ -1,0 +1,11 @@
+info:
+  name: User - Management UI Template Invisible Host
+  type: folder
+  seq: 1
+
+docs: |-
+  setTenantUITemplate and registerTenant refuse a URL template whose host holds an invisible character (#1507). Percent-encoded, so the generated files stay ASCII.
+
+
+request:
+  auth: inherit

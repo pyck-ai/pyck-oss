@@ -26,6 +26,28 @@ var aclOverride = map[string]acl{
 	api.WorkflowServicePrefix + "UpdateNamespace":    {Disabled: true},
 	api.WorkflowServicePrefix + "DeprecateNamespace": {Disabled: true},
 	api.OperatorServicePrefix + "DeleteNamespace":    {Disabled: true},
+	// Temporal marks the search-attribute mutations ScopeNamespace +
+	// AccessAdmin, so a namespace RoleAdmin claim (which every tenant
+	// admin's PAT carries because registration grants the admin the
+	// project admin role) would pass the base authorizer and could
+	// unregister the platform search attributes from its own namespace,
+	// breaking that tenant's workflow visibility and routing.
+	//
+	// This override only runs on the claim-mapped public frontend (7233).
+	// The platform registers its attributes through the internal frontend
+	// (7236), where no pyck claims are produced and the base authorizer
+	// decides, which is also the only remaining path for an operator
+	// adding one to an existing namespace:
+	//
+	//	kubectl port-forward svc/pyck-temporal-internal-frontend 7236:7236
+	//	temporal --address localhost:7236 operator search-attribute create \
+	//	  --namespace <tenant> --name <Name> --type Keyword
+	//
+	// Locally the internal frontend is temporal:7236 (published by
+	// config/compose/third-party/temporal.yaml). Pointing the CLI at the
+	// public frontend answers "API is disabled".
+	api.OperatorServicePrefix + "AddSearchAttributes":    {Disabled: true},
+	api.OperatorServicePrefix + "RemoveSearchAttributes": {Disabled: true},
 	// any authenticated user
 	api.WorkflowServicePrefix + "GetClusterInfo":      {RequiredRole: authorization.RoleUndefined},
 	api.WorkflowServicePrefix + "GetSearchAttributes": {RequiredRole: authorization.RoleUndefined},
@@ -47,6 +69,8 @@ var aclOverride = map[string]acl{
 // - /temporal.api.workflowservice.v1.WorkflowService/UpdateNamespace is disabled
 // - /temporal.api.workflowservice.v1.WorkflowService/DeprecateNamespace is disabled
 // - /temporal.api.operatorservice.v1.OperatorService/DeleteNamespace is disabled
+// - /temporal.api.operatorservice.v1.OperatorService/AddSearchAttributes is disabled
+// - /temporal.api.operatorservice.v1.OperatorService/RemoveSearchAttributes is disabled
 // - /temporal.api.workflowservice.v1.WorkflowService/GetClusterInfo requires authentication
 // - /temporal.api.workflowservice.v1.WorkflowService/GetSearchAttributes requires authentication
 // - /temporal.api.workflowservice.v1.WorkflowService/ListNamespaces requires authentication

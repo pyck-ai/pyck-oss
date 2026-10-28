@@ -2,7 +2,7 @@
 # Source: backend/inventory/api/testdata/tests/user-inventory-item-edges.test.yaml
 
 info:
-  #name: Get Inventory Item Stocks - hasCurrentStock false excludes the stocked item
+  #name: Get Inventory Item Stocks - Filter by current stock finds the stocked item
   name: Get Inventory Item Stocks
   type: graphql
   seq: 12
@@ -39,7 +39,11 @@ graphql:
 
       {
         "where": {
-          "hasCurrentStock": false,
+          "hasCurrentStockWith": [
+            {
+              "quantityGT": 0
+            }
+          ],
           "id": "{{bru-test_user-inventory-item-edges_972b64cb}}"
         }
       }
@@ -61,8 +65,8 @@ runtime:
           expect(body?.errors).to.not.exist;
         });
 
-        test("Item is not out of stock", function() {
-          expect(body?.data?.inventoryItems?.totalCount).to.equal(0);
+        test("Item has a positive current row", function() {
+          expect(body?.data?.inventoryItems?.totalCount).to.equal(1);
         });
 
 settings:

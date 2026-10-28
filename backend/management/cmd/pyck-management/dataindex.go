@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/pyck-ai/pyck/backend/common/dataindex"
+	"github.com/pyck-ai/pyck/backend/common/ent/mixin"
 	"github.com/pyck-ai/pyck/backend/common/feature"
 	"github.com/pyck-ai/pyck/backend/common/request"
 
@@ -35,30 +36,31 @@ func dataTypeLineageBindings(client *ent.Client) dataindex.LineageBindings {
 		// On a create the tenant_id field is not set until a later mixin hook, so
 		// fall back to the request tenant. If neither carries one, fail closed: a
 		// nil-tenant query would return an empty history and let a recreated slug
-		// rebind a slot unchecked. (HasMutationTenantID is checked first because
-		// MutationTenantID panics rather than returning nil.)
+		// rebind a slot unchecked.
 		if tenantID == uuid.Nil {
-			if req := request.ForContext(ctx); req.HasMutationTenantID() {
-				tenantID = req.MutationTenantID()
+			if requestTenantID, err := request.ForContext(ctx).MutationTenantID(); err == nil {
+				tenantID = requestTenantID
 			}
 		}
 		if tenantID == uuid.Nil {
 			return nil, errNoTenantForLineage
 		}
-		// Oldest first (id is a time-ordered uuidv7): if two versions ever disagree
-		// on a name, the earliest binding wins deterministically -- and it is the
-		// one existing rows were indexed under, so it is also the correct one.
+		// Oldest first (AllPages orders by id, a time-ordered uuidv7): if two
+		// versions ever disagree on a name, the earliest binding wins
+		// deterministically -- and it is the one existing rows were indexed
+		// under, so it is also the correct one. Paged rather than capped: a
+		// lineage past LimitMixin's cap would silently lose its newest
+		// versions, and a name only they bound could then be rebound.
 		rows, err := client.DataType.Query().
 			Where(entdatatype.TenantID(tenantID), entdatatype.Slug(slug)).
-			Order(entdatatype.ByID()).
 			Select(entdatatype.FieldJSONSchema).
-			Strings(feature.Context(ctx, feature.FEATURE_SHOW_DELETED))
+			AllPages(feature.Context(ctx, feature.FEATURE_SHOW_DELETED), mixin.Limit)
 		if err != nil {
 			return nil, err
 		}
 		union := dataindex.Bindings{}
-		for _, schema := range rows {
-			bindings, err := dataindex.Parse(schema)
+		for _, row := range rows {
+			bindings, err := dataindex.Parse(row.JSONSchema)
 			if err != nil {
 				return nil, err
 			}

@@ -1,14 +1,19 @@
-// Package checker provides a go/analysis Analyzer that flags .All(ctx)
-// and .IDs(ctx) calls on Ent query builders for entities that carry
-// LimitMixin.
+// Package checker provides a go/analysis Analyzer that flags the unbounded
+// terminators of Ent read queries — .All, .IDs and the scalar scanners
+// .Strings, .Ints, .Float64s, .Bools and .Scan — for entities that carry
+// LimitMixin. The receiver may be the *<Entity>Query itself or one of the
+// two projections built from it, *<Entity>Select and *<Entity>GroupBy:
+// both run the query through the same interceptors, so the cap applies
+// to them the same way.
 //
-// LimitMixin silently caps query results at 200 rows. When a caller uses
-// .All(ctx) or .IDs(ctx) without an explicit .Limit() in the chain, rows
-// are dropped without error. This analyzer catches the pattern at build
-// time and suggests the paged drop-in (.AllPages for .All, .PagedIDs for
-// .IDs) or an explicit .Limit() as the fix. Mutation .IDs(ctx) is not
-// flagged: the receiver of a mutation is a *<Entity>Mutation, not a
-// *<Entity>Query, so it is not subject to the read-query limit interceptor.
+// LimitMixin silently caps query results at 200 rows. When a caller ends a
+// query without an explicit .Limit() in the chain, rows are dropped
+// without error. This analyzer catches the pattern at build time and
+// suggests the paged drop-in (.AllPages for .All, .PagedIDs for .IDs) or
+// an explicit .Limit() as the fix. Mutation .IDs(ctx) is not flagged: the
+// receiver of a mutation is a *<Entity>Mutation, which is not subject to
+// the read-query limit interceptor. The panicking ...X variants are not
+// recognised; use the error-returning forms.
 package checker
 
 import (
@@ -34,6 +39,21 @@ var errInspectResultType = errors.New("inspect.Analyzer result is not *inspector
 // boundaries on both sides — so `limitlint:allowed` or
 // `limitlint:allowall` are NOT treated as the marker.
 var allowMarkerRe = regexp.MustCompile(`\blimitlint:allow\b`)
+
+// unboundedTerminators are the methods that run a read query and return
+// its rows: .All/.IDs on a query, and the scalar scanners a Select or
+// GroupBy adds. Each takes the context first; .Scan takes the destination
+// as a second argument.
+var unboundedTerminators = map[string]bool{
+	"All": true, "IDs": true,
+	"Strings": true, "Ints": true, "Float64s": true, "Bools": true, "Scan": true,
+}
+
+// queryBuilderSuffixes name the generated builders that run a read query
+// and therefore pass the limit interceptor: the query, and the Select and
+// GroupBy projections derived from it. A *<Entity>Mutation is deliberately
+// absent (see the package doc).
+var queryBuilderSuffixes = []string{"Query", "Select", "GroupBy"}
 
 // defaultEntGenPackageSuffix is the import path suffix every real
 // pyck ent/gen package ends with.
@@ -65,7 +85,7 @@ func New(cfg Config) *analysis.Analyzer {
 	}
 	return &analysis.Analyzer{
 		Name:     "limitlint",
-		Doc:      "flags .All(ctx)/.IDs(ctx) on Ent queries for LimitMixin entities without explicit .Limit()",
+		Doc:      "flags unbounded terminators (.All/.IDs/.Strings/.Ints/.Float64s/.Bools/.Scan) on Ent queries, selects and group-bys of LimitMixin entities without explicit .Limit()",
 		Requires: []*analysis.Analyzer{inspect.Analyzer},
 		Run: func(pass *analysis.Pass) (any, error) {
 			return run(pass, cfg)
@@ -97,26 +117,21 @@ func run(pass *analysis.Pass, cfg Config) (any, error) {
 		if !ok {
 			return
 		}
-		// Both .All(ctx) and .IDs(ctx) are unbounded query terminators
-		// subject to the silent cap.
 		terminator := sel.Sel.Name
-		if terminator != "All" && terminator != "IDs" {
+		if !unboundedTerminators[terminator] || len(call.Args) == 0 {
 			return
 		}
-		if len(call.Args) != 1 {
-			return
-		}
-		// The single argument must be a context.Context. This filters
-		// out unrelated .All(...)/.IDs(...) methods on other types.
+		// The first argument must be a context.Context. This filters
+		// out unrelated methods of the same name on other types.
 		argType := pass.TypesInfo.TypeOf(call.Args[0])
 		if argType == nil || !isContext(argType) {
 			return
 		}
 
-		// The receiver must be a *<pkg>.<Entity>Query from an ent/gen
-		// package. Mutation builders expose .IDs(ctx) too, but their
-		// receiver is *<Entity>Mutation (not ...Query), so entityFromQueryType
-		// rejects them — only read queries are flagged.
+		// The receiver must be a *<pkg>.<Entity>Query, *<Entity>Select or
+		// *<Entity>GroupBy from an ent/gen package. Mutation builders expose
+		// .IDs(ctx) too, but their receiver is *<Entity>Mutation, so
+		// entityFromQueryType rejects them — only read queries are flagged.
 		recvType := pass.TypesInfo.TypeOf(sel.X)
 		importPath, entity, ok := entityFromQueryType(recvType, cfg.EntGenPackageSuffix)
 		if !ok {
@@ -144,11 +159,16 @@ func run(pass *analysis.Pass, cfg Config) (any, error) {
 			return
 		}
 
-		// Each terminator has a paged drop-in: .AllPages for .All, .PagedIDs
+		// .All and .IDs have a paged drop-in: .AllPages for .All, .PagedIDs
 		// for .IDs (an id-only counterpart that does not allocate a struct
-		// per row the way .Select(FieldID).AllPages() would).
-		remedy := "use .AllPages(ctx, mixin.Limit) or add an explicit .Limit(...)"
-		if terminator == "IDs" {
+		// per row the way .Select(FieldID).AllPages() would). The scalar
+		// scanners have none: bound them with .Limit, or select the column
+		// and page with .AllPages, which a Select inherits from its query.
+		remedy := "add an explicit .Limit(...), or .Select(...).AllPages(ctx, mixin.Limit) and read the field"
+		switch terminator {
+		case "All":
+			remedy = "use .AllPages(ctx, mixin.Limit) or add an explicit .Limit(...)"
+		case "IDs":
 			remedy = "use .PagedIDs(ctx, mixin.Limit) or add an explicit .Limit(...)"
 		}
 		pass.Report(analysis.Diagnostic{
@@ -218,11 +238,12 @@ func collectAllowComments(pass *analysis.Pass) map[lineKey]bool {
 	return allowed
 }
 
-// entityFromQueryType inspects the receiver type of an .All/.IDs call and
-// returns (importPath, entityName) when it is a *<pkg>.<Entity>Query
-// whose package ends in entGenSuffix. Returns ok=false otherwise — notably
-// for *<Entity>Mutation receivers, which also expose .IDs but are not
-// subject to the read-query limit interceptor.
+// entityFromQueryType inspects the receiver type of a terminator call and
+// returns (importPath, entityName) when it is a *<pkg>.<Entity>Query,
+// *<Entity>Select or *<Entity>GroupBy whose package ends in entGenSuffix.
+// Returns ok=false otherwise — notably for *<Entity>Mutation receivers,
+// which also expose .IDs but are not subject to the read-query limit
+// interceptor.
 func entityFromQueryType(t types.Type, entGenSuffix string) (string, string, bool) {
 	if t == nil {
 		return "", "", false
@@ -244,14 +265,13 @@ func entityFromQueryType(t types.Type, entGenSuffix string) (string, string, boo
 		return "", "", false
 	}
 	name := obj.Name()
-	if !strings.HasSuffix(name, "Query") {
-		return "", "", false
+	for _, suffix := range queryBuilderSuffixes {
+		entity, ok := strings.CutSuffix(name, suffix)
+		if ok && entity != "" {
+			return pkgPath, entity, true
+		}
 	}
-	entity := strings.TrimSuffix(name, "Query")
-	if entity == "" {
-		return "", "", false
-	}
-	return pkgPath, entity, true
+	return "", "", false
 }
 
 // hasLimitInChain walks the receiver expression of .All/.IDs looking for an

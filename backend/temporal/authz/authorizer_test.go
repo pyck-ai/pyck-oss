@@ -118,6 +118,14 @@ func TestAuthorizer_DisabledAPIs(t *testing.T) {
 			name: "NexusService",
 			api:  api.NexusServicePrefix,
 		},
+		{
+			name: "AddSearchAttributes",
+			api:  api.OperatorServicePrefix + "AddSearchAttributes",
+		},
+		{
+			name: "RemoveSearchAttributes",
+			api:  api.OperatorServicePrefix + "RemoveSearchAttributes",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -140,6 +148,57 @@ func TestAuthorizer_DisabledAPIs(t *testing.T) {
 			}
 
 			result, err := auth.Authorize(ctx, claims, target)
+
+			require.NoError(t, err)
+			assert.Equal(t, authorization.DecisionDeny, result.Decision)
+			assert.Equal(t, "API is disabled", result.Reason)
+		})
+	}
+}
+
+// A tenant admin's PAT maps to RoleAdmin on its own namespace, and Temporal
+// marks the OperatorService search-attribute mutations ScopeNamespace +
+// AccessAdmin, so without the aclOverride the default authorizer would let
+// a tenant admin unregister the platform search attributes from its own
+// namespace. Pins that the override denies both mutations for a
+// namespace-admin, non-system claim set even on that namespace.
+func TestAuthorizer_SearchAttributeMutationsDeniedForNamespaceAdmin(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	userID := uuid.MustParse("5d027f73-923c-4936-9aa6-7371aceac69d")
+	tenantID := uuid.MustParse("acdc84a1-6457-44b3-a1e3-f2e7ae8cb380")
+	namespace := tenantID.String()
+
+	// The default authorizer is the configured base: the deny must come
+	// from the override, not from a permissive stand-in.
+	auth := authz.NewAuthorizer(ctx, authorization.NewDefaultAuthorizer())
+
+	claims := &authorization.Claims{
+		Subject: userID.String(),
+		System:  authorization.RoleUndefined,
+		Namespaces: map[string]authorization.Role{
+			namespace: authorization.RoleReader | authorization.RoleWriter | authorization.RoleAdmin,
+		},
+		Extensions: &authz.ClaimMapperExtensions{
+			User: authn.User{
+				ID:       userID,
+				TenantID: tenantID,
+				Username: "tenant-admin",
+				Roles:    map[uuid.UUID]authn.Role{tenantID: authn.ROLE_ADMIN},
+			},
+		},
+	}
+
+	for _, apiName := range []string{
+		api.OperatorServicePrefix + "AddSearchAttributes",
+		api.OperatorServicePrefix + "RemoveSearchAttributes",
+	} {
+		t.Run(apiName, func(t *testing.T) {
+			t.Parallel()
+			result, err := auth.Authorize(ctx, claims, &authorization.CallTarget{
+				APIName:   apiName,
+				Namespace: namespace,
+			})
 
 			require.NoError(t, err)
 			assert.Equal(t, authorization.DecisionDeny, result.Decision)

@@ -103,6 +103,11 @@ func Name(v string) predicate.Tenant {
 	return predicate.Tenant(sql.FieldEQ(FieldName, v))
 }
 
+// NameKey applies equality check predicate on the "name_key" field. It's identical to NameKeyEQ.
+func NameKey(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldNameKey, v))
+}
+
 // IdpOrgRef applies equality check predicate on the "idp_org_ref" field. It's identical to IdpOrgRefEQ.
 func IdpOrgRef(v string) predicate.Tenant {
 	return predicate.Tenant(sql.FieldEQ(FieldIdpOrgRef, v))
@@ -593,6 +598,71 @@ func NameContainsFold(v string) predicate.Tenant {
 	return predicate.Tenant(sql.FieldContainsFold(FieldName, v))
 }
 
+// NameKeyEQ applies the EQ predicate on the "name_key" field.
+func NameKeyEQ(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldNameKey, v))
+}
+
+// NameKeyNEQ applies the NEQ predicate on the "name_key" field.
+func NameKeyNEQ(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldNEQ(FieldNameKey, v))
+}
+
+// NameKeyIn applies the In predicate on the "name_key" field.
+func NameKeyIn(vs ...string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldIn(FieldNameKey, vs...))
+}
+
+// NameKeyNotIn applies the NotIn predicate on the "name_key" field.
+func NameKeyNotIn(vs ...string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldNotIn(FieldNameKey, vs...))
+}
+
+// NameKeyGT applies the GT predicate on the "name_key" field.
+func NameKeyGT(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldGT(FieldNameKey, v))
+}
+
+// NameKeyGTE applies the GTE predicate on the "name_key" field.
+func NameKeyGTE(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldGTE(FieldNameKey, v))
+}
+
+// NameKeyLT applies the LT predicate on the "name_key" field.
+func NameKeyLT(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldLT(FieldNameKey, v))
+}
+
+// NameKeyLTE applies the LTE predicate on the "name_key" field.
+func NameKeyLTE(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldLTE(FieldNameKey, v))
+}
+
+// NameKeyContains applies the Contains predicate on the "name_key" field.
+func NameKeyContains(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldContains(FieldNameKey, v))
+}
+
+// NameKeyHasPrefix applies the HasPrefix predicate on the "name_key" field.
+func NameKeyHasPrefix(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldHasPrefix(FieldNameKey, v))
+}
+
+// NameKeyHasSuffix applies the HasSuffix predicate on the "name_key" field.
+func NameKeyHasSuffix(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldHasSuffix(FieldNameKey, v))
+}
+
+// NameKeyEqualFold applies the EqualFold predicate on the "name_key" field.
+func NameKeyEqualFold(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEqualFold(FieldNameKey, v))
+}
+
+// NameKeyContainsFold applies the ContainsFold predicate on the "name_key" field.
+func NameKeyContainsFold(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldContainsFold(FieldNameKey, v))
+}
+
 // IdpOrgRefEQ applies the EQ predicate on the "idp_org_ref" field.
 func IdpOrgRefEQ(v string) predicate.Tenant {
 	return predicate.Tenant(sql.FieldEQ(FieldIdpOrgRef, v))
@@ -706,6 +776,36 @@ func ExpiresAtIsNil() predicate.Tenant {
 // ExpiresAtNotNil applies the NotNil predicate on the "expires_at" field.
 func ExpiresAtNotNil() predicate.Tenant {
 	return predicate.Tenant(sql.FieldNotNull(FieldExpiresAt))
+}
+
+// StatusEQ applies the EQ predicate on the "status" field.
+func StatusEQ(v Status) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldStatus, v))
+}
+
+// StatusNEQ applies the NEQ predicate on the "status" field.
+func StatusNEQ(v Status) predicate.Tenant {
+	return predicate.Tenant(sql.FieldNEQ(FieldStatus, v))
+}
+
+// StatusIn applies the In predicate on the "status" field.
+func StatusIn(vs ...Status) predicate.Tenant {
+	return predicate.Tenant(sql.FieldIn(FieldStatus, vs...))
+}
+
+// StatusNotIn applies the NotIn predicate on the "status" field.
+func StatusNotIn(vs ...Status) predicate.Tenant {
+	return predicate.Tenant(sql.FieldNotIn(FieldStatus, vs...))
+}
+
+// RegistrationIsNil applies the IsNil predicate on the "registration" field.
+func RegistrationIsNil() predicate.Tenant {
+	return predicate.Tenant(sql.FieldIsNull(FieldRegistration))
+}
+
+// RegistrationNotNil applies the NotNil predicate on the "registration" field.
+func RegistrationNotNil() predicate.Tenant {
+	return predicate.Tenant(sql.FieldNotNull(FieldRegistration))
 }
 
 // HasTenantUsers applies the HasEdge predicate on the "tenantUsers" edge.

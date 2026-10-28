@@ -73,6 +73,16 @@ func NewResolver(serviceName string, client *ent.Client, validator *validator.Va
 	}
 }
 
+// Close releases the resources the resolver owns. The tenant-template cache
+// runs a janitor goroutine for as long as it lives, so a resolver that is
+// built and dropped without Close leaves that goroutine behind: once per
+// process in a service, but once per construction in a test binary, where it
+// is the difference between a leak-free package and an unbounded pile of
+// janitors. Idempotent.
+func (r *Resolver) Close() {
+	r.tenantTemplates.Close()
+}
+
 func NewSchema(resolver *Resolver) graphql.ExecutableSchema {
 	return exec.NewExecutableSchema(exec.Config{
 		Resolvers: resolver,

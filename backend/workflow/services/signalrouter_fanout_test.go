@@ -45,7 +45,9 @@ type recordingTemporal struct {
 	starts  []string
 	signals []string
 
-	// startInputs and signalPayloads record what was delivered, in call order.
+	// startOptions, startInputs and signalPayloads record what was started and
+	// delivered, in call order.
+	startOptions   []temporalclient.StartWorkflowOptions
 	startInputs    []any
 	signalPayloads []any
 	startErr       error
@@ -125,6 +127,7 @@ func (r *recordingTemporal) ExecuteWorkflow(ctx context.Context, opts temporalcl
 
 	r.calls = append(r.calls, recordCall(ctx, recordedCall{Kind: "start", WorkflowID: opts.ID}))
 	r.starts = append(r.starts, opts.ID)
+	r.startOptions = append(r.startOptions, opts)
 	r.startInputs = append(r.startInputs, args...)
 
 	if r.startErr != nil {

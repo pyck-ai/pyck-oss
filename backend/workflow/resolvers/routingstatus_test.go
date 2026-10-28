@@ -9,8 +9,6 @@ import (
 	"entgo.io/ent/dialect"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/google/uuid"
-	"github.com/nats-io/nats-server/v2/server"
-	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,6 +16,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
 	"github.com/pyck-ai/pyck/backend/common/request"
+	"github.com/pyck-ai/pyck/backend/common/test/natstest"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 	"github.com/pyck-ai/pyck/backend/common/validator"
 
@@ -84,29 +83,18 @@ type routingEnv struct {
 func setupRouting(t *testing.T) *routingEnv {
 	t.Helper()
 
-	srv, err := server.NewServer(&server.Options{
-		Host: "127.0.0.1", Port: -1, JetStream: true, StoreDir: t.TempDir(), NoLog: true, NoSigs: true,
-	})
-	require.NoError(t, err)
-
-	go srv.Start()
-
-	require.True(t, srv.ReadyForConnections(10*time.Second), "embedded NATS did not start")
-	t.Cleanup(func() { srv.Shutdown(); srv.WaitForShutdown() })
-
-	nc, err := nats.Connect(srv.ClientURL())
-	require.NoError(t, err)
-	t.Cleanup(nc.Close)
+	nc := natstest.Connect(t, natstest.Start(t, nil), natstest.ServiceUser, nil)
 
 	js, err := jetstream.New(nc)
 	require.NoError(t, err)
 
-	_, err = js.CreateStream(context.Background(), jetstream.StreamConfig{Name: routingStream, Subjects: []string{routingStream + ".>"}})
+	_, err = js.CreateStream(t.Context(), jetstream.StreamConfig{Name: routingStream, Subjects: []string{routingStream + ".>"}})
 	require.NoError(t, err)
 
 	te := &testEnv{TestEnvironment: resolver.NewTestEnvironment[*ent.Client](t), t: t}
 
 	client := enttest.Open(t, dialect.SQLite, resolver.DatabaseURI(t), enttest.WithOptions(ent.Log(t.Log))).Debug()
+	t.Cleanup(func() { require.NoError(t, client.Close()) })
 
 	router := services.NewSignalRouter(client, services.SignalRouterConfig{
 		ClientFactory:   newMockClientFactory(),
@@ -116,10 +104,12 @@ func setupRouting(t *testing.T) *routingEnv {
 	te.SignalRouter = router
 
 	v := validator.NewValidator(te.DataTypeProvider)
-	te.Init(client, resolvers.NewSchema(resolvers.NewResolver("workflow", client, v, router, nil, resolvers.RemoteUIDefaults{})),
+	r := resolvers.NewResolver("workflow", client, v, router, nil, resolvers.RemoteUIDefaults{})
+	t.Cleanup(r.Close)
+	te.Init(client, resolvers.NewSchema(r),
 		func(s *handler.Server) { s.Use(gqltx.NewMiddleware(client, ent.NewTxContext, "workflow-test", 0)) })
 
-	kv, err := services.EnsureRoutingStatusBucket(context.Background(), js, routingStream)
+	kv, err := services.EnsureRoutingStatusBucket(t.Context(), js, routingStream)
 	require.NoError(t, err)
 
 	return &routingEnv{testEnv: te, js: js, kv: kv}
@@ -214,7 +204,7 @@ func TestTransactionRouting_NoBucketYetIsEmptyNotAnError(t *testing.T) {
 	t.Parallel()
 
 	e := setupRouting(t)
-	require.NoError(t, e.js.DeleteKeyValue(context.Background(), services.RoutingStatusBucket(routingStream)))
+	require.NoError(t, e.js.DeleteKeyValue(t.Context(), services.RoutingStatusBucket(routingStream)))
 
 	got := e.query(e.ctx(userA), uuid.Must(uuid.NewV7())).TransactionRouting
 
@@ -306,7 +296,7 @@ func TestTransactionRouting_IgnoresAnEntryWhoseValueDisagreesWithItsKey(t *testi
 	})
 	require.NoError(t, err)
 
-	_, err = e.kv.Put(context.Background(), services.RoutingStatusKey(tenantA, tx, uuid.Must(uuid.NewV7())), data)
+	_, err = e.kv.Put(t.Context(), services.RoutingStatusKey(tenantA, tx, uuid.Must(uuid.NewV7())), data)
 	require.NoError(t, err)
 
 	got := e.query(e.ctx(userA), tx).TransactionRouting

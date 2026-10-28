@@ -94,13 +94,13 @@ func (p *DatabaseDataTypeProvider) ReadBySlug(ctx context.Context, slug string) 
 // mutationTenant returns the single tenant the caller acts on, or false when
 // the context names none or several. Callers refuse the read in that case
 // rather than fall back to the privacy filter, which is a no-op for system
-// users. MutationTenantID panics on an ambiguous context, hence the count check.
+// users.
 func mutationTenant(ctx context.Context) (uuid.UUID, bool) {
-	req := request.ForContext(ctx)
-	if !req.HasMutationTenantID() {
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
 		return uuid.Nil, false
 	}
-	return req.MutationTenantID(), true
+	return tenantID, true
 }
 
 func toJSONSchemaDataType(dt *ent.DataType) *json_schema.DataType {

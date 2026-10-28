@@ -3,14 +3,15 @@ package temporal
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
+	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/contrib/opentelemetry"
 	"go.temporal.io/sdk/interceptor"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/pyck-ai/pyck/backend/common/eventid"
@@ -81,13 +82,18 @@ func NewTemporalNamespaceClient(ctx context.Context, url string) (client.Namespa
 	return c, nil
 }
 
+// CreateTemporalNamespace registers namespace with a one-day retention,
+// treating one that already exists as success so a caller may call it on
+// every retry. The check is on the status code, not on the message text:
+// an AlreadyExists that escapes is classified as a permanent failure by
+// the callers' retry classification and fails work that had succeeded.
 func CreateTemporalNamespace(ctx context.Context, nsClient client.NamespaceClient, namespace string) error {
 	request := &workflowservice.RegisterNamespaceRequest{
 		Namespace:                        namespace,
 		WorkflowExecutionRetentionPeriod: &durationpb.Duration{Seconds: 86400},
 	}
 	err := nsClient.Register(ctx, request)
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
+	if err != nil && serviceerror.ToStatus(err).Code() != codes.AlreadyExists {
 		return err
 	}
 

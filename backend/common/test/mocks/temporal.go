@@ -21,6 +21,12 @@ import (
 
 type MockTemporalClient struct {
 	mock.Mock
+	// client.Client is embedded as a nil interface so this mock still
+	// satisfies client.Client when the Temporal SDK adds methods to it (SDK
+	// v1.48.0 added CancelWorkflowWithOptions). Calling a method that is not
+	// implemented below panics with a nil pointer dereference; add it here
+	// when a test needs it.
+	client.Client
 }
 
 // ExecuteWorkflow mocks the ExecuteWorkflow method.
@@ -449,10 +455,15 @@ func (m *SimpleMockTemporalClient) DescribeWorkflowExecution(ctx context.Context
 	}
 	m.mu.Unlock()
 
+	// Encode like the Temporal server does (json/plain metadata), so callers
+	// decoding with the SDK data converter see a real payload.
 	indexedFields := make(map[string]*common.Payload)
 	for key, value := range searchAttrsCopy {
-		data := []byte(`"` + value + `"`)
-		indexedFields[key] = &common.Payload{Data: data}
+		payload, err := converter.GetDefaultDataConverter().ToPayload(value)
+		if err != nil {
+			return nil, err
+		}
+		indexedFields[key] = payload
 	}
 
 	return &workflowservice.DescribeWorkflowExecutionResponse{

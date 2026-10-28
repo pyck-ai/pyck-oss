@@ -17,14 +17,17 @@ type Mutation {
   Manually delete a tenant by setting deleted_at via soft-delete. This
   triggers the soft-delete half of the tenant lifecycle — the row
   remains in the database and can be reactivated via restoreTenant
-  during the grace period. Hard-delete is automated by the periodic
-  expiry sweep, not exposed to the API.
+  during the grace period. Nothing hard-deletes the row, so the tenant
+  keeps its name for good.
 
-  Target tenant is derived from the X-Pyck-Tenant-Id header
-  (req.MutationTenantID). The caller must hold ROLE_ADMIN on that
-  tenant; ROLE_SYSTEM satisfies this for system flows.
+  The target tenant is named by input.tenantId. The caller must hold
+  ROLE_ADMIN on it; ROLE_SYSTEM satisfies this for system flows. A
+  tenant in any registration status can be deleted; a registration
+  that is still running (status pending) notices the delete itself and
+  deactivates the organization it created. No other registration can
+  take the tenant's name.
   """
-  deleteTenant: DeleteTenantResponse!
+  deleteTenant(input: DeleteTenantInput!): DeleteTenantResponse!
   """
   Restore a previously disabled tenant by clearing its deleted_at
   flag. An optional input.expiresAt overrides the tenant's prior
@@ -32,8 +35,12 @@ type Mutation {
   re-disable the tenant on the next tenant-expiry-check sweep if the
   value is already in the past.
 
-  Target tenant is derived from X-Pyck-Tenant-Id (req.MutationTenantID);
-  ROLE_ADMIN required.
+  The target tenant is named by input.tenantId. Only a tenant whose
+  registration finished (status done) can be restored.
+
+  System caller required (PYCK_SERVICE_TOKEN): restore is an operator
+  action, so an admin (the tenant's own or one holding ROLE_ADMIN
+  through a cross-tenant grant) is refused.
   """
   restoreTenant(input: RestoreTenantInput!): RestoreTenantResponse!
   """
@@ -47,8 +54,10 @@ type Mutation {
   Idempotent on the already-at-target-state cases (clear against
   empty, set matching the current value).
 
-  Target tenant is derived from X-Pyck-Tenant-Id (req.MutationTenantID);
-  ROLE_ADMIN required.
+  The target tenant is named by input.tenantId. System caller required
+  (PYCK_SERVICE_TOKEN): the expiry is the deadline an operator imposes on
+  the tenant, and a tenant admin able to move it would outlive the
+  operator's decision on its own.
   """
   setTenantExpiry(input: SetTenantExpiryInput!): SetTenantExpiryResponse!
   """
@@ -66,9 +75,17 @@ type Mutation {
   setTenantUITemplate(input: SetTenantUITemplateInput!): SetTenantUITemplateResponse!
   generateJsonSchema(jsonData: String!): GenerateJsonSchemaResponse!
 
-  # User CRUD operations
+  # User CRUD operations. The User table is a projection of Zitadel users
+  # maintained by the zitadel-sync workflow; only a system caller
+  # (PYCK_SERVICE_TOKEN) may write it.
+  """
+  Creates a user-projection row. System caller required: the row's idpID
+  is what role assignment resolves its Zitadel target from.
+  """
   createUser(input: CreateUserInput!): User!
+  """Updates a user-projection row. System caller required."""
   updateUser(id: ID!, input: UpdateUserInput!): User!
+  """Soft-deletes a user-projection row. System caller required."""
   deleteUser(id: ID!): Boolean!
 
   setKeyValue(input: SetKeyValueInput!): KeyValue

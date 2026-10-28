@@ -3,6 +3,10 @@
 package tenant
 
 import (
+	"fmt"
+	"io"
+	"strconv"
+
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -34,10 +38,16 @@ const (
 	FieldDeletedBy = "deleted_by"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
+	// FieldNameKey holds the string denoting the name_key field in the database.
+	FieldNameKey = "name_key"
 	// FieldIdpOrgRef holds the string denoting the idp_org_ref field in the database.
 	FieldIdpOrgRef = "idp_org_ref"
 	// FieldExpiresAt holds the string denoting the expires_at field in the database.
 	FieldExpiresAt = "expires_at"
+	// FieldStatus holds the string denoting the status field in the database.
+	FieldStatus = "status"
+	// FieldRegistration holds the string denoting the registration field in the database.
+	FieldRegistration = "registration"
 	// EdgeTenantUsers holds the string denoting the tenantusers edge name in mutations.
 	EdgeTenantUsers = "tenantUsers"
 	// Table holds the table name of the tenant in the database.
@@ -64,8 +74,11 @@ var Columns = []string{
 	FieldDeletedAt,
 	FieldDeletedBy,
 	FieldName,
+	FieldNameKey,
 	FieldIdpOrgRef,
 	FieldExpiresAt,
+	FieldStatus,
+	FieldRegistration,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -84,14 +97,43 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/pyck-ai/pyck/backend/management/ent/gen/runtime"
 var (
-	Hooks        [2]ent.Hook
+	Hooks        [3]ent.Hook
 	Interceptors [1]ent.Interceptor
 	Policy       ent.Policy
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// NameKeyValidator is a validator for the "name_key" field. It is called by the builders before save.
+	NameKeyValidator func(string) error
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
+
+// Status defines the type for the "status" enum field.
+type Status string
+
+// StatusDone is the default value of the Status enum.
+const DefaultStatus = StatusDone
+
+// Status values.
+const (
+	StatusPending Status = "pending"
+	StatusDone    Status = "done"
+	StatusError   Status = "error"
+)
+
+func (s Status) String() string {
+	return string(s)
+}
+
+// StatusValidator is a validator for the "status" field enum values. It is called by the builders before save.
+func StatusValidator(s Status) error {
+	switch s {
+	case StatusPending, StatusDone, StatusError:
+		return nil
+	default:
+		return fmt.Errorf("tenant: invalid enum value for status field: %q", s)
+	}
+}
 
 // OrderOption defines the ordering options for the Tenant queries.
 type OrderOption func(*sql.Selector)
@@ -146,6 +188,11 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
 }
 
+// ByNameKey orders the results by the name_key field.
+func ByNameKey(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldNameKey, opts...).ToFunc()
+}
+
 // ByIdpOrgRef orders the results by the idp_org_ref field.
 func ByIdpOrgRef(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldIdpOrgRef, opts...).ToFunc()
@@ -154,6 +201,11 @@ func ByIdpOrgRef(opts ...sql.OrderTermOption) OrderOption {
 // ByExpiresAt orders the results by the expires_at field.
 func ByExpiresAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldExpiresAt, opts...).ToFunc()
+}
+
+// ByStatus orders the results by the status field.
+func ByStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStatus, opts...).ToFunc()
 }
 
 // ByTenantUsersCount orders the results by tenantUsers count.
@@ -175,4 +227,22 @@ func newTenantUsersStep() *sqlgraph.Step {
 		sqlgraph.To(TenantUsersInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, TenantUsersTable, TenantUsersColumn),
 	)
+}
+
+// MarshalGQL implements graphql.Marshaler interface.
+func (e Status) MarshalGQL(w io.Writer) {
+	io.WriteString(w, strconv.Quote(e.String()))
+}
+
+// UnmarshalGQL implements graphql.Unmarshaler interface.
+func (e *Status) UnmarshalGQL(val interface{}) error {
+	str, ok := val.(string)
+	if !ok {
+		return fmt.Errorf("enum %T must be a string", val)
+	}
+	*e = Status(str)
+	if err := StatusValidator(*e); err != nil {
+		return fmt.Errorf("%s is not a valid Status", str)
+	}
+	return nil
 }

@@ -20,7 +20,6 @@ import (
 
 	"github.com/pyck-ai/pyck/backend/common/authn"
 	"github.com/pyck-ai/pyck/backend/common/feature"
-	"github.com/pyck-ai/pyck/backend/common/tenant"
 	"github.com/pyck-ai/pyck/backend/common/test/mocks"
 	testresolver "github.com/pyck-ai/pyck/backend/common/test/resolver"
 
@@ -790,7 +789,7 @@ func setupAPIClientForUser(t *testing.T, te *testEnv, user *authn.User) api.Clie
 	httpRouter.Use(
 		otelchi.Middleware("test-resolver"),
 		httpAuth.HTTPMiddleware(),
-		tenant.HTTPMiddleware(),
+		testresolver.TenantMiddlewareFor(t, *user),
 		feature.HTTPMiddleware(),
 	)
 	httpRouter.Handle("/", te.GQLServer)

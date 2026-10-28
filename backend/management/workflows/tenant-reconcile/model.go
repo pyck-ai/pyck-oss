@@ -28,6 +28,10 @@ type (
 	// ComputeDriftActivityInput is the input to ComputeDriftActivity; empty.
 	ComputeDriftActivityInput struct{}
 
+	// RepairEventStreamsActivityInput is the input to
+	// RepairEventStreamsActivity; empty.
+	RepairEventStreamsActivityInput struct{}
+
 	// TenantRef is a minimal pointer to a tenant that needs correction.
 	TenantRef struct {
 		TenantID  uuid.UUID

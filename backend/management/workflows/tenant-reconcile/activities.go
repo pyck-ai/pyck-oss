@@ -57,6 +57,9 @@ type (
 		// tenant's disable/restore lifecycle — same ID used by the NATS
 		// trigger so the conflict policy serializes against it.
 		LifecycleWorkflowID func(tenantID uuid.UUID) string
+
+		// RepairEventStreams is tenants.RepairStreams.
+		RepairEventStreams func(ctx context.Context) error
 	}
 )
 
@@ -82,6 +85,11 @@ func NewActivities(entClient *ent.Client, temporal temporalclient.Client, zitade
 		zitadelConn: zitadelConn,
 		cfg:         cfg,
 	}
+}
+
+// RepairEventStreamsActivity puts the event streams active tenants are missing.
+func (a *Activities) RepairEventStreamsActivity(ctx context.Context, _ RepairEventStreamsActivityInput) error {
+	return a.cfg.RepairEventStreams(ctx)
 }
 
 // driftResult is the pure (DB- and Zitadel-free) output of the drift
@@ -137,21 +145,29 @@ func computeDrift(disabledByOrg map[string]uuid.UUID, activeOrgIDs, inactiveOrgI
 // Decision matrix (DB row × Zitadel org state):
 //
 //	DB \ org   | ACTIVE      | INACTIVE   | DELETED
-//	-----------+-------------+------------+----------------------------
+//	-----------+-------------+------------+--------------------
 //	disabled   | ToDisable   | aligned    | aligned (skip+log)
-//	active     | aligned     | ToRestore  | out of scope → zitadel-sync
+//	active     | aligned     | ToRestore  | not drift
 //
 // DELETED + disabled is already aligned (org gone, DB disabled), so it is
 // NOT drift — emitting a disable would loop forever, since the org can
 // never become "inactive" and each dispatch hits NotFound. DELETED +
-// active is left to zitadel-sync's ReconcileTenantsActivity, which
-// soft-deletes DB tenants missing from Zitadel (the SSOT).
+// active is not drift either: the DB row is the liveness truth, so an org
+// deleted out of band leaves the tenant active until an operator disables
+// it (docs/tenant-registration.md).
 //
 // Cost: the drift sets themselves stay tiny in steady state (usually
 // empty), but the Zitadel org listing is O(total orgs) per run — it
 // enumerates every org with no state filter so a DELETED org can be told
 // apart from ACTIVE/INACTIVE. A small DB query fills in tenant_ids for the
 // ToRestore side since those rows are not in the disabled set.
+//
+// TODO(george): worker state is a third drift source this does not see.
+// A disable whose stop exhausted its retry budget leaves the DB disabled
+// and the org INACTIVE, which reads as aligned here, while the tenant's
+// worker keeps polling its namespace. A failed resume is the mirror case.
+// Compare worker-api's deployment list to re-dispatch disable or restore.
+// See #1474.
 func (a *Activities) ComputeDriftActivity(ctx context.Context, _ ComputeDriftActivityInput) (DriftSet, error) {
 	logger := activity.GetLogger(ctx)
 	sysCtx := authn.Context(ctx, authn.SystemUser())
@@ -160,10 +176,15 @@ func (a *Activities) ComputeDriftActivity(ctx context.Context, _ ComputeDriftAct
 	// DB disabled tenants — idp_org_ref → tenant_id.
 	// Exclude rows without an idp_org_ref at the DB level: they can't
 	// map to a Zitadel org, so they're irrelevant for drift detection.
+	// Likewise a pending or error tombstone (a registration retired
+	// before it completed) never was a live tenant: whatever org it owns
+	// was deactivated by the DisableTenantWorkflow its delete event
+	// dispatched, and the operator retiring it owns the rest.
 	disabledRows, err := a.ent.Tenant.Query().
 		Where(
 			enttenant.DeletedAtNotNil(),
 			enttenant.IdpOrgRefNEQ(""),
+			enttenant.StatusEQ(enttenant.StatusDone),
 		).
 		AllPages(sysCtx, dbPageSize)
 	if err != nil {
@@ -219,12 +240,17 @@ func (a *Activities) ComputeDriftActivity(ctx context.Context, _ ComputeDriftAct
 	// we look them up by idp_org_ref. DeletedAtIsNil is required even under
 	// FEATURE_SHOW_DELETED: a concurrent soft-delete between the disabled
 	// snapshot above and this query would otherwise leak through to
-	// ToRestore and override the admin's intent.
+	// ToRestore and override the admin's intent. StatusEQ(done) mirrors the
+	// disabled snapshot: a live pending or error row is a registration that
+	// never finished, its INACTIVE org is not drift to heal, and without
+	// the predicate the sweep would re-activate an org an operator
+	// deactivated during cleanup, every cycle, fighting the operator.
 	if len(res.restoreOrgIDs) > 0 {
 		rows, err := a.ent.Tenant.Query().
 			Where(
 				enttenant.IdpOrgRefIn(res.restoreOrgIDs...),
 				enttenant.DeletedAtIsNil(),
+				enttenant.StatusEQ(enttenant.StatusDone),
 			).
 			AllPages(sysCtx, mixin.Limit)
 		if err != nil {

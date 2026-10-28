@@ -34,15 +34,18 @@ func _ServiceRoleNoOp() {
 var _ServiceRoleValues = []ServiceRole{Inventory, Picking, Receiving, File, MainData}
 
 var _ServiceRoleNameToValueMap = map[string]ServiceRole{
-	_ServiceRoleName[0:17]:       Inventory,
+	_ServiceRoleName[0:17]:  Inventory,
+	_ServiceRoleName[17:32]: Picking,
+	_ServiceRoleName[32:49]: Receiving,
+	_ServiceRoleName[49:61]: File,
+	_ServiceRoleName[61:78]: MainData,
+}
+
+var _ServiceRoleLowerNameToValueMap = map[string]ServiceRole{
 	_ServiceRoleLowerName[0:17]:  Inventory,
-	_ServiceRoleName[17:32]:      Picking,
 	_ServiceRoleLowerName[17:32]: Picking,
-	_ServiceRoleName[32:49]:      Receiving,
 	_ServiceRoleLowerName[32:49]: Receiving,
-	_ServiceRoleName[49:61]:      File,
 	_ServiceRoleLowerName[49:61]: File,
-	_ServiceRoleName[61:78]:      MainData,
 	_ServiceRoleLowerName[61:78]: MainData,
 }
 
@@ -61,7 +64,7 @@ func ServiceRoleString(s string) (ServiceRole, error) {
 		return val, nil
 	}
 
-	if val, ok := _ServiceRoleNameToValueMap[strings.ToLower(s)]; ok {
+	if val, ok := _ServiceRoleLowerNameToValueMap[strings.ToLower(s)]; ok {
 		return val, nil
 	}
 	return 0, fmt.Errorf("%s does not belong to ServiceRole values", s)

@@ -282,14 +282,14 @@ func TestOutboxHandler_RetryKeepsEventID(t *testing.T) {
 	outboxFuncs := &mockOutboxFunctions{}
 
 	// First attempt fails, second succeeds.
-	require.NoError(t, events.ProcessEntryForTest(context.Background(), nil, row, publisher,
+	require.NoError(t, events.ProcessEntryForTest(t.Context(), nil, row, publisher,
 		outboxFuncs.markPublished, outboxFuncs.markFailed))
 
 	publisher.mu.Lock()
 	publisher.publishRawErr = nil
 	publisher.mu.Unlock()
 
-	require.NoError(t, events.ProcessEntryForTest(context.Background(), nil, row, publisher,
+	require.NoError(t, events.ProcessEntryForTest(t.Context(), nil, row, publisher,
 		outboxFuncs.markPublished, outboxFuncs.markFailed))
 
 	calls := publisher.getPublishCalls()

@@ -8,7 +8,7 @@ info:
   seq: 5
 
 docs: |-
-  Manually restores a previously disabled tenant by clearing its deleted_at flag via the RestoreTenantWorkflow. Returns an error when the tenant does not exist; idempotent on already-active tenants.
+  Manually restores a previously disabled tenant by clearing its deleted_at flag via the RestoreTenantWorkflow. System role required. Only a tenant whose registration finished can be restored. Returns an error when the tenant does not exist; idempotent on already-active tenants.
 
 
 graphql:
@@ -46,7 +46,7 @@ graphql:
       {
         "input": {
           "expiresAt": null, // PLACEHOLDER: RFC3339 timestamp, omit to keep existing expiry
-          "id": null // PLACEHOLDER: tenant ID
+          "tenantId": null // PLACEHOLDER: tenant ID
         }
       }
 

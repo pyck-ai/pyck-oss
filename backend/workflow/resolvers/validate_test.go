@@ -1,4 +1,4 @@
-//nolint:testpackage // in-package test required: validateWorkflowExecutionIDs is unexported.
+//nolint:testpackage // in-package test required: the validators are unexported.
 package resolvers
 
 import (
@@ -39,6 +39,42 @@ func TestValidateWorkflowExecutionIDs(t *testing.T) {
 				return
 			}
 			require.ErrorIs(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestValidateUpdateName(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name       string
+		updateName string
+		wantErr    bool
+	}{
+		{"valid", "input", false},
+		{"dot", "pkg.Input", false},
+		{"slash", "a/b", false},
+		{"generic type name", "Confirm[example.com/pkg.Foo]", false},
+		{"non-ASCII letter", "Café", false},
+		{"at the limit", strings.Repeat("a", commonworkflow.MaxWorkflowIDLength), false},
+		{"empty", "", true},
+		{"blank", "   ", true},
+		{"over the limit", strings.Repeat("a", commonworkflow.MaxWorkflowIDLength+1), true},
+		{"SetAssignee", commonworkflow.WorkflowQueryTypeSetAssignee.String(), true},
+		{"SetTargets, a step ID", commonworkflow.WorkflowQueryTypeSetTargets.String(), false},
+		{"SetIsAssignable", commonworkflow.WorkflowQueryTypeSetIsAssignable.String(), true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := validateUpdateName(tc.updateName)
+			if !tc.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, ErrInvalidUpdateName)
 		})
 	}
 }

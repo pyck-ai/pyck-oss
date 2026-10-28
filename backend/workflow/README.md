@@ -98,12 +98,13 @@ Per event and workflow the router starts at most once and sends each distinct si
 ### Signal router
 
 `services.SignalRouter` turns events into Temporal starts and signals. It reads them through one durable JetStream
-pull consumer (`workflow-signal-router`, `services/signalrouter_consumer.go`) on the event stream, shared by all
-replicas: each event goes to one replica, is handled at least once, and is acknowledged only when every target is done.
+pull consumer (`workflow-signal-router`, `services/signalrouter_consumer.go`) on the aggregate event stream `<stream>`,
+which sources every tenant's stream and the system stream (see the management README), shared by all replicas: each
+event goes to one replica, is handled at least once, and is acknowledged only when every target is done.
 
 | What | Value |
 |---|---|
-| Filter subjects | `<stream>.*.crud.*.*.*.*` (mutation events), `<stream>.*.temporal.*.*.*.*.*` (workflow state changes). Custom, workflow, attribute-change, dead-letter and `request.reply.*` subjects are not delivered. |
+| Filter subjects | `<stream>.*.crud.*.*.*.*` (mutation events), `<stream>.*.custom.*.*.*` (tenant custom events from `sendCustomEvent`, routed like mutation events), `<stream>.*.temporal.*.*.*.*.*` (workflow state changes). Platform custom events (`<stream>-system.custom-events`), workflow, attribute-change, dead-letter and `request.reply.*` subjects are not delivered, nor state changes of a namespace that is not a tenant, which go to the system stream under `<stream>-system.>`. |
 | Deliver policy | `New`, applied when the consumer is created. An existing consumer keeps its position. |
 | Ack policy | Explicit. The router sends `InProgress` every `ACK_WAIT/3` while a handler runs. |
 | Concurrency | `PYCK_WORKFLOW_ROUTER_CONCURRENCY` handlers per replica; `MAX_ACK_PENDING` events in flight overall. |
@@ -153,9 +154,10 @@ workflow starts and signals. It keeps no record of what it delivered; Temporal d
   signal is ignored, and a repeated start returns the run the first one created instead of an error or a second run.
 - **One run per entity per workflow.** Start subscriptions use the workflow ID `<workflow>_<entity ID>`. A start with a
   *different* request ID for a workflow ID that is running is refused with `WorkflowExecutionAlreadyStarted` under
-  all three policies (create, update, delete), and recorded as `already_running`. The event's data is not delivered
-  to the running execution: to receive every update, subscribe with Signal-With-Start (or signal by ID). Earlier
-  versions handed back the running run for update and delete events and recorded a start that never happened.
+  all three policies (create, update, delete; a custom event's other operations take update's), and recorded as
+  `already_running`. The event's data is not delivered to the running execution: to receive every update, subscribe
+  with Signal-With-Start (or signal by ID). Earlier versions handed back the running run for update and delete events
+  and recorded a start that never happened.
 - **No event ID, no deduplication.** An event from a publisher that predates `event_id` has a nil ID. The router
   does not invent one: its calls go out with the SDK's random request IDs and no header (logged at debug level).
 - **Limits.**
@@ -198,7 +200,7 @@ The value is JSON (`services.RoutingStatus`):
 
 - `outcome`: `done` (finished: delivered, or refused for good, such as a malformed subscription) or `gave_up`
   (retries exhausted; the `failed` targets say what is left undone).
-- `sequence`: the event's sequence in the stream.
+- `sequence`: the event's sequence in the aggregate stream.
 - Target `kind`:
 
   | kind | meaning |

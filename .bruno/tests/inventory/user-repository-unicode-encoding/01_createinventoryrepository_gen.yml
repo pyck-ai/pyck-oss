@@ -73,7 +73,7 @@ runtime:
         });
 
         test("Repository was created", function() {
-          expect(body?.data?.createInventoryRepository?.inventoryRepository?.id)/* UNSUPPORTED:  */;
+          expect(body?.data?.createInventoryRepository?.inventoryRepository?.id).to.exist;
         });
     - type: after-response
       code: |-

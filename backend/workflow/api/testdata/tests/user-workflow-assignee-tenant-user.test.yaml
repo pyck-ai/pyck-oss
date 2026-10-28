@@ -1,0 +1,41 @@
+---
+name: "User - Workflow Assignee Must Be A Tenant User"
+description: >
+  setWorkflowAssignee refuses an assignee that is not a user of the acting
+  tenant (#1503). The execution does not exist, so a request that passes the
+  check ends on Temporal's "not found" instead of the refusal. Users rows come
+  from the Zitadel sync, which a fresh tenant has not run yet, so the accepted
+  and other-tenant cases are left to the resolver unit tests.
+steps:
+  - name: "A random id is refused"
+    operation: workflow.setWorkflowAssignee
+    vars:
+      input:
+        workflowId: "scenario-assignee-tenant-user-workflow"
+        workflowExecutionId: "00000000-0000-0000-0000-000000000000"
+        assigneeID: {$fake: "{{uuid}}"}
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Refused as not a user of this tenant"
+        assertions:
+          - ref: res.body.errors[0].message
+            equal: "assignee is not a user of this tenant"
+
+  - name: "Unassigning is accepted"
+    operation: workflow.setWorkflowAssignee
+    vars:
+      input:
+        workflowId: "scenario-assignee-tenant-user-workflow"
+        workflowExecutionId: "00000000-0000-0000-0000-000000000000"
+    tests:
+      - msg: "Status is 200"
+        assertions:
+          - ref: res.status
+            equal: 200
+      - msg: "Passes the check and reaches Temporal"
+        assertions:
+          - ref: res.body.errors[0].message
+            contains: "not found"

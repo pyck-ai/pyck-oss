@@ -28,6 +28,7 @@ const (
 	TopicTypeWorkflowEvent                    = topic.TopicTypeWorkflowEvent
 	TopicTypeTemporalWorkflowStateChangeEvent = topic.TopicTypeTemporalWorkflowStateChangeEvent
 	TopicTypeDeadLetterEvent                  = topic.TopicTypeDeadLetterEvent
+	TopicTypeTenantCustomEvent                = topic.TopicTypeTenantCustomEvent
 )
 
 type (
@@ -39,6 +40,7 @@ type (
 	EntityProvider = topic.EntityProvider
 
 	CustomEventTopic                 = topic.CustomEventTopic
+	TenantCustomEventTopic           = topic.TenantCustomEventTopic
 	MutationEventTopic               = topic.MutationEventTopic
 	MutationEventWithReplyTopic      = topic.MutationEventWithReplyTopic
 	UpdateEventTopic                 = topic.UpdateEventTopic

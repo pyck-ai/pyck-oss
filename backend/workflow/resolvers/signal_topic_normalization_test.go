@@ -1,7 +1,6 @@
 package resolvers_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -111,7 +110,7 @@ func TestSignalTopicNormalization_LegacyReplyTopicTriggersOnFireAndForget(t *tes
 		OperationName: "create",
 	}.String()
 
-	started, err := te.SignalRouter.HandleMutationEvent(context.Background(), &nats.Msg{
+	started, err := te.SignalRouter.HandleMutationEvent(t.Context(), &nats.Msg{
 		Subject: subject,
 		Data:    payload,
 	})

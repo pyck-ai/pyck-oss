@@ -17,7 +17,7 @@ import (
 
 const (
 	testStreamName   = "pyck"
-	testCustomTopic  = "pyck.custom-events"
+	testCustomTopic  = "pyck-system.custom-events"
 	testUserAggID    = "373604903056099999"
 	testEventType    = "user.human.password.check.succeeded"
 	testEventCreated = "2026-06-01T08:25:31.397163Z"

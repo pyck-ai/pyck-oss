@@ -39,13 +39,16 @@ func _WorkflowTargetNoOp() {
 var _WorkflowTargetValues = []WorkflowTarget{WorkflowTargetUNKNOWN, WorkflowTargetWEB, WorkflowTargetMOBILE, WorkflowTargetSETUP}
 
 var _WorkflowTargetNameToValueMap = map[string]WorkflowTarget{
-	_WorkflowTargetName[0:7]:        WorkflowTargetUNKNOWN,
+	_WorkflowTargetName[0:7]:   WorkflowTargetUNKNOWN,
+	_WorkflowTargetName[7:10]:  WorkflowTargetWEB,
+	_WorkflowTargetName[10:16]: WorkflowTargetMOBILE,
+	_WorkflowTargetName[16:21]: WorkflowTargetSETUP,
+}
+
+var _WorkflowTargetLowerNameToValueMap = map[string]WorkflowTarget{
 	_WorkflowTargetLowerName[0:7]:   WorkflowTargetUNKNOWN,
-	_WorkflowTargetName[7:10]:       WorkflowTargetWEB,
 	_WorkflowTargetLowerName[7:10]:  WorkflowTargetWEB,
-	_WorkflowTargetName[10:16]:      WorkflowTargetMOBILE,
 	_WorkflowTargetLowerName[10:16]: WorkflowTargetMOBILE,
-	_WorkflowTargetName[16:21]:      WorkflowTargetSETUP,
 	_WorkflowTargetLowerName[16:21]: WorkflowTargetSETUP,
 }
 
@@ -63,7 +66,7 @@ func WorkflowTargetString(s string) (WorkflowTarget, error) {
 		return val, nil
 	}
 
-	if val, ok := _WorkflowTargetNameToValueMap[strings.ToLower(s)]; ok {
+	if val, ok := _WorkflowTargetLowerNameToValueMap[strings.ToLower(s)]; ok {
 		return val, nil
 	}
 	return 0, errors.Join(enumerrs.ErrValueInvalid, fmt.Errorf("%s does not belong to WorkflowTarget values", s))

@@ -15,7 +15,6 @@ import (
 	ent "github.com/pyck-ai/pyck/backend/inventory/ent/gen"
 	entprivacy "github.com/pyck-ai/pyck/backend/inventory/ent/gen/privacy"
 	entrepository "github.com/pyck-ai/pyck/backend/inventory/ent/gen/repository"
-	entstock "github.com/pyck-ai/pyck/backend/inventory/ent/gen/stock"
 )
 
 // TestDeleteRepositoryMovement_DoesNotRewriteUnaffectedAncestorItems is
@@ -174,26 +173,16 @@ func TestDeleteRepositoryMovement_DoesNotRewriteUnaffectedAncestorItems(t *testi
 	// The contract being pinned: across the full universe of stock
 	// rows tagged with this movement.ID (rows from both the Create
 	// fan-out and the Delete fan-out), only items physically present
-	// on the moving repository at create time may appear. Group by
-	// item_id (avoids .All(ctx) on Stock per limitlint) and compare
-	// the distinct set against {iMove.ID}.
+	// on the moving repository at create time may appear. Compare the
+	// distinct set of stamped items against {iMove.ID}.
 	//
 	// If a future refactor drops the itemIDs filter passed to
 	// loadAncestorStocks at impl.go:1282, the Delete fan-out will
 	// re-stamp every (closure-ancestor, item) pair and the distinct
 	// set will balloon to {iMove + 50 unrelated items}.
-	itemIDStrs, err := tx.Stock.Query().
-		Where(
-			entstock.TenantID(tenantID),
-			entstock.MovementID(movement.ID),
-		).
-		GroupBy(entstock.FieldItemID).
-		Strings(ctx)
-	require.NoError(t, err)
-
 	require.ElementsMatch(t,
 		[]string{iMove.ID.String()},
-		itemIDStrs,
+		movementItemIDs(t, ctx, tx, tenantID, movement.ID),
 		"both the Create and Delete fan-outs must restrict their writes to items "+
 			"physically on the moving repository; unaffected ancestor-only items "+
 			"must not be re-stamped by either path",

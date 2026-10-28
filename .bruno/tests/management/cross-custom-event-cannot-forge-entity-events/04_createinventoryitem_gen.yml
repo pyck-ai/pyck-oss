@@ -2,7 +2,7 @@
 # Source: backend/management/api/testdata/tests/cross-management-custom-event-forgery.test.yaml
 
 info:
-  #name: Create Inventory Item - Typed writes keep working after the refused event
+  #name: Create Inventory Item - Typed writes keep working after the custom event
   name: Create Inventory Item
   type: graphql
   seq: 4

@@ -318,6 +318,11 @@ func renderArgs(args any, varNS string) string {
 	}
 }
 
+// chaiChain renders one assertion operator of the test schema
+// (api/schemas/test.schema.json, $defs.Assertion) as a chai chain. An operator
+// the schema accepts but this switch does not know renders as an
+// "UNSUPPORTED" comment, which asserts nothing; TestChaiChainCoversSchema
+// fails when the two drift apart.
 func chaiChain(test string, args any, varNS string) string {
 	switch test {
 	case "equal":
@@ -329,11 +334,21 @@ func chaiChain(test string, args any, varNS string) string {
 			return ".to.exist"
 		}
 		return ".to.not.exist"
+	case "notNil":
+		if v, ok := args.(bool); ok && !v {
+			return ".to.not.exist"
+		}
+		return ".to.exist"
 	case "empty":
 		if v, ok := args.(bool); ok && !v {
 			return ".to.not.be.empty"
 		}
 		return ".to.be.empty"
+	case "notEmpty":
+		if v, ok := args.(bool); ok && !v {
+			return ".to.be.empty"
+		}
+		return ".to.not.be.empty"
 	case "contains":
 		return ".to.include(" + renderArgs(args, varNS) + ")"
 	case "isType":

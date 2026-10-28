@@ -36,9 +36,12 @@ func (r *queryResolver) Me(ctx context.Context) (*model.UserProfile, error) {
 	dbTenantsMap := make(map[uuid.UUID]*ent.Tenant, len(ids))
 
 	if len(ids) > 0 {
+		// Bounded by the ids themselves: the token names each tenant once,
+		// so the result can never exceed the predicate's length.
 		tenants, err := r.client.Tenant.
 			Query().
 			Where(tenant.IDIn(ids...)).
+			Limit(len(ids)).
 			Select(tenant.FieldID, tenant.FieldName).
 			All(ctx)
 		if err != nil {

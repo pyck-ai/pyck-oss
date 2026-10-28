@@ -15,6 +15,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/predicate"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/user"
+	"github.com/pyck-ai/pyck/backend/management/ent/types"
 
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/internal"
 )
@@ -178,6 +179,20 @@ func (_u *TenantUpdate) SetNillableName(v *string) *TenantUpdate {
 	return _u
 }
 
+// SetNameKey sets the "name_key" field.
+func (_u *TenantUpdate) SetNameKey(v string) *TenantUpdate {
+	_u.mutation.SetNameKey(v)
+	return _u
+}
+
+// SetNillableNameKey sets the "name_key" field if the given value is not nil.
+func (_u *TenantUpdate) SetNillableNameKey(v *string) *TenantUpdate {
+	if v != nil {
+		_u.SetNameKey(*v)
+	}
+	return _u
+}
+
 // SetIdpOrgRef sets the "idp_org_ref" field.
 func (_u *TenantUpdate) SetIdpOrgRef(v string) *TenantUpdate {
 	_u.mutation.SetIdpOrgRef(v)
@@ -209,6 +224,32 @@ func (_u *TenantUpdate) SetNillableExpiresAt(v *time.Time) *TenantUpdate {
 // ClearExpiresAt clears the value of the "expires_at" field.
 func (_u *TenantUpdate) ClearExpiresAt() *TenantUpdate {
 	_u.mutation.ClearExpiresAt()
+	return _u
+}
+
+// SetStatus sets the "status" field.
+func (_u *TenantUpdate) SetStatus(v tenant.Status) *TenantUpdate {
+	_u.mutation.SetStatus(v)
+	return _u
+}
+
+// SetNillableStatus sets the "status" field if the given value is not nil.
+func (_u *TenantUpdate) SetNillableStatus(v *tenant.Status) *TenantUpdate {
+	if v != nil {
+		_u.SetStatus(*v)
+	}
+	return _u
+}
+
+// SetRegistration sets the "registration" field.
+func (_u *TenantUpdate) SetRegistration(v *types.TenantRegistration) *TenantUpdate {
+	_u.mutation.SetRegistration(v)
+	return _u
+}
+
+// ClearRegistration clears the value of the "registration" field.
+func (_u *TenantUpdate) ClearRegistration() *TenantUpdate {
+	_u.mutation.ClearRegistration()
 	return _u
 }
 
@@ -287,6 +328,16 @@ func (_u *TenantUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`gen: validator failed for field "Tenant.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.NameKey(); ok {
+		if err := tenant.NameKeyValidator(v); err != nil {
+			return &ValidationError{Name: "name_key", err: fmt.Errorf(`gen: validator failed for field "Tenant.name_key": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Status(); ok {
+		if err := tenant.StatusValidator(v); err != nil {
+			return &ValidationError{Name: "status", err: fmt.Errorf(`gen: validator failed for field "Tenant.status": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -347,6 +398,9 @@ func (_u *TenantUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(tenant.FieldName, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.NameKey(); ok {
+		_spec.SetField(tenant.FieldNameKey, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.IdpOrgRef(); ok {
 		_spec.SetField(tenant.FieldIdpOrgRef, field.TypeString, value)
 	}
@@ -355,6 +409,15 @@ func (_u *TenantUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.ExpiresAtCleared() {
 		_spec.ClearField(tenant.FieldExpiresAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.Status(); ok {
+		_spec.SetField(tenant.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.Registration(); ok {
+		_spec.SetField(tenant.FieldRegistration, field.TypeJSON, value)
+	}
+	if _u.mutation.RegistrationCleared() {
+		_spec.ClearField(tenant.FieldRegistration, field.TypeJSON)
 	}
 	if _u.mutation.TenantUsersCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -572,6 +635,20 @@ func (_u *TenantUpdateOne) SetNillableName(v *string) *TenantUpdateOne {
 	return _u
 }
 
+// SetNameKey sets the "name_key" field.
+func (_u *TenantUpdateOne) SetNameKey(v string) *TenantUpdateOne {
+	_u.mutation.SetNameKey(v)
+	return _u
+}
+
+// SetNillableNameKey sets the "name_key" field if the given value is not nil.
+func (_u *TenantUpdateOne) SetNillableNameKey(v *string) *TenantUpdateOne {
+	if v != nil {
+		_u.SetNameKey(*v)
+	}
+	return _u
+}
+
 // SetIdpOrgRef sets the "idp_org_ref" field.
 func (_u *TenantUpdateOne) SetIdpOrgRef(v string) *TenantUpdateOne {
 	_u.mutation.SetIdpOrgRef(v)
@@ -603,6 +680,32 @@ func (_u *TenantUpdateOne) SetNillableExpiresAt(v *time.Time) *TenantUpdateOne {
 // ClearExpiresAt clears the value of the "expires_at" field.
 func (_u *TenantUpdateOne) ClearExpiresAt() *TenantUpdateOne {
 	_u.mutation.ClearExpiresAt()
+	return _u
+}
+
+// SetStatus sets the "status" field.
+func (_u *TenantUpdateOne) SetStatus(v tenant.Status) *TenantUpdateOne {
+	_u.mutation.SetStatus(v)
+	return _u
+}
+
+// SetNillableStatus sets the "status" field if the given value is not nil.
+func (_u *TenantUpdateOne) SetNillableStatus(v *tenant.Status) *TenantUpdateOne {
+	if v != nil {
+		_u.SetStatus(*v)
+	}
+	return _u
+}
+
+// SetRegistration sets the "registration" field.
+func (_u *TenantUpdateOne) SetRegistration(v *types.TenantRegistration) *TenantUpdateOne {
+	_u.mutation.SetRegistration(v)
+	return _u
+}
+
+// ClearRegistration clears the value of the "registration" field.
+func (_u *TenantUpdateOne) ClearRegistration() *TenantUpdateOne {
+	_u.mutation.ClearRegistration()
 	return _u
 }
 
@@ -694,6 +797,16 @@ func (_u *TenantUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`gen: validator failed for field "Tenant.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.NameKey(); ok {
+		if err := tenant.NameKeyValidator(v); err != nil {
+			return &ValidationError{Name: "name_key", err: fmt.Errorf(`gen: validator failed for field "Tenant.name_key": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Status(); ok {
+		if err := tenant.StatusValidator(v); err != nil {
+			return &ValidationError{Name: "status", err: fmt.Errorf(`gen: validator failed for field "Tenant.status": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -771,6 +884,9 @@ func (_u *TenantUpdateOne) sqlSave(ctx context.Context) (_node *Tenant, err erro
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(tenant.FieldName, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.NameKey(); ok {
+		_spec.SetField(tenant.FieldNameKey, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.IdpOrgRef(); ok {
 		_spec.SetField(tenant.FieldIdpOrgRef, field.TypeString, value)
 	}
@@ -779,6 +895,15 @@ func (_u *TenantUpdateOne) sqlSave(ctx context.Context) (_node *Tenant, err erro
 	}
 	if _u.mutation.ExpiresAtCleared() {
 		_spec.ClearField(tenant.FieldExpiresAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.Status(); ok {
+		_spec.SetField(tenant.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.Registration(); ok {
+		_spec.SetField(tenant.FieldRegistration, field.TypeJSON, value)
+	}
+	if _u.mutation.RegistrationCleared() {
+		_spec.ClearField(tenant.FieldRegistration, field.TypeJSON)
 	}
 	if _u.mutation.TenantUsersCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -14,9 +14,12 @@ import (
 
 // WorkflowActions is the resolver for the workflowActions field.
 func (r *queryResolver) WorkflowActions(ctx context.Context, input model.GetWorkflowActionsInput, where *model.WorkflowActionsWhereInput) (*model.GetWorkflowActionsResponse, error) {
-	req := request.ForContext(ctx)
+	tenantID, err := request.ForContext(ctx).MutationTenantID()
+	if err != nil {
+		return nil, err
+	}
 
-	workflowClient, err := r.workflowRouter.GetClient(ctx, req.MutationTenantID().String())
+	workflowClient, err := r.workflowRouter.GetClient(ctx, tenantID.String())
 	if err != nil || workflowClient == nil {
 		return nil, ErrInvalidWorkflowClient
 	}

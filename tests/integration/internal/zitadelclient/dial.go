@@ -15,19 +15,35 @@ import (
 )
 
 // Dial opens a single gRPC connection to Zitadel using the admin SA JWT
-// profile flow. Caller owns Close.
+// profile flow, at instance scope. Caller owns Close.
 //
 // `ScopeZitadelAPI` is the standard scope for the Zitadel system project
 // itself; combined with openid it gets us a token that the user/authz
 // gRPC services accept.
 func Dial(ctx context.Context, cfg *config.Config) (*zitadel.Connection, error) {
+	return dial(ctx, cfg)
+}
+
+// DialForOrg is Dial with every call scoped to one organization
+// (x-zitadel-orgid), the scope the registration activities use for a
+// tenant's own org. Unlike Dial, Zitadel resolves the request against that
+// organization instead of the calling user's resource owner, which is a
+// different permission situation, so suites that exercise a tenant-org
+// write dial through here.
+func DialForOrg(ctx context.Context, cfg *config.Config, orgID string) (*zitadel.Connection, error) {
+	return dial(ctx, cfg, zitadel.WithOrgID(orgID))
+}
+
+func dial(ctx context.Context, cfg *config.Config, options ...zitadel.Option) (*zitadel.Connection, error) {
 	conn, err := zitadel.NewConnection(
 		ctx,
 		cfg.ZitadelIssuer,
 		cfg.ZitadelGrpcAddr,
 		[]string{oidc.ScopeOpenID, zitadel.ScopeZitadelAPI()},
-		zitadel.WithJWTProfileTokenSource(middleware.JWTProfileFromPath(ctx, cfg.ZitadelKeyfile)),
-		zitadel.WithInsecure(),
+		append([]zitadel.Option{
+			zitadel.WithJWTProfileTokenSource(middleware.JWTProfileFromPath(ctx, cfg.ZitadelKeyfile)),
+			zitadel.WithInsecure(),
+		}, options...)...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("dial zitadel: %w", err)

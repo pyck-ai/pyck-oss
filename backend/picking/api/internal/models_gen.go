@@ -537,7 +537,7 @@ func (e *JSONPatchOp) UnmarshalGQL(v any) error {
 }
 
 func (e JSONPatchOp) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *JSONPatchOp) UnmarshalJSON(b []byte) error {
@@ -598,7 +598,7 @@ func (e *JSONType) UnmarshalGQL(v any) error {
 }
 
 func (e JSONType) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *JSONType) UnmarshalJSON(b []byte) error {
@@ -656,7 +656,7 @@ func (e *OrderDirection) UnmarshalGQL(v any) error {
 }
 
 func (e OrderDirection) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *OrderDirection) UnmarshalJSON(b []byte) error {
@@ -728,7 +728,7 @@ func (e *PickingOrderItemOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e PickingOrderItemOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *PickingOrderItemOrderField) UnmarshalJSON(b []byte) error {
@@ -796,7 +796,7 @@ func (e *PickingOrderOrderField) UnmarshalGQL(v any) error {
 }
 
 func (e PickingOrderOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *PickingOrderOrderField) UnmarshalJSON(b []byte) error {
@@ -864,7 +864,7 @@ func (e *PickingOutboundShipmentNotificationOrderField) UnmarshalGQL(v any) erro
 }
 
 func (e PickingOutboundShipmentNotificationOrderField) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 func (e *PickingOutboundShipmentNotificationOrderField) UnmarshalJSON(b []byte) error {

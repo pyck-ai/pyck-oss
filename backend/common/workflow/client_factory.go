@@ -7,12 +7,12 @@ import (
 	"maps"
 	"math/rand"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/operatorservice/v1"
+	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
 	temporalclient "go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/contrib/opentelemetry"
@@ -264,12 +264,20 @@ func (f *DefaultClientFactory) deriveNamespaceClient(ctx context.Context, namesp
 	})
 }
 
+// ensureNamespaceExists registers namespace with a one-day retention,
+// treating one that already exists as success so it can run on every miss
+// of the client cache. The check is on the status code, not on the message
+// text, which a Temporal release is free to reword. It repeats what
+// services/temporal.CreateTemporalNamespace does over a NamespaceClient:
+// this path has only the root client's WorkflowService, and dialling a
+// second client to reuse that function would cost a connection per
+// namespace.
 func (f *DefaultClientFactory) ensureNamespaceExists(ctx context.Context, namespace string) error {
 	_, err := f.root.WorkflowService().RegisterNamespace(ctx, &workflowservice.RegisterNamespaceRequest{
 		Namespace:                        namespace,
 		WorkflowExecutionRetentionPeriod: &durationpb.Duration{Seconds: 86400},
 	})
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
+	if err != nil && serviceerror.ToStatus(err).Code() != codes.AlreadyExists {
 		return fmt.Errorf("failed to create namespace %q: %w", namespace, err)
 	}
 
@@ -277,20 +285,27 @@ func (f *DefaultClientFactory) ensureNamespaceExists(ctx context.Context, namesp
 }
 
 // addSearchAttributes registers the pyck search attributes that are not yet
-// present on the namespace. It reads the existing set first and batches all
-// missing attributes into one request: per-attribute requests (one RPC each,
-// thirteen attributes) trip Temporal's per-namespace rate limit when many
-// namespaces are created under load, and a rate-limited GetClient retries on
-// the next request, keeping the limiter saturated. Tenant registration
-// already adds these attributes, so the steady state here is a single read.
+// present on the namespace; see EnsureSearchAttributes for the semantics.
+func (f *DefaultClientFactory) addSearchAttributes(ctx context.Context, temporalClient temporalclient.Client, namespace string) error {
+	return EnsureSearchAttributes(ctx, temporalClient.OperatorService(), namespace)
+}
+
+// EnsureSearchAttributes registers every pyck search attribute the
+// namespace does not yet carry. It reads the existing set first and batches
+// all missing attributes into one request: per-attribute requests (one RPC
+// each, thirteen attributes) trip Temporal's per-namespace rate limit when
+// many namespaces are created under load. The steady state after a
+// namespace is fully provisioned is a single read.
 //
 // AddSearchAttributes rejects the whole batch with AlreadyExists if any one
-// requested attribute was registered between the list and the add, which
-// would silently skip the genuinely-missing rest, so on AlreadyExists the
-// still-missing set is recomputed and retried.
-func (f *DefaultClientFactory) addSearchAttributes(ctx context.Context, temporalClient temporalclient.Client, namespace string) error {
-	operatorService := temporalClient.OperatorService()
-
+// requested attribute was registered between the list and the add (or was
+// already present in a stale requested set) which would silently skip the
+// genuinely-missing rest, so on AlreadyExists the still-missing set is
+// recomputed and retried. Shared by the workflow service's client factory
+// and tenant registration's namespace step, so both converge on the same
+// semantics: a partially-attributed namespace (a registration retry that
+// crossed a deploy which grew the set) is completed, never skipped.
+func EnsureSearchAttributes(ctx context.Context, operatorService operatorservice.OperatorServiceClient, namespace string) error {
 	for attempt := 1; ; attempt++ {
 		existing, err := operatorService.ListSearchAttributes(ctx, &operatorservice.ListSearchAttributesRequest{
 			Namespace: namespace,

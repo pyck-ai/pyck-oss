@@ -217,9 +217,32 @@ func dbSchemaFromUri(uri string) string {
 	return parsedUri.Query().Get("search_path")
 }
 
+// writerReadsKey marks a context whose Ent queries outside a
+// transaction pgMultiDriver sends to the writer pool; the key's presence is
+// the marker, its value carries nothing.
+type writerReadsKey struct{}
+
+// WithWriterReads returns a context whose Ent queries outside a transaction
+// are answered by the writer pool instead of the reader pool. It is for a
+// read that must see every write committed before it (a replica can lag
+// the writer) without opening a transaction for it: each query is still a
+// single statement in its own implicit transaction, at the writer pool's
+// default isolation.
+func WithWriterReads(ctx context.Context) context.Context {
+	return context.WithValue(ctx, writerReadsKey{}, struct{}{})
+}
+
+// ReadsFromWriter reports whether ctx carries the WithWriterReads marker.
+func ReadsFromWriter(ctx context.Context) bool {
+	return ctx.Value(writerReadsKey{}) != nil
+}
+
+// Query sends Ent queries to the reader pool, unless ctx carries the
+// WithWriterReads marker, and every other query (raw SQL, migrations) to the
+// writer pool.
 func (driver *pgMultiDriver) Query(ctx context.Context, query string, args, v any) error {
 	executor := driver.reader
-	if ent.QueryFromContext(ctx) == nil {
+	if ent.QueryFromContext(ctx) == nil || ReadsFromWriter(ctx) {
 		executor = driver.writer
 	}
 	return executor.Query(ctx, query, args, v)

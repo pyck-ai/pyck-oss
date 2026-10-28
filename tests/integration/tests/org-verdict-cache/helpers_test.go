@@ -14,7 +14,7 @@ import (
 
 // probeInventory issues a minimal authenticated read against the inventory
 // subgraph through the gateway. A nil error means the token passed
-// inventory's full auth chain (introspection, org-active check, gate).
+// inventory's full auth chain (introspection, tenant liveness, gate).
 func (s *VerdictCacheSuite) probeInventory(token string) error {
 	c := gateway.NewInventoryClient(s.Cfg, token)
 	first := 1
@@ -24,21 +24,9 @@ func (s *VerdictCacheSuite) probeInventory(token string) error {
 	return nil
 }
 
-// waitInventoryRejected polls the inventory probe until it fails with a
-// definitive auth denial (tests.IsAuthDenial), needed because the revocation
-// event reaches every service's cache independently. Non-auth errors —
-// transport faults, 5xx — keep polling: counting them as rejection would let
-// a broken revocation path pass on the back of an unrelated outage.
+// waitInventoryRejected is tests.WaitUntilDenied over the inventory probe,
+// needed because the revocation event reaches every service's cache
+// independently.
 func (s *VerdictCacheSuite) waitInventoryRejected(token string, timeout time.Duration) (time.Duration, error) {
-	return tests.PollUntilElapsed(s.Ctx, timeout, 200*time.Millisecond, func() error {
-		err := s.probeInventory(token)
-		switch {
-		case err == nil:
-			return fmt.Errorf("inventory still accepts the token")
-		case tests.IsAuthDenial(err.Error()):
-			return nil
-		default:
-			return fmt.Errorf("inventory probe infra error (not a rejection): %w", err)
-		}
-	})
+	return tests.WaitUntilDenied(s.Ctx, "inventory", timeout, func() error { return s.probeInventory(token) })
 }

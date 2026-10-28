@@ -40,11 +40,11 @@ func TestParseRejectsGarbage(t *testing.T) {
 func TestContext(t *testing.T) {
 	t.Parallel()
 
-	_, ok := eventid.FromContext(context.Background())
+	_, ok := eventid.FromContext(t.Context())
 	assert.False(t, ok)
 
 	id := uuid.Must(uuid.NewV7())
-	got, ok := eventid.FromContext(eventid.WithEventID(context.Background(), id))
+	got, ok := eventid.FromContext(eventid.WithEventID(t.Context(), id))
 	require.True(t, ok)
 	assert.Equal(t, id, got)
 }
@@ -70,7 +70,7 @@ func TestClientInterceptorSetsHeader(t *testing.T) {
 	t.Parallel()
 
 	id := uuid.Must(uuid.NewV7())
-	ctx := eventid.WithEventID(context.Background(), id)
+	ctx := eventid.WithEventID(t.Context(), id)
 
 	start := &workflowservice.StartWorkflowExecutionRequest{}
 	signal := &workflowservice.SignalWorkflowExecutionRequest{}
@@ -95,7 +95,7 @@ func TestClientInterceptorKeepsOtherHeaderFields(t *testing.T) {
 		Header: &commonpb.Header{Fields: map[string]*commonpb.Payload{"traceparent": other}},
 	}
 
-	invoke(t, eventid.WithEventID(context.Background(), uuid.Must(uuid.NewV7())), req)
+	invoke(t, eventid.WithEventID(t.Context(), uuid.Must(uuid.NewV7())), req)
 
 	assert.Same(t, other, req.GetHeader().GetFields()["traceparent"])
 	assert.Contains(t, req.GetHeader().GetFields(), eventid.HeaderKey)
@@ -106,7 +106,7 @@ func TestClientInterceptorNoOpWithoutID(t *testing.T) {
 
 	req := &workflowservice.StartWorkflowExecutionRequest{}
 
-	invoke(t, context.Background(), req)
+	invoke(t, t.Context(), req)
 
 	assert.Nil(t, req.GetHeader(), "no event ID on the context: request is untouched")
 }
@@ -116,7 +116,7 @@ func TestClientInterceptorIgnoresOtherRequests(t *testing.T) {
 
 	req := &workflowservice.QueryWorkflowRequest{}
 
-	invoke(t, eventid.WithEventID(context.Background(), uuid.Must(uuid.NewV7())), req)
+	invoke(t, eventid.WithEventID(t.Context(), uuid.Must(uuid.NewV7())), req)
 
 	assert.Nil(t, req.GetQuery(), "other request types pass through")
 }

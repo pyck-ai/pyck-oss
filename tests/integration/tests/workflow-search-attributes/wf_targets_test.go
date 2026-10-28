@@ -1,6 +1,6 @@
 //go:build integration
 
-package workflow
+package workflow_test
 
 import (
 	"context"
@@ -24,7 +24,7 @@ type (
 	// WfTargetsSuite drives a minimal keep-open workflow through every
 	// layer of pyck's workflow stack to verify the
 	// pyck_workflow_targets KeywordList search attribute round-trips
-	// end to end. Same shape as WfIsAssignableSuite — register tenant,
+	// end to end. Same shape as WfAssignmentSuite — register tenant,
 	// register workflow with pyck, host an in-process worker, trigger
 	// via NATS, set/get targets via the gateway — but exercises the
 	// WorkflowTargetsGetter/Setter interface pair instead of the
@@ -71,6 +71,12 @@ type (
 	//     semantics, not "empty list"); gateway Get returns empty,
 	//     direct SA read confirms the field is absent from
 	//     IndexedFields
+	//   - the listing filters follow the writes: targets:[WEB] includes
+	//     the run once set, targetsNotIn:[WEB] excludes it, a
+	//     multi-element SA matches on any element (targets:[MOBILE]
+	//     after [WEB,MOBILE]), and clearing drops the run from
+	//     targets:[WEB]; polled, because the upserted SA reaches the
+	//     visibility store asynchronously
 	//   - cancelling the execution while the worker is running drives
 	//     it to CANCELED
 	//   - worker can be stopped and a fresh worker started against the
@@ -78,9 +84,6 @@ type (
 	//   - workflow unregistered from pyck (deleteWorkflow mutation)
 	//   - tenant soft-deleted via a test cleanup registered at
 	//     provisioning time, so it runs even on early failure
-	//
-	// Not covered: workflowExecutions(where:{targets:[WEB]}) and
-	// targetsNotIn listing filters (exercised by myworkflow's tests).
 	WfTargetsSuite struct {
 		tests.Base
 	}
@@ -151,6 +154,32 @@ func (s *WfTargetsSuite) TestWfTargetsLifecycle() {
 		return
 	}
 
+	// The listing path is the other consumer of the search attribute: a
+	// targets filter matches when the run's KeywordList contains any of
+	// the supplied values, and targetsNotIn excludes such runs. Polled:
+	// setTargets returns once the workflow processed the update, but the
+	// visibility store absorbs the upsert asynchronously.
+	if !s.Run("listing filter matches by target", func() {
+		r := s.Require()
+		whereWeb := &workflowmodel.WorkflowExecutionsWhereInput{
+			WorkflowID: &l.workflowID,
+			Targets:    []workflowmodel.WorkflowTarget{workflowmodel.WorkflowTargetWeb},
+		}
+		r.NoError(waitForExecutionCount(s.Ctx, 1, func() (int, error) {
+			return countExecutions(s.Ctx, s.Cfg, l.pat, whereWeb)
+		}), "workflowExecutions{targets:[WEB]} should list the run")
+
+		whereNotWeb := &workflowmodel.WorkflowExecutionsWhereInput{
+			WorkflowID:   &l.workflowID,
+			TargetsNotIn: []workflowmodel.WorkflowTarget{workflowmodel.WorkflowTargetWeb},
+		}
+		r.NoError(waitForExecutionCount(s.Ctx, 0, func() (int, error) {
+			return countExecutions(s.Ctx, s.Cfg, l.pat, whereNotWeb)
+		}), "workflowExecutions{targetsNotIn:[WEB]} should exclude the run")
+	}) {
+		return
+	}
+
 	// Multi-element list catches handlers that drop entries during
 	// marshalling, plus any KeywordList ordering bugs in the
 	// signalrouter / SDK round-trip.
@@ -169,6 +198,16 @@ func (s *WfTargetsSuite) TestWfTargetsLifecycle() {
 		r.NoError(waitForTargetsSA(s.Ctx, l.worker.client, l.workflowID, l.runID,
 			[]string{"WEB", "MOBILE"}, 5*time.Second),
 			"pyck_workflow_targets SA should be [WEB, MOBILE]")
+
+		// A KeywordList filter matches on any element, so the run must
+		// now also answer a filter naming only the second entry.
+		whereMobile := &workflowmodel.WorkflowExecutionsWhereInput{
+			WorkflowID: &l.workflowID,
+			Targets:    []workflowmodel.WorkflowTarget{workflowmodel.WorkflowTargetMobile},
+		}
+		r.NoError(waitForExecutionCount(s.Ctx, 1, func() (int, error) {
+			return countExecutions(s.Ctx, s.Cfg, l.pat, whereMobile)
+		}), "workflowExecutions{targets:[MOBILE]} should match a [WEB,MOBILE] run")
 	}) {
 		return
 	}
@@ -196,6 +235,15 @@ func (s *WfTargetsSuite) TestWfTargetsLifecycle() {
 
 		r.NoError(waitForTargetsSAAbsent(s.Ctx, l.worker.client, l.workflowID, l.runID, 5*time.Second),
 			"pyck_workflow_targets SA should be unset after clearing")
+
+		// With the SA unset the run must vanish from target filters.
+		whereWeb := &workflowmodel.WorkflowExecutionsWhereInput{
+			WorkflowID: &l.workflowID,
+			Targets:    []workflowmodel.WorkflowTarget{workflowmodel.WorkflowTargetWeb},
+		}
+		r.NoError(waitForExecutionCount(s.Ctx, 0, func() (int, error) {
+			return countExecutions(s.Ctx, s.Cfg, l.pat, whereWeb)
+		}), "workflowExecutions{targets:[WEB]} should not list a run with no targets")
 	}) {
 		return
 	}

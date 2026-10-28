@@ -42,19 +42,22 @@ func _SamplerTypeNoOp() {
 var _SamplerTypeValues = []SamplerType{SamplerTypeInvalid, SamplerTypeAlwaysOn, SamplerTypeAlwaysOff, SamplerTypeTraceIDRatio, SamplerTypeParentBasedAlwaysOn, SamplerTypeParentBasedAlwaysOff, SamplerTypeParentBasedTraceIDRatio}
 
 var _SamplerTypeNameToValueMap = map[string]SamplerType{
-	_SamplerTypeName[0:7]:         SamplerTypeInvalid,
+	_SamplerTypeName[0:7]:    SamplerTypeInvalid,
+	_SamplerTypeName[7:16]:   SamplerTypeAlwaysOn,
+	_SamplerTypeName[16:26]:  SamplerTypeAlwaysOff,
+	_SamplerTypeName[26:38]:  SamplerTypeTraceIDRatio,
+	_SamplerTypeName[38:59]:  SamplerTypeParentBasedAlwaysOn,
+	_SamplerTypeName[59:81]:  SamplerTypeParentBasedAlwaysOff,
+	_SamplerTypeName[81:105]: SamplerTypeParentBasedTraceIDRatio,
+}
+
+var _SamplerTypeLowerNameToValueMap = map[string]SamplerType{
 	_SamplerTypeLowerName[0:7]:    SamplerTypeInvalid,
-	_SamplerTypeName[7:16]:        SamplerTypeAlwaysOn,
 	_SamplerTypeLowerName[7:16]:   SamplerTypeAlwaysOn,
-	_SamplerTypeName[16:26]:       SamplerTypeAlwaysOff,
 	_SamplerTypeLowerName[16:26]:  SamplerTypeAlwaysOff,
-	_SamplerTypeName[26:38]:       SamplerTypeTraceIDRatio,
 	_SamplerTypeLowerName[26:38]:  SamplerTypeTraceIDRatio,
-	_SamplerTypeName[38:59]:       SamplerTypeParentBasedAlwaysOn,
 	_SamplerTypeLowerName[38:59]:  SamplerTypeParentBasedAlwaysOn,
-	_SamplerTypeName[59:81]:       SamplerTypeParentBasedAlwaysOff,
 	_SamplerTypeLowerName[59:81]:  SamplerTypeParentBasedAlwaysOff,
-	_SamplerTypeName[81:105]:      SamplerTypeParentBasedTraceIDRatio,
 	_SamplerTypeLowerName[81:105]: SamplerTypeParentBasedTraceIDRatio,
 }
 
@@ -75,7 +78,7 @@ func SamplerTypeString(s string) (SamplerType, error) {
 		return val, nil
 	}
 
-	if val, ok := _SamplerTypeNameToValueMap[strings.ToLower(s)]; ok {
+	if val, ok := _SamplerTypeLowerNameToValueMap[strings.ToLower(s)]; ok {
 		return val, nil
 	}
 	return 0, errors.Join(enumerrs.ErrValueInvalid, fmt.Errorf("%s does not belong to SamplerType values", s))

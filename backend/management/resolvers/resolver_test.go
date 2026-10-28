@@ -2,8 +2,9 @@ package resolvers_test
 
 import (
 	"context"
-	"os"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,7 +13,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	zitadelsdk "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel"
 	otelapi "go.opentelemetry.io/otel"
+	"go.uber.org/goleak"
 
 	_ "github.com/mattn/go-sqlite3"
 
@@ -22,6 +25,7 @@ import (
 	"github.com/pyck-ai/pyck/backend/common/gqltx"
 	"github.com/pyck-ai/pyck/backend/common/request"
 	"github.com/pyck-ai/pyck/backend/common/test"
+	"github.com/pyck-ai/pyck/backend/common/test/pgtest"
 	"github.com/pyck-ai/pyck/backend/common/test/resolver"
 	"github.com/pyck-ai/pyck/backend/common/txid"
 	"github.com/pyck-ai/pyck/backend/common/uuidgql"
@@ -32,6 +36,8 @@ import (
 	entdatatype "github.com/pyck-ai/pyck/backend/management/ent/gen/datatype"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/entityeventsoutbox"
 	"github.com/pyck-ai/pyck/backend/management/ent/gen/enttest"
+	enttenant "github.com/pyck-ai/pyck/backend/management/ent/gen/tenant"
+	"github.com/pyck-ai/pyck/backend/management/ent/types"
 	"github.com/pyck-ai/pyck/backend/management/resolvers"
 )
 
@@ -39,10 +45,19 @@ import (
 // TEST SETUP
 // =============================================================================
 
+// TestMain sets up the test tracer and the shared Postgres container the
+// tests in pg_harness_test.go run on, and fails the binary when a goroutine
+// a test started outlives the tests (goleak, no ignores): the container
+// and the tracer are torn down inside Run so the check sees only what the
+// tests left behind.
 func TestMain(m *testing.M) {
 	cleanup := resolver.MustSetupTestTracer("management")
-	defer cleanup()
-	os.Exit(m.Run())
+	var terminatePG func()
+	pkgPG, terminatePG = pgtest.Start("management/resolvers")
+	goleak.VerifyTestMain(pgtest.RunThen(m, func() {
+		terminatePG()
+		cleanup()
+	}))
 }
 
 // =============================================================================
@@ -84,17 +99,75 @@ var (
 type testEnv struct {
 	*resolver.TestEnvironment[*gen.Client]
 	t *testing.T
+	// resolver is the Resolver under test, kept so a test can shorten its
+	// wait budgets.
+	resolver *resolvers.Resolver
+	streams  *fakeStreams
+}
+
+// fakeStreams records the tenants whose event stream was created or deleted.
+type fakeStreams struct {
+	mu        sync.Mutex
+	ensured   []uuid.UUID
+	deleted   []uuid.UUID
+	ensureErr error
+}
+
+func (f *fakeStreams) EnsureTenant(_ context.Context, tenantID uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	// A failed EnsureTenant removes the stream it created.
+	if f.ensureErr != nil {
+		return f.ensureErr
+	}
+
+	f.ensured = append(f.ensured, tenantID)
+
+	return nil
+}
+
+func (f *fakeStreams) ensuredTenants() []uuid.UUID {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return slices.Clone(f.ensured)
+}
+
+func (f *fakeStreams) DeleteTenant(_ context.Context, tenantID uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.deleted = append(f.deleted, tenantID)
+
+	return nil
+}
+
+func (f *fakeStreams) deletedTenants() []uuid.UUID {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return slices.Clone(f.deleted)
 }
 
 func setup(t *testing.T) *testEnv {
+	t.Helper()
+	return setupWithZitadel(t, nil)
+}
+
+// setupWithZitadel is setup with the resolver's Zitadel connection set,
+// for the resolvers that call Zitadel (the service-role grants).
+func setupWithZitadel(t *testing.T, zitadelConn *zitadelsdk.Connection) *testEnv {
 	t.Helper()
 
 	te := &testEnv{
 		TestEnvironment: resolver.NewTestEnvironment[*gen.Client](t),
 		t:               t,
+		streams:         &fakeStreams{},
 	}
 
-	client := enttest.Open(t, dialect.SQLite, resolver.DatabaseURI(t),
+	dbURI := resolver.DatabaseURI(t)
+	client := enttest.Open(t, dialect.SQLite, dbURI,
 		enttest.WithOptions(gen.Log(t.Log)),
 	).Debug()
 
@@ -107,7 +180,13 @@ func setup(t *testing.T) *testEnv {
 	}))
 
 	v := validator.NewValidator(te.DataTypeProvider)
-	r := resolvers.NewResolver("management", client, v, te.WorkflowClient, nil)
+	r := resolvers.NewResolver("management", client, v, te.WorkflowClient, zitadelConn, te.streams)
+	// core.Config is never loaded in unit tests, so the registration wait
+	// NewResolver read from it is zero and every wait would expire at once.
+	// Give the resolver the env defaults of PYCK_TENANT_REGISTRATION_WAIT
+	// and _POLL; cases that need to exhaust the wait shorten it themselves.
+	resolvers.SetRegistrationWait(r, 25*time.Second, 250*time.Millisecond)
+	te.resolver = r
 	schema := resolvers.NewSchema(r)
 
 	te.Init(client, schema, func(s *handler.Server) {
@@ -466,6 +545,13 @@ type tenantBuilder struct {
 	expiresAt *time.Time
 	deleted   bool
 	data      map[string]any
+	// registration is the admin account of a row that stands in for a
+	// pending or failed registration.
+	registration *types.TenantRegistration
+	// status is the registration status; empty leaves the schema default
+	// (done), which is what every row registered before the column existed
+	// reads as.
+	status enttenant.Status
 }
 
 func (te *testEnv) newTenant(ctx context.Context, tenantID uuid.UUID) *tenantBuilder {
@@ -498,6 +584,16 @@ func (b *tenantBuilder) Data(data map[string]any) *tenantBuilder {
 	return b
 }
 
+func (b *tenantBuilder) Registration(reg *types.TenantRegistration) *tenantBuilder {
+	b.registration = reg
+	return b
+}
+
+func (b *tenantBuilder) Status(status enttenant.Status) *tenantBuilder {
+	b.status = status
+	return b
+}
+
 func (b *tenantBuilder) Create() *gen.Tenant {
 	b.te.t.Helper()
 	var tenant *gen.Tenant
@@ -515,6 +611,12 @@ func (b *tenantBuilder) Create() *gen.Tenant {
 		}
 		if b.data != nil {
 			builder = builder.SetData(b.data)
+		}
+		if b.registration != nil {
+			builder = builder.SetRegistration(b.registration)
+		}
+		if b.status != "" {
+			builder = builder.SetStatus(b.status)
 		}
 
 		var err error
