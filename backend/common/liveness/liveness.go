@@ -150,12 +150,12 @@ func TenantKey(id uuid.UUID) Key { return Key(tenantPrefix + id.String()) }
 // be served. A tenant is served only while its row says so: in management,
 // a row that exists, is not soft-deleted, and whose registration finished.
 // An ID with no tenant row at all is denied like any other: the contract is
-// "allow only what a live row backs", so a token naming a tenant this
-// deployment does not have authenticates nothing. A non-nil error is an
-// infrastructure fault (management unreachable, decode failure) and means
-// unknown state, not a revocation. Two implementations ship: management
-// queries its own tenant table, every other service calls management's
-// system-only `disabledTenants` query through the gateway.
+// "allow only what a live row backs"; the callers exempt the platform
+// organization's home tenant, which has no row (see authn.PlatformTenantID).
+// A non-nil error is an infrastructure fault (management unreachable, decode
+// failure) and means unknown state, not a revocation. Two implementations
+// ship: management queries its own tenant table, every other service calls
+// management's system-only `disabledTenants` query through the gateway.
 type TenantSource func(ctx context.Context, tenantIDs []uuid.UUID) (disabled []uuid.UUID, err error)
 
 // Cache is the liveness verdict store. Safe for concurrent use. Construct

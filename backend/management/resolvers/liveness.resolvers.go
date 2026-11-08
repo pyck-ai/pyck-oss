@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pyck-ai/pyck/backend/common/authn"
+	"github.com/pyck-ai/pyck/backend/management/core"
 	mgmthandlers "github.com/pyck-ai/pyck/backend/management/handlers"
 )
 
@@ -22,5 +23,5 @@ func (r *queryResolver) DisabledTenants(ctx context.Context, ids []uuid.UUID) ([
 	if !authn.ForContext(ctx).IsSystemUser() {
 		return nil, fmt.Errorf("disabledTenants: %w", authn.ErrSystemCallerRequired)
 	}
-	return mgmthandlers.DisabledTenants(ctx, r.client, ids)
+	return mgmthandlers.DisabledTenants(ctx, r.client, authn.PlatformTenantID(core.Config.ZitadelConfig), ids)
 }

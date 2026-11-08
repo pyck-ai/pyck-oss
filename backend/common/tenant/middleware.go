@@ -47,8 +47,14 @@ type (
 	//     target, hiding the real cause. The caller's own home tenant is
 	//     always part of the check, even when the request does not act on
 	//     it — a disabled tenant's users lose access everywhere at the row
-	//     flip. Filtering settles the mutation target too: the acting set
-	//     it produces is the one request.MutationTenantID counts, so a
+	//     flip. The one exception is the platform tenant (the configured
+	//     platform organization, which has no tenant row by design): a
+	//     caller homed there is not checked on that account, and acts only
+	//     on tenants it holds a grant on that are live. The platform tenant
+	//     is never an acting tenant: no row backs it, so naming it in the
+	//     header is denied and the "all" expansion drops it. Filtering
+	//     settles the mutation target too: the acting set it produces is
+	//     the one request.MutationTenantID counts, so a
 	//     caller left with a single live tenant mutates it implicitly where
 	//     the unfiltered set had no unambiguous target. Intended — a
 	//     request may only act on tenants in its acting set — and recorded
@@ -81,6 +87,9 @@ type (
 		// request. Entries expire on a clock, so once the source is down
 		// every request misses the cache and reports the same fault.
 		faultLog *log.FaultThrottle
+		// platformTenantID is the tenant ID of the platform organization;
+		// a caller homed there skips the home-tenant liveness check.
+		platformTenantID uuid.UUID
 	}
 
 	// selection is the parsed X-Pyck-Tenant-Id header, before role and
@@ -102,8 +111,12 @@ var _ http.Handler = (*Middleware)(nil)
 // HTTPMiddleware resolves X-Pyck-Tenant-Id to the request's acting tenant
 // set and authorizes it — see [Middleware] for the rules. cache and source
 // back the liveness axis; a nil one is returned as an error so the wiring
-// mistake fails at boot, not at the first request.
-func HTTPMiddleware(cache *liveness.Cache, source liveness.TenantSource) (func(next http.Handler) http.Handler, error) {
+// mistake fails at boot, not at the first request. platformTenantID
+// ([authn.PlatformTenantID]) names the one organization whose users are
+// exempt from the home-tenant liveness check. Tests pass uuid.Nil, which
+// exempts no one: an unauthenticated caller (zero tenant ID) never reaches
+// the check.
+func HTTPMiddleware(cache *liveness.Cache, source liveness.TenantSource, platformTenantID uuid.UUID) (func(next http.Handler) http.Handler, error) {
 	if cache == nil || source == nil {
 		return nil, fmt.Errorf("tenant middleware: %w", liveness.ErrMissingDeps)
 	}
@@ -111,7 +124,7 @@ func HTTPMiddleware(cache *liveness.Cache, source liveness.TenantSource) (func(n
 	// reports is the shared source being down, not a property of the route.
 	faultLog := log.NewFaultThrottle(log.FaultLogWindow)
 	return func(next http.Handler) http.Handler {
-		return &Middleware{next: next, livenessCache: cache, source: source, faultLog: faultLog}
+		return &Middleware{next: next, livenessCache: cache, source: source, faultLog: faultLog, platformTenantID: platformTenantID}
 	}, nil
 }
 
@@ -161,9 +174,12 @@ func (mw *Middleware) authorizeLiveTenants(ctx context.Context, user authn.User,
 
 	// The caller's home tenant is checked even when the request does not
 	// act on it: a disabled tenant's users lose access everywhere at the
-	// row flip, not only once Zitadel deactivates their org.
+	// row flip, not only once Zitadel deactivates their org. The platform
+	// organization has no tenant row by design, so its users skip this
+	// check; the acting set is still checked in full below.
+	homeExempt := user.TenantID == mw.platformTenantID
 	toCheck := acting
-	if !slices.Contains(acting, user.TenantID) {
+	if !homeExempt && !slices.Contains(acting, user.TenantID) {
 		toCheck = append(slices.Clone(acting), user.TenantID)
 	}
 	live, err := mw.livenessCache.LookupTenants(ctx, toCheck, mw.source)
@@ -173,7 +189,7 @@ func (mw *Middleware) authorizeLiveTenants(ctx context.Context, user authn.User,
 		mw.faultLog.Err(log.ForContext(ctx), err).
 			Msg("disabled-tenant lookup failed; denying uncached tenants")
 	}
-	if !live[user.TenantID] {
+	if !homeExempt && !live[user.TenantID] {
 		return nil, fmt.Errorf("%w: caller's home tenant %q", ErrTenantDisabled, user.TenantID)
 	}
 	for _, id := range sel.Explicit {

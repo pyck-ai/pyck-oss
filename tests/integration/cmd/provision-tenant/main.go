@@ -15,8 +15,9 @@
 // gates, so it passes the admin-gated resolvers on its own tenant: the
 // Bruno collection sends it on every request. The admin credentials are
 // for the ones that log in interactively, the Bruno collection's OAuth
-// step, say: the root organization is not a tenant, so a user homed in it
-// authenticates nothing, and a login has to be a tenant's own admin.
+// step, say: the root organization is not a tenant and has no tenant data,
+// so a user homed in it acts only on tenants it holds a grant on, and a login
+// for this tenant has to be the tenant's own admin.
 // Registration grants that admin the same admin on the project grant a
 // tenant org receives, which carries the full admin/writer/reader ladder
 // plus the service gates; admin implies the rest on every consumer.

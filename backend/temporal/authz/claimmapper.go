@@ -146,10 +146,11 @@ func (m *ClaimMapper) GetClaims(authInfo *authorization.AuthInfo) (claims *autho
 // keeping only tenants a live row still backs: a stale Zitadel grant into a
 // soft-deleted or never-registered tenant must not yield read/write access
 // to that namespace's workflow histories and signals. The user's home
-// tenant is already gated inside Authenticate; this filter covers the
-// OTHER tenants of the roles map. System users bypass: their access does
-// not derive from per-tenant grants, and the source is itself reached
-// through a system token.
+// tenant is already gated inside Authenticate, where the platform tenant is
+// exempt; this filter still drops it from the namespaces, since no row backs
+// it, and covers the OTHER tenants of the roles map. System users bypass:
+// their access does not derive from per-tenant grants, and the source is
+// itself reached through a system token.
 //
 // A source error is an infrastructure fault, not a revocation; but a
 // tenant that cannot be verified is not served: LookupTenants applies the

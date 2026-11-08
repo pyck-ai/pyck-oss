@@ -5,10 +5,11 @@
 #
 # A token is only served while a live tenant row backs it (see
 # docs/tenant-access-control.md), so there is no bootstrap account to log in
-# with: the root organization is not a tenant, and a user homed in it
-# authenticates nothing. The login has to belong to a tenant, and a tenant
-# only comes into existence through the registerTenant mutation. This script
-# registers one and points the collection at it.
+# with: the root organization is not a tenant and has no tenant data, so a
+# user homed in it acts only on tenants it holds a grant on. The collection
+# needs a tenant of its own and that tenant's admin as the login, and a
+# tenant only comes into existence through the registerTenant mutation. This
+# script registers one and points the collection at it.
 #
 # What it produces, in .bruno/environments/local.yml (gitignored):
 #   env_zitadel_client_id   the Bruno OIDC app bootstrap created

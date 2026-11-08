@@ -67,9 +67,10 @@ The advisory lock uses PostgreSQL `pg_try_advisory_lock` or a SQLite table-based
 The default bootstrap configuration is embedded in the binary at compile time via `go:embed` from [`bootstrap.yaml`](pkg/bootstrap/bootstrap.yaml). This file defines the initial Zitadel seed data including:
 
 - **Organizations**: `Zitadel`: the instance root organization, and the only
-  one bootstrap creates. It is deliberately not a tenant, so nothing homed in
-  it can act on tenant data (see `docs/tenant-access-control.md`); tenants are
-  registered through the `registerTenant` mutation.
+  one bootstrap creates. It is deliberately not a tenant, so it has no tenant
+  data of its own: users homed in it authenticate and act only on tenants they
+  hold a grant on (see `docs/tenant-access-control.md`); tenants are registered
+  through the `registerTenant` mutation.
 - **Human Users**: An administrator account for Zitadel management
 - **Machine Users**: Service accounts with PAT tokens (`service-user`, the
   system identity every service authenticates with, and `login-service-user`

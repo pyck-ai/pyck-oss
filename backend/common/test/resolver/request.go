@@ -260,7 +260,7 @@ func TenantMiddlewareFor(tb testing.TB, user authn.User) func(http.Handler) http
 // tenantMiddleware is TenantMiddleware over the given liveness cache.
 func tenantMiddleware(tb testing.TB, cache *liveness.Cache) func(http.Handler) http.Handler {
 	tb.Helper()
-	mw, err := tenant.HTTPMiddleware(cache, livenessmocks.NoDisabledTenants)
+	mw, err := tenant.HTTPMiddleware(cache, livenessmocks.NoDisabledTenants, uuid.Nil)
 	require.NoError(tb, err, "tenant middleware")
 	return mw
 }

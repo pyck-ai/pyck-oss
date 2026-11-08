@@ -312,7 +312,7 @@ func run(ctx context.Context) error {
 	gqlServer.Use(otel.NewTracingMiddleware())
 	gqlServer.Use(resolvers.NewLoaderExtension(dbClient))
 
-	tenantMiddleware, err := tenant.HTTPMiddleware(livenessCache, disabledTenantSource)
+	tenantMiddleware, err := tenant.HTTPMiddleware(livenessCache, disabledTenantSource, authn.PlatformTenantID(core.Config.ZitadelConfig))
 	if err != nil {
 		return fmt.Errorf("failed setting up tenant middleware: %w", err)
 	}

@@ -1622,6 +1622,82 @@ func TestZitadelAuthProvider_Authenticate_SystemUserSkipsTenantLookup(t *testing
 	assert.Zero(t, calls.Load(), "a system user must never reach the liveness source")
 }
 
+// The platform organization (PYCK_ZITADEL_ORG_ID) has no tenant row by
+// design, so a non-system user homed there authenticates without a verdict,
+// on first sight and from the token cache. The exemption is that one
+// organization: a user homed in any other organization the source does not
+// report live is still refused.
+func TestZitadelAuthProvider_Authenticate_PlatformOrgExemptFromHomeTenantLiveness(t *testing.T) {
+	t.Parallel()
+
+	const (
+		issuer      = "https://auth.example.com"
+		platformOrg = "platform-org"
+		otherOrg    = "other-org"
+	)
+
+	tests := []struct {
+		name      string
+		homeOrg   string
+		wantAllow bool
+	}{
+		{"platform org user is admitted without a live row", platformOrg, true},
+		{"other org user without a live row is refused", otherOrg, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockClient := mocks.NewMockZitadelClient()
+			mockClient.On("IntrospectToken", mock.Anything, "org-token").Return(&zitadel.IntrospectionResult{
+				Active:          true,
+				Iss:             issuer,
+				Sub:             "org-user",
+				Username:        "org@example.com",
+				ResourceOwnerID: tt.homeOrg,
+				Exp:             time.Now().Add(1 * time.Hour).Unix(),
+				ProjectRoles:    map[string]map[string]string{"writer": {tt.homeOrg: tt.homeOrg}},
+			}, nil)
+
+			cfg := config.ZitadelConfig{
+				ZitadelAudience:           issuer,
+				ZitadelOrganizationId:     platformOrg,
+				ZitadelPATCacheTTL:        1 * time.Hour,
+				ZitadelPATCacheTTLOverlap: 1 * time.Minute,
+				LivenessCacheTTL:          1 * time.Hour,
+			}
+			var calls atomic.Int64
+			// The source reports every asked-about tenant as not live.
+			provider := newProvider(t, mockClient, cfg, countingSource(&calls, false, nil), newLivenessCache(t, cfg))
+
+			// First sight, then from the token cache.
+			for _, leg := range []string{"first sight", "cached token"} {
+				user, err := provider.Authenticate(t.Context(), "org-token")
+				if tt.wantAllow {
+					require.NoError(t, err, leg)
+					assert.False(t, user.IsSystemUser(), leg)
+					assert.Equal(t, authn.PlatformTenantID(cfg), user.TenantID, leg)
+				} else {
+					require.ErrorIs(t, err, authn.ErrUnauthorized, leg)
+				}
+			}
+			// An admitted token is cached by the first leg and the second is
+			// served from the cache; a refused token is never cached, so
+			// the second leg introspects again.
+			wantIntrospections := 2
+			if tt.wantAllow {
+				wantIntrospections = 1
+			}
+			mockClient.AssertNumberOfCalls(t, "IntrospectToken", wantIntrospections)
+			if tt.wantAllow {
+				assert.Zero(t, calls.Load(), "the platform tenant must never reach the liveness source")
+			} else {
+				assert.Positive(t, calls.Load())
+			}
+		})
+	}
+}
+
 // Organizations Zitadel minted (numeric) and organizations pyck now mints
 // (uuid v7) reach this code the same way: as the token's resource owner and
 // as the keys of the project-roles claim. Both must resolve to the tenant

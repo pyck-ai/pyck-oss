@@ -20,9 +20,9 @@ import (
 
 // newMiddleware builds the tenant middleware for a test; a construction
 // error fails the test.
-func newMiddleware(tb testing.TB, cache *liveness.Cache, source liveness.TenantSource) func(http.Handler) http.Handler {
+func newMiddleware(tb testing.TB, cache *liveness.Cache, source liveness.TenantSource, platformTenantID uuid.UUID) func(http.Handler) http.Handler {
 	tb.Helper()
-	mw, err := tenant.HTTPMiddleware(cache, source)
+	mw, err := tenant.HTTPMiddleware(cache, source, platformTenantID)
 	require.NoError(tb, err)
 	return mw
 }
@@ -32,11 +32,11 @@ func newMiddleware(tb testing.TB, cache *liveness.Cache, source liveness.TenantS
 func TestHTTPMiddleware_MissingLivenessDepsIsAnError(t *testing.T) {
 	t.Parallel()
 
-	mw, err := tenant.HTTPMiddleware(nil, livenessmocks.NoDisabledTenants)
+	mw, err := tenant.HTTPMiddleware(nil, livenessmocks.NoDisabledTenants, uuid.Nil)
 	require.ErrorIs(t, err, liveness.ErrMissingDeps)
 	assert.Nil(t, mw)
 
-	mw, err = tenant.HTTPMiddleware(livenessmocks.NewTestCache(t), nil)
+	mw, err = tenant.HTTPMiddleware(livenessmocks.NewTestCache(t), nil, uuid.Nil)
 	require.ErrorIs(t, err, liveness.ErrMissingDeps)
 	assert.Nil(t, mw)
 }
@@ -50,7 +50,7 @@ func TestHTTPMiddleware(t *testing.T) {
 		_, _ = w.Write([]byte("OK"))
 	})
 
-	middleware := newMiddleware(t, livenessmocks.NewTestCache(t), livenessmocks.NoDisabledTenants)(testHandler)
+	middleware := newMiddleware(t, livenessmocks.NewTestCache(t), livenessmocks.NoDisabledTenants, uuid.Nil)(testHandler)
 
 	t.Run("no tenant headers with unauthenticated user", func(t *testing.T) {
 		capturedTenantIDs = nil
@@ -449,7 +449,7 @@ func TestMiddleware_Integration(t *testing.T) {
 		fmt.Fprintf(w, "Tenants: %d", len(capturedTenantIDs))
 	})
 
-	middleware := newMiddleware(t, livenessmocks.NewTestCache(t), livenessmocks.NoDisabledTenants)(handler)
+	middleware := newMiddleware(t, livenessmocks.NewTestCache(t), livenessmocks.NoDisabledTenants, uuid.Nil)(handler)
 	server := httptest.NewServer(middleware)
 	defer server.Close()
 
@@ -552,7 +552,7 @@ func BenchmarkHTTPMiddleware(b *testing.B) {
 
 	cache := liveness.NewCache(time.Hour)
 	b.Cleanup(cache.Close)
-	middleware := newMiddleware(b, cache, livenessmocks.NoDisabledTenants)(handler)
+	middleware := newMiddleware(b, cache, livenessmocks.NoDisabledTenants, uuid.Nil)(handler)
 	tenantID := uuid.New()
 	user := &authn.User{
 		ID:       uuid.New(),

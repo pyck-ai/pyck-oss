@@ -41,6 +41,10 @@ import (
 //     organization that is not a tenant, and both are worth an operator's
 //     attention. Callers cache the verdict, so a client retrying with the
 //     same token logs once per cache TTL per replica, not once per request.
+//     The one exception is platformTenantID, the tenant ID of the platform
+//     organization: it has no row by design and reaches here whenever a
+//     platform-homed user also holds a role on that organization, so it is
+//     denied but never logged.
 //
 // System callers never reach here: they bypass the liveness axis entirely,
 // which is what keeps deleteTenant and restoreTenant able to retire a row
@@ -69,7 +73,7 @@ import (
 // cap (an operator granted into hundreds of tenants) must still get an
 // answer: the fleet denies tenants it cannot verify, so an error here
 // would lock that caller out of every uncached tenant.
-func DisabledTenants(ctx context.Context, client *ent.Client, tenantIDs []uuid.UUID) ([]uuid.UUID, error) {
+func DisabledTenants(ctx context.Context, client *ent.Client, platformTenantID uuid.UUID, tenantIDs []uuid.UUID) ([]uuid.UUID, error) {
 	if len(tenantIDs) == 0 {
 		return nil, nil
 	}
@@ -90,7 +94,7 @@ func DisabledTenants(ctx context.Context, client *ent.Client, tenantIDs []uuid.U
 			return nil, fmt.Errorf("query tenant liveness: %w", err)
 		}
 
-		chunkDenied, chunkUnknown := classifyChunk(rows, chunk)
+		chunkDenied, chunkUnknown := classifyChunk(rows, chunk, platformTenantID)
 		denied = append(denied, chunkDenied...)
 		unknown = append(unknown, chunkUnknown...)
 	}
@@ -110,8 +114,9 @@ func DisabledTenants(ctx context.Context, client *ent.Client, tenantIDs []uuid.U
 // classifyChunk sorts one queried chunk of tenant IDs into the ones to
 // deny: every row that is soft-deleted or not done, and every requested ID
 // with no row at all, which also comes back as unknown so the caller can
-// log it.
-func classifyChunk(rows []*ent.Tenant, chunk []uuid.UUID) (denied, unknown []uuid.UUID) {
+// log it, except platformTenantID, which has no row by design and is denied
+// without being reported.
+func classifyChunk(rows []*ent.Tenant, chunk []uuid.UUID, platformTenantID uuid.UUID) (denied, unknown []uuid.UUID) {
 	found := make(map[uuid.UUID]struct{}, len(rows))
 	for _, row := range rows {
 		found[row.ID] = struct{}{}
@@ -124,7 +129,9 @@ func classifyChunk(rows []*ent.Tenant, chunk []uuid.UUID) (denied, unknown []uui
 	}
 	for _, id := range chunk {
 		if _, ok := found[id]; !ok {
-			unknown = append(unknown, id)
+			if id != platformTenantID {
+				unknown = append(unknown, id)
+			}
 			denied = append(denied, id)
 		}
 	}

@@ -23,6 +23,13 @@ import (
 // plus the tenant set the downstream handler saw (nil when not reached).
 func serveThroughMiddleware(t *testing.T, cache *liveness.Cache, source liveness.TenantSource, user *authn.User, header string) (*httptest.ResponseRecorder, []uuid.UUID) {
 	t.Helper()
+	return serveThroughPlatformMiddleware(t, cache, source, uuid.Nil, user, header)
+}
+
+// serveThroughPlatformMiddleware is serveThroughMiddleware with the platform
+// tenant ID the middleware exempts from the home-tenant check.
+func serveThroughPlatformMiddleware(t *testing.T, cache *liveness.Cache, source liveness.TenantSource, platformTenantID uuid.UUID, user *authn.User, header string) (*httptest.ResponseRecorder, []uuid.UUID) {
+	t.Helper()
 	var seen []uuid.UUID
 	reached := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -38,7 +45,7 @@ func serveThroughMiddleware(t *testing.T, cache *liveness.Cache, source liveness
 		req = req.WithContext(authn.Context(req.Context(), user))
 	}
 	rec := httptest.NewRecorder()
-	newMiddleware(t, cache, source)(next).ServeHTTP(rec, req)
+	newMiddleware(t, cache, source, platformTenantID)(next).ServeHTTP(rec, req)
 	if !reached {
 		return rec, nil
 	}
@@ -62,6 +69,120 @@ func disabledSource(ids ...uuid.UUID) *livenessmocks.Source {
 		src.Disabled[id] = struct{}{}
 	}
 	return src
+}
+
+// The platform organization has no tenant row by design: its users skip the
+// home-tenant check and act only on live tenants they hold a grant on. The
+// platform tenant never becomes an acting tenant, and every other home tenant
+// without a live row stays denied.
+func TestMiddleware_PlatformTenant(t *testing.T) {
+	t.Parallel()
+	platform, live, other := uuid.New(), uuid.New(), uuid.New()
+	// The platform tenant is reported not live, like any ID without a row.
+	src := func() liveness.TenantSource { return disabledSource(platform).Lookup }
+
+	tests := []struct {
+		name     string
+		user     *authn.User
+		header   string
+		wantCode int
+		wantSeen []uuid.UUID
+	}{
+		{"platform user, all: acting set is the live granted tenant", crossTenantUser(platform, live), "all", http.StatusOK, []uuid.UUID{live}},
+		{"platform user, no header: acting set is the live granted tenant", crossTenantUser(platform, live), "", http.StatusOK, []uuid.UUID{live}},
+		{"platform user naming the granted live tenant", crossTenantUser(platform, live), live.String(), http.StatusOK, []uuid.UUID{live}},
+		{"platform user naming the platform tenant is refused", crossTenantUser(platform, live), platform.String(), http.StatusForbidden, nil},
+		{"platform user, all plus platform tenant is refused", crossTenantUser(platform, live), "all," + platform.String(), http.StatusForbidden, nil},
+		{"non-platform user homed in a tenant without a live row is refused", crossTenantUser(other, live), "all", http.StatusForbidden, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			source := src()
+			if tt.user.TenantID == other {
+				source = disabledSource(platform, other).Lookup
+			}
+			rec, seen := serveThroughPlatformMiddleware(t, livenessmocks.NewTestCache(t), source, platform, tt.user, tt.header)
+
+			assert.Equal(t, tt.wantCode, rec.Code)
+			assert.Equal(t, tt.wantSeen, seen)
+		})
+	}
+}
+
+// platformStaffUser is the usual platform staff shape: homed in the platform
+// organization, with roles only on the granted tenants, none on the platform
+// organization itself.
+func platformStaffUser(home uuid.UUID, granted ...uuid.UUID) *authn.User {
+	roles := map[uuid.UUID]authn.Role{}
+	for _, id := range granted {
+		roles[id] = authn.ROLE_WRITER
+	}
+	return &authn.User{ID: uuid.New(), TenantID: home, Roles: roles}
+}
+
+// A platform user usually holds roles only on customer tenants, not on the
+// platform organization. The role axis then refuses the platform tenant by
+// name before liveness runs, the "all" expansion never contains it, and the
+// source is never asked about it. A role on the platform organization alone
+// leaves nothing live. No roles and no header acts on nothing.
+func TestMiddleware_PlatformTenant_StaffShape(t *testing.T) {
+	t.Parallel()
+	platform, live := uuid.New(), uuid.New()
+
+	tests := []struct {
+		name        string
+		user        *authn.User
+		header      string
+		wantCode    int
+		wantSeen    []uuid.UUID
+		wantBatches [][]uuid.UUID
+	}{
+		{
+			name:     "roles only on live, naming the platform tenant: 400 from the role axis, source never asked",
+			user:     platformStaffUser(platform, live),
+			header:   platform.String(),
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:        "roles only on live, all: acting set is live, source never asked about the platform tenant",
+			user:        platformStaffUser(platform, live),
+			header:      "all",
+			wantCode:    http.StatusOK,
+			wantSeen:    []uuid.UUID{live},
+			wantBatches: [][]uuid.UUID{{live}},
+		},
+		{
+			name:        "role only on the platform tenant, all: nothing live is left",
+			user:        platformStaffUser(platform, platform),
+			header:      "all",
+			wantCode:    http.StatusForbidden,
+			wantBatches: [][]uuid.UUID{{platform}},
+		},
+		{
+			name:     "no roles, no header: empty acting set, source never asked",
+			user:     platformStaffUser(platform),
+			header:   "",
+			wantCode: http.StatusOK,
+			wantSeen: []uuid.UUID{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			src := disabledSource(platform)
+			rec, seen := serveThroughPlatformMiddleware(t, livenessmocks.NewTestCache(t), src.Lookup, platform, tt.user, tt.header)
+
+			assert.Equal(t, tt.wantCode, rec.Code)
+			assert.Equal(t, tt.wantSeen, seen)
+			assert.Equal(t, tt.wantBatches, src.Batches)
+			for _, batch := range src.Batches {
+				if tt.wantCode == http.StatusOK {
+					assert.NotContains(t, batch, platform, "the platform tenant must not reach the source")
+				}
+			}
+		})
+	}
 }
 
 func TestMiddleware_DisabledTenant(t *testing.T) {
@@ -375,7 +496,7 @@ func TestMiddleware_DisabledTenantSettlesMutationTarget(t *testing.T) {
 		})
 		req := httptest.NewRequestWithContext(authn.Context(t.Context(), user), http.MethodGet, "/", nil)
 		rec := httptest.NewRecorder()
-		newMiddleware(t, livenessmocks.NewTestCache(t), source)(next).ServeHTTP(rec, req)
+		newMiddleware(t, livenessmocks.NewTestCache(t), source, uuid.Nil)(next).ServeHTTP(rec, req)
 		require.Equal(t, http.StatusOK, rec.Code)
 		return resolved
 	}

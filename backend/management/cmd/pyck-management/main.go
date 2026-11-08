@@ -369,8 +369,9 @@ func run(ctx context.Context) error {
 	// acting set), so their verdicts share a cache entry, kept current by
 	// the tenant lifecycle subscriber.
 	zitadelClient := zitadel.NewClient(core.Config.ZitadelConfig)
+	platformTenantID := authn.PlatformTenantID(core.Config.ZitadelConfig)
 	disabledTenantSource := func(ctx context.Context, tenantIDs []uuid.UUID) ([]uuid.UUID, error) {
-		return mgmthandlers.DisabledTenants(ctx, dbClient, tenantIDs)
+		return mgmthandlers.DisabledTenants(ctx, dbClient, platformTenantID, tenantIDs)
 	}
 	livenessCache := liveness.NewCacheFromConfig(core.Config.LivenessConfig)
 	defer livenessCache.Close()
@@ -638,7 +639,7 @@ func run(ctx context.Context) error {
 		gqlServer.Use(ext)
 	}
 
-	tenantMiddleware, err := tenant.HTTPMiddleware(livenessCache, disabledTenantSource)
+	tenantMiddleware, err := tenant.HTTPMiddleware(livenessCache, disabledTenantSource, platformTenantID)
 	if err != nil {
 		return fmt.Errorf("failed setting up tenant middleware: %w", err)
 	}

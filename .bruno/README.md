@@ -30,7 +30,8 @@ a path to narrow it: `task bruno:run -- tests/inventory`. The underlying
 the environment is missing.
 
 `task bruno:setup` exists because there is no account to borrow. A token is
-served only while a live tenant row backs it (see
+served only while a live tenant row backs it (users homed in the platform
+organization are the exception, see
 [tenant-access-control.md](../docs/tenant-access-control.md)), the bootstrap
 organization is deliberately not a tenant, and a tenant only comes into
 existence through the `registerTenant` mutation. The task renders

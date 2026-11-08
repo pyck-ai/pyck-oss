@@ -135,7 +135,7 @@ func TestDisabledTenants_ReadsTheWriterNotALaggingReplica(t *testing.T) {
 	drv := &splitDriver{reader: readerDrv, writer: writerDrv}
 	client := ent.NewClient(ent.Driver(drv))
 
-	denied, err := handlers.DisabledTenants(t.Context(), client, []uuid.UUID{restored, retired, registered})
+	denied, err := handlers.DisabledTenants(t.Context(), client, uuid.Nil, []uuid.UUID{restored, retired, registered})
 	require.NoError(t, err)
 
 	assert.Equal(t, []uuid.UUID{retired}, denied,
@@ -156,7 +156,7 @@ func TestDisabledTenants_WriterQueryFailureIsAnError(t *testing.T) {
 	drv := &splitDriver{reader: readerDrv, writer: writerDrv, failWriterQueries: true}
 	client := ent.NewClient(ent.Driver(drv))
 
-	denied, err := handlers.DisabledTenants(t.Context(), client, []uuid.UUID{uuid.New()})
+	denied, err := handlers.DisabledTenants(t.Context(), client, uuid.Nil, []uuid.UUID{uuid.New()})
 	require.ErrorIs(t, err, errWriterQueryRefused)
 	assert.Nil(t, denied)
 	assert.Zero(t, drv.readerQueries.Load(), "a failed writer query must not fall back to the reader")
@@ -177,7 +177,7 @@ func TestDisabledTenants_OpensNoTransaction(t *testing.T) {
 	drv := &splitDriver{reader: readerDrv, writer: writerDrv, beginErr: errBeginRefused}
 	client := ent.NewClient(ent.Driver(drv))
 
-	denied, err := handlers.DisabledTenants(t.Context(), client, []uuid.UUID{live, disabled})
+	denied, err := handlers.DisabledTenants(t.Context(), client, uuid.Nil, []uuid.UUID{live, disabled})
 	require.NoError(t, err)
 	assert.Equal(t, []uuid.UUID{disabled}, denied)
 	assert.Zero(t, drv.writerTxs.Load())
@@ -205,7 +205,7 @@ func TestDisabledTenants_ChunksPastTheLimitIntoPlainWriterQueries(t *testing.T) 
 	drv := &splitDriver{reader: readerDrv, writer: writerDrv, beginErr: errBeginRefused}
 	client := ent.NewClient(ent.Driver(drv))
 
-	denied, err := handlers.DisabledTenants(t.Context(), client, ids)
+	denied, err := handlers.DisabledTenants(t.Context(), client, uuid.Nil, ids)
 
 	require.NoError(t, err)
 	assert.Equal(t, []uuid.UUID{disabled}, denied)

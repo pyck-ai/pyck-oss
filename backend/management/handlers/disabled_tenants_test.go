@@ -52,7 +52,7 @@ func TestDisabledTenants_WarnsOnUnknownButNotOnSoftDeleted(t *testing.T) {
 	var buf bytes.Buffer
 	ctx := log.Context(t.Context(), zerolog.New(&buf))
 
-	denied, err := handlers.DisabledTenants(ctx, client, []uuid.UUID{deleted, unknown})
+	denied, err := handlers.DisabledTenants(ctx, client, uuid.New(), []uuid.UUID{deleted, unknown})
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []uuid.UUID{deleted, unknown}, denied,
 		"both the soft-deleted row and the unknown ID are denied")
@@ -62,6 +62,36 @@ func TestDisabledTenants_WarnsOnUnknownButNotOnSoftDeleted(t *testing.T) {
 	assert.Contains(t, logged, unknown.String(), "the log must name the unknown ID")
 	assert.NotContains(t, logged, deleted.String(),
 		"a soft-deleted row is denied for a known reason and must not be logged as unknown")
+}
+
+// The platform organization has no tenant row by design, and a platform user
+// holding a role on it pulls its tenant ID into the lookup. It is denied like
+// any ID no row backs, but must not Warn: it is no registration gone wrong,
+// and the Warn would fire once per cache TTL per replica per service. A
+// genuinely unknown ID asked in the same call is still logged.
+func TestDisabledTenants_PlatformTenantDeniedWithoutWarn(t *testing.T) {
+	t.Parallel()
+
+	client := enttest.Open(t, dialect.SQLite, resolver.DatabaseURI(t),
+		enttest.WithOptions(ent.Log(t.Log)),
+	)
+	t.Cleanup(func() { require.NoError(t, client.Close()) })
+
+	platform := uuid.New()
+	unknown := uuid.New()
+
+	var buf bytes.Buffer
+	ctx := log.Context(t.Context(), zerolog.New(&buf))
+
+	denied, err := handlers.DisabledTenants(ctx, client, platform, []uuid.UUID{platform, unknown})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []uuid.UUID{platform, unknown}, denied,
+		"the platform tenant has no row and is denied like any other absent ID")
+
+	logged := buf.String()
+	assert.Contains(t, logged, unknown.String(), "a truly unknown ID is still logged")
+	assert.NotContains(t, logged, platform.String(),
+		"the platform tenant has no row by design and must not be logged as unknown")
 }
 
 // zeroSafeNow returns a non-zero UTC timestamp for soft-delete seeds.

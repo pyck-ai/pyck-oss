@@ -40,7 +40,8 @@ acting set of exactly one tenant (`request.MutationTenantID`).
    registration that did not finish; or absent from the table entirely). The
    middleware checks the whole acting set **plus the caller's home tenant**
    (a disabled tenant's users lose access everywhere at the row flip, not
-   only once Zitadel deactivates their org) against the service's liveness
+   only once Zitadel deactivates their org; the platform organization is
+   exempt, see "An ID no row backs is denied") against the service's liveness
    cache under `pyck:tenants:<uuid>`, and only for callers that passed the
    role axis — a caller without a grant on a tenant learns nothing about
    that tenant's state.
@@ -87,25 +88,43 @@ anything: pyck does not treat Zitadel as a writer of tenant state.
 
 The rule is "allow only what a live row backs", not "deny only what is
 explicitly disabled". A token naming a tenant this deployment has no row for
-authenticates nothing, and management logs the IDs it was asked about at
+authenticates nothing (the platform organization below is the exception), and
+management logs the IDs it was asked about at
 `Warn`. There are two ways to reach that log line, and both want an
 operator's eye: a registration that never produced a row, and a token issued
 for an organization that is not a tenant. Callers cache the verdict, so a
 client retrying with the same token logs once per cache TTL per replica.
 
-**System callers are the only exemption.** They return before the check, which
+**Two exemptions exist.** System callers return before the check, which
 is what keeps `deleteTenant` and `restoreTenant` able to retire a row the
-axis denies, and it is how every platform identity that legitimately has no
-tenant reaches the API: the bootstrap service user, and pyck-admin, whose
-human token is never forwarded to the gateway at all (the site calls through
-its own `system` PAT).
+axis denies, and it is how every platform service identity that legitimately
+has no tenant reaches the API: the bootstrap service user, and pyck-admin,
+whose human token is never forwarded to the gateway at all (the site calls
+through its own `system` PAT).
 
-**What this costs**: a human or machine user created directly in an
-organization that is not a tenant (the instance root organization, say) can
-no longer authenticate against pyck, even holding project roles. Such an
-identity needs a tenant of its own. Test tooling that used to borrow a
-bootstrap-provisioned account in a non-tenant organization must register its
-own tenant instead.
+The second is the **platform organization**: users homed in the configured
+organization (`PYCK_ZITADEL_ORG_ID`, the Zitadel root organization, tenant ID
+`authn.PlatformTenantID`) are not checked for a live home-tenant row, on the
+token path (`authn.checkTenantLive`) and on the header path
+(`tenant.Middleware`). That organization deliberately has no tenant row; the
+platform staff living there reach customer tenants through cross-org grants.
+They act only on tenants where they hold a grant and that are live, under
+the usual role and liveness axes. The platform tenant itself is never an
+acting tenant: no row backs it, so naming it in `X-Pyck-Tenant-Id` is
+refused (`403` for a user with a role on the platform organization, `400`
+without one, as for any tenant it has no grant on) and the `all` expansion
+drops it. Management denies the platform tenant ID when asked but does not
+log it as unknown, since a platform user with a role on the organization
+pulls it into every acting set.
+
+**What this costs**: a human or machine user created directly in any other
+organization that is not a tenant can no longer authenticate against pyck,
+even holding project roles. The exemption is limited to the one configured
+organization on purpose, so tokens from other organizations without a row
+(leftover or failed registrations, other environments on a shared Zitadel
+instance) stay denied. Such an identity needs a tenant of its own. Test
+tooling that used to borrow a bootstrap-provisioned account in a non-tenant
+organization must register its own tenant instead.
 
 The header-side check is what closes the gap for **cross-tenant grants**:
 Zitadel keeps returning role grants into a deactivated org, so without it a
@@ -207,6 +226,9 @@ Rows are the header sent, columns the state of B.
 | `C` (no grant) | 400 | 400 (state never looked up) | 400 |
 | home tenant **A** disabled | — | **403** at the row flip (home tenant always checked), **401** once Zitadel deactivates the org | 200 |
 | system token, `B` | 200 | 200 (bypass; needed for `restoreTenant`) | 200 |
+| user homed in the platform organization (no row), granted on B: `B` | 200 | **403** | 200 |
+| same user, `all` or *(absent)* | 200, acts on B only | **403** (nothing live is left) | 200 |
+| user homed in the platform organization, the platform tenant named | **403** with a role on the platform organization (no row backs it), **400** without one (no grant) | same | same |
 | `all`, mutation, caller granted A + B only | refused (two tenants, no unambiguous target) | 200 on **A** (B filtered out leaves one target) | refused again |
 
 The same matrix holds on every service's GraphQL path: management checks its
@@ -328,8 +350,10 @@ points, which read the same per-service verdict cache:
 - the Temporal claim mapper (`backend/temporal/authz/claimmapper.go`) drops
   the namespace claim of every tenant no live row backs, on every request,
   from the same per-service cache; the user's home tenant is additionally
-  gated inside `Authenticate`. System users bypass the filter: their
-  access is not derived from per-tenant grants.
+  gated inside `Authenticate`, where the platform organization's tenant is
+  exempt; the claim mapper still drops it from the namespaces, like any ID
+  no row backs. System users bypass the filter: their access is not
+  derived from per-tenant grants.
 
 ## Verifying locally
 

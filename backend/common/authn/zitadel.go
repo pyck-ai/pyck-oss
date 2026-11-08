@@ -34,10 +34,10 @@ import (
 // ZitadelAuthProvider implements authentication using Zitadel as the identity provider.
 // It provides token introspection with caching to reduce API calls and improve performance.
 type ZitadelAuthProvider struct {
-	systemTenantID uuid.UUID
-	config         config.ZitadelConfig
-	client         zitadel.Client
-	tokenCache     *memkv.InMemoryKVStore
+	platformTenantID uuid.UUID
+	config           config.ZitadelConfig
+	client           zitadel.Client
+	tokenCache       *memkv.InMemoryKVStore
 	// tenantSource answers which tenants are disabled. It is the same source
 	// the tenant middleware uses, so both liveness checks read one table
 	// through one key space and share every cached verdict.
@@ -74,6 +74,15 @@ var errRenamedLivenessCacheTTL = errors.New(renamedLivenessCacheTTLEnv + " was r
 // Ensure ZitadelAuthProvider implements AuthProvider interface
 var _ Authenticator = (*ZitadelAuthProvider)(nil)
 
+// PlatformTenantID returns the tenant ID of the configured platform
+// organization (PYCK_ZITADEL_ORG_ID, the Zitadel root organization). That
+// organization deliberately has no tenant row: its users reach customer
+// tenants through cross-org grants, so the home-tenant liveness checks
+// exempt exactly this ID.
+func PlatformTenantID(cfg config.ZitadelConfig) uuid.UUID {
+	return ComputeUUID(cfg.ZitadelAudience, cfg.ZitadelOrganizationId)
+}
+
 // NewZitadelAuthProvider creates a new Zitadel authentication provider.
 //
 // The [zitadel.Client] handles OIDC introspection. The
@@ -89,7 +98,10 @@ var _ Authenticator = (*ZitadelAuthProvider)(nil)
 //
 // This check is what covers the callers that authenticate without the tenant
 // middleware (the NATS auth callout and the Temporal claim mapper) for
-// which it is the only liveness gate on the path.
+// which it is the only liveness gate on the path. Users homed in the
+// configured platform organization ([PlatformTenantID]) are exempt from it,
+// since that organization has no tenant row by design; every other
+// organization without a live row is still refused.
 //
 // The [liveness.Cache] holds the verdicts so the source does not run on
 // every request; it is owned by the caller because the tenant middleware
@@ -128,7 +140,7 @@ func NewZitadelAuthProvider(client zitadel.Client, cfg config.ZitadelConfig, ten
 	}
 
 	return &ZitadelAuthProvider{
-		systemTenantID:   ComputeUUID(cfg.ZitadelAudience, cfg.ZitadelOrganizationId),
+		platformTenantID: PlatformTenantID(cfg),
 		config:           cfg,
 		client:           client,
 		tokenCache:       memkv.NewInMemoryKVStore(cfg.ZitadelPATCacheTTL),
@@ -189,7 +201,8 @@ func (z *ZitadelAuthProvider) Authenticate(ctx context.Context, token string) (U
 	// Cache hit short-circuits the Zitadel introspection (the slow
 	// upstream call) but NOT the liveness check, which runs on every
 	// request and calls the source only when no verdict is cached for
-	// the tenant (see NewZitadelAuthProvider). A source fault also
+	// the tenant (see NewZitadelAuthProvider); the platform organization's
+	// tenant is exempt and never reaches the source. A source fault also
 	// 401s (an unverifiable tenant is not served) but only
 	// a definite-no evicts the cached token: the fault is transient,
 	// and evicting would re-introspect every request of the outage
@@ -351,11 +364,11 @@ func (z *ZitadelAuthProvider) Authenticate(ctx context.Context, token string) (U
 		// production on an unverified assumption is worse than logging.
 		// Once every system PAT's home org is confirmed to be the root
 		// org, enforcement is a one-line change: deny instead of log.
-		if homeOrgTenantID != z.systemTenantID {
+		if homeOrgTenantID != z.platformTenantID {
 			logger.Error().
 				Str("sub", resp.Sub).
 				Str("home_tenant_id", homeOrgTenantID.String()).
-				Str("system_tenant_id", z.systemTenantID.String()).
+				Str("system_tenant_id", z.platformTenantID.String()).
 				Msg("system-role token homed outside the configured platform organization; upgrade still granted, flagged for enforcement")
 		}
 		user = *SystemUser()
@@ -363,7 +376,7 @@ func (z *ZitadelAuthProvider) Authenticate(ctx context.Context, token string) (U
 
 	log.ForContext(ctx).Debug().
 		Bool("isSystemUser", user.IsSystemUser()).
-		Str("systemTenant", z.systemTenantID.String()).
+		Str("systemTenant", z.platformTenantID.String()).
 		Str("tenantID", tenantID.String()).
 		Msg("auth")
 
@@ -443,13 +456,16 @@ func (z *ZitadelAuthProvider) Authenticate(ctx context.Context, token string) (U
 // A tenant ID that matches no row is denied, and management logs it. That is
 // the source's contract (allow only what a live row backs) so a token
 // naming a tenant this deployment does not have gets nothing, whether the
-// tenant was never registered or its registration never completed. The
-// platform's own identities are unaffected because they authenticate as
-// system users, which return above. Nothing else is exempt: a zero tenant
-// ID cannot reach here (Authenticate refuses a token that names neither a
-// tenant nor an organization) and would be denied by the lookup anyway.
+// tenant was never registered or its registration never completed. Two
+// exemptions exist: system users, which return above, and users homed in the
+// configured platform organization ([PlatformTenantID]), which has no tenant
+// row by design (its staff reach customer tenants through cross-org grants)
+// and returns live without a lookup. The exemption is limited to that one
+// organization: any other organization without a live row stays denied. A zero
+// tenant ID cannot reach here (Authenticate refuses a token that names neither
+// a tenant nor an organization) and would be denied by the lookup anyway.
 func (z *ZitadelAuthProvider) checkTenantLive(ctx context.Context, user User) (bool, error) {
-	if user.IsSystemUser() {
+	if user.IsSystemUser() || user.TenantID == z.platformTenantID {
 		return true, nil
 	}
 
