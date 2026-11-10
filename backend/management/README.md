@@ -33,7 +33,32 @@ PYCK_EVENT_STREAM_LOCK_WAIT -> default value: 10s (registerTenant/restoreTenant 
 PYCK_EVENT_STREAM_RECONCILE_CONCURRENCY -> default value: 32 (parallel stream writes of the reconcile and repair; positive)
 PYCK_SERVICE_TOKEN
 PYCK_TX_RETRIES -> default value: 50
+PYCK_DISCOVERY_ENVIRONMENT (optional; published as meta.environment in /.well-known/pyck-configuration, the name in the DNS TXT record _pyck.pyck.cloud; default: PYCK_ENV)
+PYCK_UI_STORE_URL (optional; published in /.well-known/pyck-configuration)
+PYCK_CLI_CLIENT_ID (optional; published in /.well-known/pyck-configuration, no value = client omitted)
+PYCK_MOBILE_CLIENT_ID (optional; same)
+PYCK_BRUNO_CLIENT_ID (optional; same)
+PYCK_MCP_CLIENT_ID (optional; same)
 ```
+
+### Client discovery
+
+`GET /.well-known/pyck-configuration` is unauthenticated and describes the environment for its clients. Every key is
+kebab-case. The document has three sections:
+
+- `meta.environment`: the environment's name as in the DNS TXT record `_pyck.pyck.cloud` (`dev`, `test`, `demo`, `eu`).
+  It is `PYCK_DISCOVERY_ENVIRONMENT`, or `PYCK_ENV` when that is empty (eu-prod sets `PYCK_DISCOVERY_ENVIRONMENT=eu`).
+- `endpoints`: each `{ "url": ... }` for `auth`, `app`, `graphql`, and, when configured, `worker-api`, `ui-store`,
+  `feedback`, `barcodes` and `otel` (`otel` also carries `key`). `auth.url` is the OIDC issuer and equals
+  `PYCK_FRONTEND_AUTH_URL` verbatim.
+- `components`: per client, `pyck-control`, `pyck-cli`, `pyck-mobile`, `pyck-bruno` and `pyck-mcp`, each with
+  `auth.client-id` (`pyck-control` also `redirect-uri`). A client without a client ID is omitted; `pyck-control` always
+  has `extra` with `build`, `debug` and `features` (its keys converted to kebab-case, `{}` when the value is not a JSON
+  object).
+
+It is built once at startup from `PYCK_FRONTEND_*`, `PYCK_WORKER_API_URL` and the variables above. Empty optional values
+are omitted. `version` (1) covers the whole document and bumps only when a field is removed or renamed; adding a field
+does not. `/static/settings.json` stays as is (camelCase) for the current frontend.
 
 ### Event streams
 

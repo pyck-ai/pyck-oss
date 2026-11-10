@@ -27,6 +27,29 @@ type FrontendConfig struct {
 	OtelKey          string `env:"PYCK_FRONTEND_OTEL_INGEST_KEY"`
 	FeedbackEndpoint string `env:"PYCK_FRONTEND_FEEDBACK_ENDPOINT"`
 	BarcodeApiURL    string `env:"PYCK_FRONTEND_BARCODE_API_URL"`
+
+	// DiscoveryEnvironment is the environment name published as
+	// meta.environment at /.well-known/pyck-configuration. It is the name in
+	// the DNS TXT record _pyck.pyck.cloud (dev, test, demo, eu, or a feature
+	// environment's branch name). Empty falls back to PYCK_ENV.
+	DiscoveryEnvironment string `env:"PYCK_DISCOVERY_ENVIRONMENT"`
+
+	// UIStoreURL is the ui-store endpoint published at
+	// /.well-known/pyck-configuration. Empty omits it.
+	UIStoreURL string `env:"PYCK_UI_STORE_URL"`
+
+	// The client IDs below are published at /.well-known/pyck-configuration
+	// so clients need not hardcode them. A client whose ID is empty is
+	// omitted from the document.
+
+	// CLIClientID is the OIDC client ID of the pyck CLI.
+	CLIClientID string `env:"PYCK_CLI_CLIENT_ID"`
+	// MobileClientID is the OIDC client ID of the mobile app.
+	MobileClientID string `env:"PYCK_MOBILE_CLIENT_ID"`
+	// BrunoClientID is the OIDC client ID of the Bruno API collection.
+	BrunoClientID string `env:"PYCK_BRUNO_CLIENT_ID"`
+	// MCPClientID is the OIDC client ID of the MCP server.
+	MCPClientID string `env:"PYCK_MCP_CLIENT_ID"`
 }
 
 type config struct {

@@ -694,6 +694,7 @@ func run(ctx context.Context) error {
 	// the listener closes.
 	httpRouter.Handle("/health/ready", httpServer.ReadinessHandler(db.NewDbHealthChecker(pgxDriver.HealthDB())))
 	httpRouter.Handle("/static/settings.json", mgmthandlers.NewSettingsHandler(core.Config.FrontendConfig))
+	httpRouter.Handle(mgmthandlers.WellKnownConfigurationPath, mgmthandlers.NewWellKnownConfigurationHandler(core.Config.FrontendConfig, core.Config.WorkerAPIURL, core.Config.EnvironmentName))
 	httpRouter.Mount("/github", github.Router(core.Config.GithubClientID, core.Config.GithubClientSecret))
 	httpRouter.Mount("/webhook", webhooks.Router(webhooks.Config{
 		ZitadelAudience:      core.Config.ZitadelAudience,
